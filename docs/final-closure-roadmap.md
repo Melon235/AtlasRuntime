@@ -98,10 +98,25 @@ not re-run or re-interpret them, and does not add a module to answer them.
 
 | Sub-stage | Content | Gate |
 |---|---|---|
-| **C1-0** | Freeze this roadmap; archive the placement integration decision | docs only |
-| **C1-A** | Effective prompt layout correction: the worker system prompt and the rendered task body must describe the request that is actually sent | deterministic comparison + tests |
-| **C1-B** | Native AnyCode fair baseline: one neutral lifecycle composition so the native arm can run in the same image | owner approval, then live runs |
+| **C1-0** | Freeze this roadmap; archive the placement integration decision | docs only — **done** |
+| **C1-A** | Effective prompt layout correction: the worker system prompt and the rendered task body must describe the request that is actually sent | deterministic comparison + tests — **done**, R1 corrections approved |
+| **C1-B** | Native AnyCode fair baseline: one neutral lifecycle composition so the native arm can run in the same image | real-container deterministic acceptance — **done**, `docs/closure-1b-native-baseline.md` |
 | **C1-C** | Historical metric consolidation: one comparable table with per-run reconciliation and the request-evidence statuses | docs, no new runs |
+
+### Closure evidence backlog (C1-C, not to be widened before then)
+
+Five observation details were raised in review and are deliberately **not** fixed in C1-B:
+
+1. `_request_linkage` still checks dependency probes per consumer request and can skip a probe that
+   is missing rather than reporting it per expected block.
+2. `REQUEST_COVERAGE_RECONCILED` is an aggregate count reconciliation, not per-request network
+   tracing; `call_index`/`request_index` uniqueness and continuity are not asserted.
+3. `ModelRecordingAdapter` does not distinguish `asyncio.CancelledError` from a generic failure.
+4. `cache_split_reported_by_provider = hit > 0` is the wrong predicate; the real cache split comes
+   from `InferenceObservation.usage`, and "unknown" must never become "observed zero hits".
+5. Historical token fields and Final-4 legacy run metrics need one consolidated reconciliation.
+
+No request-tracing framework and no usage pipeline may be introduced to close these.
 
 ### Closure-2 — final benchmark and module evidence loop
 

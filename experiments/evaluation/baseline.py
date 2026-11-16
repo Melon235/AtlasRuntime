@@ -1,9 +1,16 @@
-"""Fair AnyCode baseline for the AtlasOS Agent Benchmark.
+"""Historical Host-copy AnyCode baseline. Superseded by ``closure1b`` for fair comparison.
 
-The baseline uses AnyCode 0.9.0's native agent loop and built-in tools on a disposable Host copy
-of the same visible fixture. It uses the same model, temperature, turn/token budget, task text,
-and independent oracle. It does not claim AtlasOS sandbox isolation or M1 progressive discovery;
-those are evaluated separately in the reliability matrix and the tool-discovery category.
+This module runs AnyCode 0.9.0's native agent loop and built-in tools against a **disposable Host
+copy** of the visible fixture, with a Windows system prompt and a Host-side oracle. Those are the
+conditions its historical numbers were produced under, and they are not comparable with the Atlas
+arm's Linux container: the shell, the path layout, the Python runtime and the filesystem are all
+different.
+
+It is kept, unchanged in behaviour and labelled ``workspace_isolation=disposable_host_copy``, so
+the old results stay reproducible. The fair native baseline — same container, same image, same
+network policy, same oracle as Atlas — is
+``experiments.evaluation.closure1b.native_baseline`` (units N0/N1). Do not quote this module's
+numbers as if they were produced under sandbox conditions.
 """
 
 from __future__ import annotations
@@ -119,6 +126,9 @@ async def run_baseline_sample(
     environment: dict[str, Any] = {
         "engine": "anycode-0.9.0",
         "workspace_isolation": "disposable_host_copy",
+        "historical_host_mode": True,
+        "comparable_with_atlas_sandbox": False,
+        "superseded_by": "experiments.evaluation.closure1b.native_baseline (N0/N1)",
         "real_sandbox_provider": False,
         "temperature": settings.temperature,
         "max_turns": settings.max_turns,

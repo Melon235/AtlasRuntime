@@ -65,10 +65,14 @@ TIMEOUT_SECONDS = 900
 #: One entry per frozen unit. ``config`` selects the YAML the runner really loads; ``expectation`` is
 #: the Context Plane state the unit claims and is enforced by ``runner._enforce_context_plane``.
 UNITS: dict[str, dict[str, Any]] = {
+    # Historical Host-copy native baseline. Kept as it was so the old numbers stay reproducible;
+    # the fair sandboxed native arms are ``experiments/evaluation/closure1b`` (N0/N1). ``route`` is
+    # explicit here: the native baseline has no Atlas router, and ``settings_for`` reads this key.
     "N0": {
         "runner": "baseline",
         "config": BASELINE_CONFIG,
         "expectation": CONTEXT_PLANE_UNSPECIFIED,
+        "route": "off",
     },
     "X0": {
         "runner": "atlas",
@@ -279,7 +283,12 @@ async def run_unit(
         from experiments.evaluation.baseline import run_baseline_sample
 
         result = await run_baseline_sample(
-            build_task(task, multi=False), settings=settings, repetition_id=repetition_id
+            build_task(task, multi=False),
+            settings=settings,
+            repetition_id=repetition_id,
+            # The parameter the historical entry forgot to pass: without it the call raised
+            # TypeError before any work started.
+            baseline_root=runs_root,
         )
         return {
             "unit": unit,
@@ -287,7 +296,14 @@ async def run_unit(
             "task_id": task_id,
             "configuration": configuration,
             "resolved": resolved,
-            "result": str(result),
+            "run_dir": result.run_dir,
+            "run_id": result.identity.run_id,
+            "oracle_pass": bool(result.oracle.passed),
+            "success": bool(result.success),
+            "failure_class": result.failure_class,
+            "failure_reason": result.failure_reason,
+            "workspace_isolation": result.environment.get("workspace_isolation"),
+            "historical_host_mode": True,
         }
 
     result = await run_sample(

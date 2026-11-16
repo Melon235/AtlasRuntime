@@ -14,6 +14,8 @@ loop, scheduler, team machinery and turn hooks stay upstream (AnyCode 0.9.0).
 from __future__ import annotations
 
 import asyncio
+import posixpath
+import shlex
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,8 +28,6 @@ from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry
 from anycode.types import AgentConfig, ToolDefinition, ToolResult, ToolUseContext
 from pydantic import BaseModel
-
-from atlasos.sandbox.opensandbox_provider import OpenSandboxProvider
 
 NEUTRAL_TOOLS: tuple[str, ...] = (
     "bash",
@@ -81,7 +81,9 @@ class ToolBackend(Protocol):
 
     async def agrep(self, pattern: str, path: str) -> str: ...
 
-    async def arun(self, command: str) -> tuple[int, str]: ...
+    async def arun(self, command: str) -> tuple[int | None, str]:
+        """``(exit_code, output)``; ``None`` means the provider did not confirm the exit status."""
+        ...
 
 
 @dataclass
@@ -123,7 +125,7 @@ class LocalProcessBackend:
     def list_dir(self, path: str = ".") -> list[str]:
         return sorted(entry.name for entry in self._resolve(path).iterdir())
 
-    async def run(self, command: str) -> tuple[int, str]:
+    async def run(self, command: str) -> tuple[int | None, str]:
         process = await asyncio.create_subprocess_shell(
             command,
             cwd=str(self.root),
@@ -136,7 +138,9 @@ class LocalProcessBackend:
             process.kill()
             await process.wait()
             return 124, "command timed out"
-        return process.returncode or 0, stdout.decode("utf-8", errors="replace")[:_MAX_OUTPUT]
+        code = process.returncode
+        # ``returncode`` is ``None`` only if the process did not exit; that is not success.
+        return code, stdout.decode("utf-8", errors="replace")[:_MAX_OUTPUT]
 
     async def aread(self, path: str) -> str:
         return self.read(path)
@@ -150,7 +154,7 @@ class LocalProcessBackend:
     async def alist(self, path: str) -> list[str]:
         return self.list_dir(path)
 
-    async def arun(self, command: str) -> tuple[int, str]:
+    async def arun(self, command: str) -> tuple[int | None, str]:
         return await self.run(command)
 
     async def agrep(self, pattern: str, path: str) -> str:
@@ -175,9 +179,13 @@ class LocalProcessBackend:
 
 @dataclass
 class SandboxToolBackend:
-    """The same interface over a real OpenSandbox container created by the shipped provider."""
+    """The same interface over a real container created by any shipped sandbox provider.
 
-    provider: OpenSandboxProvider
+    The type is the provider protocol, not the OpenSandbox class: production uses OpenSandbox, and
+    the deterministic harnesses use the local fake provider.
+    """
+
+    provider: Any
     handle: Any
     workspace_root: str
     timeout_seconds: float = 120.0
@@ -186,9 +194,20 @@ class SandboxToolBackend:
     _prepared: bool = False
 
     def _absolute(self, raw: str) -> str:
-        if raw.startswith("/"):
-            return raw
-        return f"{self.workspace_root.rstrip('/')}/{raw.lstrip('./')}"
+        """Workspace-jailed absolute path.
+
+        A relative path is resolved *inside* the workspace and an absolute path must already be
+        inside it; anything else is refused. The caller's text is never rewritten, so ``.env`` stays
+        ``.env`` instead of collapsing to ``env``, and ``a/../b`` normalises without escaping.
+        """
+
+        text = (raw or ".").strip() or "."
+        root = self.workspace_root.rstrip("/") or "/"
+        candidate = text if text.startswith("/") else f"{root}/{text}"
+        resolved = posixpath.normpath(candidate)
+        if resolved != root and not resolved.startswith(root + "/"):
+            raise ValueError(f"path escapes the workspace {root!r}: {raw!r}")
+        return resolved
 
     def _record(self, started: float) -> None:
         self.operations += 1
@@ -218,20 +237,34 @@ class SandboxToolBackend:
         return 1
 
     async def alist(self, path: str) -> list[str]:
+        await self._ensure()
         target = self._absolute(path)
         script = "import os,sys;print(chr(10).join(sorted(os.listdir(sys.argv[1]))))"
-        code, output = await self.arun(f'python3 -c "{script}" {target}')
+        code, output = await self.arun(f"python3 -c {shlex.quote(script)} {shlex.quote(target)}")
         if code != 0:
             raise RuntimeError(f"list failed: {output}")
         return [line for line in output.splitlines() if line.strip()]
 
     async def agrep(self, pattern: str, path: str) -> str:
-        safe_pattern = pattern.replace("'", "'\\''")
-        safe_path = (path or ".").replace("'", "'\\''")
-        _, output = await self.arun(f"grep -rn -- '{safe_pattern}' '{safe_path}' || true")
-        return output
+        await self._ensure()
+        relative = posixpath.relpath(self._absolute(path), self.workspace_root.rstrip("/") or "/")
+        result = await self.provider.execute(
+            self.handle,
+            SandboxCommand(
+                command=f"grep -rn -- {shlex.quote(pattern)} {shlex.quote(relative)}",
+                cwd=self.workspace_root,
+                timeout_seconds=int(self.timeout_seconds),
+            ),
+        )
+        # ``grep`` exits 1 for "no match", which is a result, not a failure. Anything else is a real
+        # tool failure and must not be reported as an empty result.
+        if not result.ok or result.exit_code not in (0, 1):
+            raise RuntimeError(
+                f"grep failed (exit {result.exit_code}): {result.stderr or result.error}"
+            )
+        return ((result.stdout or "") + (result.stderr or ""))[:_MAX_OUTPUT]
 
-    async def arun(self, command: str) -> tuple[int, str]:
+    async def arun(self, command: str) -> tuple[int | None, str]:
         await self._ensure()
         result = await self.provider.execute(
             self.handle,
@@ -241,24 +274,42 @@ class SandboxToolBackend:
                 timeout_seconds=int(self.timeout_seconds),
             ),
         )
+        if not result.ok:
+            # A provider error is not a command result. Passing it on as exit 0 would turn an
+            # infrastructure failure into a successful, empty tool output.
+            raise RuntimeError(
+                f"sandbox command failed: {result.error or 'unknown provider error'}"
+            )
         output = (result.stdout or "") + (result.stderr or "")
-        return int(result.exit_code or 0), output[:_MAX_OUTPUT]
+        exit_code = result.exit_code
+        return (None if exit_code is None else int(exit_code)), output[:_MAX_OUTPUT]
 
     async def _ensure(self) -> None:
         if not self._prepared:
             await self._prepare_workspace()
 
     async def _prepare_workspace(self) -> None:
-        """A fresh container has no ``/workspace/project``; commands need it to exist."""
+        """A fresh container has no ``/workspace/project``; commands need it to exist.
 
-        await self.provider.execute(
-            self.handle,
-            SandboxCommand(
-                command=f"mkdir -p {self.workspace_root}",
-                cwd="/",
-                timeout_seconds=60,
-            ),
+        Idempotent by construction: ``mkdir -p`` is a no-op on Linux but errors on an existing
+        directory under a Windows shell, and this backend is also exercised against local
+        providers in tests.
+        """
+
+        # Same shape the shipped provisioner uses: a double-quoted script and an unquoted constant
+        # path, which is portable across the container shell and a local POSIX/Windows provider.
+        command = (
+            'python3 -c "import os, sys; '
+            f'os.makedirs(sys.argv[1], exist_ok=True)" {self.workspace_root}'
         )
+        result = await self.provider.execute(
+            self.handle,
+            SandboxCommand(command=command, cwd="/", timeout_seconds=60),
+        )
+        if not result.ok or result.exit_code != 0:
+            raise RuntimeError(
+                f"cannot prepare the workspace: {result.stderr or result.error or 'unknown'}"
+            )
         self._prepared = True
 
 
@@ -268,9 +319,19 @@ def neutral_tool_definitions(backend: ToolBackend) -> tuple[ToolDefinition, ...]
     async def bash(validated: _BashInput, context: ToolUseContext) -> ToolResult:
         del context
         started = time.perf_counter()
-        code, output = await backend.arun(validated.command)
+        try:
+            code, output = await backend.arun(validated.command)
+        except Exception as error:  # noqa: BLE001 - reported as a tool error, not a success
+            backend._record(started)  # noqa: SLF001
+            return ToolResult(data=f"{type(error).__name__}: {error}", is_error=True)
         backend._record(started)  # noqa: SLF001 - backend owns its own counters
-        return ToolResult(data=output, is_error=code != 0)
+        if code is None:
+            return ToolResult(
+                data=f"exit status was not reported by the provider\n{output}", is_error=True
+            )
+        if code != 0:
+            return ToolResult(data=f"{output}\n(exit code {code})", is_error=True)
+        return ToolResult(data=output, is_error=False)
 
     async def file_read(validated: _PathInput, context: ToolUseContext) -> ToolResult:
         del context

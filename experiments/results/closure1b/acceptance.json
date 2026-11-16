@@ -1,0 +1,325 @@
+{
+  "checks": {
+    "n0_head_matches_source_commit": true,
+    "n0_isolation_passed": true,
+    "n0_linux_container": true,
+    "n0_oracle_passed": true,
+    "n0_sandbox_destroyed": true,
+    "n0_wrote_reference_solution": true,
+    "n1_has_three_workers": true,
+    "n1_head_matches_source_commit": true,
+    "n1_independent_workers_overlapped": true,
+    "n1_isolation_passed": true,
+    "n1_linux_container": true,
+    "n1_oracle_passed": true,
+    "n1_sandbox_destroyed": true,
+    "n1_wrote_reference_solution": true,
+    "tool_calls_were_real": true
+  },
+  "config": {
+    "cpu": "1",
+    "endpoint": "localhost:8080",
+    "file": "experiments\\configs\\eval-benchmark.yaml",
+    "image": "atlas-uat-python:3.12",
+    "memory": "1Gi",
+    "network": "none",
+    "provider": "opensandbox",
+    "workspace_root": "/workspace/project"
+  },
+  "engine": "anycode-0.9.0-native-agents-with-neutral-opensandbox-tool-adapter",
+  "generated_at": "2026-11-16T16:03:22.860545+00:00",
+  "kind": "deterministic_real_sandbox_acceptance",
+  "model_calls": 0,
+  "n0": {
+    "agent_latency_ms": 4797.555,
+    "container": {
+      "git": "git version 2.47.3",
+      "head_commit": "8a9687a51ca87f159f41b6be77e6bcf6337c5e63",
+      "python": "Python 3.12.16",
+      "uname": "Linux",
+      "workspace_root": "/workspace/project"
+    },
+    "export_dir": "workspace",
+    "export_latency_ms": 4701.017,
+    "failure_class": "TASK_SUCCESS",
+    "failure_reason": null,
+    "latency_ms": 33574.89,
+    "model_turns": 0,
+    "oracle_kind": "HIDDEN_TESTS_PASSED",
+    "oracle_pass": true,
+    "oracle_reasons": [],
+    "patch_digest": "sha256:20786c6441ac4961b4745dcd2fb0ed663a90ac81bb29afa7aef3d0cd16b70c16",
+    "provision_latency_ms": 13202.401,
+    "run_dir": "transient (deleted after the run)",
+    "sandbox": {
+      "image": "atlas-uat-python:3.12",
+      "isolation": {
+        "failures": [],
+        "isolation_checks_passed": true,
+        "private_name_hits": [],
+        "probe_commands": [
+          "test -e /tmp/project.bundle",
+          "rm -f /tmp/project.bundle",
+          "test -e /tmp/project.bundle (post-removal)",
+          "find / -maxdepth 4 (private name patterns)"
+        ],
+        "staging_bundle": "/tmp/project.bundle",
+        "staging_bundle_present_before": true,
+        "staging_bundle_removed": true,
+        "workspace_preparation_mode": "public_fixture_clone"
+      },
+      "network": "none",
+      "provider": "opensandbox",
+      "provision_commands": 4,
+      "provision_uploads": 1,
+      "sandbox_id": "c96130b6-719d-4f84-aa81-dba8d44f3498",
+      "source_commit": "8a9687a51ca87f159f41b6be77e6bcf6337c5e63",
+      "source_digest": "sha256:195d9eb209c8a505dd330d260fe4f17ee6968d0458bd15ec585b716d41fa26f7",
+      "timings_ms": {
+        "isolation_ms": 4730.23,
+        "provision_ms": 4755.564
+      },
+      "workspace_root": "/workspace/project"
+    },
+    "sandbox_destroy": {
+      "confirmed": true,
+      "error": null
+    },
+    "sandbox_destroyed": true,
+    "success": true,
+    "task_events": [
+      {
+        "agent": "native:main",
+        "task": "01a1e519-9468-724e-88c8-c73c6ba1f633",
+        "title": "validation-serial-main",
+        "ts": "2026-11-16T16:03:41.289917+00:00",
+        "type": "task_start"
+      },
+      {
+        "agent": "native:main",
+        "task": "",
+        "title": null,
+        "ts": "2026-11-16T16:03:41.289917+00:00",
+        "type": "agent_start"
+      },
+      {
+        "agent": "native:main",
+        "task": "",
+        "title": null,
+        "ts": "2026-11-16T16:03:46.086072+00:00",
+        "type": "agent_complete"
+      },
+      {
+        "agent": "native:main",
+        "task": "01a1e519-9468-724e-88c8-c73c6ba1f633",
+        "title": null,
+        "ts": "2026-11-16T16:03:46.086072+00:00",
+        "type": "task_complete"
+      }
+    ],
+    "tool_calls": 6,
+    "unit": "validation-serial-N0",
+    "worker_count": 1,
+    "writes": {
+      "normalise.py": {
+        "matches_reference": true,
+        "present": true
+      },
+      "report.py": {
+        "matches_reference": true,
+        "present": true
+      }
+    }
+  },
+  "n1": {
+    "agent_latency_ms": 8251.325,
+    "concurrency": {
+      "basis": "orchestrator agent_start/agent_complete timestamps of the two dependency-free workers, not the DAG shape",
+      "ends": {
+        "native:w1": "2026-11-16T16:04:18.513391+00:00",
+        "native:w2": "2026-11-16T16:04:18.513391+00:00",
+        "native:w3": "2026-11-16T16:04:22.058386+00:00"
+      },
+      "independent_agents": [
+        "native:w1",
+        "native:w2"
+      ],
+      "independent_pair_overlapped": true,
+      "independent_workers": [
+        "[YOUR ASSIGNMENT \u2014 worker w1]",
+        "[YOUR ASSIGNMENT \u2014 worker w2]"
+      ],
+      "starts": {
+        "native:w1": "2026-11-16T16:04:13.806916+00:00",
+        "native:w2": "2026-11-16T16:04:13.810915+00:00",
+        "native:w3": "2026-11-16T16:04:18.513391+00:00"
+      },
+      "workers_completed": 3,
+      "workers_started": 3
+    },
+    "container": {
+      "git": "git version 2.47.3",
+      "head_commit": "7ab84c86296c9b23f80512903287ab1699cf3aad",
+      "python": "Python 3.12.16",
+      "uname": "Linux",
+      "workspace_root": "/workspace/project"
+    },
+    "export_dir": "workspace",
+    "export_latency_ms": 4662.614,
+    "failure_class": "TASK_SUCCESS",
+    "failure_reason": null,
+    "latency_ms": 35903.752,
+    "model_turns": 0,
+    "oracle_kind": "HIDDEN_TESTS_PASSED",
+    "oracle_pass": true,
+    "oracle_reasons": [],
+    "patch_digest": "sha256:9ac8995514643686dfc9bfefe1b535391853903649b99b228487ce406aaa9c0f",
+    "provision_latency_ms": 12139.073,
+    "run_dir": "transient (deleted after the run)",
+    "sandbox": {
+      "image": "atlas-uat-python:3.12",
+      "isolation": {
+        "failures": [],
+        "isolation_checks_passed": true,
+        "private_name_hits": [],
+        "probe_commands": [
+          "test -e /tmp/project.bundle",
+          "rm -f /tmp/project.bundle",
+          "test -e /tmp/project.bundle (post-removal)",
+          "find / -maxdepth 4 (private name patterns)"
+        ],
+        "staging_bundle": "/tmp/project.bundle",
+        "staging_bundle_present_before": true,
+        "staging_bundle_removed": true,
+        "workspace_preparation_mode": "public_fixture_clone"
+      },
+      "network": "none",
+      "provider": "opensandbox",
+      "provision_commands": 4,
+      "provision_uploads": 1,
+      "sandbox_id": "ca6abd4a-79bf-4249-a363-19417ce286c9",
+      "source_commit": "7ab84c86296c9b23f80512903287ab1699cf3aad",
+      "source_digest": "sha256:5173e0d5c2e7235a77cdfe555a84796d4ce51307f92cbf22f4942b9fb06da3db",
+      "timings_ms": {
+        "isolation_ms": 4595.312,
+        "provision_ms": 4696.668
+      },
+      "workspace_root": "/workspace/project"
+    },
+    "sandbox_destroy": {
+      "confirmed": true,
+      "error": null
+    },
+    "sandbox_destroyed": true,
+    "success": true,
+    "task_events": [
+      {
+        "agent": "native:w1",
+        "task": "01a1e51a-136e-751c-b90e-4bc2c1c93927",
+        "title": "validation-parallel-w1",
+        "ts": "2026-11-16T16:04:13.806916+00:00",
+        "type": "task_start"
+      },
+      {
+        "agent": "native:w1",
+        "task": "",
+        "title": null,
+        "ts": "2026-11-16T16:04:13.806916+00:00",
+        "type": "agent_start"
+      },
+      {
+        "agent": "native:w2",
+        "task": "01a1e51a-136e-794b-b58c-eef40c8d5f22",
+        "title": "validation-parallel-w2",
+        "ts": "2026-11-16T16:04:13.810915+00:00",
+        "type": "task_start"
+      },
+      {
+        "agent": "native:w2",
+        "task": "",
+        "title": null,
+        "ts": "2026-11-16T16:04:13.810915+00:00",
+        "type": "agent_start"
+      },
+      {
+        "agent": "native:w2",
+        "task": "",
+        "title": null,
+        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "type": "agent_complete"
+      },
+      {
+        "agent": "native:w2",
+        "task": "01a1e51a-136e-794b-b58c-eef40c8d5f22",
+        "title": null,
+        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "type": "task_complete"
+      },
+      {
+        "agent": "native:w1",
+        "task": "",
+        "title": null,
+        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "type": "agent_complete"
+      },
+      {
+        "agent": "native:w1",
+        "task": "01a1e51a-136e-751c-b90e-4bc2c1c93927",
+        "title": null,
+        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "type": "task_complete"
+      },
+      {
+        "agent": "native:w3",
+        "task": "01a1e51a-136e-7578-979c-e692c9929778",
+        "title": "validation-parallel-w3",
+        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "type": "task_start"
+      },
+      {
+        "agent": "native:w3",
+        "task": "",
+        "title": null,
+        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "type": "agent_start"
+      },
+      {
+        "agent": "native:w3",
+        "task": "",
+        "title": null,
+        "ts": "2026-11-16T16:04:22.058386+00:00",
+        "type": "agent_complete"
+      },
+      {
+        "agent": "native:w3",
+        "task": "01a1e51a-136e-7578-979c-e692c9929778",
+        "title": null,
+        "ts": "2026-11-16T16:04:22.058386+00:00",
+        "type": "task_complete"
+      }
+    ],
+    "tool_calls": 15,
+    "unit": "validation-parallel-N1",
+    "worker_count": 3,
+    "writes": {
+      "app.py": {
+        "matches_reference": true,
+        "present": true
+      },
+      "stats.py": {
+        "matches_reference": true,
+        "present": true
+      },
+      "tokens.py": {
+        "matches_reference": true,
+        "present": true
+      }
+    }
+  },
+  "provider_health": {
+    "message": "healthy",
+    "status": "healthy"
+  },
+  "stage": "closure-1b",
+  "status": "REAL_SANDBOX_ACCEPTED"
+}

@@ -22,12 +22,12 @@ import asyncio
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
 
-from anycode.sandbox import SandboxSpec
 from anycode.types import AgentInfo, ExecutionContext, ToolUseContext
 from experiments.evaluation.final4.neutral_adapter import (
     NEUTRAL_TOOLS,
@@ -109,47 +109,66 @@ async def _probe(backend: SandboxToolBackend) -> dict[str, Any]:
     }
 
 
-async def _native_arm(provider: Any) -> dict[str, Any]:
-    created = await provider.create(
-        SandboxSpec(
-            run_id="final4-parity-native",
-            task_id="parity",
-            correlation_id="final4-parity:native",
-            context=ExecutionContext(
-                principal="system:neutral-parity",
-                tenant_scope="atlas-neutral",
-                classification="internal",
-                attributes={"run_id": "final4-parity-native"},
-            ),
-            image=IMAGE,
-            network="none",
-            persistent=False,
-        )
+async def _native_arm(provider: Any, repo: Path) -> dict[str, Any]:
+    """Native arm: the Closure-1B neutral lifecycle over the *same* Git fixture as Atlas.
+
+    The pre-Closure-1B probe wrote the seed through the tools instead of cloning a repository, so the
+    native arm had no ``.git`` and the two arms were not comparable. It now provisions exactly like
+    the Atlas arm; only *who manages the lifecycle* differs (no binding store, no ownership lock).
+    """
+
+    from experiments.evaluation.closure1b.neutral_lifecycle import (
+        close_neutral_sandbox,
+        open_neutral_sandbox,
     )
-    handle = created.handle
-    assert handle is not None
-    backend = SandboxToolBackend(provider=provider, handle=handle, workspace_root=WORKSPACE)
+
+    from atlasos.sandbox.models import SandboxProjectConfig
+
+    config = SandboxProjectConfig(
+        provider_name="opensandbox", image=IMAGE, workspace_root=WORKSPACE
+    )
+    sandbox = await open_neutral_sandbox(
+        provider,
+        config,
+        run_id="final4-parity-native",
+        task_id="parity",
+        context=ExecutionContext(
+            principal="system:neutral-parity",
+            tenant_scope="atlas-neutral",
+            classification="internal",
+            attributes={"run_id": "final4-parity-native"},
+        ),
+        fixture_repo=repo,
+    )
+    backend = SandboxToolBackend(provider=provider, handle=sandbox.handle, workspace_root=WORKSPACE)
     engine = NeutralEngine(backend)
     tools = {tool.name: tool for tool in engine._neutral_registry.list()}  # noqa: SLF001
     context = _context()
     result: dict[str, Any] = {
-        "sandbox_id": handle.id,
+        "sandbox_id": sandbox.sandbox_id,
+        "source_commit": sandbox.source_commit,
         "tool_surface": sorted(tools),
         "writes_via_tools": [],
     }
     try:
-        for name, content in SEED.items():
-            written = await tools["file_write"].execute(  # type: ignore[attr-defined]
-                type("Args", (), {"path": name, "content": content})(), context
-            )
-            result["writes_via_tools"].append(
-                {"file": name, "is_error": bool(written.is_error), "data": str(written.data)[:160]}
-            )
+        # Probe first: the file listing must describe the provisioned checkout, not the probe's own
+        # writes, or the two arms are compared after different amounts of mutation.
+        result["probe"] = await _probe(backend)
         edited = await tools["file_edit"].execute(  # type: ignore[attr-defined]
             type("Args", (), {"path": "calc.py", "old": "a + b", "new": "a + b  # parity"})(),
             context,
         )
         result["edit_ok"] = not bool(edited.is_error)
+        written = await tools["file_write"].execute(  # type: ignore[attr-defined]
+            type("Args", (), {"path": "PARITY_NOTE.md", "content": "# parity\n"})(), context
+        )
+        result["writes_via_tools"].append(
+            {
+                "file": "PARITY_NOTE.md",
+                "is_error": bool(written.is_error),
+                "data": str(written.data)[:160],
+            }
+        )
         read = await tools["file_read"].execute(  # type: ignore[attr-defined]
             type("Args", (), {"path": "calc.py"})(), context
         )
@@ -160,10 +179,11 @@ async def _native_arm(provider: Any) -> dict[str, Any]:
                 type("Args", (), {"pattern": "def add", "path": "."})(), context
             )
         )[:400]
-        result["probe"] = await _probe(backend)
         return result
     finally:
-        await provider.destroy(handle)
+        confirmed, error = await close_neutral_sandbox(provider, sandbox)
+        result["destroy_confirmed"] = confirmed
+        result["destroy_error"] = error
 
 
 def _git_fixture() -> Path:
@@ -183,12 +203,11 @@ def _git_fixture() -> Path:
     return root
 
 
-async def _atlas_arm(provider: Any) -> dict[str, Any]:
+async def _atlas_arm(provider: Any, repo: Path) -> dict[str, Any]:
     config = SandboxProjectConfig(
         provider_name="opensandbox", image=IMAGE, workspace_root=WORKSPACE
     )
     manager = ProjectSandboxManager(provider, config, run_id="final4-parity-atlas")
-    repo = _git_fixture()
     binding = await manager.ensure_binding(
         task_id="parity",
         source_repo=str(repo),
@@ -201,19 +220,19 @@ async def _atlas_arm(provider: Any) -> dict[str, Any]:
     )
     handle = binding.sandbox_handle
     backend = SandboxToolBackend(provider=provider, handle=handle, workspace_root=WORKSPACE)
+    result: dict[str, Any] = {
+        "sandbox_id": handle.id,
+        "source_commit": getattr(binding, "source_commit", None),
+    }
     try:
-        result = {
-            "sandbox_id": handle.id,
-            "source_commit": getattr(binding, "source_commit", None),
-            "probe": await _probe(backend),
-        }
+        result["probe"] = await _probe(backend)
         # Apply the same edit as the native arm so the exported trees are comparable.
         await backend.aedit("calc.py", "a + b", "a + b  # parity")
         result["read_matches_native_later"] = await backend.aread("calc.py")
         result["grep"] = (await backend.agrep("def add", "."))[:400]
         return result
     finally:
-        await manager.close("parity")
+        result["destroy_confirmed"] = await manager.close("parity")
 
 
 async def run() -> dict[str, Any]:
@@ -227,15 +246,33 @@ async def run() -> dict[str, Any]:
         "seed_files": sorted(SEED),
         "provider_health": getattr(health, "status", str(health)),
         "neutral_tools": list(NEUTRAL_TOOLS),
+        "git_fixture": "one committed repository, cloned by both arms through GitProjectProvisioner",
+        "agent_loop_evidence": (
+            "this script probes the environment with direct tool calls; the real "
+            "Agent -> ToolRegistry -> ToolExecutor -> SandboxToolBackend path is proven in "
+            "experiments/evaluation/closure1b/acceptance.py"
+        ),
     }
+    repo = _git_fixture()
+    report["fixture_commit"] = await asyncio.to_thread(
+        lambda: subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
     try:
-        report["native"] = await _native_arm(provider)
-    except Exception as error:  # noqa: BLE001 - a blocked arm is a result
-        report["native_error"] = f"{type(error).__name__}: {error}"
-    try:
-        report["atlas"] = await _atlas_arm(provider)
-    except Exception as error:  # noqa: BLE001
-        report["atlas_error"] = f"{type(error).__name__}: {error}"
+        try:
+            report["native"] = await _native_arm(provider, repo)
+        except Exception as error:  # noqa: BLE001 - a blocked arm is a result
+            report["native_error"] = f"{type(error).__name__}: {error}"
+        try:
+            report["atlas"] = await _atlas_arm(provider, repo)
+        except Exception as error:  # noqa: BLE001
+            report["atlas_error"] = f"{type(error).__name__}: {error}"
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
 
     if "native" in report and "atlas" in report:
         native_probe = report["native"]["probe"]
@@ -252,10 +289,15 @@ async def run() -> dict[str, Any]:
             == report["atlas"]["read_matches_native_later"],
             "same_grep_paths": _grep_paths(report["native"]["grep"])
             == _grep_paths(report["atlas"]["grep"]),
+            "same_source_commit": report["native"]["source_commit"]
+            == report["atlas"]["source_commit"]
+            == report["fixture_commit"],
             "native_tool_surface_exact": report["native"]["tool_surface"] == sorted(NEUTRAL_TOOLS),
             "native_writes_all_ok": all(
                 item["is_error"] is False for item in report["native"]["writes_via_tools"]
             ),
+            "native_destroy_confirmed": bool(report["native"].get("destroy_confirmed")),
+            "atlas_destroy_confirmed": bool(report["atlas"].get("destroy_confirmed")),
         }
         report["parity"]["all_match"] = all(report["parity"].values())
         report["status"] = "BASELINE_PARITY_PASS" if report["parity"]["all_match"] else "PARTIAL"

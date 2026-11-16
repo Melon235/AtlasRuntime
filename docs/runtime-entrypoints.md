@@ -117,7 +117,8 @@ experiments/evaluation/cli.py::_run
 | Question | Answer |
 |---|---|
 | Task loading | `experiments/evaluation/tasks.py::TASKS`, 30 tasks, dataset `atlasos-agentbench-v1` 1.0.0 |
-| Native AnyCode baseline | `experiments/evaluation/baseline.py`: `AnyCode(OrchestratorConfig())` with native built-in tools on a host copy — no Atlas gate, ledger, sandbox or context plane |
+| Native AnyCode baseline (fair) | `experiments/evaluation/closure1b`: `NeutralEngine` (AnyCode 0.9.0 loop + DAG + registry) over a real OpenSandbox container, six basic tools, no Atlas gate/ledger/context/router/budget. Units N0 (single) / N1 (multi) |
+| Native AnyCode baseline (historical) | `experiments/evaluation/baseline.py`: `AnyCode(OrchestratorConfig())` with native built-in tools on a **Windows host copy** — kept for its old numbers only, `comparable_with_atlas_sandbox=false` |
 | Atlas single vs multi | selected by the task's own `workers` tuple (`single` mode vs `multi_worker` mode) |
 | Router | evaluation-only; see §5 |
 | Sandbox | yes, real provider, same image and `network="none"` |
@@ -214,6 +215,8 @@ concept. `NOT_VALIDATED` — present, no live evidence.
 | Tool-result offload | NOT_WIRED | NOT_WIRED | ACTIVE_OPTIONAL | G3-2 (neutral) |
 | Deliverable verification | NOT_WIRED | NOT_WIRED | EVALUATION_ONLY, observation only | R1-2A (0 FP, weak recall) |
 | Isolated oracle | NOT_WIRED | NOT_WIRED | EVALUATION_ONLY, sandbox default | R1-2H (28/28) |
+| Native baseline (N0/N1) | NOT_WIRED | NOT_WIRED | EVALUATION_ONLY (`experiments/evaluation/closure1b`, own benchmark id) | Closure-1B real-container acceptance; no live model run yet |
+| Neutral sandbox lifecycle | NOT_WIRED | NOT_WIRED | EVALUATION_ONLY (native arms only; no binding store, no ownership lock) | Closure-1B parity: `BASELINE_PARITY_PASS` |
 
 ## 7. What the matrix implies
 
