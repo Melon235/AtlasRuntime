@@ -53,6 +53,11 @@ class AtlasTaskSpec:
     depends_on: tuple[str, ...] = ()
     required_capabilities: frozenset[str] = frozenset()
     required_context: tuple[ContextRequirement, ...] = ()
+    #: Cross-task public text every worker of a sample receives verbatim (requirement, interface
+    #: contract, shared constraints). Empty means "no public block", which is the historical shape:
+    #: a composer that supplies it selects the shared-prefix layout, and one that does not is
+    #: byte-identical to the legacy render. It is structured input, not a slice of ``description``.
+    shared_context: str = ""
 
 
 @dataclass(frozen=True)

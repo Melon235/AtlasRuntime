@@ -12,6 +12,7 @@ compositions so that both paths use one implementation instead of two.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -20,7 +21,12 @@ from anycode.tasks.queue import TaskQueue
 
 from atlasos.context.fingerprints import context_layout_hash
 from atlasos.context.models import ContextBlock, ContextKind, ContextRef
-from atlasos.context.renderer import PromptRenderer, StablePromptRenderer, stable_block_key
+from atlasos.context.renderer import (
+    PromptLayout,
+    PromptRenderer,
+    StablePromptRenderer,
+    stable_block_key,
+)
 from atlasos.context.selectors import ContextSelector
 from atlasos.context.store import InMemoryContextStore
 from atlasos.context.transform import ContextTransform
@@ -49,6 +55,14 @@ class TaskPromptRender:
     stable_prefix_tokens: int | None = None
     context_block_tokens: int | None = None
     dynamic_tail_tokens: int | None = None
+    #: Which layout produced ``prompt``. Recorded so two arms with different real layouts can never
+    #: be described by the same configuration record.
+    prompt_layout: str = PromptLayout.LEGACY
+    #: ``sha256`` of the system prompt this render was assembled against. In both layouts this is
+    #: the string the worker's ``AgentConfig.system_prompt`` actually carries.
+    system_prompt_sha256: str = ""
+    #: Characters of the shared public block this render placed before the task-specific text.
+    shared_context_chars: int = 0
 
 
 class AtlasTaskPromptBuilder:
@@ -68,6 +82,7 @@ class AtlasTaskPromptBuilder:
         specs_by_title: Mapping[str, AtlasTaskSpec],
         agents_by_name: Mapping[str, tuple[str, str]],
         recovered_task_ids: frozenset[str] = frozenset(),
+        prompt_layout: str = PromptLayout.LEGACY,
     ) -> None:
         self._store = store
         self._selector = selector
@@ -76,6 +91,7 @@ class AtlasTaskPromptBuilder:
         self._specs_by_title = dict(specs_by_title)
         self._agents_by_name = dict(agents_by_name)
         self._recovered_task_ids = recovered_task_ids
+        self._prompt_layout = PromptLayout(prompt_layout)
         self._last: dict[str, TaskPromptRender] = {}
 
     # -- observation ---------------------------------------------------------------
@@ -97,6 +113,9 @@ class AtlasTaskPromptBuilder:
                 "stable_prefix_tokens": render.stable_prefix_tokens,
                 "context_block_tokens": render.context_block_tokens,
                 "prompt_chars": len(render.prompt),
+                "prompt_layout": render.prompt_layout,
+                "system_prompt_sha256": render.system_prompt_sha256,
+                "shared_context_chars": render.shared_context_chars,
             }
             for task_id, render in self._last.items()
         }
@@ -136,11 +155,17 @@ class AtlasTaskPromptBuilder:
 
         transformed = self._transform.transform(blocks=pre_ordered, query=spec.description)
         system_prompt, role = self._agents_by_name.get(agent_id, ("", ""))
+        # The shared public block is only supplied by a composer that opted into the shared-prefix
+        # layout; the legacy layout never renders it into the body, which keeps its bytes stable.
+        shared_context = (
+            spec.shared_context if self._prompt_layout is PromptLayout.SHARED_PREFIX else ""
+        )
         rendered = self._renderer.render(
             stable_system_prefix=system_prompt,
             agent_role=role,
             task=spec,
             context_blocks=transformed.blocks,
+            shared_context=shared_context,
         )
 
         rendered_order = tuple(
@@ -168,6 +193,9 @@ class AtlasTaskPromptBuilder:
             stable_prefix_tokens=rendered.stable_prefix_tokens,
             context_block_tokens=rendered.context_block_tokens,
             dynamic_tail_tokens=rendered.dynamic_tail_tokens,
+            prompt_layout=self._prompt_layout,
+            system_prompt_sha256=hashlib.sha256(system_prompt.encode("utf-8")).hexdigest(),
+            shared_context_chars=len(shared_context),
         )
         return prompt
 

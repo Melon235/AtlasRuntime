@@ -92,6 +92,7 @@ from atlasos.context import (
     StablePromptRenderer,
     TaskScopedSelector,
 )
+from atlasos.context.renderer import render_dependency_block
 from atlasos.context.task_prompt import AtlasTaskPromptBuilder
 from atlasos.context.transform import ContextPilotDedupTransform, IdentityContextTransform
 from atlasos.experiments import git_commit, git_dirty
@@ -159,6 +160,13 @@ CONTEXT_PLANE_EXPECTATIONS = (
     CONTEXT_PLANE_TASK_SCOPED,
     CONTEXT_PLANE_UPSTREAM,
 )
+
+#: Closure-1A: the effective request layout a unit declares. It must agree with the YAML's
+#: ``context.prompt_layout``; a unit that declares one layout and resolves another is refused before
+#: any I/O, for the same reason the Context Plane claim is enforced (G-1).
+PROMPT_LAYOUT_LEGACY = "legacy"
+PROMPT_LAYOUT_SHARED_PREFIX = "shared_prefix"
+PROMPT_LAYOUTS = (PROMPT_LAYOUT_LEGACY, PROMPT_LAYOUT_SHARED_PREFIX)
 
 _SANDBOX_TOOLS = frozenset({"file_read", "file_write", "file_edit", "grep", "list_files", "bash"})
 _CONTROL_TOOLS = frozenset({"tool.search", "tool_search", "dispatch_action"})
@@ -228,6 +236,9 @@ class RunnerSettings:
     #: Final-4 Phase 2: probe the outgoing request body for the selected dependency content. Pure
     #: observation (digests and containment flags); no request byte is altered or persisted.
     request_evidence: bool = True
+    #: Closure-1A: the effective request layout this unit claims. Compared with the resolved YAML
+    #: before the first request; part of the effective configuration digest.
+    prompt_layout: str = PROMPT_LAYOUT_LEGACY
 
     def digest(self) -> str:
         return canonical_digest(
@@ -257,6 +268,7 @@ class RunnerSettings:
                 "delegation_route_mode": self.delegation_route_mode,
                 "delegation_policy_version": self.delegation_policy_version,
                 "context_plane_expectation": self.context_plane_expectation,
+                "prompt_layout": self.prompt_layout,
                 "config": _config_digest(self.config_path),
             }
         )
@@ -269,11 +281,20 @@ class _RequestEvidence:
     Plane selected actually appear in the message list the provider received, and how many times.
     Only digests and booleans are kept — never the prompt, never a transcript, never a completion.
     ``chat`` is a strict pass-through.
+
+    Closure-1A adds the two things a shared system prompt breaks: identity and completeness.
+
+    * Identity comes from ``options.execution_context``, the trusted per-agent context AnyCode
+      passes through unchanged, never from a content hash. Two workers may now legitimately carry
+      byte-identical system prompts, so ``sha256(system_prompt)`` can no longer name a worker.
+    * Presence is probed against the *complete structured* dependency block, not a 120-character
+      head, and separately against the raw content, on the first message of the request.
     """
 
     def __init__(self, store: Any = None) -> None:
         self._store = store
         self.records: list[dict[str, Any]] = []
+        self._request_index: dict[str, int] = {}
 
     def bind_store(self, store: Any) -> None:
         self._store = store
@@ -295,33 +316,70 @@ class _RequestEvidence:
         ]
         return len(json.dumps(payload, sort_keys=True))
 
-    def observe(self, messages: Any, options: Any) -> None:
+    @staticmethod
+    def _trusted_identity(options: Any) -> dict[str, Any]:
+        """Trusted ids of the agent that issued this request, or empty when none is carried."""
+
+        context = getattr(options, "execution_context", None)
+        attributes = getattr(context, "attributes", None) if context is not None else None
+        if not isinstance(attributes, dict):
+            return {}
+        return {
+            "trusted_task_id": attributes.get("task_id"),
+            "trusted_worker_id": attributes.get("worker_id"),
+            "trusted_profile_id": attributes.get("profile_id"),
+            "trusted_run_id": attributes.get("run_id"),
+        }
+
+    def observe(self, messages: Any, options: Any) -> int:
         tools = tuple(getattr(options, "tools", ()) or ())
         texts = [
             "\n".join(str(getattr(block, "text", "")) for block in getattr(message, "content", ()))
             for message in messages
         ]
         joined = "\n".join(texts)
+        initial = texts[0] if texts else ""
+        identity = self._trusted_identity(options)
+        trusted_task_id = identity.get("trusted_task_id")
+        request_index = (
+            self._request_index.get(str(trusted_task_id), 0)
+            if isinstance(trusted_task_id, str)
+            else None
+        )
+        if isinstance(trusted_task_id, str):
+            self._request_index[str(trusted_task_id)] = (request_index or 0) + 1
         probes: dict[str, Any] = {}
         for block in self._blocks():
             content = str(getattr(block, "content", ""))
-            # A head slice is enough to prove presence and stays distinctive for these outputs.
-            needle = content.strip()[:120]
-            if not needle:
+            if not content:
                 continue
+            structured = render_dependency_block(
+                task_id=str(block.task_id or "unknown"),
+                version=block.version,
+                content=content,
+            )
             probes[block.block_id] = {
-                "present": needle in joined,
-                "count": joined.count(needle),
+                # Full structured block in the initial task prompt: the injection proof.
+                "present": structured in initial,
+                "count": initial.count(structured),
+                "present_in_request": structured in joined,
+                "request_count": joined.count(structured),
+                # Raw content, so a body that reached the turn without its delimiters is visible.
+                "content_present": content in initial,
+                "content_count": initial.count(content),
                 "block_version": block.version,
                 "block_chars": len(content),
+                "probe_kind": "FULL_STRUCTURED_BLOCK",
             }
         self.records.append(
             {
                 "call_index": len(self.records),
+                "request_index": request_index,
+                **identity,
                 "system_prompt_digest": hashlib.sha256(
                     str(getattr(options, "system_prompt", "") or "").encode("utf-8")
                 ).hexdigest(),
-                "first_message_digest": hashlib.sha256(texts[0].encode("utf-8")).hexdigest()
+                "first_message_digest": hashlib.sha256(initial.encode("utf-8")).hexdigest()
                 if texts
                 else None,
                 "message_count": len(texts),
@@ -329,9 +387,30 @@ class _RequestEvidence:
                 "tool_count": len(tools),
                 "tool_schema_chars": self._tool_schema_chars(tools),
                 "dependency_probes": probes,
+                "usage": None,
                 "content_persisted": False,
             }
         )
+        return len(self.records) - 1
+
+    def attach_usage(self, call_index: int, usage: Any) -> None:
+        """Record the provider usage of one already-observed request.
+
+        AnyCode's ``TokenUsage`` splits the prompt into cache-miss (``input_tokens``) and cache-read
+        parts, so both are recorded explicitly instead of one being called "prompt tokens".
+        """
+
+        if not 0 <= call_index < len(self.records) or usage is None:
+            return
+        miss = int(getattr(usage, "input_tokens", 0) or 0)
+        hit = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+        self.records[call_index]["usage"] = {
+            "prompt_tokens": miss + hit,
+            "cache_miss_tokens": miss,
+            "cache_hit_tokens": hit,
+            "completion_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+            "source": "anycode.TokenUsage as reported by the provider adapter",
+        }
 
     def as_dict(self) -> dict[str, Any]:
         probes = [
@@ -350,7 +429,13 @@ class _RequestEvidence:
                 "observed on the outgoing message list inside the provider wrapper; only digests, "
                 "character counts and containment flags are recorded"
             ),
+            "identity_source": "options.execution_context.attributes (trusted ExecutionContext)",
+            "dependency_probe_basis": "complete structured dependency block, initial task prompt",
             "requests_observed": len(self.records),
+            "requests_with_trusted_identity": sum(
+                1 for record in self.records if record.get("trusted_task_id")
+            ),
+            "requests_with_usage": sum(1 for record in self.records if record.get("usage")),
             "requests_with_a_dependency_probe": len(
                 {record["call_index"] for record in self.records if record["dependency_probes"]}
             ),
@@ -363,7 +448,7 @@ class _RequestEvidence:
 
 
 class ModelRecordingAdapter:
-    """Observation-only wrapper recording the provider-resolved model name."""
+    """Observation-only wrapper recording the provider-resolved model and per-request usage."""
 
     def __init__(
         self, inner: DeepSeekAdapter, models: list[str], evidence: _RequestEvidence | None = None
@@ -377,17 +462,19 @@ class ModelRecordingAdapter:
         return self._inner.name
 
     async def chat(self, messages: Any, options: Any) -> Any:
-        if self._evidence is not None:
-            self._evidence.observe(messages, options)
+        call_index = self._evidence.observe(messages, options) if self._evidence else None
         response = await self._inner.chat(messages, options)
+        if self._evidence is not None and call_index is not None:
+            self._evidence.attach_usage(call_index, getattr(response, "usage", None))
         self._models.append(str(response.model))
         return response
 
     def stream(self, messages: Any, options: Any) -> Any:
         # AnyCode's agent loop streams. Observing here (eagerly, before the generator body runs) is
         # what makes the request evidence cover the requests that actually reach the provider.
-        if self._evidence is not None:
-            self._evidence.observe(messages, options)
+        # ``_inner`` is the real adapter: its own ``stream`` delegates to its own ``chat``, so this
+        # request is counted once, not twice.
+        call_index = self._evidence.observe(messages, options) if self._evidence else None
 
         async def _generate() -> Any:
             async for event in self._inner.stream(messages, options):
@@ -396,6 +483,8 @@ class ModelRecordingAdapter:
                     model_name = getattr(response, "model", None)
                     if model_name is not None:
                         self._models.append(str(model_name))
+                    if self._evidence is not None and call_index is not None:
+                        self._evidence.attach_usage(call_index, getattr(response, "usage", None))
                 yield event
 
         return _generate()
@@ -483,6 +572,9 @@ def _context_prompt_builder(
     title_by_id: dict[str, str],
     task_texts: dict[str, str],
     worker_by_task: dict[str, Any],
+    prompt_layout: str = PROMPT_LAYOUT_LEGACY,
+    task_bodies: dict[str, str] | None = None,
+    shared_context_by_task: dict[str, str] | None = None,
 ) -> tuple[AtlasTaskPromptBuilder, InMemoryContextStore] | None:
     """Wire the existing Context Plane into a multi-worker coding DAG (opt-in via ``config``).
 
@@ -490,10 +582,16 @@ def _context_prompt_builder(
     today's behaviour. Nothing here schedules, calls a model, or stores anything new. The store is
     returned as well because it *is* the run's logical context: reading it afterwards is
     observation, not a second implementation.
+
+    ``prompt_layout`` decides what the *builder* renders, never what it selects: the selector sees
+    the same declared dependencies in both layouts. In the shared-prefix layout the structured
+    public block travels as ``AtlasTaskSpec.shared_context`` and the per-task body is the worker's
+    own assignment, so the renderer can put the public text first without slicing a concatenation.
     """
 
     if config.context.policy != "task_scoped":
         return None
+    layout = prompt_layout if prompt_layout in PROMPT_LAYOUTS else PROMPT_LAYOUT_LEGACY
     renderer = (
         NaiveExecutionOrderRenderer()
         if config.context.renderer == "naive_execution_order"
@@ -504,13 +602,24 @@ def _context_prompt_builder(
         if config.context.transform.name == "identity"
         else ContextPilotDedupTransform()
     )
+    bodies = task_bodies or {}
+    shared_by_task = shared_context_by_task or {}
     specs = {
         title_by_id[step.task_id]: AtlasTaskSpec(
             task_id=step.task_id,
             title=title_by_id[step.task_id],
-            description=task_texts[step.task_id],
+            description=(
+                bodies.get(step.task_id, task_texts[step.task_id])
+                if layout == PROMPT_LAYOUT_SHARED_PREFIX
+                else task_texts[step.task_id]
+            ),
             assignee=worker_by_task[step.task_id].worker_name,
             depends_on=step.depends_on,
+            shared_context=(
+                shared_by_task.get(step.task_id, "")
+                if layout == PROMPT_LAYOUT_SHARED_PREFIX
+                else ""
+            ),
         )
         for step in task.workers
     }
@@ -529,15 +638,26 @@ def _context_prompt_builder(
         transform=transform,
         specs_by_title=specs,
         agents_by_name=agents,
+        prompt_layout=layout,
     )
     return builder, store
+
+
+def _task_turn_parts(
+    step: Any, *, steps: tuple[Any, ...], sample_id: str, mode: str
+) -> tuple[str, str]:
+    """``(shared public context, worker's own task body)`` — the two halves, unmerged."""
+
+    return (
+        getattr(step, "shared_context", "") or "",
+        worker_task_text(step, steps=steps, sample_id=sample_id, mode=mode),
+    )
 
 
 def _task_turn(step: Any, *, steps: tuple[Any, ...], sample_id: str, mode: str) -> str:
     """The model-visible task turn: shared public context, then the worker's own assignment."""
 
-    text = worker_task_text(step, steps=steps, sample_id=sample_id, mode=mode)
-    shared = getattr(step, "shared_context", "") or ""
+    shared, text = _task_turn_parts(step, steps=steps, sample_id=sample_id, mode=mode)
     return f"{shared}\n\n{text}" if shared else text
 
 
@@ -551,6 +671,37 @@ def _contract_overhead_chars(step: Any, task_text: str) -> int:
 
 def _normalized_expectation(value: str) -> str:
     return value if value in CONTEXT_PLANE_EXPECTATIONS else CONTEXT_PLANE_UNSPECIFIED
+
+
+def _normalized_prompt_layout(value: str) -> str:
+    return value if value in PROMPT_LAYOUTS else PROMPT_LAYOUT_LEGACY
+
+
+def _enforce_prompt_layout(declared_layout: str, *, config: AtlasConfig, config_file: Path) -> str:
+    """Resolve the request layout and refuse any unit whose claim the YAML cannot satisfy.
+
+    Two arms whose requests differ in layout must never share one effective configuration record,
+    and a hand-written claim must never survive a YAML that resolves something else.
+    """
+
+    declared = _normalized_prompt_layout(declared_layout)
+    resolved = config.context.prompt_layout
+    if resolved != declared:
+        raise EvaluationEnvironmentError(
+            "evaluation configuration error: this unit declares prompt_layout="
+            f"{declared!r} but {config_file.name} resolves {resolved!r}. Refusing to run: the "
+            "recorded layout would not describe the request that was sent."
+        )
+    if (
+        declared == PROMPT_LAYOUT_SHARED_PREFIX
+        and config.context.policy != CONTEXT_PLANE_TASK_SCOPED
+    ):
+        raise EvaluationEnvironmentError(
+            "evaluation configuration error: prompt_layout='shared_prefix' requires "
+            f"context.policy={CONTEXT_PLANE_TASK_SCOPED!r}, {config_file.name} resolves "
+            f"{config.context.policy!r}"
+        )
+    return declared
 
 
 def _enforce_context_plane_config(
@@ -685,6 +836,9 @@ def _context_evidence(
                 "task_prompt_sha256": hashlib.sha256(render.prompt.encode("utf-8")).hexdigest(),
                 "task_prompt_chars": len(render.prompt),
                 "task_text_chars": len(task_texts.get(task_id, "")),
+                "prompt_layout": render.prompt_layout,
+                "effective_system_prompt_sha256": render.system_prompt_sha256,
+                "shared_context_chars": render.shared_context_chars,
                 "dependencies": dependency_facts,
             }
         )
@@ -712,12 +866,15 @@ def _context_evidence(
                 "DIFFERENT_FUNCTIONS; never compare or substitute one for the other"
             ),
             "per_request_task_attribution": (
-                "UNAVAILABLE: the provider adapter carries no task identity "
-                "(see _provider_call_records)"
+                "trusted: options.execution_context.attributes.task_id, mapped to the Atlas "
+                "logical task by the host-owned worker record. Never inferred from prompt "
+                "content, because a shared-prefix layout gives several workers the same "
+                "system prompt"
             ),
             "dependency_delivery_basis": (
                 "the builder's return value is the AnyCode task prompt; dependency presence is "
-                "verified in that string, and the provider-side hash is recorded separately"
+                "probed on the complete structured block in the first message of the request, and "
+                "the provider-side hash is recorded separately"
             ),
         },
         "request_linkage": _request_linkage(per_task, request_records, workers),
@@ -729,13 +886,21 @@ def _request_linkage(
     request_records: list[dict[str, Any]] | None,
     workers: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Tie an observed provider request to a task and a worker by re-computing known digests.
+    """Tie an observed provider request to a task and a worker, and decide how complete that is.
 
-    This is content evidence, not two unrelated hashes: the first message of the request is hashed
-    and compared with the hash of the exact string the builder returned, so a match proves that
-    render reached the provider. The worker is identified the same way, from its system prompt.
+    Identity is trusted first: the request carries the agent's ``ExecutionContext``, and the
+    host-owned worker record maps its runtime task id to the Atlas logical task. That mapping is
+    what still works when several workers share one system prompt.
+
+    ``sha256(first message) == task_prompt_sha256`` remains as a cross-check and as a fallback for
+    runs whose requests carry no execution context, but it is no longer the identity source.
+
+    The status is only ``REQUEST_CONTENT_VERIFIED`` when the observed set covers every rendered
+    task, every observed request has a task identity, and every consumer's declared dependency
+    arrives once as a complete structured block. Anything less is ``REQUEST_CONTENT_PARTIAL``.
     """
 
+    renders = {item["task_id"]: item for item in per_task}
     if not request_records:
         return {
             "status": "REQUEST_CONTENT_NOT_VERIFIED",
@@ -743,44 +908,173 @@ def _request_linkage(
                 "no request-level observation was recorded for this run (request_evidence disabled "
                 "or the run predates it)"
             ),
+            "expected_task_ids": sorted(renders),
+            "observed_task_ids": [],
         }
     prompt_by_digest = {
         item["task_prompt_sha256"]: item["task_id"]
         for item in per_task
         if item.get("task_prompt_sha256")
     }
-    worker_by_system = {}
-    for task_id, worker in (workers or {}).items():
+    logical_by_trusted: dict[str, str] = {}
+    worker_by_system: dict[str, str] = {}
+    for logical_id, worker in (workers or {}).items():
+        record = getattr(worker, "record", None)
+        trusted = getattr(record, "task_id", None)
+        if isinstance(trusted, str) and trusted:
+            logical_by_trusted[trusted] = logical_id
         agent_config = getattr(worker, "agent_config", None)
         system_prompt = str(getattr(agent_config, "system_prompt", "") or "")
-        worker_by_system[hashlib.sha256(system_prompt.encode("utf-8")).hexdigest()] = task_id
+        digest = hashlib.sha256(system_prompt.encode("utf-8")).hexdigest()
+        # Content identity is only a fallback. A shared-prefix run maps several logical tasks to one
+        # digest, which is why it can no longer be the primary source: the first match wins here and
+        # the ambiguity is reported, never resolved silently.
+        worker_by_system.setdefault(digest, logical_id)
     linked: list[dict[str, Any]] = []
     for record in request_records:
-        task_id = prompt_by_digest.get(str(record.get("first_message_digest")))
+        trusted_id = record.get("trusted_task_id")
+        task_id: str | None = None
+        identity_source: str | None = None
+        if isinstance(trusted_id, str) and trusted_id:
+            task_id = logical_by_trusted.get(trusted_id)
+            if task_id is None and trusted_id in renders:
+                task_id = trusted_id
+            if task_id is not None:
+                identity_source = "trusted_execution_context"
+        if task_id is None:
+            task_id = prompt_by_digest.get(str(record.get("first_message_digest")))
+            if task_id is not None:
+                identity_source = "prompt_digest_fallback"
+        render = renders.get(task_id) if task_id is not None else None
         linked.append(
             {
                 "call_index": record["call_index"],
+                "request_index": record.get("request_index"),
                 "matched_task_id": task_id,
-                "matched_worker_task_id": worker_by_system.get(
-                    str(record.get("system_prompt_digest"))
+                "identity_source": identity_source,
+                "trusted_worker_id": record.get("trusted_worker_id"),
+                "trusted_profile_id": record.get("trusted_profile_id"),
+                "matched_worker_task_id": (
+                    task_id
+                    if identity_source == "trusted_execution_context"
+                    else worker_by_system.get(str(record.get("system_prompt_digest")))
                 ),
-                "task_prompt_hash_match": task_id is not None,
+                "task_prompt_hash_match": (
+                    render is not None
+                    and render.get("task_prompt_sha256") == record.get("first_message_digest")
+                ),
+                "context_layout_digest": render.get("context_layout_hash") if render else None,
+                "system_prompt_digest": record.get("system_prompt_digest"),
+                "usage": record.get("usage"),
                 "dependency_probes": record.get("dependency_probes") or {},
                 "message_count": record["message_count"],
                 "text_chars": record["text_chars"],
                 "content_persisted": record.get("content_persisted", False),
             }
         )
-    matched = sum(1 for item in linked if item["task_prompt_hash_match"])
+
+    expected_task_ids = sorted(renders)
+    observed_task_ids = sorted(
+        {item["matched_task_id"] for item in linked if item["matched_task_id"]}
+    )
+    missing_task_ids = sorted(set(expected_task_ids) - set(observed_task_ids))
+    unlinked = [item["call_index"] for item in linked if item["matched_task_id"] is None]
+    unattributed = [
+        item["call_index"]
+        for item in linked
+        if item["identity_source"] != "trusted_execution_context"
+    ]
+
+    dependency_failures: list[dict[str, Any]] = []
+    for task_id in expected_task_ids:
+        declared = renders[task_id].get("declared_dependencies") or []
+        if not declared:
+            continue
+        task_requests = [item for item in linked if item["matched_task_id"] == task_id]
+        if not task_requests:
+            dependency_failures.append({"task_id": task_id, "reason": "NO_REQUEST_OBSERVED"})
+            continue
+        ordered = sorted(
+            task_requests,
+            key=lambda item: item["request_index"] if item["request_index"] is not None else 0,
+        )
+        for dependency in declared:
+            block_id = f"task-output:{dependency}"
+            # Every request of one task replays the same initial prompt at messages[0], so any
+            # observation of the block is evidence about the same injection. A request whose probe
+            # ran before the block existed has no entry and is skipped rather than guessed at; a
+            # task with no probe at all stays unproven.
+            observed = [
+                item["dependency_probes"][block_id]
+                for item in ordered
+                if block_id in (item["dependency_probes"] or {})
+            ]
+            if not observed:
+                dependency_failures.append(
+                    {"task_id": task_id, "block_id": block_id, "reason": "NO_PROBE"}
+                )
+                continue
+            if any(not probe.get("present") for probe in observed):
+                dependency_failures.append(
+                    {"task_id": task_id, "block_id": block_id, "reason": "STRUCTURED_BLOCK_ABSENT"}
+                )
+            elif any(probe.get("count") != 1 for probe in observed):
+                dependency_failures.append(
+                    {
+                        "task_id": task_id,
+                        "block_id": block_id,
+                        "reason": "STRUCTURED_BLOCK_COUNT",
+                        "counts": [probe.get("count") for probe in observed],
+                    }
+                )
+            elif any(not probe.get("content_present") for probe in observed):
+                dependency_failures.append(
+                    {"task_id": task_id, "block_id": block_id, "reason": "CONTENT_ABSENT"}
+                )
+            elif any((probe.get("request_count") or 0) > 1 for probe in observed):
+                dependency_failures.append(
+                    {
+                        "task_id": task_id,
+                        "block_id": block_id,
+                        "reason": "DUPLICATE_IN_REQUEST",
+                        "request_counts": [probe.get("request_count") for probe in observed],
+                    }
+                )
+
+    matched = sum(1 for item in linked if item["matched_task_id"] is not None)
+    reason_codes: list[str] = []
+    if missing_task_ids:
+        reason_codes.append("TASK_NEVER_OBSERVED")
+    if unlinked:
+        reason_codes.append("REQUEST_WITHOUT_A_TASK_IDENTITY")
+    if unattributed:
+        reason_codes.append("IDENTITY_NOT_TRUSTED")
+    if dependency_failures:
+        reason_codes.append("DEPENDENCY_NOT_FULLY_DELIVERED")
+
+    if matched == 0:
+        status = "REQUEST_CONTENT_NOT_VERIFIED"
+    elif reason_codes:
+        status = "REQUEST_CONTENT_PARTIAL"
+    else:
+        status = "REQUEST_CONTENT_VERIFIED"
     return {
-        "status": "REQUEST_CONTENT_VERIFIED" if matched else "REQUEST_CONTENT_NOT_VERIFIED",
+        "status": status,
+        "reason_codes": reason_codes if matched else ["NO_REQUEST_LINKED_TO_A_RENDER"],
         "requests_observed": len(linked),
         "requests_linked_to_a_render": matched,
         "requests_unlinked": len(linked) - matched,
-        "linkage_basis": (
-            "sha256(first message) == task_prompt_sha256 of the render; worker by "
-            "sha256(system prompt)"
+        "expected_task_ids": expected_task_ids,
+        "observed_task_ids": observed_task_ids,
+        "missing_task_ids": missing_task_ids,
+        "requests_with_trusted_identity": sum(
+            1 for item in linked if item["identity_source"] == "trusted_execution_context"
         ),
+        "linkage_basis": (
+            "primary: options.execution_context.attributes.task_id resolved through the host-owned "
+            "worker record; cross-check: sha256(first message) == task_prompt_sha256 of the render"
+        ),
+        "dependency_failures": dependency_failures,
         "dependency_delivery_in_request": [
             {
                 "call_index": item["call_index"],
@@ -788,6 +1082,7 @@ def _request_linkage(
                 "block_id": block_id,
                 "present": probe["present"],
                 "count": probe["count"],
+                "probe_kind": probe.get("probe_kind"),
             }
             for item in linked
             for block_id, probe in item["dependency_probes"].items()
@@ -1089,6 +1384,10 @@ async def run_sample(
         config=config,
         config_file=config_file,
         handoff_mode=settings.handoff_mode,
+    )
+    # Same rule for the request layout: the declared and the resolved value must be the same one.
+    prompt_layout = _enforce_prompt_layout(
+        settings.prompt_layout, config=config, config_file=config_file
     )
     model = settings.model_override or config.provider.model
     started_at = datetime.now(UTC)
@@ -1416,15 +1715,25 @@ async def run_sample(
         environment_note = _environment_note(project_config.workspace_root)
         worker_by_task: dict[str, Any] = {}
         for step in task.workers:
+            # In the shared-prefix layout the assignment is the worker's own objective only: the
+            # environment note moves to the user turn's public block, because a per-run constant in
+            # a per-task system prompt is exactly what stops two workers from sharing a prefix. The
+            # information is relocated, never removed.
+            assignment_text = (
+                step.prompt
+                if prompt_layout == PROMPT_LAYOUT_SHARED_PREFIX
+                else f"{environment_note}\n\n{step.prompt}"
+            )
             worker = worker_factory.create(
                 parent_context=parent,
                 parent_agent="atlas-evaluation",
                 assignment=WorkerAssignment(
                     profile_id="coding_worker",
-                    task=f"{environment_note}\n\n{step.prompt}",
+                    task=assignment_text,
                 ),
                 worker_id=f"{run_id}-{step.task_id}",
                 task_id=f"{run_id}-{step.task_id}",
+                prompt_layout=prompt_layout,
             )
             worker_by_task[step.task_id] = worker
 
@@ -1482,11 +1791,17 @@ async def run_sample(
             if settings.worker_contract_mode in WORKER_CONTRACT_MODES
             else WORKER_CONTRACT_LEGACY
         )
-        task_texts = {
-            step.task_id: _task_turn(
+        task_parts = {
+            step.task_id: _task_turn_parts(
                 step, steps=task.workers, sample_id=task.sample_id, mode=contract_mode
             )
             for step in task.workers
+        }
+        # The AnyCode task spec carries the same effective facts in both layouts: identical public
+        # block, identical objective, identical constraints and identical declared dependencies.
+        task_texts = {
+            task_id: (f"{shared}\n\n{body}" if shared else body)
+            for task_id, (shared, body) in task_parts.items()
         }
         contract_overhead_chars = sum(
             _contract_overhead_chars(step, task_texts[step.task_id]) for step in task.workers
@@ -1506,6 +1821,12 @@ async def run_sample(
             title_by_id=title_by_id,
             task_texts=task_texts,
             worker_by_task=worker_by_task,
+            prompt_layout=prompt_layout,
+            task_bodies={task_id: body for task_id, (_, body) in task_parts.items()},
+            shared_context_by_task={
+                task_id: (f"{environment_note}\n\n{shared}" if shared else environment_note)
+                for task_id, (shared, _) in task_parts.items()
+            },
         )
         context_builder, context_store = (
             context_plane if context_plane is not None else (None, None)
@@ -1536,6 +1857,22 @@ async def run_sample(
                 "atlas_context_plane" if context_builder is not None else "handoff_legacy"
             ),
             "expectation": expectation,
+            "prompt_layout": prompt_layout,
+            # The persisted worker hash is the legacy render and stays the resume contract; the
+            # effective hash is the system prompt the agent actually ran with. They are recorded
+            # side by side so a shared-prefix run cannot be read as a legacy one.
+            "workers": {
+                step.task_id: {
+                    "prompt_layout": worker_by_task[step.task_id].record.prompt_layout,
+                    "original_worker_context_hash": (
+                        worker_by_task[step.task_id].record.rendered_context_hash
+                    ),
+                    "effective_system_prompt_hash": (
+                        worker_by_task[step.task_id].record.effective_system_prompt_hash
+                    ),
+                }
+                for step in task.workers
+            },
         }
         environment["context_resolved"] = resolved_context
         environment["request_evidence"] = bool(settings.request_evidence)

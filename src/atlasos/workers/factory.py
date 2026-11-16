@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from anycode.identity.context import ExecutionContext
 from anycode.types import AgentConfig
 
+from atlasos.context.renderer import PromptLayout
 from atlasos.workers.catalog import WorkerCatalog
 from atlasos.workers.models import (
     WorkerAssignment,
@@ -21,7 +22,11 @@ from atlasos.workers.models import (
     WorkerTaskContext,
     safe_parent_attributes,
 )
-from atlasos.workers.renderer import render_worker_context, render_worker_context_hash
+from atlasos.workers.renderer import (
+    render_effective_context_hash,
+    render_worker_context,
+    render_worker_context_hash,
+)
 from atlasos.workers.store import WorkerStore
 
 if TYPE_CHECKING:
@@ -75,9 +80,11 @@ class ScopedWorkerFactory:
         assignment: WorkerAssignment,
         worker_id: str | None = None,
         task_id: str | None = None,
+        prompt_layout: str = PromptLayout.LEGACY,
     ) -> WorkerInstance:
         profile = self.catalog.resolve(assignment.profile_id)
         self._validate_profile(profile)
+        layout = PromptLayout(prompt_layout)
         actual_worker_id = worker_id or self._id_factory()
         actual_task_id = task_id or self._id_factory()
         task = WorkerTaskContext(
@@ -85,7 +92,7 @@ class ScopedWorkerFactory:
             objective=assignment.task,
             background=assignment.context,
         )
-        rendered = render_worker_context(profile, task)
+        rendered = render_worker_context(profile, task, layout=layout)
         context = self._derive_context(
             parent_context=parent_context,
             parent_agent=parent_agent,
@@ -112,8 +119,11 @@ class ScopedWorkerFactory:
             assignment=assignment,
             task_context=task,
             execution_context=context,
+            # Resume contract: always the legacy hash, whatever layout actually ran.
             rendered_context_hash=render_worker_context_hash(profile, task),
             created_at=self._clock(),
+            prompt_layout=layout,
+            effective_system_prompt_hash=render_effective_context_hash(rendered),
         )
         self.store.save(record)
         self._record_lifecycle(record, mode="create", occurred_at=record.created_at)
@@ -126,6 +136,13 @@ class ScopedWorkerFactory:
 
     def resume(self, worker_id: str) -> WorkerInstance:
         record = self.store.load(worker_id)
+        if record.prompt_layout != PromptLayout.LEGACY:
+            # A worker restored from a persisted record can only rebuild the layout that record was
+            # written for. Refusing here is what keeps "unsupported" from being reported as "works".
+            raise WorkerConfigurationError(
+                f"worker {worker_id!r} was created with prompt_layout={record.prompt_layout!r}; "
+                "worker resume is defined for the legacy layout only"
+            )
         profile = self.catalog.resolve(record.profile_id)
         self._validate_profile(profile)
         rendered = render_worker_context(profile, record.task_context)

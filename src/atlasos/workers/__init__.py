@@ -13,6 +13,7 @@ from atlasos.workers.models import (
     WorkerTaskContext,
 )
 from atlasos.workers.renderer import (
+    render_effective_context_hash,
     render_worker_context,
     render_worker_context_hash,
 )
@@ -33,6 +34,7 @@ __all__ = [
     "WorkerStore",
     "WorkerStoreError",
     "WorkerTaskContext",
+    "render_effective_context_hash",
     "render_worker_context",
     "render_worker_context_hash",
 ]

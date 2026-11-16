@@ -22,6 +22,7 @@ RendererPolicy = Literal[
     "naive_execution_order",
     "stable_deterministic",
 ]
+PromptLayoutPolicy = Literal["legacy", "shared_prefix"]
 
 # Only these policy/renderer pairs are honest for Stage 2; anything else fails fast.
 _ALLOWED_CONTEXT_MODES: frozenset[tuple[str, str]] = frozenset(
@@ -80,6 +81,10 @@ class ContextConfig(BaseModel):
     policy: ContextPolicy = "upstream_default"
     renderer: RendererPolicy = "upstream_default"
     transform: ContextTransformConfig = ContextTransformConfig()
+    #: Effective request layout. ``legacy`` keeps the historical bytes; ``shared_prefix`` moves the
+    #: per-task dynamic text out of the worker system prompt and places the shared public block
+    #: before the task-specific body. Ablation switch, default off.
+    prompt_layout: PromptLayoutPolicy = "legacy"
     # Deprecated Stage 1/2 fields retained only so historical configs still parse.
     contextpilot_enabled: bool = False
     contextpilot: ContextPilotOptions = ContextPilotOptions()
@@ -98,6 +103,13 @@ class ContextConfig(BaseModel):
             raise ValueError(
                 "a non-identity context transform requires policy='task_scoped' and "
                 "renderer='stable_deterministic'"
+            )
+        layout_ready = self.policy == "task_scoped" and self.renderer == "stable_deterministic"
+        if self.prompt_layout != "legacy" and not layout_ready:
+            raise ValueError(
+                "context.prompt_layout='shared_prefix' requires policy='task_scoped' and "
+                "renderer='stable_deterministic'; a layout cannot be shared over a context "
+                "plane that is not rendering the task prompt"
             )
         return self
 

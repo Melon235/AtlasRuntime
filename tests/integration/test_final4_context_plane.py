@@ -321,51 +321,73 @@ def test_request_evidence_links_the_outgoing_request_to_the_render() -> None:
 
     from atlasos.context import InMemoryContextStore
     from atlasos.context.models import ContextBlock, ContextKind
+    from atlasos.context.renderer import render_dependency_block
 
     store = InMemoryContextStore()
     evidence = _RequestEvidence()
     evidence.bind_store(store)
-    prompt = 'TASK TURN\n\n<dependency task_id="w1">RESULT-OF-w1 tail</dependency>'
+    block = ContextBlock(
+        block_id="task-output:w1",
+        kind=ContextKind.DEPENDENCY_OUTPUT,
+        version=1,
+        content="RESULT-OF-w1 tail",
+        source="task",
+        owner_agent_id="w1",
+        task_id="w1",
+    )
+    prompt = "TASK TURN\n\n" + render_dependency_block(
+        task_id="w1", version=1, content=block.content
+    )
     per_task = [
         {
             "task_id": "w2",
             "task_prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            "declared_dependencies": ["w1"],
         }
     ]
+    # Closure-1A: identity is carried by the trusted execution context, not by the prompt hash.
+    options = SimpleNamespace(
+        system_prompt="SYSTEM-w2",
+        tools=(),
+        execution_context=SimpleNamespace(
+            attributes={
+                "task_id": "run-w2",
+                "worker_id": "run-w2",
+                "profile_id": "coding_worker",
+                "run_id": "run",
+            }
+        ),
+    )
 
     # Before the producer output is in the store, no probe exists.
     evidence.observe(
-        [SimpleNamespace(role="user", content=[SimpleNamespace(text=prompt)])],
-        SimpleNamespace(system_prompt="SYSTEM-w2", tools=()),
+        [SimpleNamespace(role="user", content=[SimpleNamespace(text=prompt)])], options
     )
     assert evidence.records[0]["dependency_probes"] == {}
 
-    store.put(
-        ContextBlock(
-            block_id="task-output:w1",
-            kind=ContextKind.DEPENDENCY_OUTPUT,
-            version=1,
-            content="RESULT-OF-w1 tail",
-            source="task",
-            owner_agent_id="w1",
-            task_id="w1",
-        )
-    )
+    store.put(block)
     evidence.observe(
-        [SimpleNamespace(role="user", content=[SimpleNamespace(text=prompt)])],
-        SimpleNamespace(system_prompt="SYSTEM-w2", tools=()),
+        [SimpleNamespace(role="user", content=[SimpleNamespace(text=prompt)])], options
     )
     probe = evidence.records[1]["dependency_probes"]["task-output:w1"]
     assert probe["present"] is True
     assert probe["count"] == 1
+    assert probe["content_present"] is True
+    assert probe["probe_kind"] == "FULL_STRUCTURED_BLOCK"
 
     linkage = _request_linkage(
         per_task,
         evidence.records,
-        {"w2": SimpleNamespace(agent_config=SimpleNamespace(system_prompt="SYSTEM-w2"))},
+        {
+            "w2": SimpleNamespace(
+                agent_config=SimpleNamespace(system_prompt="SYSTEM-w2"),
+                record=SimpleNamespace(task_id="run-w2"),
+            )
+        },
     )
     assert linkage["status"] == "REQUEST_CONTENT_VERIFIED"
     assert linkage["requests_linked_to_a_render"] == 2
+    assert linkage["requests_with_trusted_identity"] == 2
     assert linkage["requests"][1]["matched_task_id"] == "w2"
     assert linkage["requests"][1]["matched_worker_task_id"] == "w2"
     delivered = [item for item in linkage["dependency_delivery_in_request"] if item["present"]]

@@ -4,6 +4,7 @@ from atlasos.context.fingerprints import context_layout_hash
 from atlasos.context.models import ContextBlock, ContextKind, ContextRef
 from atlasos.context.renderer import (
     NaiveExecutionOrderRenderer,
+    PromptLayout,
     PromptRenderer,
     RenderedPrompt,
     StablePromptRenderer,
@@ -20,6 +21,7 @@ __all__ = [
     "ContextStore",
     "InMemoryContextStore",
     "NaiveExecutionOrderRenderer",
+    "PromptLayout",
     "PromptRenderer",
     "RenderedPrompt",
     "StablePromptRenderer",

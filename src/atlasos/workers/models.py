@@ -107,9 +107,17 @@ class WorkerInstanceRecord(BaseModel):
     assignment: WorkerAssignment
     task_context: WorkerTaskContext
     execution_context: ExecutionContext
+    #: Always the hash of the *legacy* rendering. It is the resume contract and never describes the
+    #: live layout, so a shared-prefix worker cannot silently pretend this value is its prompt hash.
     rendered_context_hash: str
     created_at: datetime
     status: Literal["ready"] = "ready"
+    #: Which layout produced the system prompt this worker actually ran with. Records written before
+    #: Closure-1A carry no such field and default to ``legacy``, so they keep validating.
+    prompt_layout: str = "legacy"
+    #: ``sha256`` of the system-prompt bytes handed to AnyCode. ``None`` on legacy records, where it
+    #: is by definition equal to ``rendered_context_hash``.
+    effective_system_prompt_hash: str | None = None
 
 
 class WorkerInstance(BaseModel):

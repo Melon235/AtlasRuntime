@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Protocol
 
 from anycode.types import LLMMessage, TextBlock
@@ -22,6 +23,19 @@ from atlasos.context.fingerprints import context_layout_hash
 from atlasos.context.models import ContextBlock, ContextKind, ContextRef
 from atlasos.metrics.fingerprint import full_prompt_hash, stable_prefix_hash
 from atlasos.workflow import AtlasTaskSpec
+
+
+class PromptLayout(StrEnum):
+    """Where per-task dynamic text sits relative to the cross-task public text.
+
+    ``LEGACY`` reproduces the historical body exactly: the task title first, then every selected
+    block. ``SHARED_PREFIX`` renders the shared public context before the task title so two workers
+    of the same profile agree on a longer byte prefix. It changes ordering only; selection is the
+    selector's decision and is identical in both layouts.
+    """
+
+    LEGACY = "legacy"
+    SHARED_PREFIX = "shared_prefix"
 
 
 @dataclass(frozen=True)
@@ -46,6 +60,7 @@ class PromptRenderer(Protocol):
         task: AtlasTaskSpec,
         context_blocks: Sequence[ContextBlock],
         dynamic_tail: str | None = None,
+        shared_context: str = "",
     ) -> RenderedPrompt: ...
 
 
@@ -59,6 +74,16 @@ _KIND_PRIORITY: dict[ContextKind, int] = {
     ContextKind.MEMORY: 6,
     ContextKind.SUMMARY: 7,
 }
+
+
+def render_dependency_block(*, task_id: str, version: int, content: str) -> str:
+    """The exact text one dependency output is rendered as inside the task body.
+
+    One function, two callers: the body renderer and the request-evidence probe. The probe has to
+    match the full block, so it must not re-derive the delimiters independently.
+    """
+
+    return f'<dependency task_id="{task_id}" version="{version}">\n{content}\n</dependency>'
 
 
 def stable_block_key(block: ContextBlock) -> tuple[int, str, int, str]:
@@ -84,9 +109,10 @@ class _RendererBase:
         task: AtlasTaskSpec,
         context_blocks: Sequence[ContextBlock],
         dynamic_tail: str | None = None,
+        shared_context: str = "",
     ) -> RenderedPrompt:
         ordered = self._order(context_blocks)
-        body = _render_body(task, ordered, dynamic_tail)
+        body = _render_body(task, ordered, dynamic_tail, shared_context)
 
         system_text = stable_system_prefix
         if agent_role and f"Role: {agent_role}" not in system_text:
@@ -140,17 +166,30 @@ def _render_body(
     task: AtlasTaskSpec,
     blocks: Sequence[ContextBlock],
     dynamic_tail: str | None,
+    shared_context: str = "",
 ) -> str:
-    parts: list[str] = [f"Task: {task.title}"]
+    """Render the user turn.
+
+    ``shared_context`` is the cross-task public text. When it is supplied it is emitted first, so
+    every worker of a profile shares that prefix before any task-specific text; the ``Task:`` title
+    therefore never interrupts the common prefix. With the default empty value the body is
+    byte-identical to the historical layout.
+    """
+
+    parts: list[str] = []
+    if shared_context:
+        parts.append(shared_context)
+    parts.append(f"Task: {task.title}")
     for block in blocks:
         if block.kind is ContextKind.TASK:
             parts.append(block.content)
         elif block.kind is ContextKind.DEPENDENCY_OUTPUT:
-            task_id = block.task_id or "unknown"
             parts.append(
-                f'<dependency task_id="{task_id}" version="{block.version}">\n'
-                f"{block.content}\n"
-                "</dependency>"
+                render_dependency_block(
+                    task_id=block.task_id or "unknown",
+                    version=block.version,
+                    content=block.content,
+                )
             )
     if dynamic_tail:
         parts.append(dynamic_tail)
