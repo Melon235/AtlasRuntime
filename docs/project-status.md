@@ -29,7 +29,12 @@ environment variables, historical run ids and Git history keep `atlasos` / `atla
 |---|---|
 | Final-0/1 consolidated candidate | `refactor/final-runtime-consolidation` = `16251d05c34cff41d280396a1647214914e51a31` |
 | Final-0/1 base | `fix/r1-2h-oracle-sandbox-isolation` = `facca984849c9821ec3bdc1df2eb6ee20bca757b` (confirmed ancestor) |
-| Current stage branch | `chore/final-1-5-repository-baseline` (this worktree) |
+| Current stage branch | `feat/final-closure` (this worktree), cut from `76a4275` |
+| Closure base (`CLOSURE_BASE_SHA`) | `76a427541617c1ff4993ef3ad3947639f802b6d8` (G0); `git diff 93cbd98..76a4275 -- src` is empty |
+| Closure roadmap | `docs/final-closure-roadmap.md` — the only forward plan from now on |
+| C1-0 | `43fefdf` — closure roadmap frozen, Placement Slot route archived |
+| C1-A | effective prompt layout correction — `docs/closure-1a-prompt-layout.md` |
+| Paused research branch | `feat/placement-coding-integration` = `0252bdb` (G1) — retained, never merged |
 | Final-1.5 baseline (`BASE_SHA` of that stage) | `16251d05c34cff41d280396a1647214914e51a31` |
 | Final-1.6 ported fix | `1b4f6be` = cherry-pick of `18e523c` (coding-session outcome attribution, 2 files) |
 | Final-3 integrated runtime | `93cbd98` — Context Plane wired into the coding compositions (opt-in), shared budget in app coding, failure/token semantics fixed |
@@ -161,6 +166,7 @@ users would expect. `NOT_VALIDATED` = implemented, no live evidence.
 | Mechanism | Status | Where it is actually wired |
 |---|---|---|
 | Context selector + stable renderer | DEFAULT_ACTIVE / ACTIVE_OPTIONAL | workflow path always; coding + evaluation paths only with `context.policy="task_scoped"` (Final-3); exercised live on 2026-11-14 (Final-4) |
+| Effective prompt layout (`context.prompt_layout`) | OPTIONAL, default `legacy` | evaluation path only (`shared_prefix`); deterministic comparison in Closure-1A, **no live run has used it** |
 | ContextPilot dedup transform | OPTIONAL / RETAINED_RESEARCH | workflow path, requires `contextpilot` extra |
 | Context-locality placement | OPTIONAL / RETAINED_RESEARCH | workflow path, `placement.policy` |
 | Tool search + progressive disclosure | DEFAULT_ACTIVE / NOT_WIRED_IN_ALL_PATHS | coding + evaluation paths |
@@ -233,7 +239,10 @@ was re-measured after the Final-1.6 port: 891 passed / 6 skipped / 1 deselected
    (3 workers, oracle PASS). The other two cells took `DIRECT`, which is the correct decision there.
 7. Architecture design contract and Context Plane restoration (Final-4 correction, `37eba87` /
    `2a2af55`) — `docs/final-4-context-restoration-report.md`.
-8. Demo, release and public packaging (Final-6).
+8. **Closure stage** — `docs/final-closure-roadmap.md`. C1-0 (roadmap frozen) and C1-A (effective
+   prompt layout) are done; C1-B (native neutral baseline), C1-C (historical metric consolidation),
+   Closure-2 (final benchmark and module evidence), Closure-3 (Web Workbench over the existing
+   backend) and Closure-4 (regression, documentation, packaging, version freeze) remain.
 
 Decisions owed by the project owner before Final-3 (from
 `docs/final-2-evaluation-design-report.md` §11): R-4/R-5 the minimal Context-Plane wiring plus

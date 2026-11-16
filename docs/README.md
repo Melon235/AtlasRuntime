@@ -51,6 +51,7 @@ results of the current branch unless the document says so.
 | [`final-4-evidence-closure-report.md`](final-4-evidence-closure-report.md) | Final-4 closure: router metadata fix and the real delegate run, request-content-verified context delivery, blocked native arm, degenerate disclosure ablation |
 | [`final-4-placement-core-integration-approval.md`](final-4-placement-core-integration-approval.md) | `PLACEMENT_CORE_INTEGRATION_APPROVAL_REQUIRED` — what a real pooled-worker integration would change, and the two options |
 | [`final-4-evidence-handoff.md`](final-4-evidence-handoff.md) | Final-4 handoff for independent review, including the G0 corrections to three earlier evidence claims |
+| [`closure-1a-prompt-layout.md`](closure-1a-prompt-layout.md) | Closure-1A: the duplicated task objective, the discarded Atlas system message, the resulting `shared_prefix` layout, its deterministic comparison, and what it does not measure |
 | [`placement-coding-integration-design.md`](placement-coding-integration-design.md) | **PAUSED RESEARCH** — `DESIGN_PROPOSED`, then G1 landed on `feat/placement-coding-integration` (`0252bdb`). Stopped by the closure decision; the proposal is archived, not withdrawn from the record |
 | [`research-history.md`](research-history.md) | Which branch/SHA holds which historical stage |
 

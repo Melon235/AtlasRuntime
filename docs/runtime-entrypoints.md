@@ -91,6 +91,7 @@ _resolve_workspace        requires the directory to be under experiments/fixture
 | Suspension / approval | yes — stores are configured, so `REQUIRE_HUMAN` becomes a durable suspension |
 | Checkpoint / resume | **none** — `OrchestratorConfig()` leaves `checkpoint=None`; no resume entry exists |
 | Verification / oracle | none |
+| Prompt layout | **legacy** (`context.prompt_layout` defaults to `legacy`): the worker system prompt carries the environment note and the task objective as untrusted JSON, and the same objective also travels in the user turn. Closure-1A added `shared_prefix` but did not enable it here |
 
 The UAT-shaped workspace requirement is real: `csv_parser.py` must exist. This is a demonstration
 path, not a general repository driver, and this stage did not change it.
@@ -192,6 +193,7 @@ concept. `NOT_VALIDATED` — present, no live evidence.
 |---|---|---|---|---|
 | Context selector (`TaskScopedSelector`) | ACTIVE_DEFAULT | ACTIVE_OPTIONAL (`context.policy="task_scoped"`, `app/coding.py::_build_context_plane`) | ACTIVE_OPTIONAL (same switch, `runner.py::_context_prompt_builder`; not enabled in the Final-4 pilot) | E2, S6 |
 | Stable renderer | ACTIVE_DEFAULT | ACTIVE_OPTIONAL (same switch) | ACTIVE_OPTIONAL (same switch) | S6 Table A |
+| Effective prompt layout (`context.prompt_layout`) | NOT_APPLICABLE (no worker factory) | NOT_WIRED (stays `legacy`) | ACTIVE_OPTIONAL (`shared_prefix`; requires `task_scoped` + `stable_deterministic` + `identity`) | Closure-1A deterministic comparison, `docs/closure-1a-prompt-layout.md`. **No live run has used it** |
 | ContextPilot dedup | ACTIVE_OPTIONAL | ACTIVE_OPTIONAL (requires `task_scoped` + `stable_deterministic`) | ACTIVE_OPTIONAL (same) | S6 Table B (no cache-miss win) |
 | Context-locality placement | ACTIVE_OPTIONAL (`placement.policy`) | NOT_WIRED (`bypass`; one task, nothing to place) | NOT_WIRED (`runner.py` constructs one worker per frozen step) | S6 Table C |
 | Tool search (`tool_search`) | NOT_APPLICABLE (agents have no tools) | ACTIVE_DEFAULT | ACTIVE_DEFAULT | M1: 2 599 → 1 399 tokens |

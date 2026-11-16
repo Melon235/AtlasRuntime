@@ -1,0 +1,749 @@
+{
+  "claims_not_made": [
+    "provider prompt-cache hit tokens",
+    "prompt-cache miss / prefill reduction",
+    "end-to-end latency",
+    "monetary cost",
+    "model task quality"
+  ],
+  "common_prefix_definition": "character-level common prefix of system_prompt + '\\n' + first user turn across two workers; a serialisation property, NOT a provider KV-cache prefix",
+  "kind": "deterministic_request_layout_ablation",
+  "model_calls": 0,
+  "stage": "closure-1a",
+  "tokenizer": {
+    "includes_chat_template": false,
+    "name": "tiktoken cl100k_base",
+    "scope": "JSON serialisation of the mapped API messages plus tool definitions; character-level estimate of input content, not provider-billed tokens",
+    "version": "0.14.0"
+  },
+  "workloads": {
+    "A": {
+      "arms": {
+        "legacy": {
+          "common_prefix_chars": {
+            "w1|w2": 1288
+          },
+          "common_prefix_min_chars": 1288,
+          "dependency_failures": [],
+          "layout": "legacy",
+          "measurement_scope": [
+            "w1",
+            "w2"
+          ],
+          "per_worker": {
+            "w1": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "system"
+              ],
+              "estimated_request_tokens": 2305,
+              "estimated_system_tokens": 456,
+              "estimated_user_tokens": 546,
+              "initial_user_turn_chars": 2167,
+              "objective_occurrences": {
+                "system": 1,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 9026,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1948,
+              "system_prompt_is_shared_with_same_profile": false,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            },
+            "w2": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "system"
+              ],
+              "estimated_request_tokens": 2287,
+              "estimated_system_tokens": 447,
+              "estimated_user_tokens": 537,
+              "initial_user_turn_chars": 2127,
+              "objective_occurrences": {
+                "system": 1,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 8946,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1908,
+              "system_prompt_is_shared_with_same_profile": false,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            }
+          },
+          "request_linkage_reason_codes": [],
+          "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
+          "system_prompt_hashes": {
+            "w1": "ebaa3b34c29abb508eecdd8d617f2d040fa504ab67ef4fb507302e777936875d",
+            "w2": "09a1946a5c336c61ab2e3436988eb47d265a477d09939727709be6ff687d630e"
+          },
+          "system_prompt_identical_across_workers": false,
+          "task_id": "validation-parallel",
+          "tool_count": 8,
+          "totals": {
+            "estimated_request_tokens": 4592,
+            "initial_user_turn_chars": 4294,
+            "objective_occurrences_in_system_total": 2,
+            "objective_occurrences_raw_in_system_total": 0,
+            "objective_occurrences_total": 4,
+            "request_chars": 17972,
+            "system_prompt_chars": 3856,
+            "tool_schema_chars": 9422
+          },
+          "workload": "A"
+        },
+        "shared_prefix": {
+          "common_prefix_chars": {
+            "w1|w2": 2780
+          },
+          "common_prefix_min_chars": 2780,
+          "dependency_failures": [],
+          "layout": "shared_prefix",
+          "measurement_scope": [
+            "w1",
+            "w2"
+          ],
+          "per_worker": {
+            "w1": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "user"
+              ],
+              "estimated_request_tokens": 2108,
+              "estimated_system_tokens": 243,
+              "estimated_user_tokens": 577,
+              "initial_user_turn_chars": 2321,
+              "objective_occurrences": {
+                "system": 0,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 8317,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1111,
+              "system_prompt_is_shared_with_same_profile": true,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            },
+            "w2": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "user"
+              ],
+              "estimated_request_tokens": 2099,
+              "estimated_system_tokens": 243,
+              "estimated_user_tokens": 568,
+              "initial_user_turn_chars": 2281,
+              "objective_occurrences": {
+                "system": 0,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 8277,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1111,
+              "system_prompt_is_shared_with_same_profile": true,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            }
+          },
+          "request_linkage_reason_codes": [],
+          "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
+          "system_prompt_hashes": {
+            "w1": "10eaff911e547ac819baacccb5d16ec0b89e94d27442f3993785f6b6396c4b3f",
+            "w2": "10eaff911e547ac819baacccb5d16ec0b89e94d27442f3993785f6b6396c4b3f"
+          },
+          "system_prompt_identical_across_workers": true,
+          "task_id": "validation-parallel",
+          "tool_count": 8,
+          "totals": {
+            "estimated_request_tokens": 4207,
+            "initial_user_turn_chars": 4602,
+            "objective_occurrences_in_system_total": 0,
+            "objective_occurrences_raw_in_system_total": 0,
+            "objective_occurrences_total": 2,
+            "request_chars": 16594,
+            "system_prompt_chars": 2222,
+            "tool_schema_chars": 9422
+          },
+          "workload": "A"
+        }
+      },
+      "comparison": {
+        "common_prefix_delta_chars": 1492,
+        "common_prefix_min_chars": {
+          "legacy": 1288,
+          "shared_prefix": 2780
+        },
+        "dependency_delivered_once_in_every_arm": true,
+        "duplicate_objective_in_system_removed": true,
+        "estimated_request_tokens": {
+          "legacy": 4592,
+          "shared_prefix": 4207
+        },
+        "initial_user_turn_chars": {
+          "legacy": 4294,
+          "shared_prefix": 4602
+        },
+        "objective_occurrences_in_system": {
+          "legacy": 2,
+          "shared_prefix": 0
+        },
+        "objective_still_present_in_request": true,
+        "public_block_retained_verbatim_in_every_arm": true,
+        "request_chars": {
+          "legacy": 17972,
+          "shared_prefix": 16594
+        },
+        "system_prompt_chars": {
+          "legacy": 3856,
+          "shared_prefix": 2222
+        },
+        "system_prompt_identical_across_workers": {
+          "legacy": false,
+          "shared_prefix": true
+        }
+      },
+      "definition": {
+        "kind": "same_profile_pair",
+        "task": "validation-parallel",
+        "workers": [
+          "w1",
+          "w2"
+        ]
+      }
+    },
+    "B": {
+      "arms": {
+        "legacy": {
+          "common_prefix_chars": {
+            "w1|w2": 1288
+          },
+          "common_prefix_min_chars": 1288,
+          "dependency_failures": [],
+          "layout": "legacy",
+          "measurement_scope": [
+            "w1",
+            "w2"
+          ],
+          "per_worker": {
+            "w1": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "system"
+              ],
+              "estimated_request_tokens": 2432,
+              "estimated_system_tokens": 472,
+              "estimated_user_tokens": 652,
+              "initial_user_turn_chars": 2626,
+              "objective_occurrences": {
+                "system": 1,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 9513,
+              "shared_public_block_chars": 1929,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1970,
+              "system_prompt_is_shared_with_same_profile": false,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            },
+            "w2": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [
+                "w1"
+              ],
+              "dependencies": {
+                "w1": {
+                  "count": 1,
+                  "structured_block_present": true
+                }
+              },
+              "environment_note_in": [
+                "system"
+              ],
+              "estimated_request_tokens": 2570,
+              "estimated_system_tokens": 529,
+              "estimated_user_tokens": 730,
+              "initial_user_turn_chars": 2955,
+              "objective_occurrences": {
+                "system": 1,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 10113,
+              "shared_public_block_chars": 1929,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 2233,
+              "system_prompt_is_shared_with_same_profile": false,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            }
+          },
+          "request_linkage_reason_codes": [],
+          "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
+          "system_prompt_hashes": {
+            "w1": "bbd820f87e6435c8d45752af27c87cb6820051f25261b05f74f52db02f08a24f",
+            "w2": "7602639396d07aea33cab74e8b5131897ccadfe8181fa87e815e8baaeb355808"
+          },
+          "system_prompt_identical_across_workers": false,
+          "task_id": "validation-serial",
+          "tool_count": 8,
+          "totals": {
+            "estimated_request_tokens": 5002,
+            "initial_user_turn_chars": 5581,
+            "objective_occurrences_in_system_total": 2,
+            "objective_occurrences_raw_in_system_total": 0,
+            "objective_occurrences_total": 4,
+            "request_chars": 19626,
+            "system_prompt_chars": 4203,
+            "tool_schema_chars": 9422
+          },
+          "workload": "B"
+        },
+        "shared_prefix": {
+          "common_prefix_chars": {
+            "w1|w2": 3222
+          },
+          "common_prefix_min_chars": 3222,
+          "dependency_failures": [],
+          "layout": "shared_prefix",
+          "measurement_scope": [
+            "w1",
+            "w2"
+          ],
+          "per_worker": {
+            "w1": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "user"
+              ],
+              "estimated_request_tokens": 2219,
+              "estimated_system_tokens": 243,
+              "estimated_user_tokens": 683,
+              "initial_user_turn_chars": 2780,
+              "objective_occurrences": {
+                "system": 0,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 8781,
+              "shared_public_block_chars": 1929,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1111,
+              "system_prompt_is_shared_with_same_profile": true,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            },
+            "w2": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [
+                "w1"
+              ],
+              "dependencies": {
+                "w1": {
+                  "count": 1,
+                  "structured_block_present": true
+                }
+              },
+              "environment_note_in": [
+                "user"
+              ],
+              "estimated_request_tokens": 2300,
+              "estimated_system_tokens": 243,
+              "estimated_user_tokens": 761,
+              "initial_user_turn_chars": 3109,
+              "objective_occurrences": {
+                "system": 0,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 9118,
+              "shared_public_block_chars": 1929,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1111,
+              "system_prompt_is_shared_with_same_profile": true,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            }
+          },
+          "request_linkage_reason_codes": [],
+          "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
+          "system_prompt_hashes": {
+            "w1": "10eaff911e547ac819baacccb5d16ec0b89e94d27442f3993785f6b6396c4b3f",
+            "w2": "10eaff911e547ac819baacccb5d16ec0b89e94d27442f3993785f6b6396c4b3f"
+          },
+          "system_prompt_identical_across_workers": true,
+          "task_id": "validation-serial",
+          "tool_count": 8,
+          "totals": {
+            "estimated_request_tokens": 4519,
+            "initial_user_turn_chars": 5889,
+            "objective_occurrences_in_system_total": 0,
+            "objective_occurrences_raw_in_system_total": 0,
+            "objective_occurrences_total": 2,
+            "request_chars": 17899,
+            "system_prompt_chars": 2222,
+            "tool_schema_chars": 9422
+          },
+          "workload": "B"
+        }
+      },
+      "comparison": {
+        "common_prefix_delta_chars": 1934,
+        "common_prefix_min_chars": {
+          "legacy": 1288,
+          "shared_prefix": 3222
+        },
+        "dependency_delivered_once_in_every_arm": true,
+        "duplicate_objective_in_system_removed": true,
+        "estimated_request_tokens": {
+          "legacy": 5002,
+          "shared_prefix": 4519
+        },
+        "initial_user_turn_chars": {
+          "legacy": 5581,
+          "shared_prefix": 5889
+        },
+        "objective_occurrences_in_system": {
+          "legacy": 2,
+          "shared_prefix": 0
+        },
+        "objective_still_present_in_request": true,
+        "public_block_retained_verbatim_in_every_arm": true,
+        "request_chars": {
+          "legacy": 19626,
+          "shared_prefix": 17899
+        },
+        "system_prompt_chars": {
+          "legacy": 4203,
+          "shared_prefix": 2222
+        },
+        "system_prompt_identical_across_workers": {
+          "legacy": false,
+          "shared_prefix": true
+        }
+      },
+      "definition": {
+        "kind": "serial_dependency",
+        "task": "validation-serial",
+        "workers": [
+          "w1",
+          "w2"
+        ]
+      }
+    },
+    "C": {
+      "arms": {
+        "legacy": {
+          "common_prefix_chars": {
+            "w1|w2": 1288,
+            "w1|w3": 1288,
+            "w2|w3": 1288
+          },
+          "common_prefix_min_chars": 1288,
+          "dependency_failures": [],
+          "layout": "legacy",
+          "measurement_scope": [
+            "w1",
+            "w2",
+            "w3"
+          ],
+          "per_worker": {
+            "w1": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "system"
+              ],
+              "estimated_request_tokens": 2305,
+              "estimated_system_tokens": 456,
+              "estimated_user_tokens": 546,
+              "initial_user_turn_chars": 2167,
+              "objective_occurrences": {
+                "system": 1,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 9026,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1948,
+              "system_prompt_is_shared_with_same_profile": false,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            },
+            "w2": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "system"
+              ],
+              "estimated_request_tokens": 2287,
+              "estimated_system_tokens": 447,
+              "estimated_user_tokens": 537,
+              "initial_user_turn_chars": 2127,
+              "objective_occurrences": {
+                "system": 1,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 8946,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1908,
+              "system_prompt_is_shared_with_same_profile": false,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            },
+            "w3": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [
+                "w1",
+                "w2"
+              ],
+              "dependencies": {
+                "w1": {
+                  "count": 1,
+                  "structured_block_present": true
+                },
+                "w2": {
+                  "count": 1,
+                  "structured_block_present": true
+                }
+              },
+              "environment_note_in": [
+                "system"
+              ],
+              "estimated_request_tokens": 2415,
+              "estimated_system_tokens": 487,
+              "estimated_user_tokens": 619,
+              "initial_user_turn_chars": 2415,
+              "objective_occurrences": {
+                "system": 1,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 9406,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 2064,
+              "system_prompt_is_shared_with_same_profile": false,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            }
+          },
+          "request_linkage_reason_codes": [],
+          "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
+          "system_prompt_hashes": {
+            "w1": "ebaa3b34c29abb508eecdd8d617f2d040fa504ab67ef4fb507302e777936875d",
+            "w2": "09a1946a5c336c61ab2e3436988eb47d265a477d09939727709be6ff687d630e",
+            "w3": "5e66a6964ccf539b7cee5bcb1ac0f2c3b0ae21d623bb20454a04d61779cec520"
+          },
+          "system_prompt_identical_across_workers": false,
+          "task_id": "validation-parallel",
+          "tool_count": 8,
+          "totals": {
+            "estimated_request_tokens": 7007,
+            "initial_user_turn_chars": 6709,
+            "objective_occurrences_in_system_total": 3,
+            "objective_occurrences_raw_in_system_total": 0,
+            "objective_occurrences_total": 6,
+            "request_chars": 27378,
+            "system_prompt_chars": 5920,
+            "tool_schema_chars": 14133
+          },
+          "workload": "C"
+        },
+        "shared_prefix": {
+          "common_prefix_chars": {
+            "w1|w2": 2780,
+            "w1|w3": 2780,
+            "w2|w3": 2780
+          },
+          "common_prefix_min_chars": 2780,
+          "dependency_failures": [],
+          "layout": "shared_prefix",
+          "measurement_scope": [
+            "w1",
+            "w2",
+            "w3"
+          ],
+          "per_worker": {
+            "w1": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "user"
+              ],
+              "estimated_request_tokens": 2108,
+              "estimated_system_tokens": 243,
+              "estimated_user_tokens": 577,
+              "initial_user_turn_chars": 2321,
+              "objective_occurrences": {
+                "system": 0,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 8317,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1111,
+              "system_prompt_is_shared_with_same_profile": true,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            },
+            "w2": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [],
+              "dependencies": {},
+              "environment_note_in": [
+                "user"
+              ],
+              "estimated_request_tokens": 2099,
+              "estimated_system_tokens": 243,
+              "estimated_user_tokens": 568,
+              "initial_user_turn_chars": 2281,
+              "objective_occurrences": {
+                "system": 0,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 8277,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1111,
+              "system_prompt_is_shared_with_same_profile": true,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            },
+            "w3": {
+              "all_declared_dependencies_present_once": true,
+              "declared_dependencies": [
+                "w1",
+                "w2"
+              ],
+              "dependencies": {
+                "w1": {
+                  "count": 1,
+                  "structured_block_present": true
+                },
+                "w2": {
+                  "count": 1,
+                  "structured_block_present": true
+                }
+              },
+              "environment_note_in": [
+                "user"
+              ],
+              "estimated_request_tokens": 2187,
+              "estimated_system_tokens": 243,
+              "estimated_user_tokens": 650,
+              "initial_user_turn_chars": 2569,
+              "objective_occurrences": {
+                "system": 0,
+                "system_raw": 0,
+                "user": 1
+              },
+              "request_chars": 8581,
+              "shared_public_block_chars": 1485,
+              "shared_public_block_retained_verbatim": true,
+              "system_prompt_chars": 1111,
+              "system_prompt_is_shared_with_same_profile": true,
+              "tool_schema_chars": 4711,
+              "unrelated_dependency_leaked": false
+            }
+          },
+          "request_linkage_reason_codes": [],
+          "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
+          "system_prompt_hashes": {
+            "w1": "10eaff911e547ac819baacccb5d16ec0b89e94d27442f3993785f6b6396c4b3f",
+            "w2": "10eaff911e547ac819baacccb5d16ec0b89e94d27442f3993785f6b6396c4b3f",
+            "w3": "10eaff911e547ac819baacccb5d16ec0b89e94d27442f3993785f6b6396c4b3f"
+          },
+          "system_prompt_identical_across_workers": true,
+          "task_id": "validation-parallel",
+          "tool_count": 8,
+          "totals": {
+            "estimated_request_tokens": 6394,
+            "initial_user_turn_chars": 7171,
+            "objective_occurrences_in_system_total": 0,
+            "objective_occurrences_raw_in_system_total": 0,
+            "objective_occurrences_total": 3,
+            "request_chars": 25175,
+            "system_prompt_chars": 3333,
+            "tool_schema_chars": 14133
+          },
+          "workload": "C"
+        }
+      },
+      "comparison": {
+        "common_prefix_delta_chars": 1492,
+        "common_prefix_min_chars": {
+          "legacy": 1288,
+          "shared_prefix": 2780
+        },
+        "dependency_delivered_once_in_every_arm": true,
+        "duplicate_objective_in_system_removed": true,
+        "estimated_request_tokens": {
+          "legacy": 7007,
+          "shared_prefix": 6394
+        },
+        "initial_user_turn_chars": {
+          "legacy": 6709,
+          "shared_prefix": 7171
+        },
+        "objective_occurrences_in_system": {
+          "legacy": 3,
+          "shared_prefix": 0
+        },
+        "objective_still_present_in_request": true,
+        "public_block_retained_verbatim_in_every_arm": true,
+        "request_chars": {
+          "legacy": 27378,
+          "shared_prefix": 25175
+        },
+        "system_prompt_chars": {
+          "legacy": 5920,
+          "shared_prefix": 3333
+        },
+        "system_prompt_identical_across_workers": {
+          "legacy": false,
+          "shared_prefix": true
+        }
+      },
+      "definition": {
+        "kind": "join",
+        "task": "validation-parallel",
+        "workers": [
+          "w1",
+          "w2",
+          "w3"
+        ]
+      }
+    }
+  }
+}
