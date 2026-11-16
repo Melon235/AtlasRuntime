@@ -111,6 +111,13 @@ class ContextConfig(BaseModel):
                 "renderer='stable_deterministic'; a layout cannot be shared over a context "
                 "plane that is not rendering the task prompt"
             )
+        if self.prompt_layout != "legacy" and self.transform.name != "identity":
+            raise ValueError(
+                "context.prompt_layout='shared_prefix' is only validated with "
+                f"context.transform='identity', got {self.transform.name!r}; the interaction "
+                "between a block-rewriting transform and the shared public block has no "
+                "evidence, so it is refused rather than assumed"
+            )
         return self
 
 

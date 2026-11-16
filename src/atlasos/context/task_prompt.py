@@ -92,6 +92,15 @@ class AtlasTaskPromptBuilder:
         self._agents_by_name = dict(agents_by_name)
         self._recovered_task_ids = recovered_task_ids
         self._prompt_layout = PromptLayout(prompt_layout)
+        if self._prompt_layout is PromptLayout.SHARED_PREFIX and transform.name != "identity":
+            # Fail closed at the one choke point every composer goes through. A block-rewriting
+            # transform in front of a shared public block has no evidence behind it, and silently
+            # rendering legacy instead would make a configuration record describe a request that
+            # was never sent.
+            raise ValueError(
+                "prompt_layout='shared_prefix' is only supported with the identity context "
+                f"transform; got transform={transform.name!r}"
+            )
         self._last: dict[str, TaskPromptRender] = {}
 
     # -- observation ---------------------------------------------------------------

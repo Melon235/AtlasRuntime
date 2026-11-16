@@ -45,6 +45,7 @@ from experiments.evaluation.final4.validation_tasks import Task
 from experiments.evaluation.runner import (
     PROMPT_LAYOUT_LEGACY,
     PROMPT_LAYOUT_SHARED_PREFIX,
+    ModelRecordingAdapter,
     _context_evidence,
     _context_prompt_builder,
     _environment_note,
@@ -85,14 +86,13 @@ CAPTURED: dict[str, list[dict[str, Any]]] = {}
 
 
 class _RecordingFake(FakeAdapter):
-    def __init__(self, reply: str, sink: list[dict[str, Any]], evidence: _RequestEvidence) -> None:
+    """The provider. It answers, and records what it was asked; evidence is the wrapper's job."""
+
+    def __init__(self, reply: str, sink: list[dict[str, Any]]) -> None:
         super().__init__(responses=[FakeResponse(text=reply)])
         self._sink = sink
-        self._evidence = evidence
 
     async def chat(self, messages: list[LLMMessage], options: LLMChatOptions):  # type: ignore[override]
-        # Same observation point as the production wrapper: the outgoing message list.
-        self._evidence.observe(messages, options)
         self._sink.append(
             {
                 "messages": list(messages),
@@ -103,9 +103,12 @@ class _RecordingFake(FakeAdapter):
         return await super().chat(messages, options)
 
 
-def _register(provider: str, reply: str, evidence: _RequestEvidence) -> None:
-    async def factory(**_: Any) -> FakeAdapter:
-        return _RecordingFake(reply, CAPTURED.setdefault(provider, []), evidence)
+def _register(provider: str, reply: str, evidence: _RequestEvidence, models: list[str]) -> None:
+    async def factory(**_: Any) -> Any:
+        # The real wrapper: it observes at issue time, marks completion and attaches usage, so the
+        # arm is measured on the same evidence path a live run would use.
+        inner = _RecordingFake(reply, CAPTURED.setdefault(provider, []))
+        return ModelRecordingAdapter(inner, models, evidence)
 
     register_provider_factory(provider, factory)
 
@@ -166,11 +169,12 @@ async def run_arm(workload: str, layout: str, *, workdir: Path) -> dict[str, Any
         )
 
     evidence = _RequestEvidence()
+    models: list[str] = []
     _ARM_SEQ[0] += 1
     prefix = f"c1a-{_ARM_SEQ[0]}"
     for step in entry.workers:
         provider = f"{prefix}-{step.task_id}"
-        _register(provider, f"RESULT-OF-{step.task_id}", evidence)
+        _register(provider, f"RESULT-OF-{step.task_id}", evidence, models)
         workers[step.task_id] = workers[step.task_id].model_copy(
             update={
                 "agent_config": workers[step.task_id].agent_config.model_copy(
@@ -237,9 +241,13 @@ async def run_arm(workload: str, layout: str, *, workdir: Path) -> dict[str, Any
         raise SystemExit(f"arm {workload}/{layout} did not complete")
 
     requests: dict[str, dict[str, Any]] = {}
+    responses_observed = 0
     for step in entry.workers:
         captured = CAPTURED[f"{prefix}-{step.task_id}"]
         requests[step.task_id] = captured[0]
+        # The fake provider answers once per call, so this is an independent response-side count of
+        # the same calls the request wrapper observed at issue time.
+        responses_observed += len(captured)
 
     return {
         "workload": workload,
@@ -258,6 +266,7 @@ async def run_arm(workload: str, layout: str, *, workdir: Path) -> dict[str, Any
             observations=[],
             request_records=evidence.records,
             workers=workers,
+            responses_observed=responses_observed,
         ),
         "profile_system_prompt": workers[
             entry.workers[0].task_id
@@ -286,22 +295,19 @@ class _StubCompletions:
         )
 
 
-async def _mapped_kwargs(request: dict[str, Any], tools: list[Any]) -> dict[str, Any]:
-    """Run the real adapter over a captured request and return the kwargs it would send."""
+async def _mapped_kwargs(request: dict[str, Any]) -> dict[str, Any]:
+    """Run the real adapter over a captured request and return the kwargs it would send.
+
+    The captured ``options`` object is passed through untouched, so the tool definitions measured
+    here are the ones the runtime actually handed to the provider, not a rebuild from another
+    registry that could silently differ.
+    """
 
     completions = _StubCompletions()
     adapter = DeepSeekAdapter(
         client=SimpleNamespace(chat=SimpleNamespace(completions=completions)), model="deepseek-chat"
     )
-    options = SimpleNamespace(
-        model="deepseek-chat",
-        system_prompt=request["system_prompt"],
-        tools=tools,
-        max_tokens=None,
-        temperature=None,
-        reasoning_effort=None,
-    )
-    await adapter.chat(request["messages"], options)
+    await adapter.chat(request["messages"], request["options"])
     assert completions.kwargs is not None
     return completions.kwargs
 
@@ -343,7 +349,6 @@ async def measure(workload: str, layout: str, *, workdir: Path, encoder: Any) ->
     arm = await run_arm(workload, layout, workdir=workdir)
     entry = arm["entry"]
     source: Task = arm["source"]
-    tools = arm["tool_runtime_tools"]
     # The DAG always runs whole; the *measurement scope* is the workload's declared workers. That
     # is what separates workload A (the independent pair) from workload C (the pair plus its join).
     scope = set(WORKLOADS[workload]["workers"])
@@ -353,13 +358,7 @@ async def measure(workload: str, layout: str, *, workdir: Path, encoder: Any) ->
     rendered_prompts: dict[str, str] = {}
     for step in steps:
         request = arm["requests"][step.task_id]
-        runtime = _tool_runtime(workdir / workload / layout)  # same registry, same schemas
-        defs = [
-            definition
-            for definition in runtime.registry.to_tool_defs()
-            if definition.name in set(tools)
-        ]
-        kwargs = await _mapped_kwargs(request, defs)
+        kwargs = await _mapped_kwargs(request)
         texts = _message_texts(kwargs)
         system_text = texts[0] if texts else ""
         initial_user = texts[1] if len(texts) > 1 else ""
@@ -441,12 +440,14 @@ async def measure(workload: str, layout: str, *, workdir: Path, encoder: Any) ->
     }
 
     linkage = arm["context_evidence"]["request_linkage"]
+    captured_options = arm["requests"][steps[0].task_id]["options"]
     return {
         "workload": workload,
         "layout": layout,
         "task_id": entry.sample_id,
         "measurement_scope": sorted(scope),
-        "tool_count": len(tools),
+        "tool_count": len(getattr(captured_options, "tools", ()) or ()),
+        "tool_definitions_source": "options.tools as captured at the adapter boundary",
         "system_prompt_identical_across_workers": shared_system,
         "system_prompt_hashes": profile_hashes,
         "common_prefix_chars": common,
@@ -475,6 +476,7 @@ async def measure(workload: str, layout: str, *, workdir: Path, encoder: Any) ->
         "per_worker": per_worker,
         "request_linkage_status": linkage["status"],
         "request_linkage_reason_codes": linkage.get("reason_codes"),
+        "request_coverage": linkage.get("coverage"),
         "dependency_failures": linkage.get("dependency_failures"),
     }
 
@@ -519,6 +521,14 @@ def _compare(arms: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "dependency_delivered_once_in_every_arm": all(
             arms[layout]["request_linkage_status"] == "REQUEST_CONTENT_VERIFIED" for layout in arms
         ),
+        "request_linkage": {
+            layout: {
+                "status": arms[layout]["request_linkage_status"],
+                "reason_codes": arms[layout]["request_linkage_reason_codes"],
+                "coverage": arms[layout]["request_coverage"],
+            }
+            for layout in arms
+        },
         "system_prompt_chars": {
             layout: arms[layout]["totals"]["system_prompt_chars"] for layout in arms
         },
@@ -544,7 +554,12 @@ async def _main() -> dict[str, Any]:
     try:
         results: dict[str, Any] = {
             "stage": "closure-1a",
-            "kind": "deterministic_request_layout_ablation",
+            "kind": "initial_request_layout_comparison",
+            "scope_note": (
+                "compares the FIRST request of each worker in one DAG run: system prompt, first "
+                "user turn and the tool definitions handed to the adapter. It is not a "
+                "multi-turn run measurement and it is not a provider cache measurement."
+            ),
             "model_calls": 0,
             "tokenizer": {
                 "name": TOKENIZER_NAME,
@@ -556,8 +571,14 @@ async def _main() -> dict[str, Any]:
                 "includes_chat_template": False,
             },
             "common_prefix_definition": (
-                "character-level common prefix of system_prompt + '\\n' + first user turn across "
-                "two workers; a serialisation property, NOT a provider KV-cache prefix"
+                "character-level longest common prefix of system_prompt + '\\n' + first user turn "
+                "across two workers; a serialisation property, NOT a provider KV-cache prefix and "
+                "NOT a whole-run token reduction"
+            ),
+            "usage_note": (
+                "AnyCode TokenUsage is a normalized usage object. When the provider does not report "
+                "the cache split, its cache-miss field is AnyCode's fallback, not an observed zero; "
+                "no cache conclusion may be drawn from it here"
             ),
             "workloads": {},
             "claims_not_made": [
@@ -566,6 +587,7 @@ async def _main() -> dict[str, Any]:
                 "end-to-end latency",
                 "monetary cost",
                 "model task quality",
+                "whole-run token reduction across all turns",
             ],
         }
         for workload in WORKLOADS:

@@ -4,11 +4,13 @@
     "prompt-cache miss / prefill reduction",
     "end-to-end latency",
     "monetary cost",
-    "model task quality"
+    "model task quality",
+    "whole-run token reduction across all turns"
   ],
-  "common_prefix_definition": "character-level common prefix of system_prompt + '\\n' + first user turn across two workers; a serialisation property, NOT a provider KV-cache prefix",
-  "kind": "deterministic_request_layout_ablation",
+  "common_prefix_definition": "character-level longest common prefix of system_prompt + '\\n' + first user turn across two workers; a serialisation property, NOT a provider KV-cache prefix and NOT a whole-run token reduction",
+  "kind": "initial_request_layout_comparison",
   "model_calls": 0,
+  "scope_note": "compares the FIRST request of each worker in one DAG run: system prompt, first user turn and the tool definitions handed to the adapter. It is not a multi-turn run measurement and it is not a provider cache measurement.",
   "stage": "closure-1a",
   "tokenizer": {
     "includes_chat_template": false,
@@ -16,6 +18,7 @@
     "scope": "JSON serialisation of the mapped API messages plus tool definitions; character-level estimate of input content, not provider-billed tokens",
     "version": "0.14.0"
   },
+  "usage_note": "AnyCode TokenUsage is a normalized usage object. When the provider does not report the cache split, its cache-miss field is AnyCode's fallback, not an observed zero; no cache conclusion may be drawn from it here",
   "workloads": {
     "A": {
       "arms": {
@@ -80,6 +83,19 @@
               "unrelated_dependency_leaked": false
             }
           },
+          "request_coverage": {
+            "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+            "reconciled": true,
+            "requests_cancelled": 0,
+            "requests_completed": 3,
+            "requests_failed": 0,
+            "requests_observed": 3,
+            "requests_unfinished": 0,
+            "responses_observed_by_adapter": 3,
+            "status": "RECONCILED",
+            "task_coverage": "COMPLETE",
+            "usage_coverage": "3/3 completed requests carry usage"
+          },
           "request_linkage_reason_codes": [],
           "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
           "system_prompt_hashes": {
@@ -89,6 +105,7 @@
           "system_prompt_identical_across_workers": false,
           "task_id": "validation-parallel",
           "tool_count": 8,
+          "tool_definitions_source": "options.tools as captured at the adapter boundary",
           "totals": {
             "estimated_request_tokens": 4592,
             "initial_user_turn_chars": 4294,
@@ -162,6 +179,19 @@
               "unrelated_dependency_leaked": false
             }
           },
+          "request_coverage": {
+            "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+            "reconciled": true,
+            "requests_cancelled": 0,
+            "requests_completed": 3,
+            "requests_failed": 0,
+            "requests_observed": 3,
+            "requests_unfinished": 0,
+            "responses_observed_by_adapter": 3,
+            "status": "RECONCILED",
+            "task_coverage": "COMPLETE",
+            "usage_coverage": "3/3 completed requests carry usage"
+          },
           "request_linkage_reason_codes": [],
           "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
           "system_prompt_hashes": {
@@ -171,6 +201,7 @@
           "system_prompt_identical_across_workers": true,
           "task_id": "validation-parallel",
           "tool_count": 8,
+          "tool_definitions_source": "options.tools as captured at the adapter boundary",
           "totals": {
             "estimated_request_tokens": 4207,
             "initial_user_turn_chars": 4602,
@@ -209,6 +240,42 @@
         "request_chars": {
           "legacy": 17972,
           "shared_prefix": 16594
+        },
+        "request_linkage": {
+          "legacy": {
+            "coverage": {
+              "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+              "reconciled": true,
+              "requests_cancelled": 0,
+              "requests_completed": 3,
+              "requests_failed": 0,
+              "requests_observed": 3,
+              "requests_unfinished": 0,
+              "responses_observed_by_adapter": 3,
+              "status": "RECONCILED",
+              "task_coverage": "COMPLETE",
+              "usage_coverage": "3/3 completed requests carry usage"
+            },
+            "reason_codes": [],
+            "status": "REQUEST_CONTENT_VERIFIED"
+          },
+          "shared_prefix": {
+            "coverage": {
+              "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+              "reconciled": true,
+              "requests_cancelled": 0,
+              "requests_completed": 3,
+              "requests_failed": 0,
+              "requests_observed": 3,
+              "requests_unfinished": 0,
+              "responses_observed_by_adapter": 3,
+              "status": "RECONCILED",
+              "task_coverage": "COMPLETE",
+              "usage_coverage": "3/3 completed requests carry usage"
+            },
+            "reason_codes": [],
+            "status": "REQUEST_CONTENT_VERIFIED"
+          }
         },
         "system_prompt_chars": {
           "legacy": 3856,
@@ -298,6 +365,19 @@
               "unrelated_dependency_leaked": false
             }
           },
+          "request_coverage": {
+            "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+            "reconciled": true,
+            "requests_cancelled": 0,
+            "requests_completed": 2,
+            "requests_failed": 0,
+            "requests_observed": 2,
+            "requests_unfinished": 0,
+            "responses_observed_by_adapter": 2,
+            "status": "RECONCILED",
+            "task_coverage": "COMPLETE",
+            "usage_coverage": "2/2 completed requests carry usage"
+          },
           "request_linkage_reason_codes": [],
           "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
           "system_prompt_hashes": {
@@ -307,6 +387,7 @@
           "system_prompt_identical_across_workers": false,
           "task_id": "validation-serial",
           "tool_count": 8,
+          "tool_definitions_source": "options.tools as captured at the adapter boundary",
           "totals": {
             "estimated_request_tokens": 5002,
             "initial_user_turn_chars": 5581,
@@ -387,6 +468,19 @@
               "unrelated_dependency_leaked": false
             }
           },
+          "request_coverage": {
+            "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+            "reconciled": true,
+            "requests_cancelled": 0,
+            "requests_completed": 2,
+            "requests_failed": 0,
+            "requests_observed": 2,
+            "requests_unfinished": 0,
+            "responses_observed_by_adapter": 2,
+            "status": "RECONCILED",
+            "task_coverage": "COMPLETE",
+            "usage_coverage": "2/2 completed requests carry usage"
+          },
           "request_linkage_reason_codes": [],
           "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
           "system_prompt_hashes": {
@@ -396,6 +490,7 @@
           "system_prompt_identical_across_workers": true,
           "task_id": "validation-serial",
           "tool_count": 8,
+          "tool_definitions_source": "options.tools as captured at the adapter boundary",
           "totals": {
             "estimated_request_tokens": 4519,
             "initial_user_turn_chars": 5889,
@@ -434,6 +529,42 @@
         "request_chars": {
           "legacy": 19626,
           "shared_prefix": 17899
+        },
+        "request_linkage": {
+          "legacy": {
+            "coverage": {
+              "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+              "reconciled": true,
+              "requests_cancelled": 0,
+              "requests_completed": 2,
+              "requests_failed": 0,
+              "requests_observed": 2,
+              "requests_unfinished": 0,
+              "responses_observed_by_adapter": 2,
+              "status": "RECONCILED",
+              "task_coverage": "COMPLETE",
+              "usage_coverage": "2/2 completed requests carry usage"
+            },
+            "reason_codes": [],
+            "status": "REQUEST_CONTENT_VERIFIED"
+          },
+          "shared_prefix": {
+            "coverage": {
+              "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+              "reconciled": true,
+              "requests_cancelled": 0,
+              "requests_completed": 2,
+              "requests_failed": 0,
+              "requests_observed": 2,
+              "requests_unfinished": 0,
+              "responses_observed_by_adapter": 2,
+              "status": "RECONCILED",
+              "task_coverage": "COMPLETE",
+              "usage_coverage": "2/2 completed requests carry usage"
+            },
+            "reason_codes": [],
+            "status": "REQUEST_CONTENT_VERIFIED"
+          }
         },
         "system_prompt_chars": {
           "legacy": 4203,
@@ -555,6 +686,19 @@
               "unrelated_dependency_leaked": false
             }
           },
+          "request_coverage": {
+            "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+            "reconciled": true,
+            "requests_cancelled": 0,
+            "requests_completed": 3,
+            "requests_failed": 0,
+            "requests_observed": 3,
+            "requests_unfinished": 0,
+            "responses_observed_by_adapter": 3,
+            "status": "RECONCILED",
+            "task_coverage": "COMPLETE",
+            "usage_coverage": "3/3 completed requests carry usage"
+          },
           "request_linkage_reason_codes": [],
           "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
           "system_prompt_hashes": {
@@ -565,6 +709,7 @@
           "system_prompt_identical_across_workers": false,
           "task_id": "validation-parallel",
           "tool_count": 8,
+          "tool_definitions_source": "options.tools as captured at the adapter boundary",
           "totals": {
             "estimated_request_tokens": 7007,
             "initial_user_turn_chars": 6709,
@@ -677,6 +822,19 @@
               "unrelated_dependency_leaked": false
             }
           },
+          "request_coverage": {
+            "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+            "reconciled": true,
+            "requests_cancelled": 0,
+            "requests_completed": 3,
+            "requests_failed": 0,
+            "requests_observed": 3,
+            "requests_unfinished": 0,
+            "responses_observed_by_adapter": 3,
+            "status": "RECONCILED",
+            "task_coverage": "COMPLETE",
+            "usage_coverage": "3/3 completed requests carry usage"
+          },
           "request_linkage_reason_codes": [],
           "request_linkage_status": "REQUEST_CONTENT_VERIFIED",
           "system_prompt_hashes": {
@@ -687,6 +845,7 @@
           "system_prompt_identical_across_workers": true,
           "task_id": "validation-parallel",
           "tool_count": 8,
+          "tool_definitions_source": "options.tools as captured at the adapter boundary",
           "totals": {
             "estimated_request_tokens": 6394,
             "initial_user_turn_chars": 7171,
@@ -725,6 +884,42 @@
         "request_chars": {
           "legacy": 27378,
           "shared_prefix": 25175
+        },
+        "request_linkage": {
+          "legacy": {
+            "coverage": {
+              "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+              "reconciled": true,
+              "requests_cancelled": 0,
+              "requests_completed": 3,
+              "requests_failed": 0,
+              "requests_observed": 3,
+              "requests_unfinished": 0,
+              "responses_observed_by_adapter": 3,
+              "status": "RECONCILED",
+              "task_coverage": "COMPLETE",
+              "usage_coverage": "3/3 completed requests carry usage"
+            },
+            "reason_codes": [],
+            "status": "REQUEST_CONTENT_VERIFIED"
+          },
+          "shared_prefix": {
+            "coverage": {
+              "basis": "requests are counted when the wrapper issues them; responses are counted by the inner adapter per returned response. A request either produced a response, failed, or was abandoned, so observed == responses + failed + cancelled must hold",
+              "reconciled": true,
+              "requests_cancelled": 0,
+              "requests_completed": 3,
+              "requests_failed": 0,
+              "requests_observed": 3,
+              "requests_unfinished": 0,
+              "responses_observed_by_adapter": 3,
+              "status": "RECONCILED",
+              "task_coverage": "COMPLETE",
+              "usage_coverage": "3/3 completed requests carry usage"
+            },
+            "reason_codes": [],
+            "status": "REQUEST_CONTENT_VERIFIED"
+          }
         },
         "system_prompt_chars": {
           "legacy": 5920,

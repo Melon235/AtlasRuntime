@@ -19,7 +19,7 @@ from anycode import OrchestratorConfig, TaskSpec
 from anycode.identity.context import ExecutionContext
 from anycode.plugins.registry import register_provider_factory
 from anycode.providers.fake import FakeAdapter, FakeResponse
-from anycode.types import LLMChatOptions, LLMMessage, TeamConfig
+from anycode.types import LLMChatOptions, LLMMessage, TeamConfig, TextBlock
 from experiments.evaluation.final4 import runner_entry
 from experiments.evaluation.final4.validation_tasks import TASKS as VALIDATION_TASKS
 from experiments.evaluation.final4.validation_tasks import Task
@@ -27,6 +27,7 @@ from experiments.evaluation.runner import (
     PROMPT_LAYOUT_LEGACY,
     PROMPT_LAYOUT_SHARED_PREFIX,
     EvaluationEnvironmentError,
+    ModelRecordingAdapter,
     RunnerSettings,
     _context_evidence,
     _context_prompt_builder,
@@ -37,7 +38,7 @@ from experiments.evaluation.runner import (
     _task_turn_parts,
 )
 
-from atlasos.config import AtlasConfig, ContextConfig
+from atlasos.config import AtlasConfig, ContextConfig, ContextTransformConfig
 from atlasos.context import InMemoryContextStore
 from atlasos.context.renderer import render_dependency_block
 from atlasos.integrations.anycode_engine import AtlasContextEngine
@@ -59,27 +60,33 @@ _RUN_SEQ = [0]
 
 
 class _RecordingFake(FakeAdapter):
-    def __init__(self, reply: str, sink: list[dict[str, Any]], evidence: _RequestEvidence) -> None:
+    """The provider itself: it answers and records nothing about evidence.
+
+    Observation, completion and usage attachment are the production wrapper's job, so the test
+    exercises exactly the path a real run takes.
+    """
+
+    def __init__(self, reply: str, sink: list[dict[str, Any]]) -> None:
         super().__init__(responses=[FakeResponse(text=reply)])
         self._sink = sink
-        self._evidence = evidence
 
     async def chat(self, messages: list[LLMMessage], options: LLMChatOptions):  # type: ignore[override]
-        self._evidence.observe(messages, options)
         self._sink.append(
             {
                 "messages": list(messages),
                 "system_prompt": options.system_prompt or "",
                 "tools": tuple(getattr(options, "tools", ()) or ()),
+                "options": options,
                 "execution_context": options.execution_context,
             }
         )
         return await super().chat(messages, options)
 
 
-def _install(provider: str, reply: str, evidence: _RequestEvidence) -> None:
-    async def factory(**_: Any) -> FakeAdapter:
-        return _RecordingFake(reply, CAPTURED.setdefault(provider, []), evidence)
+def _install(provider: str, reply: str, evidence: _RequestEvidence, models: list[str]) -> None:
+    async def factory(**_: Any) -> Any:
+        inner = _RecordingFake(reply, CAPTURED.setdefault(provider, []))
+        return ModelRecordingAdapter(inner, models, evidence)
 
     register_provider_factory(provider, factory)
 
@@ -160,9 +167,10 @@ async def _run(task: Task, *, layout: str, tmp_path: Any) -> dict[str, Any]:
 
     _RUN_SEQ[0] += 1
     prefix = f"c1a-{_RUN_SEQ[0]}-{layout}-{task.task_id}"
+    models: list[str] = []
     for step in entry.workers:
         provider = f"{prefix}-{step.task_id}"
-        _install(provider, f"RESULT-OF-{step.task_id}", evidence)
+        _install(provider, f"RESULT-OF-{step.task_id}", evidence, models)
         # One provider per worker so the reply identifies the worker deterministically. Only the
         # provider name changes; the system prompt and the tool list stay exactly as created.
         workers[step.task_id] = workers[step.task_id].model_copy(
@@ -193,6 +201,7 @@ async def _run(task: Task, *, layout: str, tmp_path: Any) -> dict[str, Any]:
         await engine.close()
     assert result.success is True
 
+    captured = {key: list(value) for key, value in CAPTURED.items() if key.startswith(prefix)}
     evidence_payload = _context_evidence(
         builder=builder,
         store=store,
@@ -201,6 +210,8 @@ async def _run(task: Task, *, layout: str, tmp_path: Any) -> dict[str, Any]:
         observations=[],
         request_records=evidence.records,
         workers=workers,
+        # The inner adapter answers once per completed call: an independent response-side count.
+        responses_observed=sum(len(items) for items in captured.values()),
     )
     return {
         "entry": entry,
@@ -209,9 +220,10 @@ async def _run(task: Task, *, layout: str, tmp_path: Any) -> dict[str, Any]:
         "store": store,
         "evidence": evidence,
         "context_evidence": evidence_payload,
-        "captured": {key: list(value) for key, value in CAPTURED.items() if key.startswith(prefix)},
+        "captured": captured,
         "layout": layout,
         "provider_prefix": prefix,
+        "models": models,
     }
 
 
@@ -367,6 +379,7 @@ async def test_a_missing_task_is_reported_as_partial_not_verified(tmp_path: Any)
         harness["context_evidence"]["tasks"],
         [record for record in records if record not in producer_calls],
         harness["workers"],
+        responses_observed=len(records),
     )
     assert linkage["status"] == "REQUEST_CONTENT_PARTIAL"
     assert "TASK_NEVER_OBSERVED" in linkage["reason_codes"]
@@ -382,11 +395,15 @@ async def test_an_unidentified_request_prevents_a_full_verified_label(tmp_path: 
         record["trusted_worker_id"] = None
     # Content fallback still links the request to its render, but the identity is not trusted.
     linkage = _request_linkage(
-        harness["context_evidence"]["tasks"], records, {"w1": SimpleNamespace()}
+        harness["context_evidence"]["tasks"],
+        records,
+        {"w1": SimpleNamespace()},
+        responses_observed=len(records),
     )
     assert linkage["status"] == "REQUEST_CONTENT_PARTIAL"
     assert "IDENTITY_NOT_TRUSTED" in linkage["reason_codes"]
     assert linkage["requests_with_trusted_identity"] == 0
+    assert all(item["identity_status"] == "NO_TRUSTED_IDENTITY" for item in linkage["requests"])
 
 
 # -- the actual DeepSeek kwargs ---------------------------------------------------------------
@@ -561,3 +578,282 @@ def test_the_shipped_context_config_is_legacy() -> None:
     config = load_config(runner_entry.CONTEXT_CONFIG)
     assert config.context.prompt_layout == "legacy"
     assert RunnerSettings().prompt_layout == "legacy"
+
+
+def test_an_unknown_layout_name_is_refused_not_defaulted() -> None:
+    with pytest.raises(EvaluationEnvironmentError, match="unknown prompt_layout"):
+        _enforce_prompt_layout(
+            "compact",
+            config=_config(PROMPT_LAYOUT_LEGACY),
+            config_file=runner_entry.CONTEXT_CONFIG,
+        )
+
+
+def test_shared_prefix_is_refused_on_an_unvalidated_transform() -> None:
+    with pytest.raises(ValueError, match="identity"):
+        ContextConfig(
+            policy="task_scoped",
+            renderer="stable_deterministic",
+            prompt_layout="shared_prefix",
+            transform=ContextTransformConfig(name="contextpilot_dedup"),
+        )
+
+
+# -- counterexamples: what must never be reported as verified -----------------------------------
+
+
+def _linkage(
+    harness: dict[str, Any],
+    records: list[dict[str, Any]],
+    workers: Any = None,
+    *,
+    responses_observed: int | None = None,
+):
+    return _request_linkage(
+        harness["context_evidence"]["tasks"],
+        records,
+        harness["workers"] if workers is None else workers,
+        responses_observed=(len(records) if responses_observed is None else responses_observed),
+    )
+
+
+def _item(linkage: dict[str, Any], call_index: int) -> dict[str, Any]:
+    return next(item for item in linkage["requests"] if item["call_index"] == call_index)
+
+
+@pytest.mark.asyncio
+async def test_a_modified_user_prompt_is_rejected_with_correct_task_identity(
+    tmp_path: Any,
+) -> None:
+    harness = await _run(SERIAL, layout=PROMPT_LAYOUT_SHARED_PREFIX, tmp_path=tmp_path)
+    records = [dict(record) for record in harness["evidence"].records]
+    target = next(item for item in records if item["trusted_task_id"] == "run-1-w2")
+    target["first_message_digest"] = hashlib.sha256(b"A DIFFERENT USER TURN").hexdigest()
+
+    linkage = _linkage(harness, records)
+    assert linkage["status"] == "REQUEST_CONTENT_PARTIAL"
+    assert "REQUEST_CONTENT_MISMATCH" in linkage["reason_codes"]
+    assert linkage["task_prompt_mismatch_requests"] == [target["call_index"]]
+    # The identity was fine; only the content failed, which is exactly why both are checked.
+    assert all(item["identity_status"] == "TRUSTED" for item in linkage["requests"])
+    assert _item(linkage, target["call_index"])["content_status"] == "TASK_PROMPT_MISMATCH"
+
+
+@pytest.mark.asyncio
+async def test_a_modified_system_prompt_is_rejected(tmp_path: Any) -> None:
+    harness = await _run(SERIAL, layout=PROMPT_LAYOUT_SHARED_PREFIX, tmp_path=tmp_path)
+    records = [dict(record) for record in harness["evidence"].records]
+    target = next(item for item in records if item["trusted_task_id"] == "run-1-w1")
+    target["system_prompt_digest"] = hashlib.sha256(b"OTHER INSTRUCTIONS").hexdigest()
+
+    linkage = _linkage(harness, records)
+    assert linkage["status"] == "REQUEST_CONTENT_PARTIAL"
+    assert "SYSTEM_PROMPT_MISMATCH" in linkage["reason_codes"]
+    assert linkage["system_prompt_mismatch_requests"] == [target["call_index"]]
+    assert _item(linkage, target["call_index"])["content_status"] == "SYSTEM_PROMPT_MISMATCH"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("field", "key"),
+    [
+        ("worker_id", "trusted_worker_id"),
+        ("profile_id", "trusted_profile_id"),
+        ("run_id", "trusted_run_id"),
+    ],
+)
+async def test_any_identity_field_mismatch_drops_the_trusted_identity(
+    tmp_path: Any, field: str, key: str
+) -> None:
+    harness = await _run(SERIAL, layout=PROMPT_LAYOUT_SHARED_PREFIX, tmp_path=tmp_path)
+    records = [dict(record) for record in harness["evidence"].records]
+    target = next(item for item in records if item["trusted_task_id"] == "run-1-w1")
+    target[key] = f"not-the-{field}"
+
+    linkage = _linkage(harness, records)
+    assert linkage["status"] == "REQUEST_CONTENT_PARTIAL"
+    assert "IDENTITY_NOT_TRUSTED" in linkage["reason_codes"]
+    assert "IDENTITY_MISMATCH" in linkage["reason_codes"]
+    item = _item(linkage, target["call_index"])
+    assert item["identity_status"] == "IDENTITY_MISMATCH"
+    assert item["identity_mismatches"] == [field]
+    # The digest may still say which render this probably was, but that is diagnosis, not identity.
+    assert item["identity_source"] != "trusted_execution_context"
+    assert item["matched_worker_task_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_a_request_without_a_host_worker_record_is_not_trusted(tmp_path: Any) -> None:
+    harness = await _run(SERIAL, layout=PROMPT_LAYOUT_SHARED_PREFIX, tmp_path=tmp_path)
+    records = [dict(record) for record in harness["evidence"].records]
+
+    linkage = _linkage(harness, records, workers={})
+    assert linkage["status"] == "REQUEST_CONTENT_PARTIAL"
+    assert "IDENTITY_NOT_TRUSTED" in linkage["reason_codes"]
+    assert all(item["identity_status"] == "NO_HOST_WORKER_RECORD" for item in linkage["requests"])
+    assert linkage["requests_with_trusted_identity"] == 0
+
+
+@pytest.mark.asyncio
+async def test_an_extra_request_of_one_task_leaves_the_set_unreconciled(tmp_path: Any) -> None:
+    harness = await _run(SERIAL, layout=PROMPT_LAYOUT_SHARED_PREFIX, tmp_path=tmp_path)
+    records = [dict(record) for record in harness["evidence"].records]
+
+    # A second turn of the same task: same initial prompt, next request index.
+    second_turn = dict(records[-1])
+    second_turn["call_index"] = len(records)
+    second_turn["request_index"] = 1
+    with_second_turn = [*records, second_turn]
+
+    control = _linkage(harness, with_second_turn)
+    assert control["status"] == "REQUEST_CONTENT_VERIFIED"  # every request has an answer
+    assert control["coverage"]["status"] == "RECONCILED"
+
+    # Drop one of that task's two requests. The task is still observed, so task coverage alone
+    # would still look complete; the request set is what proves it is not.
+    dropped = [record for record in with_second_turn if record is not second_turn]
+    linkage = _linkage(harness, dropped, responses_observed=len(with_second_turn))
+    assert linkage["missing_task_ids"] == []
+    assert linkage["coverage"]["status"] == "UNRECONCILED"
+    assert "REQUEST_COVERAGE_UNVERIFIED" in linkage["reason_codes"]
+    assert linkage["status"] == "REQUEST_CONTENT_PARTIAL"
+
+
+@pytest.mark.asyncio
+async def test_a_consumer_request_without_the_probe_is_not_skipped(tmp_path: Any) -> None:
+    harness = await _run(SERIAL, layout=PROMPT_LAYOUT_SHARED_PREFIX, tmp_path=tmp_path)
+    records = [dict(record) for record in harness["evidence"].records]
+    consumer = next(item for item in records if item["trusted_task_id"] == "run-1-w2")
+    consumer["dependency_probes"] = {}
+
+    linkage = _linkage(harness, records)
+    assert "DEPENDENCY_NOT_FULLY_DELIVERED" in linkage["reason_codes"]
+    assert [failure["reason"] for failure in linkage["dependency_failures"]] == [
+        "NO_PROBE_ON_CONSUMER_REQUEST"
+    ]
+
+
+def test_an_empty_dependency_body_is_still_a_structured_block() -> None:
+    from atlasos.context import ContextBlock, ContextKind
+
+    store = InMemoryContextStore()
+    evidence = _RequestEvidence()
+    evidence.bind_store(store)
+    store.put(
+        ContextBlock(
+            block_id="task-output:w1",
+            kind=ContextKind.DEPENDENCY_OUTPUT,
+            version=1,
+            content="",
+            task_id="w1",
+        )
+    )
+    rendered = render_dependency_block(task_id="w1", version=1, content="")
+    index = evidence.observe(
+        [SimpleNamespace(role="user", content=[SimpleNamespace(text=rendered)])],
+        SimpleNamespace(system_prompt="S", tools=()),
+    )
+    evidence.mark_completed(index)
+    probe = evidence.records[0]["dependency_probes"]["task-output:w1"]
+    assert probe["present"] is True
+    assert probe["count"] == 1
+    assert probe["content_empty"] is True
+    # No body to match, so the content probe reports "nothing to compare" instead of a bogus True.
+    assert probe["content_present"] is None
+
+
+def test_a_dependency_quoted_in_the_history_is_not_a_second_injection() -> None:
+    from atlasos.context import ContextBlock, ContextKind
+
+    store = InMemoryContextStore()
+    evidence = _RequestEvidence()
+    evidence.bind_store(store)
+    store.put(
+        ContextBlock(
+            block_id="task-output:w1",
+            kind=ContextKind.DEPENDENCY_OUTPUT,
+            version=1,
+            content="RESULT-OF-w1",
+            task_id="w1",
+        )
+    )
+    block = render_dependency_block(task_id="w1", version=1, content="RESULT-OF-w1")
+    index = evidence.observe(
+        [
+            SimpleNamespace(role="user", content=[SimpleNamespace(text=block)]),
+            SimpleNamespace(role="assistant", content=[SimpleNamespace(text=f"quoting:\n{block}")]),
+        ],
+        SimpleNamespace(system_prompt="S", tools=()),
+    )
+    evidence.mark_completed(index)
+    probe = evidence.records[0]["dependency_probes"]["task-output:w1"]
+    assert probe["count"] == 1
+    assert probe["later_history_mentions"] == 1
+    assert probe["request_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_the_adapter_stream_path_is_observed_once_with_identity_and_usage() -> None:
+    from anycode.types import LLMChatOptions
+
+    from atlasos.actions.catalog import ActionCatalog
+    from atlasos.actions.policy import ActionPolicy
+    from atlasos.tools.runtime import AtlasToolRuntime
+
+    runtime = AtlasToolRuntime(
+        "c1a-adapter",
+        action_policy=ActionPolicy(name="c1a-adapter", default="DENY", rules=()),
+        action_catalog=ActionCatalog(),
+    )
+    tools = tuple(runtime.registry.to_tool_defs())[:2]
+    completions = _StubCompletions()
+    evidence = _RequestEvidence()
+    models: list[str] = []
+    adapter = ModelRecordingAdapter(
+        DeepSeekAdapter(
+            client=SimpleNamespace(chat=SimpleNamespace(completions=completions)),
+            model="deepseek-chat",
+        ),
+        models,
+        evidence,
+    )
+    options = LLMChatOptions(
+        model="deepseek-chat",
+        system_prompt="EFFECTIVE-SYSTEM",
+        tools=list(tools),
+        execution_context=ExecutionContext(
+            principal="user:evaluation",
+            tenant_scope="atlas-evaluation",
+            classification="internal",
+            attributes={
+                "task_id": "run-w1",
+                "worker_id": "run-w1",
+                "profile_id": "coding_worker",
+                "run_id": "run",
+            },
+        ),
+    )
+    messages = [LLMMessage(role="user", content=[TextBlock(text="TASK TURN")])]
+
+    stream = adapter.stream(messages, options)
+    assert evidence.records == []  # not consumed yet
+
+    async for _ in stream:
+        pass
+
+    assert completions.kwargs is not None
+    kwargs = completions.kwargs
+    assert kwargs["messages"][0] == {"role": "system", "content": "EFFECTIVE-SYSTEM"}
+    assert kwargs["messages"][1]["role"] == "user"
+    mapped = kwargs["tools"]
+    assert len(mapped) == len(tools)
+    names = [tool.name for tool in tools]
+    assert all(name in str(entry) for name, entry in zip(names, mapped, strict=True))
+    assert len(evidence.records) == 1  # stream → inner chat, counted once
+    record = evidence.records[0]
+    assert record["trusted_task_id"] == "run-w1"
+    assert record["trusted_run_id"] == "run"
+    assert record["status"] == "COMPLETED"
+    assert record["usage"] is not None
+    assert record["usage"]["prompt_tokens"] == 10
+    assert len(models) == 1

@@ -866,6 +866,15 @@ class AtlasRuntime:
         return result
 
     def _configure_context_mode(self, run_id: str) -> None:
+        if self._config.context.prompt_layout != "legacy":
+            # This entry point composes the prompt builder without a layout, so it can only ever
+            # render legacy bytes. Saying so is the difference between "unsupported" and "silently
+            # did something else than the configuration says".
+            raise ValueError(
+                "the workflow entry point implements context.prompt_layout='legacy' only; "
+                f"resolved {self._config.context.prompt_layout!r}, which is supported on the "
+                "coding-evaluation path only"
+            )
         if self._config.context.policy == "task_scoped":
             self._store = InMemoryContextStore()
             self._selector = TaskScopedSelector()

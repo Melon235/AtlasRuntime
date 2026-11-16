@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from anycode.identity.context import ExecutionContext
 from pydantic import ValidationError
 
 from atlasos.config import AtlasConfig, ContextConfig, ContextTransformConfig
-from atlasos.context import PromptLayout
+from atlasos.context import InMemoryContextStore, PromptLayout
 from atlasos.context.renderer import PromptLayout as RendererPromptLayout
 from atlasos.context.renderer import render_dependency_block
 from atlasos.workers import (
@@ -322,3 +323,53 @@ def test_unknown_prompt_layout_key_is_rejected() -> None:
             prompt_layout="compact",  # type: ignore[arg-type]
             transform=ContextTransformConfig(name="identity"),
         )
+
+
+def test_shared_prefix_is_refused_with_an_unvalidated_transform() -> None:
+    with pytest.raises(ValidationError, match="context.transform"):
+        ContextConfig(
+            policy="task_scoped",
+            renderer="stable_deterministic",
+            prompt_layout="shared_prefix",
+            transform=ContextTransformConfig(name="contextpilot_dedup"),
+        )
+
+
+def test_the_builder_refuses_a_shared_prefix_layout_it_cannot_guarantee() -> None:
+    from atlasos.context import TaskScopedSelector
+    from atlasos.context.renderer import StablePromptRenderer
+    from atlasos.context.task_prompt import AtlasTaskPromptBuilder
+    from atlasos.context.transform import ContextPilotDedupTransform, IdentityContextTransform
+
+    def _builder(transform: object, layout: str):
+        return AtlasTaskPromptBuilder(
+            store=InMemoryContextStore(),
+            selector=TaskScopedSelector(),
+            renderer=StablePromptRenderer(preserve_input_order=True),
+            transform=transform,  # type: ignore[arg-type]
+            specs_by_title={},
+            agents_by_name={},
+            prompt_layout=layout,
+        )
+
+    _builder(IdentityContextTransform(), "shared_prefix")
+    with pytest.raises(ValueError, match="identity context"):
+        _builder(ContextPilotDedupTransform(), "shared_prefix")
+    # Legacy is unaffected: the transform constraint is about the shared-prefix layout only.
+    _builder(ContextPilotDedupTransform(), "legacy")
+
+
+def test_the_coding_app_refuses_a_layout_it_does_not_implement() -> None:
+    from atlasos.app.coding import _build_context_plane
+
+    config = AtlasConfig(
+        context=ContextConfig(
+            policy="task_scoped",
+            renderer="stable_deterministic",
+            prompt_layout="shared_prefix",
+        )
+    )
+    spec = _spec("")
+    agent_config = SimpleNamespace(system_prompt="SYSTEM")
+    with pytest.raises(ValueError, match="coding app"):
+        _build_context_plane(config=config, spec=spec, agent_config=agent_config)

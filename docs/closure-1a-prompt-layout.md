@@ -7,10 +7,18 @@ reviewed result.
 |---|---|
 | `CLOSURE_BASE_SHA` | `76a427541617c1ff4993ef3ad3947639f802b6d8` (G0) |
 | `C1_0_SHA` | `43fefdfaaf563783b8457f742841c22627dae7d6` (`docs: freeze final closure roadmap and archive placement integration`) |
-| `C1_A_HEAD_SHA` | the commit that contains this document |
+| `PREVIOUS_REVIEWED_SHA` | `052cd301fb9e0c32a3043240477970ed20a7c801` (C1-A, approved on the layout, corrected here) |
+| `C1_A_R1_HEAD_SHA` | the commit that contains this document |
 | Branch | `feat/final-closure` |
 | Design contract | `37eba87` — unchanged |
 | Live model calls | **0** |
+
+**C1-A-R1 is a bounded evidence correction.** The layout, the worker factory and the selector are
+unchanged. What changed is whether the evidence is allowed to say `VERIFIED`: request identity must
+now agree on all four trusted ids with one host worker record, request content must match both the
+rendered user turn and the effective system prompt, and the observed request set must reconcile with
+the independent response count. Sections H and I describe the corrected behaviour; §E gained an
+explicit initial-request scope note.
 
 ---
 
@@ -156,11 +164,17 @@ layout and its existing `task_scoped` Context Plane wiring.
 
 `python -m experiments.evaluation.closure1a.layout_ablation` →
 `experiments/results/closure1a/layout_ablation.json`. 6 DAG executions (3 workloads × 2 layouts),
-0 model calls, fake provider, real engine/selector/renderer/factory/`DeepSeekAdapter`.
+0 model calls, fake provider, real engine/selector/renderer/factory/`ModelRecordingAdapter`/
+`DeepSeekAdapter`.
+
+**Scope: the initial request of each worker** — system prompt, first user turn, and the tool
+definitions handed to the adapter. This is not a multi-turn run measurement and not a cache
+measurement.
 
 Inputs are identical across arms: same `BenchmarkTask`, same shared public block, same assignments,
-same declared dependencies, same 8 core tool definitions (`AtlasToolRuntime`), same deterministic
-dependency outputs (`RESULT-OF-<step>`).
+same declared dependencies, same tool definitions, same deterministic dependency outputs
+(`RESULT-OF-<step>`). The tool definitions measured are the ones captured in `options.tools` at the
+adapter boundary, not rebuilt from a second registry.
 
 Tokenizer: `tiktoken cl100k_base` 0.14.0 over the JSON serialisation of the mapped API messages plus
 tool definitions. It excludes the provider chat template and is a content estimate, **not** billed
@@ -195,10 +209,18 @@ KV-cache prefix**, and nothing here claims a cache or cost effect.
 | objective still present in the request | yes | yes | yes |
 | legacy system prompt differs between workers | yes | yes | yes |
 | shared-prefix system prompt identical between workers | yes | yes | yes |
+| every request's content matches its render, both arms | yes | yes | yes |
+| every request identity trusted, both arms | yes | yes | yes |
+| request set reconciled against the response count | yes | yes | yes |
 | `REQUEST_CONTENT_VERIFIED` in both arms | yes | yes | yes |
 
 Workload A is measured on `w1`/`w2` (the independent pair); workload C on `w1`,`w2`,`w3` (the pair
 plus the join). The DAG itself is identical in both cases, which is why the raw totals differ.
+
+Coverage, per arm: A `3 observed / 3 completed / 3 responses`, B `2 / 2 / 2`, C `3 / 3 / 3`, all
+`RECONCILED`, all completed requests carrying usage. `VERIFIED` is granted only when every one of
+those holds — a task being observed at least once is not the same claim as the request set being
+reconciled.
 
 ---
 
@@ -235,8 +257,14 @@ context:
   share an effective configuration digest. A unit that declares one layout and loads a YAML that
   resolves another is refused before any I/O, mirroring the Final-4 G-1 fix.
 - Supported first scope: the `task_scoped` + `stable_deterministic` + `identity` coding evaluation
-  path. Non-identity transforms are not validated in this layout; the app coding path stays legacy;
-  workflow-path recovery is unaffected because it never used the worker factory.
+  path. **Every other combination is refused, not ignored:**
+  - a non-identity transform with `shared_prefix` fails configuration validation, the prompt builder
+    and the evaluation pre-flight check;
+  - an unknown layout name raises instead of defaulting to `legacy`;
+  - the coding app (`_build_context_plane`) and the workflow entry point
+    (`_configure_context_mode`) raise if a config resolves `shared_prefix`, because neither
+    implements it and silently rendering legacy would make the run's layout record untrue;
+  - workflow-path recovery is unaffected: it never used the worker factory.
 - Historical experiment digests and raw run data were not modified.
 
 ---
@@ -244,16 +272,21 @@ context:
 ## H. Request-boundary evidence
 
 Observed inside the provider wrapper on the outgoing message list
-(`experiments/evaluation/runner.py::_RequestEvidence`), eagerly in `stream` **and** in `chat`, so a
-streamed request is counted once and one request is never counted twice (`ModelRecordingAdapter`
-wraps the real adapter; the inner `stream` delegates to the inner `chat`).
+(`experiments/evaluation/runner.py::_RequestEvidence`). The observation now happens **inside** the
+stream generator, i.e. when the request is actually issued: a stream that is created and never
+consumed produces no record, a stream abandoned after it started is `CANCELLED`, a call that raises
+is `FAILED`, and a request is `COMPLETED` only when the provider answered. `ModelRecordingAdapter`
+wraps the real adapter and the inner `stream` delegates to the inner `chat`, so one request is
+counted once.
 
 | Question | Before | Now |
 |---|---|---|
-| Who sent this request? | `sha256(system_prompt)` | `options.execution_context.attributes` (`task_id`, `worker_id`, `profile_id`, `run_id`), mapped to the Atlas logical task by the host-owned worker record |
+| Who sent this request? | `sha256(system_prompt)` | all four `options.execution_context.attributes` ids (`task_id`, `worker_id`, `profile_id`, `run_id`) must agree with **the same** host-owned worker record |
+| Did the content match? | not checked | `sha256(first message)` must equal the render's `task_prompt_sha256`, **and** `sha256(system prompt)` must equal that worker's effective system prompt hash |
 | Injected in the initial prompt? | first 120 characters of the block | the **complete structured** `<dependency task_id=… version=…>` block, produced by the same function the renderer uses |
-| Later turns | not distinguished | `present`/`count` are probed on `messages[0]`; `present_in_request`/`request_count` record the whole request, so a later assistant echo is visible but does not weaken the injection proof |
-| Provider usage | run-level aggregate only | attached per request from the response's `TokenUsage` (`prompt_tokens`, `cache_miss_tokens`, `cache_hit_tokens`, `completion_tokens`) |
+| Later turns | not distinguished | `count` is measured on `messages[0]`; `later_history_mentions` records a later assistant/tool echo as redundancy, never as a second injection |
+| Provider usage | run-level aggregate only | attached per completed request from the response's `TokenUsage` (`prompt_tokens`, `cache_miss_tokens`, `cache_hit_tokens`, `completion_tokens`) |
+| Request-set coverage | "each task was seen at least once" | reconciled against the inner adapter's response count: `observed == responses + failed + cancelled`, with no unfinished request |
 | Status | `VERIFIED` if **any** request matched | see below |
 
 Statuses:
@@ -261,8 +294,16 @@ Statuses:
 | Status | Condition |
 |---|---|
 | `REQUEST_CONTENT_NOT_VERIFIED` | no request observed, or none linked to a render |
-| `REQUEST_CONTENT_PARTIAL` | some requests linked, but a rendered task was never observed, a request has no identity, an identity is not trusted, or a declared dependency was not delivered as a complete block exactly once |
-| `REQUEST_CONTENT_VERIFIED` | every rendered task observed, every request identity trusted, every consumer's declared dependency complete and unique in its initial prompt |
+| `REQUEST_CONTENT_PARTIAL` | some requests linked, but any of: a rendered task never observed; a request without a host worker record; an identity field mismatch; a first-message or system-prompt digest mismatch; a declared dependency not delivered as a complete block exactly once; a failed/cancelled/unfinished request; an unreconciled request set |
+| `REQUEST_CONTENT_VERIFIED` | all of the above clean, in every observed request |
+
+Reason codes emitted: `TASK_NEVER_OBSERVED`, `REQUEST_WITHOUT_A_TASK_IDENTITY`,
+`IDENTITY_NOT_TRUSTED`, `IDENTITY_MISMATCH`, `REQUEST_CONTENT_MISMATCH`, `SYSTEM_PROMPT_MISMATCH`,
+`DEPENDENCY_NOT_FULLY_DELIVERED`, `REQUEST_NOT_COMPLETED`, `REQUEST_COVERAGE_UNVERIFIED`.
+
+An empty dependency body is still probed as a structured block (`content_empty: true`,
+`content_present: null`), and a consumer request with no probe for a dependency the store holds is
+reported as `NO_PROBE_ON_CONSUMER_REQUEST` rather than skipped.
 
 Concurrency: `validation-parallel` gives three workers one identical system prompt. The integration
 test asserts the three observed requests carry one `system_prompt_digest` and are still attributed
@@ -275,10 +316,11 @@ tool output.
 
 ## I. Tests
 
-New: `tests/unit/test_worker_prompt_layout.py` (16), `tests/integration/test_closure1a_prompt_layout.py`
-(12). Modified: one expectation in `tests/integration/test_final4_context_plane.py`, because the
-dependency probe is now the complete structured block (the old test encoded the 120-character head
-assumption that this stage removes).
+New: `tests/unit/test_worker_prompt_layout.py` (25), `tests/integration/test_closure1a_prompt_layout.py`
+(25). Modified: two expectations in `tests/integration/test_final4_context_plane.py` — the dependency
+probe is now the complete structured block (the old test encoded the 120-character head assumption),
+and an unconsumed stream is no longer counted as a sent request (the old test asserted eager
+observation).
 
 Coverage of the required list: legacy bytes and resume; shared-prefix system prompt without
 objective/background; identical system prompt for two workers of one profile; objective retained in
@@ -289,6 +331,15 @@ verified through `DeepSeekAdapter.chat`; stream path observed; concurrent identi
 correctly; partial linkage not reported as verified; missing task detected; head-identical /
 tail-different dependency rejected; legacy vs shared-prefix configuration identity distinguishable;
 unsupported layout + resume combination refused.
+
+C1-A-R1 counterexamples, one test each: a modified user turn with a correct task id; a modified
+system prompt; a wrong `worker_id`, `profile_id` and `run_id`; a missing host worker record; a second
+turn of one task whose record is dropped (task coverage still complete, coverage unreconciled); a
+consumer request with the probe removed; an empty dependency body; a dependency quoted in the
+assistant history; `ModelRecordingAdapter → DeepSeekAdapter.stream → chat → stub client` end to end
+(system message, first user turn, mapped tools, one observation, identity, usage, and an unconsumed
+stream producing nothing); an unknown layout name; `shared_prefix` with a non-identity transform, in
+the config validator, the prompt builder and the coding app.
 
 Results are in the final report; the commands were `pytest -q`, `ruff check .`,
 `ruff format --check .`, `pyright`.

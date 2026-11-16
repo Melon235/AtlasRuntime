@@ -274,21 +274,35 @@ class RunnerSettings:
         )
 
 
+#: A request that was observed at issue time and has not finished yet.
+REQUEST_OBSERVED = "OBSERVED"
+#: The provider answered and the response reached the caller.
+REQUEST_COMPLETED = "COMPLETED"
+#: The call raised. It was issued, so it stays in the observed set.
+REQUEST_FAILED = "FAILED"
+#: The stream was abandoned before it produced a response (closed, cancelled or never drained
+#: after the first item). It was issued, so it stays in the observed set.
+REQUEST_CANCELLED = "CANCELLED"
+_TERMINAL_REQUEST_STATES = frozenset({REQUEST_COMPLETED, REQUEST_FAILED, REQUEST_CANCELLED})
+
+
 class _RequestEvidence:
     """Observation-only probe of the *outgoing* request body.
 
     It answers one question that fingerprints cannot: did the dependency content that the Context
     Plane selected actually appear in the message list the provider received, and how many times.
     Only digests and booleans are kept — never the prompt, never a transcript, never a completion.
-    ``chat`` is a strict pass-through.
 
-    Closure-1A adds the two things a shared system prompt breaks: identity and completeness.
+    Three things a shared system prompt breaks are handled here:
 
-    * Identity comes from ``options.execution_context``, the trusted per-agent context AnyCode
-      passes through unchanged, never from a content hash. Two workers may now legitimately carry
+    * **Identity** comes from ``options.execution_context``, the trusted per-agent context AnyCode
+      passes through unchanged, never from a content hash. Two workers may legitimately carry
       byte-identical system prompts, so ``sha256(system_prompt)`` can no longer name a worker.
-    * Presence is probed against the *complete structured* dependency block, not a 120-character
-      head, and separately against the raw content, on the first message of the request.
+    * **Completeness** is tracked per request: observed at issue time, then completed, failed or
+      cancelled. A stream that is never consumed never reaches :meth:`observe`, so an unconsumed
+      stream is not counted as a sent request.
+    * **Presence** is probed against the *complete structured* dependency block on the first message
+      of the request, separately from any later mention the assistant history may contain.
     """
 
     def __init__(self, store: Any = None) -> None:
@@ -318,12 +332,12 @@ class _RequestEvidence:
 
     @staticmethod
     def _trusted_identity(options: Any) -> dict[str, Any]:
-        """Trusted ids of the agent that issued this request, or empty when none is carried."""
+        """Trusted ids of the agent that issued this request, or ``None``s when none is carried."""
 
         context = getattr(options, "execution_context", None)
         attributes = getattr(context, "attributes", None) if context is not None else None
         if not isinstance(attributes, dict):
-            return {}
+            attributes = {}
         return {
             "trusted_task_id": attributes.get("task_id"),
             "trusted_worker_id": attributes.get("worker_id"),
@@ -351,22 +365,27 @@ class _RequestEvidence:
         probes: dict[str, Any] = {}
         for block in self._blocks():
             content = str(getattr(block, "content", ""))
-            if not content:
-                continue
+            # An empty dependency body is still a real block: probe the delimiters, and record that
+            # the body itself carries nothing to match instead of dropping the evidence.
             structured = render_dependency_block(
                 task_id=str(block.task_id or "unknown"),
                 version=block.version,
                 content=content,
             )
+            in_initial = initial.count(structured)
+            in_request = joined.count(structured)
             probes[block.block_id] = {
                 # Full structured block in the initial task prompt: the injection proof.
-                "present": structured in initial,
-                "count": initial.count(structured),
-                "present_in_request": structured in joined,
-                "request_count": joined.count(structured),
+                "present": in_initial > 0,
+                "count": in_initial,
+                # A later assistant/tool message may quote the same block. That is redundancy in the
+                # history, never a second injection into the initial prompt.
+                "later_history_mentions": max(in_request - in_initial, 0),
+                "request_count": in_request,
                 # Raw content, so a body that reached the turn without its delimiters is visible.
-                "content_present": content in initial,
-                "content_count": initial.count(content),
+                "content_present": (content in initial) if content else None,
+                "content_count": initial.count(content) if content else 0,
+                "content_empty": not content,
                 "block_version": block.version,
                 "block_chars": len(content),
                 "probe_kind": "FULL_STRUCTURED_BLOCK",
@@ -376,6 +395,9 @@ class _RequestEvidence:
                 "call_index": len(self.records),
                 "request_index": request_index,
                 **identity,
+                "status": REQUEST_OBSERVED,
+                "finished": False,
+                "error_type": None,
                 "system_prompt_digest": hashlib.sha256(
                     str(getattr(options, "system_prompt", "") or "").encode("utf-8")
                 ).hexdigest(),
@@ -393,11 +415,35 @@ class _RequestEvidence:
         )
         return len(self.records) - 1
 
+    def _finish(self, call_index: int, status: str, *, error_type: str | None = None) -> None:
+        if not 0 <= call_index < len(self.records):
+            return
+        record = self.records[call_index]
+        if record["status"] in _TERMINAL_REQUEST_STATES:
+            # First terminal state wins: a failure is not later relabelled as a cancellation just
+            # because the generator was closed on the way out.
+            return
+        record["status"] = status
+        record["finished"] = True
+        record["error_type"] = error_type
+
+    def mark_completed(self, call_index: int, usage: Any = None) -> None:
+        self.attach_usage(call_index, usage)
+        self._finish(call_index, REQUEST_COMPLETED)
+
+    def mark_failed(self, call_index: int, error_type: str | None = None) -> None:
+        self._finish(call_index, REQUEST_FAILED, error_type=error_type)
+
+    def mark_cancelled(self, call_index: int) -> None:
+        self._finish(call_index, REQUEST_CANCELLED)
+
     def attach_usage(self, call_index: int, usage: Any) -> None:
         """Record the provider usage of one already-observed request.
 
         AnyCode's ``TokenUsage`` splits the prompt into cache-miss (``input_tokens``) and cache-read
-        parts, so both are recorded explicitly instead of one being called "prompt tokens".
+        parts, so both are recorded explicitly instead of one being called "prompt tokens". It is
+        a normalized usage object: when the provider did not report the cache split, the miss count
+        here is AnyCode's fallback, not an observed zero.
         """
 
         if not 0 <= call_index < len(self.records) or usage is None:
@@ -409,6 +455,7 @@ class _RequestEvidence:
             "cache_miss_tokens": miss,
             "cache_hit_tokens": hit,
             "completion_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+            "cache_split_reported_by_provider": hit > 0,
             "source": "anycode.TokenUsage as reported by the provider adapter",
         }
 
@@ -423,6 +470,10 @@ class _RequestEvidence:
             for record in self.records
             for block_id, result in (record.get("dependency_probes") or {}).items()
         ]
+        by_status = {
+            state: sum(1 for record in self.records if record["status"] == state)
+            for state in (REQUEST_OBSERVED, REQUEST_COMPLETED, REQUEST_FAILED, REQUEST_CANCELLED)
+        }
         return {
             "enabled": True,
             "method": (
@@ -432,6 +483,11 @@ class _RequestEvidence:
             "identity_source": "options.execution_context.attributes (trusted ExecutionContext)",
             "dependency_probe_basis": "complete structured dependency block, initial task prompt",
             "requests_observed": len(self.records),
+            "requests_by_status": by_status,
+            "requests_completed": by_status[REQUEST_COMPLETED],
+            "requests_failed": by_status[REQUEST_FAILED],
+            "requests_cancelled": by_status[REQUEST_CANCELLED],
+            "requests_unfinished": by_status[REQUEST_OBSERVED],
             "requests_with_trusted_identity": sum(
                 1 for record in self.records if record.get("trusted_task_id")
             ),
@@ -451,8 +507,11 @@ class ModelRecordingAdapter:
     """Observation-only wrapper recording the provider-resolved model and per-request usage."""
 
     def __init__(
-        self, inner: DeepSeekAdapter, models: list[str], evidence: _RequestEvidence | None = None
+        self, inner: Any, models: list[str], evidence: _RequestEvidence | None = None
     ) -> None:
+        # ``inner`` is whatever adapter the provider factory built. Production is the DeepSeek
+        # adapter; the deterministic harnesses wrap a fake. The wrapper only needs ``name``,
+        # ``chat`` and ``stream``, so it does not narrow to a concrete class.
         self._inner = inner
         self._models = models
         self._evidence = evidence
@@ -463,29 +522,55 @@ class ModelRecordingAdapter:
 
     async def chat(self, messages: Any, options: Any) -> Any:
         call_index = self._evidence.observe(messages, options) if self._evidence else None
-        response = await self._inner.chat(messages, options)
+        try:
+            response = await self._inner.chat(messages, options)
+        except BaseException as error:  # noqa: BLE001 - status only, re-raised unchanged
+            if self._evidence is not None and call_index is not None:
+                self._evidence.mark_failed(call_index, type(error).__name__)
+            raise
         if self._evidence is not None and call_index is not None:
-            self._evidence.attach_usage(call_index, getattr(response, "usage", None))
+            self._evidence.mark_completed(call_index, getattr(response, "usage", None))
         self._models.append(str(response.model))
         return response
 
     def stream(self, messages: Any, options: Any) -> Any:
-        # AnyCode's agent loop streams. Observing here (eagerly, before the generator body runs) is
-        # what makes the request evidence cover the requests that actually reach the provider.
+        # AnyCode's agent loop streams. Observation happens *inside* the generator, i.e. when the
+        # request is actually issued: a stream that is created and never consumed never reaches
+        # the first line below, so it is never counted as a sent request.
         # ``_inner`` is the real adapter: its own ``stream`` delegates to its own ``chat``, so this
         # request is counted once, not twice.
-        call_index = self._evidence.observe(messages, options) if self._evidence else None
-
         async def _generate() -> Any:
-            async for event in self._inner.stream(messages, options):
-                if getattr(event, "type", None) == "done":
-                    response = getattr(event, "data", None)
-                    model_name = getattr(response, "model", None)
-                    if model_name is not None:
-                        self._models.append(str(model_name))
-                    if self._evidence is not None and call_index is not None:
-                        self._evidence.attach_usage(call_index, getattr(response, "usage", None))
-                yield event
+            evidence = self._evidence
+            call_index = evidence.observe(messages, options) if evidence else None
+            completed = False
+
+            async def _events() -> Any:
+                nonlocal completed
+                async for event in self._inner.stream(messages, options):
+                    if getattr(event, "type", None) == "done":
+                        response = getattr(event, "data", None)
+                        model_name = getattr(response, "model", None)
+                        if model_name is not None:
+                            self._models.append(str(model_name))
+                        completed = True
+                        if evidence is not None and call_index is not None:
+                            evidence.mark_completed(call_index, getattr(response, "usage", None))
+                    yield event
+
+            try:
+                async for event in _events():
+                    yield event
+            except GeneratorExit:
+                raise
+            except BaseException as error:  # noqa: BLE001 - status only, re-raised unchanged
+                if evidence is not None and call_index is not None:
+                    evidence.mark_failed(call_index, type(error).__name__)
+                raise
+            finally:
+                if evidence is not None and call_index is not None and not completed:
+                    # Abandoned before a response: it was issued, so it stays observed, but it is
+                    # not a completed request and never counts as usage coverage.
+                    evidence.mark_cancelled(call_index)
 
         return _generate()
 
@@ -674,7 +759,14 @@ def _normalized_expectation(value: str) -> str:
 
 
 def _normalized_prompt_layout(value: str) -> str:
-    return value if value in PROMPT_LAYOUTS else PROMPT_LAYOUT_LEGACY
+    """Accept a known layout or fail. Never turn a typo into the default."""
+
+    if value not in PROMPT_LAYOUTS:
+        raise EvaluationEnvironmentError(
+            f"evaluation configuration error: unknown prompt_layout {value!r}; "
+            f"expected one of {sorted(PROMPT_LAYOUTS)}"
+        )
+    return value
 
 
 def _enforce_prompt_layout(declared_layout: str, *, config: AtlasConfig, config_file: Path) -> str:
@@ -692,14 +784,20 @@ def _enforce_prompt_layout(declared_layout: str, *, config: AtlasConfig, config_
             f"{declared!r} but {config_file.name} resolves {resolved!r}. Refusing to run: the "
             "recorded layout would not describe the request that was sent."
         )
-    if (
-        declared == PROMPT_LAYOUT_SHARED_PREFIX
-        and config.context.policy != CONTEXT_PLANE_TASK_SCOPED
-    ):
+    if declared != PROMPT_LAYOUT_SHARED_PREFIX:
+        return declared
+    problems: list[str] = []
+    if config.context.policy != CONTEXT_PLANE_TASK_SCOPED:
+        problems.append(f"context.policy={config.context.policy!r}")
+    if config.context.renderer != "stable_deterministic":
+        problems.append(f"context.renderer={config.context.renderer!r}")
+    if config.context.transform.name != "identity":
+        problems.append(f"context.transform={config.context.transform.name!r}")
+    if problems:
         raise EvaluationEnvironmentError(
-            "evaluation configuration error: prompt_layout='shared_prefix' requires "
-            f"context.policy={CONTEXT_PLANE_TASK_SCOPED!r}, {config_file.name} resolves "
-            f"{config.context.policy!r}"
+            "evaluation configuration error: prompt_layout='shared_prefix' is validated only with "
+            f"policy={CONTEXT_PLANE_TASK_SCOPED!r}, renderer='stable_deterministic' and "
+            f"transform='identity'; {config_file.name} resolves {', '.join(problems)}"
         )
     return declared
 
@@ -777,6 +875,7 @@ def _context_evidence(
     observations: list[InferenceObservation],
     request_records: list[dict[str, Any]] | None = None,
     workers: dict[str, Any] | None = None,
+    responses_observed: int | None = None,
 ) -> dict[str, Any]:
     """Read-only evidence for every task-prompt render the run performed.
 
@@ -877,7 +976,17 @@ def _context_evidence(
                 "the provider-side hash is recorded separately"
             ),
         },
-        "request_linkage": _request_linkage(per_task, request_records, workers),
+        # ``observations`` is the inner adapter's per-response record, a counter independent of the
+        # wrapper's per-request observation. Passing its length is what lets the linkage say whether
+        # the request set is reconciled instead of merely non-empty.
+        "request_linkage": _request_linkage(
+            per_task,
+            request_records,
+            workers,
+            responses_observed=(
+                len(observations) if responses_observed is None else responses_observed
+            ),
+        ),
     }
 
 
@@ -885,22 +994,34 @@ def _request_linkage(
     per_task: list[dict[str, Any]],
     request_records: list[dict[str, Any]] | None,
     workers: dict[str, Any] | None,
+    *,
+    responses_observed: int | None = None,
 ) -> dict[str, Any]:
     """Tie an observed provider request to a task and a worker, and decide how complete that is.
 
     Identity is trusted first: the request carries the agent's ``ExecutionContext``, and the
-    host-owned worker record maps its runtime task id to the Atlas logical task. That mapping is
-    what still works when several workers share one system prompt.
+    host-owned worker record maps its runtime task id to the Atlas logical task. All four trusted
+    ids (task, worker, profile, run) must agree with **the same** record; a request that only
+    happens to carry a task id that looks like a logical task id is not trusted, because that is
+    exactly the inference a shared system prompt makes unsafe.
 
-    ``sha256(first message) == task_prompt_sha256`` remains as a cross-check and as a fallback for
-    runs whose requests carry no execution context, but it is no longer the identity source.
+    Content is then checked separately, per request:
 
-    The status is only ``REQUEST_CONTENT_VERIFIED`` when the observed set covers every rendered
-    task, every observed request has a task identity, and every consumer's declared dependency
-    arrives once as a complete structured block. Anything less is ``REQUEST_CONTENT_PARTIAL``.
+    * ``sha256(first message)`` must equal the ``task_prompt_sha256`` of the render that request
+      claims to belong to;
+    * ``sha256(system prompt)`` must equal the effective system prompt hash of that same worker.
+
+    ``sha256(first message)`` is still used as a diagnostic fallback when the request carries no
+    trusted context, but a fallback match never earns ``REQUEST_CONTENT_VERIFIED``.
+
+    ``responses_observed`` is an independent count of responses produced by the inner adapter. It
+    reconciles the observed request set: a request that was issued either got a response, failed, or
+    was abandoned. Without that count the request set is not independently bounded, and this
+    function says so instead of claiming full coverage.
     """
 
     renders = {item["task_id"]: item for item in per_task}
+    expected_task_ids = sorted(renders)
     if not request_records:
         return {
             "status": "REQUEST_CONTENT_NOT_VERIFIED",
@@ -908,64 +1029,128 @@ def _request_linkage(
                 "no request-level observation was recorded for this run (request_evidence disabled "
                 "or the run predates it)"
             ),
-            "expected_task_ids": sorted(renders),
+            "reason_codes": ["NO_REQUEST_OBSERVED"],
+            "expected_task_ids": expected_task_ids,
             "observed_task_ids": [],
+            "coverage": {"status": "NO_OBSERVATION"},
         }
-    prompt_by_digest = {
-        item["task_prompt_sha256"]: item["task_id"]
-        for item in per_task
-        if item.get("task_prompt_sha256")
-    }
-    logical_by_trusted: dict[str, str] = {}
-    worker_by_system: dict[str, str] = {}
+
+    # -- what a trusted worker of this run looks like -------------------------------------------
+    worker_facts: dict[str, dict[str, Any]] = {}
+    logical_by_record_task: dict[str, str] = {}
+    digest_by_system: dict[str, list[str]] = {}
     for logical_id, worker in (workers or {}).items():
         record = getattr(worker, "record", None)
-        trusted = getattr(record, "task_id", None)
-        if isinstance(trusted, str) and trusted:
-            logical_by_trusted[trusted] = logical_id
         agent_config = getattr(worker, "agent_config", None)
         system_prompt = str(getattr(agent_config, "system_prompt", "") or "")
-        digest = hashlib.sha256(system_prompt.encode("utf-8")).hexdigest()
-        # Content identity is only a fallback. A shared-prefix run maps several logical tasks to one
-        # digest, which is why it can no longer be the primary source: the first match wins here and
-        # the ambiguity is reported, never resolved silently.
-        worker_by_system.setdefault(digest, logical_id)
+        agent_digest = hashlib.sha256(system_prompt.encode("utf-8")).hexdigest()
+        attributes = getattr(getattr(record, "execution_context", None), "attributes", None)
+        record_run_id = attributes.get("run_id") if isinstance(attributes, dict) else None
+        record_digest = getattr(record, "effective_system_prompt_hash", None)
+        worker_facts[logical_id] = {
+            "record_task_id": getattr(record, "task_id", None),
+            "record_worker_id": getattr(record, "worker_id", None),
+            "record_profile_id": getattr(record, "profile_id", None),
+            "record_run_id": record_run_id,
+            "record_system_digest": record_digest,
+            "agent_config_system_digest": agent_digest,
+            # The record hash is the persisted truth of what ran; the live config is the fallback
+            # for a record written before that field existed, and disagreement is reported
+            # separately.
+            "expected_system_digest": record_digest or agent_digest,
+        }
+        record_task_id = getattr(record, "task_id", None)
+        if isinstance(record_task_id, str) and record_task_id:
+            logical_by_record_task[record_task_id] = logical_id
+        digest_by_system.setdefault(agent_digest, []).append(logical_id)
+
+    # -- per request: identity, then content ----------------------------------------------------
     linked: list[dict[str, Any]] = []
     for record in request_records:
-        trusted_id = record.get("trusted_task_id")
-        task_id: str | None = None
-        identity_source: str | None = None
-        if isinstance(trusted_id, str) and trusted_id:
-            task_id = logical_by_trusted.get(trusted_id)
-            if task_id is None and trusted_id in renders:
-                task_id = trusted_id
-            if task_id is not None:
-                identity_source = "trusted_execution_context"
+        observed_ids = {
+            "task_id": record.get("trusted_task_id"),
+            "worker_id": record.get("trusted_worker_id"),
+            "profile_id": record.get("trusted_profile_id"),
+            "run_id": record.get("trusted_run_id"),
+        }
+        logical_id: str | None = None
+        identity_status: str
+        identity_mismatches: list[str] = []
+        trusted_record = observed_ids["task_id"]
+        if not isinstance(trusted_record, str) or not trusted_record:
+            identity_status = "NO_TRUSTED_IDENTITY"
+        elif trusted_record not in logical_by_record_task:
+            identity_status = "NO_HOST_WORKER_RECORD"
+        else:
+            logical_id = logical_by_record_task[trusted_record]
+            facts = worker_facts[logical_id]
+            for field, expected_key in (
+                ("task_id", "record_task_id"),
+                ("worker_id", "record_worker_id"),
+                ("profile_id", "record_profile_id"),
+                ("run_id", "record_run_id"),
+            ):
+                expected = facts[expected_key]
+                if expected is None or observed_ids[field] != expected:
+                    identity_mismatches.append(field)
+            identity_status = "TRUSTED" if not identity_mismatches else "IDENTITY_MISMATCH"
+
+        identity_source = "trusted_execution_context" if identity_status == "TRUSTED" else None
+        task_id: str | None = logical_id if identity_status == "TRUSTED" else None
         if task_id is None:
-            task_id = prompt_by_digest.get(str(record.get("first_message_digest")))
-            if task_id is not None:
+            # Diagnostic only: a content match can show what a request probably was, but it can
+            # never promote an untrusted request, so the status stays PARTIAL.
+            fallback = {
+                item["task_prompt_sha256"]: item["task_id"]
+                for item in per_task
+                if item.get("task_prompt_sha256")
+            }.get(str(record.get("first_message_digest")))
+            if fallback is not None:
                 identity_source = "prompt_digest_fallback"
-        render = renders.get(task_id) if task_id is not None else None
+                if logical_id is None:
+                    logical_id = fallback
+
+        render = renders.get(logical_id) if logical_id is not None else None
+        facts = worker_facts.get(logical_id) if logical_id is not None else None
+        task_prompt_match = (
+            render is not None
+            and bool(render.get("task_prompt_sha256"))
+            and render.get("task_prompt_sha256") == record.get("first_message_digest")
+        )
+        expected_system = facts["expected_system_digest"] if facts else None
+        system_prompt_match = expected_system is not None and expected_system == record.get(
+            "system_prompt_digest"
+        )
+        if render is None:
+            content_status = "NO_RENDER_TO_COMPARE"
+        elif not task_prompt_match:
+            content_status = "TASK_PROMPT_MISMATCH"
+        elif not system_prompt_match:
+            content_status = "SYSTEM_PROMPT_MISMATCH"
+        else:
+            content_status = "MATCH"
+
         linked.append(
             {
                 "call_index": record["call_index"],
                 "request_index": record.get("request_index"),
-                "matched_task_id": task_id,
+                "status": record.get("status"),
+                "matched_task_id": render["task_id"] if render is not None else None,
                 "identity_source": identity_source,
+                "identity_status": identity_status,
+                "identity_mismatches": identity_mismatches,
+                "trusted_task_id": record.get("trusted_task_id"),
                 "trusted_worker_id": record.get("trusted_worker_id"),
                 "trusted_profile_id": record.get("trusted_profile_id"),
-                "matched_worker_task_id": (
-                    task_id
-                    if identity_source == "trusted_execution_context"
-                    else worker_by_system.get(str(record.get("system_prompt_digest")))
-                ),
-                "task_prompt_hash_match": (
-                    render is not None
-                    and render.get("task_prompt_sha256") == record.get("first_message_digest")
-                ),
+                "trusted_run_id": record.get("trusted_run_id"),
+                "matched_worker_task_id": (logical_id if identity_status == "TRUSTED" else None),
+                "task_prompt_hash_match": task_prompt_match,
+                "system_prompt_hash_match": system_prompt_match,
+                "content_status": content_status,
                 "context_layout_digest": render.get("context_layout_hash") if render else None,
                 "system_prompt_digest": record.get("system_prompt_digest"),
                 "usage": record.get("usage"),
+                "usage_present": record.get("usage") is not None,
                 "dependency_probes": record.get("dependency_probes") or {},
                 "message_count": record["message_count"],
                 "text_chars": record["text_chars"],
@@ -973,18 +1158,25 @@ def _request_linkage(
             }
         )
 
-    expected_task_ids = sorted(renders)
     observed_task_ids = sorted(
         {item["matched_task_id"] for item in linked if item["matched_task_id"]}
     )
     missing_task_ids = sorted(set(expected_task_ids) - set(observed_task_ids))
     unlinked = [item["call_index"] for item in linked if item["matched_task_id"] is None]
-    unattributed = [
-        item["call_index"]
+    untrusted = [item["call_index"] for item in linked if item["identity_status"] != "TRUSTED"]
+    identity_mismatch_requests = [
+        {"call_index": item["call_index"], "fields": item["identity_mismatches"]}
         for item in linked
-        if item["identity_source"] != "trusted_execution_context"
+        if item["identity_mismatches"]
+    ]
+    task_prompt_mismatches = [
+        item["call_index"] for item in linked if not item["task_prompt_hash_match"]
+    ]
+    system_prompt_mismatches = [
+        item["call_index"] for item in linked if not item["system_prompt_hash_match"]
     ]
 
+    # -- dependency delivery, per consumer -------------------------------------------------------
     dependency_failures: list[dict[str, Any]] = []
     for task_id in expected_task_ids:
         declared = renders[task_id].get("declared_dependencies") or []
@@ -1001,17 +1193,25 @@ def _request_linkage(
         for dependency in declared:
             block_id = f"task-output:{dependency}"
             # Every request of one task replays the same initial prompt at messages[0], so any
-            # observation of the block is evidence about the same injection. A request whose probe
-            # ran before the block existed has no entry and is skipped rather than guessed at; a
-            # task with no probe at all stays unproven.
+            # observation of the block is evidence about the same injection.
             observed = [
                 item["dependency_probes"][block_id]
                 for item in ordered
                 if block_id in (item["dependency_probes"] or {})
             ]
             if not observed:
+                # The block is in the store, so a consumer request issued after the producer
+                # finished must carry a probe. A consumer request that predates the block is the
+                # only honest explanation, and it still leaves the injection unproven.
                 dependency_failures.append(
-                    {"task_id": task_id, "block_id": block_id, "reason": "NO_PROBE"}
+                    {
+                        "task_id": task_id,
+                        "block_id": block_id,
+                        "reason": "NO_PROBE_ON_CONSUMER_REQUEST",
+                        "probed_calls": [
+                            item["call_index"] for item in ordered if item["dependency_probes"]
+                        ],
+                    }
                 )
                 continue
             if any(not probe.get("present") for probe in observed):
@@ -1027,19 +1227,50 @@ def _request_linkage(
                         "counts": [probe.get("count") for probe in observed],
                     }
                 )
-            elif any(not probe.get("content_present") for probe in observed):
+            elif any(
+                probe.get("content_present") is False
+                for probe in observed
+                if not probe.get("content_empty")
+            ):
                 dependency_failures.append(
                     {"task_id": task_id, "block_id": block_id, "reason": "CONTENT_ABSENT"}
                 )
-            elif any((probe.get("request_count") or 0) > 1 for probe in observed):
-                dependency_failures.append(
-                    {
-                        "task_id": task_id,
-                        "block_id": block_id,
-                        "reason": "DUPLICATE_IN_REQUEST",
-                        "request_counts": [probe.get("request_count") for probe in observed],
-                    }
-                )
+
+    # -- coverage --------------------------------------------------------------------------------
+    completed = [item for item in linked if item["status"] == REQUEST_COMPLETED]
+    failed = [item for item in linked if item["status"] == REQUEST_FAILED]
+    cancelled = [item for item in linked if item["status"] == REQUEST_CANCELLED]
+    unfinished = [item for item in linked if item["status"] not in _TERMINAL_REQUEST_STATES]
+    if responses_observed is None:
+        coverage_status = "NO_INDEPENDENT_COUNTER"
+        reconciled: bool | None = None
+    else:
+        reconciled = (
+            len(linked) == responses_observed + len(failed) + len(cancelled) and not unfinished
+        )
+        coverage_status = "RECONCILED" if reconciled else "UNRECONCILED"
+    coverage = {
+        "status": coverage_status,
+        "requests_observed": len(linked),
+        "requests_completed": len(completed),
+        "requests_failed": len(failed),
+        "requests_cancelled": len(cancelled),
+        "requests_unfinished": len(unfinished),
+        "responses_observed_by_adapter": responses_observed,
+        "reconciled": reconciled,
+        "task_coverage": "COMPLETE" if not missing_task_ids else "INCOMPLETE",
+        "usage_coverage": (
+            f"{sum(1 for item in linked if item['usage_present'])}/{len(completed)} completed "
+            "requests carry usage"
+            if completed
+            else "no completed request"
+        ),
+        "basis": (
+            "requests are counted when the wrapper issues them; responses are counted by the inner "
+            "adapter per returned response. A request either produced a response, failed, or was "
+            "abandoned, so observed == responses + failed + cancelled must hold"
+        ),
+    }
 
     matched = sum(1 for item in linked if item["matched_task_id"] is not None)
     reason_codes: list[str] = []
@@ -1047,32 +1278,66 @@ def _request_linkage(
         reason_codes.append("TASK_NEVER_OBSERVED")
     if unlinked:
         reason_codes.append("REQUEST_WITHOUT_A_TASK_IDENTITY")
-    if unattributed:
+    if untrusted:
         reason_codes.append("IDENTITY_NOT_TRUSTED")
+    if identity_mismatch_requests:
+        reason_codes.append("IDENTITY_MISMATCH")
+    if task_prompt_mismatches:
+        reason_codes.append("REQUEST_CONTENT_MISMATCH")
+    if system_prompt_mismatches:
+        reason_codes.append("SYSTEM_PROMPT_MISMATCH")
     if dependency_failures:
         reason_codes.append("DEPENDENCY_NOT_FULLY_DELIVERED")
+    if failed or cancelled or unfinished:
+        reason_codes.append("REQUEST_NOT_COMPLETED")
+    if coverage_status != "RECONCILED":
+        reason_codes.append("REQUEST_COVERAGE_UNVERIFIED")
 
     if matched == 0:
         status = "REQUEST_CONTENT_NOT_VERIFIED"
+        reported_reasons = ["NO_REQUEST_LINKED_TO_A_RENDER"]
     elif reason_codes:
         status = "REQUEST_CONTENT_PARTIAL"
+        reported_reasons = reason_codes
     else:
         status = "REQUEST_CONTENT_VERIFIED"
+        reported_reasons = []
     return {
         "status": status,
-        "reason_codes": reason_codes if matched else ["NO_REQUEST_LINKED_TO_A_RENDER"],
+        "reason_codes": reported_reasons,
         "requests_observed": len(linked),
         "requests_linked_to_a_render": matched,
         "requests_unlinked": len(linked) - matched,
+        "requests_with_trusted_identity": sum(
+            1 for item in linked if item["identity_status"] == "TRUSTED"
+        ),
+        "requests_with_matching_task_prompt": sum(
+            1 for item in linked if item["task_prompt_hash_match"]
+        ),
+        "requests_with_matching_system_prompt": sum(
+            1 for item in linked if item["system_prompt_hash_match"]
+        ),
         "expected_task_ids": expected_task_ids,
         "observed_task_ids": observed_task_ids,
         "missing_task_ids": missing_task_ids,
-        "requests_with_trusted_identity": sum(
-            1 for item in linked if item["identity_source"] == "trusted_execution_context"
-        ),
+        "identity_failures": [
+            {
+                "call_index": item["call_index"],
+                "status": item["identity_status"],
+                "mismatches": item["identity_mismatches"],
+            }
+            for item in linked
+            if item["identity_status"] != "TRUSTED"
+        ],
+        "identity_mismatch_requests": identity_mismatch_requests,
+        "task_prompt_mismatch_requests": task_prompt_mismatches,
+        "system_prompt_mismatch_requests": system_prompt_mismatches,
+        "coverage": coverage,
         "linkage_basis": (
-            "primary: options.execution_context.attributes.task_id resolved through the host-owned "
-            "worker record; cross-check: sha256(first message) == task_prompt_sha256 of the render"
+            "primary: all four options.execution_context.attributes ids (task, worker, profile, "
+            "run) resolved through the host-owned worker record; content: sha256(first message) == "
+            "task_prompt_sha256 and sha256(system prompt) == effective_system_prompt_hash; digest "
+            "identity is a diagnostic fallback only"
         ),
         "dependency_failures": dependency_failures,
         "dependency_delivery_in_request": [
@@ -1082,6 +1347,8 @@ def _request_linkage(
                 "block_id": block_id,
                 "present": probe["present"],
                 "count": probe["count"],
+                "content_empty": probe.get("content_empty"),
+                "later_history_mentions": probe.get("later_history_mentions"),
                 "probe_kind": probe.get("probe_kind"),
             }
             for item in linked

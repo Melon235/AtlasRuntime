@@ -360,15 +360,17 @@ def test_request_evidence_links_the_outgoing_request_to_the_render() -> None:
     )
 
     # Before the producer output is in the store, no probe exists.
-    evidence.observe(
+    index = evidence.observe(
         [SimpleNamespace(role="user", content=[SimpleNamespace(text=prompt)])], options
     )
+    evidence.mark_completed(index)
     assert evidence.records[0]["dependency_probes"] == {}
 
     store.put(block)
-    evidence.observe(
+    index = evidence.observe(
         [SimpleNamespace(role="user", content=[SimpleNamespace(text=prompt)])], options
     )
+    evidence.mark_completed(index)
     probe = evidence.records[1]["dependency_probes"]["task-output:w1"]
     assert probe["present"] is True
     assert probe["count"] == 1
@@ -381,11 +383,19 @@ def test_request_evidence_links_the_outgoing_request_to_the_render() -> None:
         {
             "w2": SimpleNamespace(
                 agent_config=SimpleNamespace(system_prompt="SYSTEM-w2"),
-                record=SimpleNamespace(task_id="run-w2"),
+                record=SimpleNamespace(
+                    task_id="run-w2",
+                    worker_id="run-w2",
+                    profile_id="coding_worker",
+                    effective_system_prompt_hash=hashlib.sha256(b"SYSTEM-w2").hexdigest(),
+                    execution_context=SimpleNamespace(attributes={"run_id": "run"}),
+                ),
             )
         },
+        responses_observed=2,
     )
-    assert linkage["status"] == "REQUEST_CONTENT_VERIFIED"
+    assert linkage["status"] == "REQUEST_CONTENT_VERIFIED", linkage["reason_codes"]
+    assert linkage["coverage"]["status"] == "RECONCILED"
     assert linkage["requests_linked_to_a_render"] == 2
     assert linkage["requests_with_trusted_identity"] == 2
     assert linkage["requests"][1]["matched_task_id"] == "w2"
@@ -419,18 +429,28 @@ async def test_request_evidence_covers_the_streaming_path() -> None:
 
     evidence = _RequestEvidence()
     adapter = ModelRecordingAdapter(cast("Any", _StreamingInner()), [], evidence)
+
+    # Creating a stream does not issue a request: an unconsumed stream must never be counted, or the
+    # observed request set would contain calls the provider never received.
+    abandoned = adapter.stream(
+        [SimpleNamespace(role="user", content=[SimpleNamespace(text="hello")])],
+        SimpleNamespace(system_prompt="SYSTEM", tools=()),
+    )
+    assert evidence.records == []
+    await abandoned.aclose()  # type: ignore[attr-defined]
+    assert evidence.records == []
+
     stream = adapter.stream(
         [SimpleNamespace(role="user", content=[SimpleNamespace(text="hello")])],
         SimpleNamespace(system_prompt="SYSTEM", tools=()),
     )
-    # Observed eagerly, before the first token is pulled, so a stream that is abandoned mid-flight
-    # is still counted as a request that reached the provider.
-    assert len(evidence.records) == 1
+    assert evidence.records == []
     async for _ in stream:
         pass
     assert len(evidence.records) == 1
     assert evidence.records[0]["message_count"] == 1
     assert evidence.records[0]["content_persisted"] is False
+    assert evidence.records[0]["status"] == "COMPLETED"
 
 
 # -- router -------------------------------------------------------------------------------------

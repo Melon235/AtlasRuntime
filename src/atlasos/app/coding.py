@@ -510,6 +510,15 @@ def _build_context_plane(
     """
 
     context_config = config.context
+    if context_config.prompt_layout != "legacy":
+        # The coding app composes the prompt builder without a layout and hands the task text to the
+        # worker factory as well, so it can only render legacy. Refuse instead of quietly ignoring
+        # the configuration, which would make the run's layout record untrue.
+        raise ValueError(
+            "the coding app implements context.prompt_layout='legacy' only; "
+            f"resolved {context_config.prompt_layout!r}, which is supported on the "
+            "coding-evaluation path only"
+        )
     if context_config.policy != "task_scoped":
         return None
     renderer = (
