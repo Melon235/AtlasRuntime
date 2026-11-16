@@ -15,7 +15,8 @@ Read these before changing code. They describe what exists today in this branch.
 | [`runtime-entrypoints.md`](runtime-entrypoints.md) | Real call chains for the workflow, application-coding, evaluation, recovery and router paths, plus the capability matrix |
 | [`design-decisions.md`](design-decisions.md) | Trade-offs, rejected designs, why defaults are what they are |
 | [`limitations.md`](limitations.md) | Existing constraints; nothing here is a backlog promise |
-| [`final-roadmap.md`](final-roadmap.md) | The only forward plan: Track A/B/C, holdout principle, stop conditions |
+| [`final-closure-roadmap.md`](final-closure-roadmap.md) | **The only forward plan from now on**: the closure stage, the frozen core scope, the paused Placement Slot route, the four closure stages and the module metric principle |
+| [`final-roadmap.md`](final-roadmap.md) | The earlier Track A/B/C plan. Historical from the closure stage onwards; superseded by the closure roadmap |
 | [`evaluation/`](evaluation/) | The evaluation protocol (Final-2): module matrix, Track B/C specs, integration contract, metrics contract, holdout design, environment protocol |
 | [`decisions/`](decisions/) | ADRs 0001–0004 (AnyCode base, ContextPilot backend, cache metrics, no LangGraph) |
 
@@ -50,7 +51,7 @@ results of the current branch unless the document says so.
 | [`final-4-evidence-closure-report.md`](final-4-evidence-closure-report.md) | Final-4 closure: router metadata fix and the real delegate run, request-content-verified context delivery, blocked native arm, degenerate disclosure ablation |
 | [`final-4-placement-core-integration-approval.md`](final-4-placement-core-integration-approval.md) | `PLACEMENT_CORE_INTEGRATION_APPROVAL_REQUIRED` — what a real pooled-worker integration would change, and the two options |
 | [`final-4-evidence-handoff.md`](final-4-evidence-handoff.md) | Final-4 handoff for independent review, including the G0 corrections to three earlier evidence claims |
-| [`placement-coding-integration-design.md`](placement-coding-integration-design.md) | `DESIGN_PROPOSED` — placement A/B options, AnyCode seam, security impact matrix, G1–G5 boundaries |
+| [`placement-coding-integration-design.md`](placement-coding-integration-design.md) | **PAUSED RESEARCH** — `DESIGN_PROPOSED`, then G1 landed on `feat/placement-coding-integration` (`0252bdb`). Stopped by the closure decision; the proposal is archived, not withdrawn from the record |
 | [`research-history.md`](research-history.md) | Which branch/SHA holds which historical stage |
 
 The Final-2 Recovery Pilot report (`docs/final-2-recovery-pilot.md`) lives on

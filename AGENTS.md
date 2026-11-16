@@ -61,15 +61,25 @@ Rules that follow from this contract:
 
 ## 3. Current Development Objective
 
-Current objective: **final integration and evaluation**. The scope-expansion era is closed.
+Current objective: **the closure stage**. The scope-expansion era is closed and the core scope is
+frozen. `docs/final-closure-roadmap.md` is the only forward plan; read it before starting any stage.
 
 - Work only from an explicit user instruction for the current stage. A historical stage document is
   not an authorisation to continue that stage.
 - No unbounded feature growth: no new runtime modules, planners, schedulers, routers, tool executors,
   business adapters, benchmark runners or datasets unless the user asks for exactly that.
+- Only defects that affect final delivery may be fixed. Anything else becomes a recorded debt.
+- The Placement Slot integration route (`feat/placement-coding-integration`, G1 `0252bdb`) is
+  **paused**. Its branch is retained and is never merged, rebased or force-pushed during closure.
+  No slot, worker pool or pooled-worker scheduler enters `src/`.
 - Closed directions: commerce/business benchmark adapters, multi-industry business adaptation,
   generic business completion gates, unbounded multi-worker optimisation, evidence-free context-pack
-  rewrites.
+  rewrites, cross-task conversation reuse, slot-local caching, physical KV-cache control, dynamic
+  scheduling and new recovery frameworks.
+
+Every headline module must carry quantitative evidence that matches its own responsibility. Not
+every module has to reduce end-to-end cost; a logical handoff reduction is not a KV-cache benefit,
+and a tool-schema reduction is not a whole-agent token reduction.
 
 ## 4. Architecture Boundaries
 
@@ -102,6 +112,7 @@ Further invariants that must not be broken:
 Active documents (read these, in this order, before changing anything):
 
 - `docs/architecture-design-contract.md` — the owner-confirmed design baseline (layer 1).
+- `docs/final-closure-roadmap.md` — the frozen closure plan: stages, scope, metric principle.
 - `docs/project-status.md` — current baseline, architecture status, mechanism status.
 - `docs/architecture.md` — layers, execution paths, persisted state.
 - `docs/anycode-delta.md` — upstream vs AtlasRuntime responsibility.
