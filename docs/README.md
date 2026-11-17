@@ -56,7 +56,8 @@ results of the current branch unless the document says so.
 | [`closure-1c-metrics-evidence.md`](closure-1c-metrics-evidence.md) | Closure-1C: metric dictionary, provider-vs-normalized usage, cache-split status, request-evidence and index integrity fixes, the effective public task digest, the full historical inventory and the anti-misuse rules |
 | [`closure-2-benchmark-design.md`](closure-2-benchmark-design.md) | Closure-2A: the three frozen tasks (P1 pipeline migration, P2 plugin migration, N1 coupled refactor), their seed/reference/oracle, the candidate DAGs and why they are not rigged |
 | [`closure-2-fairness-protocol.md`](closure-2-fairness-protocol.md) | Closure-2A: the six arms, digest parity, the model/resource contract, the two budget semantics and every difference that is deliberately not removed |
-| [`closure-2-preregistration.md`](closure-2-preregistration.md) | Closure-2A: frozen digests, release boundary, planned cells, repetitions, exclusions and the cells the design does not support |
+| [`closure-2-preregistration.md`](closure-2-preregistration.md) | Closure-2A-R1: frozen digests, revision history, release boundary, planned cells, repetitions, exclusions and the cells the design does not support |
+| [`closure-2a-r1-review-repair.md`](closure-2a-r1-review-repair.md) | Closure-2A-R1: the six review findings, each reproduced on the C2-A commit and repaired — approval/definition separation, checkout-independent digest, content-bound config digest, independent oracle sessions, content-based leak detection, router decision gate |
 | [`placement-coding-integration-design.md`](placement-coding-integration-design.md) | **PAUSED RESEARCH** — `DESIGN_PROPOSED`, then G1 landed on `feat/placement-coding-integration` (`0252bdb`). Stopped by the closure decision; the proposal is archived, not withdrawn from the record |
 | [`research-history.md`](research-history.md) | Which branch/SHA holds which historical stage |
 

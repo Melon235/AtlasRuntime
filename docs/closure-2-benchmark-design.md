@@ -111,16 +111,26 @@ Each task carries four artifacts, all in `catalog.py`:
 | `public_tests` | `test_public.py`, visible | part of the seed |
 | `oracle_tests` | `test_hidden_*.py`, hidden | repository only, uploaded to the oracle sandbox at grading time |
 
-Verified by the preflight, per task:
+Verified by the preflight, per task — four **independent** pytest sessions, each with its own
+disposable workspace and an explicit target list, so a public-test failure can never stand in for a
+hidden-oracle failure (`docs/closure-2a-r1-review-repair.md`, R1-04):
 
 | Check | P1 | P2 | N1 |
 |---|---|---|---|
-| seed fails `test_public.py` | yes | yes | yes |
-| seed fails the hidden oracle | yes | yes | yes |
-| reference passes `test_public.py` | yes | yes | yes |
-| reference passes the hidden oracle | yes | yes | yes |
+| seed + `test_public.py` → fails | `TEST_FAILURE` | `TEST_FAILURE` | `COLLECT_ERROR` |
+| seed + hidden oracle → fails | `TEST_FAILURE` | `TEST_FAILURE` | `COLLECT_ERROR` |
+| reference + `test_public.py` → passes | yes (9 tests) | yes (9 tests) | yes (7 tests) |
+| reference + hidden oracle → passes and executes | yes (11 tests) | yes (12 tests) | yes (7 tests) |
 | hidden test file/body absent from the workspace | yes | yes | yes |
+| visible files equal the frozen seed, byte for byte | yes | yes | yes |
+| live task digests equal the C2-A table | yes | yes | yes |
 | reference replaces only seeded files | yes | yes | yes |
+
+The N1 seed cannot *import* the v2 interface:
+`ImportError: cannot import name 'reject' from 'lifecycle.approval'`. That is a real unimplemented
+contract, and it is classified as `COLLECT_ERROR` — never reported as "the hidden assertion failed",
+because no assertion in `test_hidden_lifecycle.py` ran against the seed. The reference session, which
+does run them, is what proves the oracle tests are satisfiable and non-empty.
 
 ### 2.1 Oracle scope
 
@@ -153,8 +163,10 @@ worse trade for a portfolio project.
 | multi is handed extra information | both topologies carry the same `shared_context`, `visible_files`, `hidden_files`, deliverables, allowed and forbidden paths | same test, plus `task_taskspec_parity()` |
 | the task is padding | every file is a real module in the dependency chain; no filler documents or duplicated fixtures | `test_every_task_is_a_migration_of_a_working_seed` |
 | the oracle encodes the reference | hidden tests assert behaviour the public contract states; the reference is only used to prove satisfiability | §2.1 |
-| the router is tuned to admit | the policy is `r0.1.0` unchanged, its digest is frozen in the preflight, and N1 is refused by the same untouched policy | `test_the_router_policy_is_the_frozen_one`, `test_p1_and_p2_are_admitted_and_n1_is_refused` |
+| the router is tuned to admit | the policy is `r0.1.0` unchanged, its digest is frozen in the preflight, and N1 is refused by the same untouched policy | `test_the_router_policy_is_the_frozen_one`, `test_the_router_decisions_are_the_registered_ones` |
+| the router decision drifts while the policy digest stays put | the expected route, reason codes, blocked gate and wave-0 width are asserted as a gate, not recorded as an observation | `test_a_drifted_route_fails_the_gate`, `test_a_collapsed_first_wave_fails_the_gate` |
 | the write sets are claimed but not true | the router extracts paths from the assignment text; the preflight asserts that extraction equals the owned tuple | `test_the_declared_write_sets_are_the_owned_write_sets` |
+| the answer leaks into the workspace under another name | every hidden-test body and every answer-bearing reference body is searched for in the visible files | `test_a_reference_body_copied_into_the_workspace_is_caught`, `test_a_renamed_hidden_oracle_copied_into_the_workspace_is_caught` |
 
 ---
 

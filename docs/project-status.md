@@ -36,7 +36,8 @@ environment variables, historical run ids and Git history keep `atlasos` / `atla
 | C1-A | effective prompt layout correction — `docs/closure-1a-prompt-layout.md` (R1 evidence fix at `7b30e59`, approved) |
 | C1-B | native AnyCode baseline on the shared OpenSandbox environment (N0/N1) — `docs/closure-1b-native-baseline.md`; real-container acceptance `REAL_SANDBOX_ACCEPTED`, parity `BASELINE_PARITY_PASS` |
 | C1-C | metrics and historical evidence closure — `docs/closure-1c-metrics-evidence.md`: metric dictionary, cache-split status, request-evidence/index integrity, `effective_public_task_digest`. **Closure-1 complete** |
-| C2-A | frozen final benchmark + fairness protocol + preregistration — `docs/closure-2-{benchmark-design,fairness-protocol,preregistration}.md`; `closure2-final-benchmark-v1`, six arms, deterministic preflight PASSED, 0 model calls. Budget still `PENDING_OWNER_APPROVAL` |
+| C2-A | frozen final benchmark + fairness protocol + preregistration — `docs/closure-2-{benchmark-design,fairness-protocol,preregistration}.md`; `closure2-final-benchmark-v1`, six arms, deterministic preflight PASSED (34 checks), 0 model calls. Digest `f7bbdfb8…`, superseded by C2-A-R1 |
+| C2-A-R1 | preregistration and evidence integrity repair — `docs/closure-2a-r1-review-repair.md`; approval moved out of the frozen definition, checkout-independent paths, content-bound config digests, four independent oracle sessions, content-based leak detection, router decision gate. Preflight PASSED (60 checks), digest `3080f313…`, `execution_ready false`. Budget still `PENDING_OWNER_APPROVAL`; live pilot not started |
 | Paused research branch | `feat/placement-coding-integration` = `0252bdb` (G1) — retained, never merged |
 | Final-1.5 baseline (`BASE_SHA` of that stage) | `16251d05c34cff41d280396a1647214914e51a31` |
 | Final-1.6 ported fix | `1b4f6be` = cherry-pick of `18e523c` (coding-session outcome attribution, 2 files) |

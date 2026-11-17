@@ -18,20 +18,35 @@ from `experiments/evaluation/closure2/protocol.py`.
 | **A1-P** | AtlasRuntime | multi | task-scoped | shared-prefix | off | `closure2-shared-prefix.yaml` |
 | **A2-P** | AtlasRuntime | multi | task-scoped | shared-prefix | selective (`r0.1.0`) | `closure2-shared-prefix.yaml` |
 
-Arm config digests (frozen, per arm):
+Arm config digests (frozen, per arm, revision `closure-2a-r1`). Each digest covers the arm record,
+the topology budget slice, the shared resource contract, the repository-relative config path **and
+the effective content of that YAML**:
 
 | Arm | `config_digest` |
 |---|---|
-| N0 | `38ed2c84d7b475c3415517b8f608f237e35d4809adf9ff84cce99482b95df9ce` |
-| N1 | `ae513f8c9f5236d193e25a6ec1208292160c5a36f3e85c97753c920e349ad4a3` |
-| A0 | `90dd141ed8e749351d7649c2d20fbbd834b091de58fb17f43a066563bc490d18` |
-| A1-L | `c1f5a71581158637b00b5a0d55cd8a3d0f01641913c3f84d591a6de39a8ccc9e` |
-| A1-P | `25ed19eb4513c6f3d7acf280c18c7e18f71e1f3898b9a91ede82d19f1b54552b` |
-| A2-P | `1127fbee99ac1085e43b3f337818b84f934bce2d0425a1d54b6f36190658cc73` |
+| N0 | `e74f8e36fafb531091233ab99da17e7696b437ada36343150b6b1f2c14a670ac` |
+| N1 | `aadc7f129ce23239dfc80d07c100373ebf44055337976e61ef9b42cce0bda746` |
+| A0 | `4ae0f21142df3ff6b0b9046a92c191be3ac144380648dce1b4115e3dda5de1f1` |
+| A1-L | `296a1db1e70124e92121ab1cb390cebe97d5043404c0c4d7a55dbffe67ac0a53` |
+| A1-P | `fb1a2dff282e84bd855d7647d1599c9bff497463c7052436639c36e6858a3633` |
+| A2-P | `a1bc879ad7c1227a4c8a83746ad284fc1850157a4a5891bfb46b68e5350fe8b2` |
+
+Config semantic digests (content only, path included, formatting ignored):
+
+| Config (repository-relative) | `config_semantic_digest` |
+|---|---|
+| `experiments/configs/final4-context.yaml` | `16f587b3696e5d4e9f9a7868aa0859c89da876975ef7060f8a2936ce72899eb8` |
+| `experiments/configs/closure2-shared-prefix.yaml` | `751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a` |
 
 **A1-L vs A1-P** is the only pair where the difference is one config key: `context.prompt_layout`.
 Same policy, renderer, transform, tools, budget, DAG, tasks. A unit test asserts that the two arm
-records differ in exactly `prompt_layout` and `config`.
+records differ in exactly `prompt_layout` and `config`; `preflight.layout_ablation_delta()` flattens
+both YAML files and requires `context.prompt_layout` to be the **only** differing effective key.
+Mutating any other key — `provider.model`, `tools.max_results`, `sandbox.image` — makes
+`only_layout_differs` false and fails the preflight.
+
+Because the digest is derived from the parsed YAML, renaming or reformatting a file cannot disguise
+a value change, and a comment-only edit cannot fake one.
 
 **A1-P vs A2-P** differs in one field (`route`). If the router selects the same DAG, the two cells
 are not independent samples and the difference must not be reported as a router benefit.
@@ -66,12 +81,38 @@ input). Cross-topology comparison is therefore gated on a separate checklist ins
 If any of those is false for a task, that task is `NOT_COMPARABLE` across topologies and must not
 enter the formal matrix. All three tasks currently pass.
 
+### 2.1 Oracle independence, answer containment and routing evidence
+
+Three properties must hold *per task*, and each is a gate rather than a recorded observation:
+
+| Property | Mechanism | Negative control |
+|---|---|---|
+| the hidden oracle is verified independently of the public tests | four separate pytest sessions — seed+public, seed+hidden, reference+public, reference+hidden — each in its own disposable workspace with an explicit target list | `test_a_failing_public_test_does_not_turn_into_a_failing_oracle` |
+| an unusable session is not reported as a defect | session kinds `PASSED` / `TEST_FAILURE` / `COLLECT_ERROR` / `NO_TESTS_COLLECTED` / `NO_TARGETS` / `USAGE_ERROR` / `INTERRUPTED` / `INTERNAL_ERROR` / `TIMEOUT`; only `TEST_FAILURE` and `COLLECT_ERROR` count as the seed failing the contract | `test_an_empty_target_list_is_refused` |
+| the workspace contains no answer | visible files must equal the frozen seed byte for byte; every hidden-test body and every answer-bearing reference body is searched for in the visible files; live task digests are compared with the C2-A table | `test_a_reference_body_copied_into_the_workspace_is_caught`, `test_a_renamed_hidden_oracle_copied_into_the_workspace_is_caught`, `test_a_seed_edit_breaks_the_identity_against_the_frozen_baseline` |
+| the router decides what the registration says | route, required and forbidden reason codes, required and forbidden blocked gates, wave-0 width and wave-0 write disjointness are all asserted | `test_a_drifted_route_fails_the_gate`, `test_a_drifted_reason_code_fails_the_gate`, `test_a_collapsed_first_wave_fails_the_gate` |
+
+Sharing a *file name* between the seed and the reference is by design and is not leakage: every
+reference module migrates a seeded file. Only a body that differs from its frozen seed counterpart
+can carry an answer. Snippet-level leakage is **not** detected — the documented boundary is whole
+files and whole bodies.
+
+N1's seed cannot import the v2 interface, so its seed-leg hidden session is a `COLLECT_ERROR`, not
+an assertion failure. The preflight reports it as such (`oracle_independence[...].seed_hidden_cause`)
+and proves the oracle is real through the reference leg, which executes 7 assertions. This is the
+Closure-2A false positive that R1 removed.
+
 ---
 
 ## 3. Model and resource contract
 
-Applies to every arm in Closure-2B. Values are a **proposal** — `BUDGET["approval"]` is
-`PENDING_OWNER_APPROVAL` and Closure-2B must not start before that is changed by the owner.
+Applies to every arm in Closure-2B. The parameter values are frozen inside the registration payload.
+The **approval** is a separate record (`protocol.APPROVAL_RECORD`, currently
+`PENDING_OWNER_APPROVAL`) and is deliberately outside the digest, so approving the budget cannot
+change the identity of what was approved. Closure-2B must not start before
+`protocol.require_execution_approval()` accepts: status `APPROVED`, `approved_digest` equal to the
+frozen digest, plus approver, approval commit and timestamp. See
+`docs/closure-2-preregistration.md` §4.
 
 | Knob | Single | Multi |
 |---|---|---|
