@@ -14,11 +14,13 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from anycode.sandbox import SandboxCommandResult
+from anycode.sandbox import SandboxCapabilities, SandboxCommandResult
 from anycode.types import AgentInfo, ToolSecurityPolicy, ToolUseContext
 from experiments.evaluation.closure1b.acceptance import _overlap, _pair_overlapped
 from experiments.evaluation.closure1b.native_baseline import (
     ENGINE_ID,
+    classify_native_failure,
+    native_oracle_failure_class,
     native_task_turn,
     run_native_sample,
 )
@@ -26,6 +28,7 @@ from experiments.evaluation.closure1b.neutral_lifecycle import (
     NeutralCreateError,
     NeutralIsolationError,
     NeutralLifecycleError,
+    NeutralProvisionError,
     close_neutral_sandbox,
     open_neutral_sandbox,
     probe_container_environment,
@@ -37,8 +40,8 @@ from experiments.evaluation.final4.neutral_adapter import (
     SandboxToolBackend,
     neutral_tool_definitions,
 )
-from experiments.evaluation.models import BenchmarkTask, WorkerStep
-from experiments.evaluation.runner import RunnerSettings
+from experiments.evaluation.models import BenchmarkTask, OracleOutcome, WorkerStep
+from experiments.evaluation.runner import EvaluationEnvironmentError, RunnerSettings
 from tests.helpers.fake_sandbox_provider import FakeSandboxProvider
 
 from atlasos.sandbox.models import SandboxProjectConfig
@@ -526,3 +529,265 @@ def test_tool_security_policy_is_available_for_the_native_agent() -> None:
     # The native agent is configured with the sandbox workspace root, never the Host directory.
     policy = ToolSecurityPolicy(workspace_root=WORKSPACE)
     assert policy.workspace_root == WORKSPACE
+
+
+# -- C1-B-R1: failure evidence --------------------------------------------------------------
+
+
+def _sandbox_shaped_fake(root: Path) -> FakeSandboxProvider:
+    """A fake provider that claims to be OpenSandbox, so the real-provider guard lets it through."""
+
+    capabilities = SandboxCapabilities(
+        provider="opensandbox",
+        isolation="container",
+        networking="none",
+        persistent_filesystem=True,
+        snapshots=False,
+        command_streaming=False,
+        cancellation=True,
+        file_transfer=True,
+        evidence=True,
+    )
+    return FakeSandboxProvider(root, capabilities=capabilities)
+
+
+def _native_settings(tmp_path: Path) -> RunnerSettings:
+    return RunnerSettings(
+        benchmark_id="c1b-r1",
+        dataset_version="test",
+        runs_root=tmp_path / "runs",
+        timeout_seconds=30,
+    )
+
+
+@pytest.mark.parametrize(
+    ("error_type", "stage"),
+    [
+        (NeutralCreateError, "create"),
+        (NeutralProvisionError, "provision"),
+        (NeutralIsolationError, "isolation"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_lifecycle_failure_is_an_environment_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[NeutralLifecycleError],
+    stage: str,
+) -> None:
+    from experiments.evaluation.closure1b import native_baseline
+
+    fake = _sandbox_shaped_fake(tmp_path / "sandboxes")
+    monkeypatch.setattr(native_baseline, "_build_provider", lambda config: fake)
+
+    async def boom(*args: Any, **kwargs: Any) -> Any:
+        raise error_type(
+            f"{stage} exploded",
+            sandbox_id=None if stage == "create" else "sandbox-1",
+            destroy_confirmed=None if stage == "create" else True,
+        )
+
+    monkeypatch.setattr(native_baseline, "open_neutral_sandbox", boom)
+    result = await run_native_sample(
+        _task(multi=False),
+        settings=_native_settings(tmp_path),
+        runs_root=tmp_path / "runs",
+        provider_name="scripted",
+    )
+    assert result.failure_class == "ENVIRONMENT_FAILURE"
+    assert (result.failure_reason or "").startswith(error_type.__name__)
+    assert result.environment["sandbox_failure"] == {
+        "stage": stage,
+        "type": error_type.__name__,
+        "sandbox_id": None if stage == "create" else "sandbox-1",
+        "created": stage != "create",
+        "destroy_confirmed": None if stage == "create" else True,
+        "cleanup_failure": None,
+    }
+    assert result.metrics.sandbox_created is False
+    # Infrastructure defects never become an agent-capability or model verdict.
+    assert result.failure_class not in {"RUNTIME_FAILURE", "MODEL_FAILURE"}
+
+
+def test_other_failures_keep_their_shared_class() -> None:
+    class RateLimitError(Exception):
+        pass
+
+    assert classify_native_failure(TimeoutError()) == "TIMEOUT"
+    assert classify_native_failure(EvaluationEnvironmentError("blocked")) == ("ENVIRONMENT_FAILURE")
+    assert classify_native_failure(RuntimeError("agent loop")) == "RUNTIME_FAILURE"
+    assert classify_native_failure(RateLimitError("slow down")) == "MODEL_FAILURE"
+    # And the lifecycle hierarchy is the only thing this arm adds on top of the shared rule.
+    assert classify_native_failure(NeutralProvisionError("x")) == "ENVIRONMENT_FAILURE"
+
+
+@pytest.mark.parametrize(
+    ("outcome", "expected"),
+    [
+        (
+            OracleOutcome(
+                passed=False,
+                failure_kind="HIDDEN_TESTS_FAILED",
+                failure_reasons=["assert add(2, 3) == 5"],
+                execution_mode="sandbox",
+            ),
+            "ORACLE_FAILURE",
+        ),
+        (
+            OracleOutcome(
+                passed=False,
+                failure_kind="SANDBOX_PROVISIONING_FAILURE",
+                environment_failure=True,
+                failure_reasons=["cannot create oracle sandbox"],
+                execution_mode="sandbox",
+            ),
+            "ENVIRONMENT_FAILURE",
+        ),
+        (
+            OracleOutcome(
+                passed=False,
+                failure_kind="ORACLE_TIMEOUT",
+                environment_failure=True,
+                failure_reasons=["oracle timed out"],
+                execution_mode="sandbox",
+            ),
+            "ENVIRONMENT_FAILURE",
+        ),
+        (
+            OracleOutcome(passed=True, checks={"hidden_tests": True}, execution_mode="sandbox"),
+            None,
+        ),
+    ],
+)
+def test_the_oracle_verdict_uses_the_shared_classification(
+    outcome: OracleOutcome, expected: str | None
+) -> None:
+    assert native_oracle_failure_class(outcome) == expected
+
+
+@pytest.mark.asyncio
+async def test_a_raised_create_failure_cleans_the_host_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import tempfile
+
+    provider = FakeSandboxProvider(tmp_path / "sandboxes")
+    repo = _git_repo(tmp_path / "repo", {"a.py": "x = 1\n"})
+
+    def bundles() -> set[Path]:
+        return set(Path(tempfile.gettempdir()).glob("atlas-m5-*.bundle"))
+
+    before = await asyncio.to_thread(bundles)
+
+    async def exploding_create(spec: Any) -> Any:
+        raise RuntimeError("create transport died")
+
+    provider.create = exploding_create  # type: ignore[method-assign]
+    with pytest.raises(NeutralCreateError) as raised:
+        await open_neutral_sandbox(
+            provider,
+            _config(),
+            run_id="c1b-test",
+            task_id="sample",
+            context=_context(),
+            fixture_repo=repo,
+        )
+    after = await asyncio.to_thread(bundles)
+    assert after == before
+    assert raised.value.stage == "create"
+    assert raised.value.destroy_confirmed is None
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert provider.destroy_count == 0
+
+
+@pytest.mark.asyncio
+async def test_a_failed_create_that_returns_a_handle_is_destroyed(tmp_path: Path) -> None:
+    provider = FakeSandboxProvider(tmp_path / "sandboxes")
+    repo = _git_repo(tmp_path / "repo", {"a.py": "x = 1\n"})
+
+    original = provider.create
+
+    async def half_created(spec: Any) -> Any:
+        result = await original(spec)
+        # The container exists, but the provider reports the create as failed.
+        return type(result)(ok=False, handle=result.handle)
+
+    provider.create = half_created  # type: ignore[method-assign]
+    with pytest.raises(NeutralCreateError) as raised:
+        await open_neutral_sandbox(
+            provider,
+            _config(),
+            run_id="c1b-test",
+            task_id="sample",
+            context=_context(),
+            fixture_repo=repo,
+        )
+    assert provider.destroy_count == 1
+    assert raised.value.sandbox_id is not None
+    assert raised.value.destroy_confirmed is True
+
+
+@pytest.mark.asyncio
+async def test_a_failed_create_without_a_handle_never_claims_a_destroy(tmp_path: Path) -> None:
+    provider = FakeSandboxProvider(tmp_path / "sandboxes")
+    provider.fail_create = True
+    repo = _git_repo(tmp_path / "repo", {"a.py": "x = 1\n"})
+    with pytest.raises(NeutralCreateError) as raised:
+        await open_neutral_sandbox(
+            provider,
+            _config(),
+            run_id="c1b-test",
+            task_id="sample",
+            context=_context(),
+            fixture_repo=repo,
+        )
+    assert provider.destroy_count == 0
+    assert raised.value.destroy_confirmed is None
+    assert raised.value.sandbox_id is None
+
+
+@pytest.mark.asyncio
+async def test_a_provision_failure_keeps_the_created_resource_and_its_cleanup(
+    tmp_path: Path,
+) -> None:
+    provider = FakeSandboxProvider(tmp_path / "sandboxes")
+    provider.fail_operations = True
+    repo = _git_repo(tmp_path / "repo", {"a.py": "x = 1\n"})
+    with pytest.raises(NeutralProvisionError) as raised:
+        await open_neutral_sandbox(
+            provider,
+            _config(),
+            run_id="c1b-test",
+            task_id="sample",
+            context=_context(),
+            fixture_repo=repo,
+        )
+    assert raised.value.stage == "provision"
+    assert raised.value.sandbox_id == "sandbox-1"
+    assert raised.value.destroy_confirmed is True
+    assert raised.value.cleanup_failure is None
+    # The original provision defect is still reachable through the chain.
+    assert isinstance(raised.value.__cause__, NeutralProvisionError)
+
+
+@pytest.mark.asyncio
+async def test_a_cleanup_failure_never_masks_the_original_failure(tmp_path: Path) -> None:
+    provider = FakeSandboxProvider(tmp_path / "sandboxes")
+    provider.fail_operations = True
+    provider.fail_destroy = True
+    repo = _git_repo(tmp_path / "repo", {"a.py": "x = 1\n"})
+    with pytest.raises(NeutralProvisionError) as raised:
+        await open_neutral_sandbox(
+            provider,
+            _config(),
+            run_id="c1b-test",
+            task_id="sample",
+            context=_context(),
+            fixture_repo=repo,
+        )
+    assert raised.value.destroy_confirmed is False
+    assert raised.value.cleanup_failure is not None
+    assert "cleanup also failed" in str(raised.value)
+    # The primary failure text is still the leading reason.
+    assert str(raised.value).startswith("NeutralProvisionError:")
+    assert isinstance(raised.value.__cause__, NeutralProvisionError)

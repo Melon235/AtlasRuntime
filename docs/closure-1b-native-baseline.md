@@ -199,9 +199,9 @@ loop, `ToolRegistry`, `ToolExecutor`, the container and the oracle are real; the
 | container HEAD == provisioned source commit | yes | yes |
 | isolation sweep passed | yes | yes |
 | sandbox destroyed (provider-confirmed) | yes | yes |
-| agent latency | 4.8 s | 8.3 s |
-| provision latency | 13.2 s | 12.1 s |
-| export latency | 4.7 s | 4.7 s |
+| agent latency | 4.4 s | 7.6 s |
+| provision latency | 12.3 s | 11.2 s |
+| export latency | 4.3 s | 4.3 s |
 
 **Concurrency is measured, not assumed.** N1's two dependency-free workers each emitted
 `agent_start` before the other emitted `agent_complete` (orchestrator events, not the DAG shape):
@@ -220,27 +220,51 @@ unconfirmed `destroy` is never reported as success.
 
 | Failure | Classified as | Cleanup |
 |---|---|---|
-| create failed | `ENVIRONMENT_FAILURE` | nothing to destroy |
-| provisioning failed | `ENVIRONMENT_FAILURE` | destroy attempted, result recorded |
+| create failed (returned no handle) | `ENVIRONMENT_FAILURE` | nothing to destroy; `destroy_confirmed=None` |
+| create reported failure but returned a handle | `ENVIRONMENT_FAILURE` | destroy attempted, answer recorded |
+| create raised | `ENVIRONMENT_FAILURE` | Host bundle removed; provider failure kept as `__cause__` |
+| provisioning failed | `ENVIRONMENT_FAILURE` | destroy attempted, `sandbox_id` + `destroy_confirmed` recorded |
 | isolation failed | `ENVIRONMENT_FAILURE` | destroy attempted, result recorded |
 | agent loop failed | `RUNTIME_FAILURE` | destroy attempted |
 | wall-clock timeout | `TIMEOUT` | destroy attempted |
 | export failed | `RUNTIME_FAILURE` (or `SANDBOX_*`) | destroy attempted |
 | destroy not confirmed | `CLEANUP_FAILURE` | recorded in `safety.cleanup_error` and `environment.sandbox_destroy` |
 | oracle environment failure | `ENVIRONMENT_FAILURE` (from the oracle's own kind) | oracle sandbox destroyed by the oracle |
+| hidden functional test failure | `ORACLE_FAILURE` | oracle sandbox destroyed by the oracle |
 | provider command failure / unknown exit | tool error, never success | n/a |
 
 A non-`Exception` `BaseException` (e.g. cancellation of the task) is re-raised, not turned into a
 result, and the `finally` still destroys the container.
 
+### E.1 Review correction (C1-B-R1)
+
+Three failure-evidence defects were confirmed in review and fixed without touching the success path:
+
+| Defect | Fix |
+|---|---|
+| `_classify_exception` (shared with the Atlas arm) does not know `NeutralLifecycleError`, so a sandbox create/provision/isolation failure was classified as `RUNTIME_FAILURE` — an infrastructure defect reading as an agent-capability result | `native_baseline.classify_native_failure` maps the lifecycle hierarchy to `ENVIRONMENT_FAILURE` and delegates everything else unchanged. `NeutralLifecycleError` gained `stage`, `sandbox_id` and `destroy_confirmed`, and the run persists them under `environment.sandbox_failure` |
+| every `oracle.passed=False` became `ORACLE_FAILURE`, so a dead oracle sandbox looked like a wrong deliverable | `native_oracle_failure_class` reuses the shared `oracle_failure_class`; the verdict is also recorded under `environment.oracle.classification` |
+| a `provider.create()` exception skipped the Host bundle cleanup, and a failed result carrying a handle was neither destroyed nor reported | the bundle is removed on every exit path (including a create that raises — the old code only unlinked it on the `ok=False`/no-handle branch), a handle returned with `ok=False` is destroyed and its answer recorded, a create with no handle claims no destroy, and a cleanup failure never replaces the primary exception |
+
+Neither the oracle algorithm, the hidden tests, the prompt layout, the worker factory nor the
+six-tool contract was touched.
+
 ---
 
 ## F. Tests
 
-New: `tests/integration/test_closure1b_native_baseline.py` (20 tests, offline, `FakeSandboxProvider`).
+New: `tests/integration/test_closure1b_native_baseline.py` (33 tests, offline, `FakeSandboxProvider`).
 They cover the lifecycle success and failure paths, the two backend path/exit-code defects, the
 "no Host fallback" guard, the six-tool surface, task-turn parity, both historical N0 defects and the
 concurrency detector.
+
+The C1-B-R1 counterexamples are one test each: three parametrised lifecycle failures reaching
+`ENVIRONMENT_FAILURE` through `run_native_sample` with `environment.sandbox_failure` persisted; the
+four oracle verdicts mapped through the shared rule; the preserved classes for timeout, environment,
+runtime and model failures; a create that raises (bundle removed, no destroy claimed, cause kept); a
+failed create that still returns a handle (destroyed and reported); a failed create with no handle
+(no destroy claimed); a provision failure keeping the created resource and its confirmed cleanup; and
+a cleanup failure that never replaces the primary exception.
 
 The real-container acceptance is **not** part of the default suite: it needs a running OpenSandbox.
 When the provider is unavailable the script exits `3` with `status: BLOCKED` and never falls back to a

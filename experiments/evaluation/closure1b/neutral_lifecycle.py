@@ -23,6 +23,7 @@ construction rather than by convention.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,7 @@ from experiments.evaluation.stage_g3_4a_integrity import enforce_evaluation_isol
 
 from atlasos.sandbox.models import (
     SandboxProjectConfig,
+    SandboxProvisionError,
     trusted_sandbox_spec,
 )
 from atlasos.sandbox.provider import require_capabilities
@@ -39,23 +41,40 @@ from atlasos.sandbox.provision import GitProjectProvisioner
 
 
 class NeutralLifecycleError(RuntimeError):
-    """A native-arm lifecycle failure, carrying any cleanup evidence that came with it."""
+    """A native-arm lifecycle failure, carrying the cleanup evidence that came with it.
 
-    def __init__(self, message: str, *, cleanup_failure: str | None = None) -> None:
+    ``stage`` names the step that failed, ``sandbox_id`` records that a container really was created
+    even though no usable sandbox was returned, and ``destroy_confirmed`` is the provider's own
+    answer — ``None`` when no handle existed, so "nothing to destroy" is never reported as
+    "destroyed successfully".
+    """
+
+    stage: str = "lifecycle"
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        cleanup_failure: str | None = None,
+        sandbox_id: str | None = None,
+        destroy_confirmed: bool | None = None,
+    ) -> None:
         super().__init__(message)
         self.cleanup_failure = cleanup_failure
+        self.sandbox_id = sandbox_id
+        self.destroy_confirmed = destroy_confirmed
 
 
 class NeutralCreateError(NeutralLifecycleError):
-    pass
+    stage = "create"
 
 
 class NeutralProvisionError(NeutralLifecycleError):
-    pass
+    stage = "provision"
 
 
 class NeutralIsolationError(NeutralLifecycleError):
-    pass
+    stage = "isolation"
 
 
 @dataclass(frozen=True)
@@ -115,45 +134,69 @@ async def open_neutral_sandbox(
         workspace_root=config.workspace_root,
     )
     source = provisioner.inspect(fixture_repo)
-    spec = trusted_sandbox_spec(
-        run_id=run_id,
-        task_id=task_id,
-        worker_id=None,
-        context=context,
-        config=config,
-    )
-    created = await provider.create(spec)
-    if not created.ok or created.handle is None:
-        source.bundle_path.unlink(missing_ok=True)
-        raise NeutralCreateError(f"sandbox create failed: {created.error}")
-    handle = created.handle
-
-    timings: dict[str, float] = {}
+    handle: Any = None
+    # The Host bundle is a staging artifact. It is removed on every exit path, including a create
+    # that raises before any handle exists.
     try:
-        import time
-
-        started = time.perf_counter()
-        report = await provisioner.provision(provider, handle, source)
-        timings["provision_ms"] = round((time.perf_counter() - started) * 1000.0, 3)
-        started = time.perf_counter()
-        isolation = await enforce_evaluation_isolation(provider, handle)
-        timings["isolation_ms"] = round((time.perf_counter() - started) * 1000.0, 3)
-        if not isolation.passed:
-            raise NeutralIsolationError(
-                "evaluation isolation check failed: " + "; ".join(isolation.failures)
+        spec = trusted_sandbox_spec(
+            run_id=run_id,
+            task_id=task_id,
+            worker_id=None,
+            context=context,
+            config=config,
+        )
+        try:
+            created = await provider.create(spec)
+        except BaseException as error:
+            if not isinstance(error, Exception):
+                raise
+            # No handle exists, so nothing is destroyed and nothing is claimed; the provider's own
+            # failure is preserved as the cause.
+            raise NeutralCreateError(
+                f"sandbox create raised {type(error).__name__}: {error}",
+                destroy_confirmed=None,
+            ) from error
+        handle = created.handle
+        if handle is None:
+            # Nothing was created, so there is nothing to destroy and nothing to claim.
+            raise NeutralCreateError(
+                f"sandbox create failed: {created.error}",
+                destroy_confirmed=None,
             )
+        if not created.ok:
+            # A failed result that still carries a handle: the container may exist. Destroy it and
+            # report the provider's answer rather than assuming either way.
+            confirmed, cleanup_error = await _destroy(provider, handle)
+            raise NeutralCreateError(
+                f"sandbox create reported failure but returned handle {handle.id}: {created.error}",
+                cleanup_failure=cleanup_error,
+                sandbox_id=str(handle.id),
+                destroy_confirmed=confirmed,
+            )
+        report, isolation, timings = await _provision_and_verify(
+            provider, provisioner, handle, source
+        )
     except BaseException as error:
+        already_handled = (
+            isinstance(error, NeutralLifecycleError) and error.destroy_confirmed is not None
+        )
+        if handle is None or already_handled:
+            raise
+        # Provisioning or isolation failed after a container was created: destroy it, and keep both
+        # the primary failure and the cleanup answer.
         confirmed, cleanup_error = await _destroy(provider, handle)
         message = f"{type(error).__name__}: {error}"
         if not confirmed:
             message = f"{message}; sandbox cleanup also failed: {cleanup_error}"
-        # Keep the specific lifecycle type so a caller can tell a create failure from a provision or
-        # isolation failure; only the class of the failure is re-raised, with the message and the
-        # cleanup evidence carried over.
         error_type = (
             type(error) if isinstance(error, NeutralLifecycleError) else NeutralLifecycleError
         )
-        raise error_type(message, cleanup_failure=cleanup_error) from error
+        raise error_type(
+            message,
+            cleanup_failure=cleanup_error,
+            sandbox_id=str(handle.id),
+            destroy_confirmed=confirmed,
+        ) from error
     finally:
         source.bundle_path.unlink(missing_ok=True)
 
@@ -169,6 +212,31 @@ async def open_neutral_sandbox(
         provision_uploads=report.uploads,
         timings_ms=timings,
     )
+
+
+async def _provision_and_verify(
+    provider: SandboxProvider,
+    provisioner: GitProjectProvisioner,
+    handle: Any,
+    source: Any,
+) -> tuple[Any, Any, dict[str, float]]:
+    """Provision, then run the isolation sweep; classify each failure at its own stage."""
+
+    timings: dict[str, float] = {}
+    started = time.perf_counter()
+    try:
+        report = await provisioner.provision(provider, handle, source)
+    except SandboxProvisionError as error:
+        raise NeutralProvisionError(str(error)) from error
+    timings["provision_ms"] = round((time.perf_counter() - started) * 1000.0, 3)
+    started = time.perf_counter()
+    isolation = await enforce_evaluation_isolation(provider, handle)
+    timings["isolation_ms"] = round((time.perf_counter() - started) * 1000.0, 3)
+    if not isolation.passed:
+        raise NeutralIsolationError(
+            "evaluation isolation check failed: " + "; ".join(isolation.failures)
+        )
+    return report, isolation, timings
 
 
 async def close_neutral_sandbox(

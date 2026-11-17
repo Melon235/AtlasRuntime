@@ -115,6 +115,9 @@ Five observation details were raised in review and are deliberately **not** fixe
 4. `cache_split_reported_by_provider = hit > 0` is the wrong predicate; the real cache split comes
    from `InferenceObservation.usage`, and "unknown" must never become "observed zero hits".
 5. Historical token fields and Final-4 legacy run metrics need one consolidated reconciliation.
+6. `BenchmarkTask.fixture_digest` does not cover `WorkerStep.shared_context`, so the effective
+   public task input has no traceable digest. A fair comparison needs one — while the historical
+   fixture-digest semantics must be preserved (raised in the C1-B review, 2026-11-17).
 
 No request-tracing framework and no usage pipeline may be introduced to close these.
 

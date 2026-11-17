@@ -27,29 +27,29 @@
     "workspace_root": "/workspace/project"
   },
   "engine": "anycode-0.9.0-native-agents-with-neutral-opensandbox-tool-adapter",
-  "generated_at": "2026-11-16T16:03:22.860545+00:00",
+  "generated_at": "2026-11-17T02:18:28.075252+00:00",
   "kind": "deterministic_real_sandbox_acceptance",
   "model_calls": 0,
   "n0": {
-    "agent_latency_ms": 4797.555,
+    "agent_latency_ms": 4420.844,
     "container": {
       "git": "git version 2.47.3",
-      "head_commit": "8a9687a51ca87f159f41b6be77e6bcf6337c5e63",
+      "head_commit": "d6ccd5db5ce1db24578b059e06cfbfade911ffdd",
       "python": "Python 3.12.16",
       "uname": "Linux",
       "workspace_root": "/workspace/project"
     },
     "export_dir": "workspace",
-    "export_latency_ms": 4701.017,
+    "export_latency_ms": 4308.17,
     "failure_class": "TASK_SUCCESS",
     "failure_reason": null,
-    "latency_ms": 33574.89,
+    "latency_ms": 31468.645,
     "model_turns": 0,
     "oracle_kind": "HIDDEN_TESTS_PASSED",
     "oracle_pass": true,
     "oracle_reasons": [],
-    "patch_digest": "sha256:20786c6441ac4961b4745dcd2fb0ed663a90ac81bb29afa7aef3d0cd16b70c16",
-    "provision_latency_ms": 13202.401,
+    "patch_digest": "sha256:09eac0b38305202ede8bc1f7180ad9a91d4d0cc648e5a65bb34584791dd9dd98",
+    "provision_latency_ms": 12253.989,
     "run_dir": "transient (deleted after the run)",
     "sandbox": {
       "image": "atlas-uat-python:3.12",
@@ -72,12 +72,12 @@
       "provider": "opensandbox",
       "provision_commands": 4,
       "provision_uploads": 1,
-      "sandbox_id": "c96130b6-719d-4f84-aa81-dba8d44f3498",
-      "source_commit": "8a9687a51ca87f159f41b6be77e6bcf6337c5e63",
-      "source_digest": "sha256:195d9eb209c8a505dd330d260fe4f17ee6968d0458bd15ec585b716d41fa26f7",
+      "sandbox_id": "ae745b05-9700-43eb-9004-8de431f56d25",
+      "source_commit": "d6ccd5db5ce1db24578b059e06cfbfade911ffdd",
+      "source_digest": "sha256:36740e9d3c007c5b077002cb39640bf47b6127bfc2bb68aa4596efcfbe0a5e63",
       "timings_ms": {
-        "isolation_ms": 4730.23,
-        "provision_ms": 4755.564
+        "isolation_ms": 4362.617,
+        "provision_ms": 4356.364
       },
       "workspace_root": "/workspace/project"
     },
@@ -90,30 +90,30 @@
     "task_events": [
       {
         "agent": "native:main",
-        "task": "01a1e519-9468-724e-88c8-c73c6ba1f633",
+        "task": "01a1e74c-afc7-73cb-ba27-f728a2f7490a",
         "title": "validation-serial-main",
-        "ts": "2026-11-16T16:03:41.289917+00:00",
+        "ts": "2026-11-17T02:18:45.064823+00:00",
         "type": "task_start"
       },
       {
         "agent": "native:main",
         "task": "",
         "title": null,
-        "ts": "2026-11-16T16:03:41.289917+00:00",
+        "ts": "2026-11-17T02:18:45.064823+00:00",
         "type": "agent_start"
       },
       {
         "agent": "native:main",
         "task": "",
         "title": null,
-        "ts": "2026-11-16T16:03:46.086072+00:00",
+        "ts": "2026-11-17T02:18:49.483463+00:00",
         "type": "agent_complete"
       },
       {
         "agent": "native:main",
-        "task": "01a1e519-9468-724e-88c8-c73c6ba1f633",
+        "task": "01a1e74c-afc7-73cb-ba27-f728a2f7490a",
         "title": null,
-        "ts": "2026-11-16T16:03:46.086072+00:00",
+        "ts": "2026-11-17T02:18:49.483463+00:00",
         "type": "task_complete"
       }
     ],
@@ -132,13 +132,13 @@
     }
   },
   "n1": {
-    "agent_latency_ms": 8251.325,
+    "agent_latency_ms": 7575.624,
     "concurrency": {
       "basis": "orchestrator agent_start/agent_complete timestamps of the two dependency-free workers, not the DAG shape",
       "ends": {
-        "native:w1": "2026-11-16T16:04:18.513391+00:00",
-        "native:w2": "2026-11-16T16:04:18.513391+00:00",
-        "native:w3": "2026-11-16T16:04:22.058386+00:00"
+        "native:w1": "2026-11-17T02:19:19.764482+00:00",
+        "native:w2": "2026-11-17T02:19:19.764482+00:00",
+        "native:w3": "2026-11-17T02:19:23.019974+00:00"
       },
       "independent_agents": [
         "native:w1",
@@ -150,31 +150,31 @@
         "[YOUR ASSIGNMENT \u2014 worker w2]"
       ],
       "starts": {
-        "native:w1": "2026-11-16T16:04:13.806916+00:00",
-        "native:w2": "2026-11-16T16:04:13.810915+00:00",
-        "native:w3": "2026-11-16T16:04:18.513391+00:00"
+        "native:w1": "2026-11-17T02:19:15.445150+00:00",
+        "native:w2": "2026-11-17T02:19:15.447161+00:00",
+        "native:w3": "2026-11-17T02:19:19.764482+00:00"
       },
       "workers_completed": 3,
       "workers_started": 3
     },
     "container": {
       "git": "git version 2.47.3",
-      "head_commit": "7ab84c86296c9b23f80512903287ab1699cf3aad",
+      "head_commit": "495b98b8234091cedc1bf59bbbee30e6c8532913",
       "python": "Python 3.12.16",
       "uname": "Linux",
       "workspace_root": "/workspace/project"
     },
     "export_dir": "workspace",
-    "export_latency_ms": 4662.614,
+    "export_latency_ms": 4283.448,
     "failure_class": "TASK_SUCCESS",
     "failure_reason": null,
-    "latency_ms": 35903.752,
+    "latency_ms": 33492.667,
     "model_turns": 0,
     "oracle_kind": "HIDDEN_TESTS_PASSED",
     "oracle_pass": true,
     "oracle_reasons": [],
-    "patch_digest": "sha256:9ac8995514643686dfc9bfefe1b535391853903649b99b228487ce406aaa9c0f",
-    "provision_latency_ms": 12139.073,
+    "patch_digest": "sha256:5337499220f593d17f0d9fbec0d1c0bb7f2546609c2b22527631ab8126623227",
+    "provision_latency_ms": 11171.531,
     "run_dir": "transient (deleted after the run)",
     "sandbox": {
       "image": "atlas-uat-python:3.12",
@@ -197,12 +197,12 @@
       "provider": "opensandbox",
       "provision_commands": 4,
       "provision_uploads": 1,
-      "sandbox_id": "ca6abd4a-79bf-4249-a363-19417ce286c9",
-      "source_commit": "7ab84c86296c9b23f80512903287ab1699cf3aad",
-      "source_digest": "sha256:5173e0d5c2e7235a77cdfe555a84796d4ce51307f92cbf22f4942b9fb06da3db",
+      "sandbox_id": "9c093e82-80db-411b-8a25-e39bb7545ec6",
+      "source_commit": "495b98b8234091cedc1bf59bbbee30e6c8532913",
+      "source_digest": "sha256:a1532b47e3e1a6e439b6e9761f1681f9221147e38304e9b49aaaca8d73654979",
       "timings_ms": {
-        "isolation_ms": 4595.312,
-        "provision_ms": 4696.668
+        "isolation_ms": 4215.193,
+        "provision_ms": 4314.261
       },
       "workspace_root": "/workspace/project"
     },
@@ -215,86 +215,86 @@
     "task_events": [
       {
         "agent": "native:w1",
-        "task": "01a1e51a-136e-751c-b90e-4bc2c1c93927",
+        "task": "01a1e74d-2675-7c0c-af65-4cdf9a83034a",
         "title": "validation-parallel-w1",
-        "ts": "2026-11-16T16:04:13.806916+00:00",
+        "ts": "2026-11-17T02:19:15.445150+00:00",
         "type": "task_start"
       },
       {
         "agent": "native:w1",
         "task": "",
         "title": null,
-        "ts": "2026-11-16T16:04:13.806916+00:00",
+        "ts": "2026-11-17T02:19:15.445150+00:00",
         "type": "agent_start"
       },
       {
         "agent": "native:w2",
-        "task": "01a1e51a-136e-794b-b58c-eef40c8d5f22",
+        "task": "01a1e74d-2675-7c77-a9ea-015caebf1b60",
         "title": "validation-parallel-w2",
-        "ts": "2026-11-16T16:04:13.810915+00:00",
+        "ts": "2026-11-17T02:19:15.447161+00:00",
         "type": "task_start"
       },
       {
         "agent": "native:w2",
         "task": "",
         "title": null,
-        "ts": "2026-11-16T16:04:13.810915+00:00",
+        "ts": "2026-11-17T02:19:15.447161+00:00",
         "type": "agent_start"
       },
       {
-        "agent": "native:w2",
+        "agent": "native:w1",
         "task": "",
         "title": null,
-        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "ts": "2026-11-17T02:19:19.764482+00:00",
         "type": "agent_complete"
       },
       {
-        "agent": "native:w2",
-        "task": "01a1e51a-136e-794b-b58c-eef40c8d5f22",
+        "agent": "native:w1",
+        "task": "01a1e74d-2675-7c0c-af65-4cdf9a83034a",
         "title": null,
-        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "ts": "2026-11-17T02:19:19.764482+00:00",
         "type": "task_complete"
       },
       {
-        "agent": "native:w1",
+        "agent": "native:w2",
         "task": "",
         "title": null,
-        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "ts": "2026-11-17T02:19:19.764482+00:00",
         "type": "agent_complete"
       },
       {
-        "agent": "native:w1",
-        "task": "01a1e51a-136e-751c-b90e-4bc2c1c93927",
+        "agent": "native:w2",
+        "task": "01a1e74d-2675-7c77-a9ea-015caebf1b60",
         "title": null,
-        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "ts": "2026-11-17T02:19:19.764482+00:00",
         "type": "task_complete"
       },
       {
         "agent": "native:w3",
-        "task": "01a1e51a-136e-7578-979c-e692c9929778",
+        "task": "01a1e74d-2675-76b1-ab7d-781ecf432762",
         "title": "validation-parallel-w3",
-        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "ts": "2026-11-17T02:19:19.764482+00:00",
         "type": "task_start"
       },
       {
         "agent": "native:w3",
         "task": "",
         "title": null,
-        "ts": "2026-11-16T16:04:18.513391+00:00",
+        "ts": "2026-11-17T02:19:19.764482+00:00",
         "type": "agent_start"
       },
       {
         "agent": "native:w3",
         "task": "",
         "title": null,
-        "ts": "2026-11-16T16:04:22.058386+00:00",
+        "ts": "2026-11-17T02:19:23.019974+00:00",
         "type": "agent_complete"
       },
       {
         "agent": "native:w3",
-        "task": "01a1e51a-136e-7578-979c-e692c9929778",
+        "task": "01a1e74d-2675-76b1-ab7d-781ecf432762",
         "title": null,
-        "ts": "2026-11-16T16:04:22.058386+00:00",
+        "ts": "2026-11-17T02:19:23.019974+00:00",
         "type": "task_complete"
       }
     ],

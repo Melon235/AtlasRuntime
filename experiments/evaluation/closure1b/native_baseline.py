@@ -30,7 +30,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from anycode import AgentConfig, OrchestratorConfig, TaskSpec, TeamConfig
 from anycode.identity import ExecutionContext
@@ -80,6 +80,7 @@ from experiments.evaluation.runner import (
 from experiments.evaluation.sandboxed_oracle import (
     OracleSandboxConfig,
     evaluate_oracle_isolated,
+    oracle_failure_class,
 )
 from experiments.evaluation.stage_g3_4a_integrity import FIXTURE_COMMIT_LABEL
 
@@ -384,9 +385,18 @@ async def run_native_sample(
     except BaseException as error:  # noqa: BLE001 - every failure is classified and persisted
         if not isinstance(error, Exception):
             raise
-        if isinstance(error, NeutralLifecycleError) and error.cleanup_failure:
-            cleanup_error = error.cleanup_failure
-        failure_class = _classify_exception(error)
+        if isinstance(error, NeutralLifecycleError):
+            if error.cleanup_failure:
+                cleanup_error = error.cleanup_failure
+            environment["sandbox_failure"] = {
+                "stage": error.stage,
+                "type": type(error).__name__,
+                "sandbox_id": error.sandbox_id,
+                "created": error.sandbox_id is not None,
+                "destroy_confirmed": error.destroy_confirmed,
+                "cleanup_failure": error.cleanup_failure,
+            }
+        failure_class = classify_native_failure(error)
         failure_reason = f"{type(error).__name__}: {error}"
     finally:
         if engine is not None:
@@ -474,8 +484,16 @@ async def run_native_sample(
             environment_failure=True,
             failure_kind="WORKSPACE_NOT_EXPORTED",
         )
-    if failure_class is None and not oracle.passed:
-        failure_class = "ORACLE_FAILURE"
+    oracle_class = native_oracle_failure_class(oracle)
+    environment["oracle"] = {
+        "passed": bool(oracle.passed),
+        "kind": oracle.failure_kind,
+        "mode": oracle.execution_mode,
+        "environment_failure": bool(oracle.environment_failure),
+        "classification": oracle_class,
+    }
+    if failure_class is None and oracle_class is not None:
+        failure_class = oracle_class
         failure_reason = "; ".join(oracle.failure_reasons)[:2000] or "oracle failed"
     if failure_class is None:
         failure_class = "TASK_SUCCESS"
@@ -517,6 +535,37 @@ async def run_native_sample(
     with ledger.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(_jsonable(final_result.as_dict()), sort_keys=True) + "\n")
     return final_result
+
+
+def native_oracle_failure_class(oracle: OracleOutcome) -> FailureClass | None:
+    """The shared oracle rule, in the type this arm's result field expects.
+
+    A failed hidden test is ``ORACLE_FAILURE``; a dead oracle sandbox, a timeout or a broken oracle
+    environment is ``ENVIRONMENT_FAILURE``. ``None`` means the oracle did not fail and no failure
+    class may be introduced.
+    """
+
+    failure = oracle_failure_class(oracle)
+    if failure is None:
+        return None
+    return cast("FailureClass", failure)
+
+
+def classify_native_failure(error: BaseException) -> FailureClass:
+    """Map a native-arm exception onto the shared failure classes.
+
+    A sandbox create/provision/isolation failure is an **environment** defect: nothing the model or
+    the agent loop did can cause it, and reporting it as ``RUNTIME_FAILURE`` would let an
+    infrastructure problem read as an agent-capability result.
+
+    ``_classify_exception`` (shared with the Atlas arm) does not know this hierarchy, and teaching
+    it about an evaluation-only module would point the dependency the wrong way, so the one extra
+    case lives here and everything else is delegated unchanged.
+    """
+
+    if isinstance(error, NeutralLifecycleError):
+        return "ENVIRONMENT_FAILURE"
+    return _classify_exception(error)
 
 
 def _post_hoc_budget(settings: RunnerSettings, metrics: RuntimeMetrics) -> dict[str, Any]:

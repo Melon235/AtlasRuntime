@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import shutil
 import tempfile
 from datetime import UTC, datetime
@@ -284,9 +285,30 @@ async def run_acceptance(*, out_path: Path = DEFAULT_OUT, runs_root: Path | None
     return 0 if all(checks.values()) else 1
 
 
+def sanitize_report(report: dict[str, Any]) -> dict[str, Any]:
+    """Strip absolute Host paths from the committed evidence.
+
+    The run directories are transient by construction — the acceptance deletes its workdir — so
+    publishing the path would only leak a machine layout that no longer exists. The facts stay.
+    """
+
+    for arm in ("n0", "n1"):
+        entry = report.get(arm)
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("run_dir"):
+            entry["run_dir"] = "transient (deleted after the run)"
+        if entry.get("export_dir"):
+            entry["export_dir"] = Path(str(entry["export_dir"])).name
+    text = json.dumps(report, indent=2, sort_keys=True)
+    for pattern in (r"[A-Za-z]:\\\\+Users\\\\+[^\"]+", r"[A-Za-z]:\\+Users\\+[^\"]+"):
+        text = re.sub(pattern, "<host-temp>", text)
+    return json.loads(text)
+
+
 def _write(path: Path, report: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    path.write_text(json.dumps(sanitize_report(report), indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps({"status": report["status"], "checks": report.get("checks")}, indent=2))
 
 
