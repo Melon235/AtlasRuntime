@@ -35,6 +35,7 @@ environment variables, historical run ids and Git history keep `atlasos` / `atla
 | C1-0 | `43fefdf` — closure roadmap frozen, Placement Slot route archived |
 | C1-A | effective prompt layout correction — `docs/closure-1a-prompt-layout.md` (R1 evidence fix at `7b30e59`, approved) |
 | C1-B | native AnyCode baseline on the shared OpenSandbox environment (N0/N1) — `docs/closure-1b-native-baseline.md`; real-container acceptance `REAL_SANDBOX_ACCEPTED`, parity `BASELINE_PARITY_PASS` |
+| C1-C | metrics and historical evidence closure — `docs/closure-1c-metrics-evidence.md`: metric dictionary, cache-split status, request-evidence/index integrity, `effective_public_task_digest`. **Closure-1 complete** |
 | Paused research branch | `feat/placement-coding-integration` = `0252bdb` (G1) — retained, never merged |
 | Final-1.5 baseline (`BASE_SHA` of that stage) | `16251d05c34cff41d280396a1647214914e51a31` |
 | Final-1.6 ported fix | `1b4f6be` = cherry-pick of `18e523c` (coding-session outcome attribution, 2 files) |
@@ -241,10 +242,10 @@ was re-measured after the Final-1.6 port: 891 passed / 6 skipped / 1 deselected
 7. Architecture design contract and Context Plane restoration (Final-4 correction, `37eba87` /
    `2a2af55`) — `docs/final-4-context-restoration-report.md`.
 8. **Closure stage** — `docs/final-closure-roadmap.md`. C1-0 (roadmap frozen), C1-A (effective
-   prompt layout) and C1-B (native neutral baseline, real-container acceptance) are done; C1-C
-   (historical metric consolidation plus the five deferred observation details), Closure-2 (final
-   benchmark and module evidence), Closure-3 (Web Workbench over the existing backend) and
-   Closure-4 (regression, documentation, packaging, version freeze) remain.
+   prompt layout), C1-B (native neutral baseline, real-container acceptance) and C1-C (metric
+   semantics, request evidence, historical consolidation) are done, so **Closure-1 is complete**.
+   Remaining: Closure-2 (final benchmark and module evidence loop), Closure-3 (Web Workbench over
+   the existing backend) and Closure-4 (regression, documentation, packaging, version freeze).
 
 Decisions owed by the project owner before Final-3 (from
 `docs/final-2-evaluation-design-report.md` §11): R-4/R-5 the minimal Context-Plane wiring plus

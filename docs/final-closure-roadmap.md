@@ -101,25 +101,34 @@ not re-run or re-interpret them, and does not add a module to answer them.
 | **C1-0** | Freeze this roadmap; archive the placement integration decision | docs only — **done** |
 | **C1-A** | Effective prompt layout correction: the worker system prompt and the rendered task body must describe the request that is actually sent | deterministic comparison + tests — **done**, R1 corrections approved |
 | **C1-B** | Native AnyCode fair baseline: one neutral lifecycle composition so the native arm can run in the same image | real-container deterministic acceptance — **done**, `docs/closure-1b-native-baseline.md` |
-| **C1-C** | Historical metric consolidation: one comparable table with per-run reconciliation and the request-evidence statuses | docs, no new runs |
+| **C1-C** | Historical metric consolidation: one comparable table with per-run reconciliation and the request-evidence statuses | docs + evidence fixes — **done**, `docs/closure-1c-metrics-evidence.md` |
 
-### Closure evidence backlog (C1-C, not to be widened before then)
+### Closure evidence backlog — closed by C1-C
 
-Five observation details were raised in review and are deliberately **not** fixed in C1-B:
+Six observation details were raised across the C1-A and C1-B reviews. All are now fixed or
+explicitly bounded, and each is recorded in `docs/closure-1c-metrics-evidence.md`:
 
-1. `_request_linkage` still checks dependency probes per consumer request and can skip a probe that
-   is missing rather than reporting it per expected block.
-2. `REQUEST_COVERAGE_RECONCILED` is an aggregate count reconciliation, not per-request network
-   tracing; `call_index`/`request_index` uniqueness and continuity are not asserted.
-3. `ModelRecordingAdapter` does not distinguish `asyncio.CancelledError` from a generic failure.
-4. `cache_split_reported_by_provider = hit > 0` is the wrong predicate; the real cache split comes
-   from `InferenceObservation.usage`, and "unknown" must never become "observed zero hits".
-5. Historical token fields and Final-4 legacy run metrics need one consolidated reconciliation.
-6. `BenchmarkTask.fixture_digest` does not cover `WorkerStep.shared_context`, so the effective
-   public task input has no traceable digest. A fair comparison needs one — while the historical
-   fixture-digest semantics must be preserved (raised in the C1-B review, 2026-11-17).
+1. **Dependency probes per consumer request** — every observed consumer request is now checked; a
+   missing probe is a failure naming its `call_index`, not a silent skip.
+2. **Coverage is a count reconciliation, not a network trace** — `call_index` and per-task
+   `request_index` uniqueness and contiguity are now asserted, and the evidence states its own
+   boundary: adapter-level, not end-to-end.
+3. **`asyncio.CancelledError`** — recorded as `CANCELLED`; provider failures stay `FAILED`.
+4. **Cache split source** — per-request evidence reports the split as unknown (AnyCode
+   `TokenUsage` cannot express it); the provider split lives in `InferenceObservation.usage` and is
+   summarised as `COMPLETE` / `PARTIAL` / `NONE` / `NO_OBSERVATIONS`. Unknown never becomes zero.
+5. **Historical metric reconciliation** — one dictionary, one inventory and one anti-misuse list in
+   the C1-C report; non-comparable rows are marked, never converted.
+6. **Effective public task input digest** — versioned `effective_public_task_digest` added next to
+   the unchanged `fixture_digest`; an arm comparison requires both arms to agree on the new digest.
 
-No request-tracing framework and no usage pipeline may be introduced to close these.
+No request-tracing framework and no usage pipeline was introduced.
+
+### Closure-1 is complete
+
+Core scope frozen, prompt layout repaired (C1-A), a fair native environment established (C1-B) and
+the metric semantics aligned (C1-C). The next stage is Closure-2: the final benchmark over the
+repaired baseline, and the module evidence loop.
 
 ### Closure-2 — final benchmark and module evidence loop
 

@@ -53,6 +53,7 @@ results of the current branch unless the document says so.
 | [`final-4-evidence-handoff.md`](final-4-evidence-handoff.md) | Final-4 handoff for independent review, including the G0 corrections to three earlier evidence claims |
 | [`closure-1a-prompt-layout.md`](closure-1a-prompt-layout.md) | Closure-1A: the duplicated task objective, the discarded Atlas system message, the resulting `shared_prefix` layout, its deterministic comparison, and what it does not measure |
 | [`closure-1b-native-baseline.md`](closure-1b-native-baseline.md) | Closure-1B: N0/N1, the native AnyCode baseline on the shared OpenSandbox environment — lifecycle, parity table, real-container acceptance, lifecycle failure handling |
+| [`closure-1c-metrics-evidence.md`](closure-1c-metrics-evidence.md) | Closure-1C: metric dictionary, provider-vs-normalized usage, cache-split status, request-evidence and index integrity fixes, the effective public task digest, the full historical inventory and the anti-misuse rules |
 | [`placement-coding-integration-design.md`](placement-coding-integration-design.md) | **PAUSED RESEARCH** — `DESIGN_PROPOSED`, then G1 landed on `feat/placement-coding-integration` (`0252bdb`). Stopped by the closure decision; the proposal is archived, not withdrawn from the record |
 | [`research-history.md`](research-history.md) | Which branch/SHA holds which historical stage |
 
