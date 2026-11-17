@@ -46,6 +46,63 @@ def text_digest(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+#: Version tag of the effective-public-task payload. Changing the payload means a new version, so an
+#: old digest can never be silently compared with a new one.
+EFFECTIVE_PUBLIC_TASK_DIGEST_VERSION = "effective-public-task-1"
+
+
+def effective_public_task_payload(task: BenchmarkTask) -> dict[str, Any]:
+    """Everything a worker is publicly told, and nothing it is not.
+
+    ``BenchmarkTask.fixture_digest`` predates multi-worker tasks and deliberately omits
+    ``WorkerStep.shared_context``; it is frozen and must keep producing the same bytes. This payload
+    is the *addition*: the effective public input, so a change to the shared requirement can be seen
+    even when the fixture is byte-identical.
+
+    Excluded on purpose: ``hidden_files`` (the oracle), ``frozen_contracts`` (a private routing
+    contract) and free-form ``notes``/``tags`` metadata. Including any of them would let a private
+    grading artifact move a "public input" digest.
+    """
+
+    return {
+        "version": EFFECTIVE_PUBLIC_TASK_DIGEST_VERSION,
+        "sample_id": task.sample_id,
+        "category": task.category,
+        "mode": task.mode,
+        "prompt": task.prompt,
+        "target": task.target,
+        # The public checkout the worker receives, by content.
+        "visible_files": dict(sorted(task.visible_files.items())),
+        "workers": [
+            {
+                "task_id": worker.task_id,
+                "title": worker.title,
+                "objective": worker.prompt,
+                "shared_context": worker.shared_context,
+                "depends_on": list(worker.depends_on),
+                "max_turns": worker.max_turns,
+            }
+            for worker in task.workers
+        ],
+        "allowed_paths": list(task.allowed_paths),
+        "forbidden_paths": list(task.forbidden_paths),
+        "required_artifacts": list(task.required_artifacts),
+        "tool_expectations": task.tool_expectations,
+        "mcp_server": task.mcp_server,
+        "max_turns": task.max_turns,
+    }
+
+
+def effective_public_task_digest(task: BenchmarkTask) -> str:
+    """Deterministic SHA-256 over the effective public task input.
+
+    Same task in, same digest out, in every arm: the Atlas runner and the native baseline both call
+    this function, so an arm comparison is only valid when the two digests are equal.
+    """
+
+    return canonical_digest(effective_public_task_payload(task))
+
+
 @dataclass(frozen=True)
 class WorkerStep:
     """One worker/task node in an evaluation workflow.
@@ -150,9 +207,16 @@ class BenchmarkTask:
             "category": self.category,
             "mode": self.mode,
             "fixture_digest": self.fixture_digest,
+            "effective_public_task_digest": self.effective_public_task_digest,
             "workers": [worker.task_id for worker in self.workers],
             "tags": list(self.tags),
         }
+
+    @property
+    def effective_public_task_digest(self) -> str:
+        """Versioned digest over the effective public task input (see the module function)."""
+
+        return effective_public_task_digest(self)
 
 
 @dataclass(frozen=True)

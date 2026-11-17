@@ -41,6 +41,7 @@ from experiments.evaluation.fixtures import (
     workspace_hashes,
 )
 from experiments.evaluation.models import (
+    EFFECTIVE_PUBLIC_TASK_DIGEST_VERSION,
     BenchmarkTask,
     EvalRunResult,
     FailureClass,
@@ -48,6 +49,7 @@ from experiments.evaluation.models import (
     RunIdentity,
     RuntimeMetrics,
     canonical_digest,
+    effective_public_task_digest,
 )
 from experiments.evaluation.oracle import evaluate_oracle
 from experiments.evaluation.sandboxed_oracle import (
@@ -438,12 +440,16 @@ class _RequestEvidence:
         self._finish(call_index, REQUEST_CANCELLED)
 
     def attach_usage(self, call_index: int, usage: Any) -> None:
-        """Record the provider usage of one already-observed request.
+        """Record the *normalized* usage of one already-observed request.
 
-        AnyCode's ``TokenUsage`` splits the prompt into cache-miss (``input_tokens``) and cache-read
-        parts, so both are recorded explicitly instead of one being called "prompt tokens". It is
-        a normalized usage object: when the provider did not report the cache split, the miss count
-        here is AnyCode's fallback, not an observed zero.
+        AnyCode's ``TokenUsage`` is a normalized object, and it cannot express "the provider did not
+        report a cache split": both a provider-reported 0-hit split and no split at all arrive here
+        as ``cache_read_input_tokens == 0``. So the split is recorded as **unknown** at this layer
+        rather than being inferred from a zero.
+
+        The provider's own split lives one layer up, in ``InferenceObservation.usage``, where
+        :func:`_aggregate_observations` reads it. Nothing here reconstructs it from ordering,
+        content similarity or process state — a wrong number would be worse than a missing one.
         """
 
         if not 0 <= call_index < len(self.records) or usage is None:
@@ -451,12 +457,21 @@ class _RequestEvidence:
         miss = int(getattr(usage, "input_tokens", 0) or 0)
         hit = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
         self.records[call_index]["usage"] = {
+            # Normalized totals: the adapter adds cache-read back into the prompt, so this is the
+            # provider's prompt total in both the "split reported" and "split absent" cases.
             "prompt_tokens": miss + hit,
-            "cache_miss_tokens": miss,
-            "cache_hit_tokens": hit,
             "completion_tokens": int(getattr(usage, "output_tokens", 0) or 0),
-            "cache_split_reported_by_provider": hit > 0,
-            "source": "anycode.TokenUsage as reported by the provider adapter",
+            "normalized_input_tokens": miss,
+            "normalized_cache_read_tokens": hit,
+            # Never inferred. ``None`` means the provider's split is not known here.
+            "cache_hit_tokens": None,
+            "cache_miss_tokens": None,
+            "cache_split_known": False,
+            "source": "anycode.TokenUsage (normalized by the provider adapter)",
+            "cache_split_note": (
+                "TokenUsage cannot distinguish a reported 0-hit split from an unreported split; "
+                "the provider split is recorded at run level from InferenceObservation.usage"
+            ),
         }
 
     def as_dict(self) -> dict[str, Any]:
@@ -524,6 +539,12 @@ class ModelRecordingAdapter:
         call_index = self._evidence.observe(messages, options) if self._evidence else None
         try:
             response = await self._inner.chat(messages, options)
+        except asyncio.CancelledError:
+            # A cancelled request is not a failed one: the caller went away, the provider did not
+            # reject anything.
+            if self._evidence is not None and call_index is not None:
+                self._evidence.mark_cancelled(call_index)
+            raise
         except BaseException as error:  # noqa: BLE001 - status only, re-raised unchanged
             if self._evidence is not None and call_index is not None:
                 self._evidence.mark_failed(call_index, type(error).__name__)
@@ -561,6 +582,11 @@ class ModelRecordingAdapter:
                 async for event in _events():
                     yield event
             except GeneratorExit:
+                raise
+            except asyncio.CancelledError:
+                # Task cancellation, not a provider failure.
+                if evidence is not None and call_index is not None:
+                    evidence.mark_cancelled(call_index)
                 raise
             except BaseException as error:  # noqa: BLE001 - status only, re-raised unchanged
                 if evidence is not None and call_index is not None:
@@ -990,6 +1016,57 @@ def _context_evidence(
     }
 
 
+def _request_index_integrity(linked: list[dict[str, Any]]) -> dict[str, Any]:
+    """Structural checks on the observed request set.
+
+    A count reconciliation can still pass while the identifiers are duplicated or missing — one
+    request counted twice and another never recorded. These checks are cheap and catch that class.
+
+    ``call_index`` is the wrapper's global observation order, so it must be unique and contiguous.
+    ``request_index`` is per trusted task, so it must be unique and contiguous within that task.
+    """
+
+    call_indices = [item["call_index"] for item in linked]
+    duplicates = sorted({index for index in call_indices if call_indices.count(index) > 1})
+    missing = sorted(set(range(len(linked))) - set(call_indices))
+
+    per_task: dict[str, list[Any]] = {}
+    for item in linked:
+        task_id = item["matched_task_id"]
+        if task_id is None:
+            continue
+        per_task.setdefault(str(task_id), []).append(item["request_index"])
+    task_problems: dict[str, Any] = {}
+    for task_id, indices in per_task.items():
+        duplicated = sorted(
+            {index for index in indices if index is not None and indices.count(index) > 1}
+        )
+        missing_index = sum(1 for index in indices if index is None)
+        present = sorted(index for index in indices if index is not None)
+        contiguous = present == list(range(len(present)))
+        if duplicated or missing_index or not contiguous:
+            task_problems[task_id] = {
+                "duplicate_request_indices": duplicated,
+                "requests_without_index": missing_index,
+                "contiguous": contiguous,
+                "indices": indices,
+            }
+    state_ok = all(
+        item["status"] in _TERMINAL_REQUEST_STATES or item["status"] == REQUEST_OBSERVED
+        for item in linked
+    )
+    return {
+        "passed": not duplicates and not missing and not task_problems and state_ok,
+        "call_index_unique": not duplicates,
+        "duplicate_call_indices": duplicates,
+        "call_index_contiguous": not missing,
+        "missing_call_indices": missing,
+        "request_index_contiguous_per_task": not task_problems,
+        "request_index_problems": task_problems,
+        "single_terminal_state": state_ok,
+    }
+
+
 def _request_linkage(
     per_task: list[dict[str, Any]],
     request_records: list[dict[str, Any]] | None,
@@ -1192,48 +1269,65 @@ def _request_linkage(
         )
         for dependency in declared:
             block_id = f"task-output:{dependency}"
-            # Every request of one task replays the same initial prompt at messages[0], so any
-            # observation of the block is evidence about the same injection.
-            observed = [
-                item["dependency_probes"][block_id]
-                for item in ordered
-                if block_id in (item["dependency_probes"] or {})
-            ]
-            if not observed:
-                # The block is in the store, so a consumer request issued after the producer
-                # finished must carry a probe. A consumer request that predates the block is the
-                # only honest explanation, and it still leaves the injection unproven.
+            # Every observed request of the consumer is checked, not just the ones that happen to
+            # carry a probe. Skipping a request without a probe would let a run with a correct
+            # first and third request and a missing middle one still pass as fully verified.
+            missing_probe: list[int] = []
+            absent: list[int] = []
+            wrong_count: list[dict[str, Any]] = []
+            content_missing: list[int] = []
+            for item in ordered:
+                probe = (item["dependency_probes"] or {}).get(block_id)
+                call_index = item["call_index"]
+                if probe is None:
+                    missing_probe.append(call_index)
+                    continue
+                if not probe.get("present"):
+                    absent.append(call_index)
+                    continue
+                if probe.get("count") != 1:
+                    wrong_count.append({"call_index": call_index, "count": probe.get("count")})
+                    continue
+                # An empty dependency body is legal: the structured block is the evidence, and the
+                # content probe reports "nothing to compare" for it.
+                if not probe.get("content_empty") and probe.get("content_present") is False:
+                    content_missing.append(call_index)
+            if missing_probe:
                 dependency_failures.append(
                     {
                         "task_id": task_id,
                         "block_id": block_id,
-                        "reason": "NO_PROBE_ON_CONSUMER_REQUEST",
-                        "probed_calls": [
-                            item["call_index"] for item in ordered if item["dependency_probes"]
-                        ],
+                        "reason": "PROBE_MISSING_ON_CONSUMER_REQUEST",
+                        "calls_without_probe": missing_probe,
+                        "observed_calls": [item["call_index"] for item in ordered],
                     }
                 )
-                continue
-            if any(not probe.get("present") for probe in observed):
+            if absent:
                 dependency_failures.append(
-                    {"task_id": task_id, "block_id": block_id, "reason": "STRUCTURED_BLOCK_ABSENT"}
+                    {
+                        "task_id": task_id,
+                        "block_id": block_id,
+                        "reason": "STRUCTURED_BLOCK_ABSENT",
+                        "calls": absent,
+                    }
                 )
-            elif any(probe.get("count") != 1 for probe in observed):
+            if wrong_count:
                 dependency_failures.append(
                     {
                         "task_id": task_id,
                         "block_id": block_id,
                         "reason": "STRUCTURED_BLOCK_COUNT",
-                        "counts": [probe.get("count") for probe in observed],
+                        "counts": wrong_count,
                     }
                 )
-            elif any(
-                probe.get("content_present") is False
-                for probe in observed
-                if not probe.get("content_empty")
-            ):
+            if content_missing:
                 dependency_failures.append(
-                    {"task_id": task_id, "block_id": block_id, "reason": "CONTENT_ABSENT"}
+                    {
+                        "task_id": task_id,
+                        "block_id": block_id,
+                        "reason": "CONTENT_ABSENT",
+                        "calls": content_missing,
+                    }
                 )
 
     # -- coverage --------------------------------------------------------------------------------
@@ -1241,12 +1335,15 @@ def _request_linkage(
     failed = [item for item in linked if item["status"] == REQUEST_FAILED]
     cancelled = [item for item in linked if item["status"] == REQUEST_CANCELLED]
     unfinished = [item for item in linked if item["status"] not in _TERMINAL_REQUEST_STATES]
+    integrity = _request_index_integrity(linked)
     if responses_observed is None:
         coverage_status = "NO_INDEPENDENT_COUNTER"
         reconciled: bool | None = None
     else:
         reconciled = (
-            len(linked) == responses_observed + len(failed) + len(cancelled) and not unfinished
+            len(linked) == responses_observed + len(failed) + len(cancelled)
+            and not unfinished
+            and integrity["passed"]
         )
         coverage_status = "RECONCILED" if reconciled else "UNRECONCILED"
     coverage = {
@@ -1258,6 +1355,7 @@ def _request_linkage(
         "requests_unfinished": len(unfinished),
         "responses_observed_by_adapter": responses_observed,
         "reconciled": reconciled,
+        "index_integrity": integrity,
         "task_coverage": "COMPLETE" if not missing_task_ids else "INCOMPLETE",
         "usage_coverage": (
             f"{sum(1 for item in linked if item['usage_present'])}/{len(completed)} completed "
@@ -1268,7 +1366,9 @@ def _request_linkage(
         "basis": (
             "requests are counted when the wrapper issues them; responses are counted by the inner "
             "adapter per returned response. A request either produced a response, failed, or was "
-            "abandoned, so observed == responses + failed + cancelled must hold"
+            "abandoned, so observed == responses + failed + cancelled must hold, and the indices "
+            "must be unique and contiguous. This is an adapter-level reconciliation, NOT a network "
+            "trace: it bounds what this wrapper saw, not every packet the provider handled"
         ),
     }
 
@@ -1290,6 +1390,8 @@ def _request_linkage(
         reason_codes.append("DEPENDENCY_NOT_FULLY_DELIVERED")
     if failed or cancelled or unfinished:
         reason_codes.append("REQUEST_NOT_COMPLETED")
+    if not integrity["passed"]:
+        reason_codes.append("REQUEST_INDEX_INTEGRITY_FAILED")
     if coverage_status != "RECONCILED":
         reason_codes.append("REQUEST_COVERAGE_UNVERIFIED")
 
@@ -1420,23 +1522,64 @@ def _estimate_cost(
 
 def _aggregate_observations(
     observations: list[InferenceObservation],
-) -> dict[str, int | float | bool | None]:
+) -> dict[str, Any]:
+    """Sum the provider's own numbers without inventing the ones it did not report.
+
+    ``cache_split_status`` makes the difference between "the provider said 0 hits" and "the provider
+    said nothing" explicit instead of letting both collapse into a zero:
+
+    * ``COMPLETE`` — every call reported both hit and miss tokens;
+    * ``PARTIAL``  — some did, some did not (the total is still unknown, not a partial sum);
+    * ``NONE``     — no call reported a split;
+    * ``NO_OBSERVATIONS`` — nothing was measured.
+    """
+
+    if not observations:
+        return {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "cache_hit_tokens": None,
+            "cache_miss_tokens": None,
+            "cache_hit_ratio": None,
+            "cache_metrics_complete": False,
+            "cache_split_status": "NO_OBSERVATIONS",
+            "prompt_token_consistency": None,
+            "inference_latency_ms": 0.0,
+        }
     prompt = sum(item.usage.prompt_tokens for item in observations)
     completion = sum(item.usage.completion_tokens for item in observations)
-    cache_complete = all(
-        item.usage.cache_hit_tokens is not None and item.usage.cache_miss_tokens is not None
+    with_split = [
+        item
         for item in observations
-    )
-    hit = sum(item.usage.cache_hit_tokens or 0 for item in observations) if cache_complete else None
-    miss = (
-        sum(item.usage.cache_miss_tokens or 0 for item in observations) if cache_complete else None
-    )
+        if item.usage.cache_hit_tokens is not None and item.usage.cache_miss_tokens is not None
+    ]
+    cache_complete = len(with_split) == len(observations)
+    if cache_complete:
+        status = "COMPLETE"
+    elif with_split:
+        status = "PARTIAL"
+    else:
+        status = "NONE"
+    hit = sum(item.usage.cache_hit_tokens or 0 for item in with_split) if cache_complete else None
+    miss = sum(item.usage.cache_miss_tokens or 0 for item in with_split) if cache_complete else None
+    consistency: dict[str, Any] | None = None
+    if hit is not None and miss is not None:
+        # Reported, never corrected: a provider whose split does not add up is a fact to record.
+        consistency = {
+            "consistent": hit + miss == prompt,
+            "hit_plus_miss": hit + miss,
+            "prompt_tokens": prompt,
+            "delta": prompt - (hit + miss),
+        }
     return {
         "prompt_tokens": prompt,
         "completion_tokens": completion,
         "cache_hit_tokens": hit,
         "cache_miss_tokens": miss,
+        "cache_hit_ratio": (hit / prompt) if hit is not None and prompt else None,
         "cache_metrics_complete": cache_complete,
+        "cache_split_status": status,
+        "prompt_token_consistency": consistency,
         "inference_latency_ms": round(sum(item.usage.latency_ms for item in observations), 3),
     }
 
@@ -1733,6 +1876,15 @@ async def run_sample(
         "verification_mode": settings.verification_mode,
         "delegation_route_mode": settings.delegation_route_mode,
         "delegation_policy_version": settings.delegation_policy_version,
+        # Closure-1C: a second, versioned digest over the *effective public task input*. The
+        # historical ``identity.fixture_digest`` is unchanged and stays the run's fixture identity;
+        # this one additionally covers ``WorkerStep.shared_context``, which is what the model is
+        # actually told. Both are recorded so neither can stand in for the other.
+        "task_identity": {
+            "fixture_digest": identity.fixture_digest,
+            "effective_public_task_digest": effective_public_task_digest(task),
+            "effective_public_task_digest_version": EFFECTIVE_PUBLIC_TASK_DIGEST_VERSION,
+        },
     }
     provider = None
     manager: ProjectSandboxManager | None = None
@@ -2284,6 +2436,11 @@ async def run_sample(
         )
         metrics.estimated_cost_usd = _estimate_cost(observations, config.pricing)
         metrics.extra["cache_metrics_complete"] = bool(aggregate["cache_metrics_complete"])
+        # ``COMPLETE`` / ``PARTIAL`` / ``NONE`` / ``NO_OBSERVATIONS``. A zero the provider never
+        # reported must never be readable as an observed 0 % hit rate.
+        metrics.extra["cache_split_status"] = aggregate["cache_split_status"]
+        metrics.extra["cache_hit_ratio"] = aggregate["cache_hit_ratio"]
+        metrics.extra["prompt_token_consistency"] = aggregate["prompt_token_consistency"]
         metrics.extra["inference_latency_ms"] = aggregate["inference_latency_ms"]
         environment["resolved_models"] = sorted(set(resolved_models))
         environment["requested_model"] = model

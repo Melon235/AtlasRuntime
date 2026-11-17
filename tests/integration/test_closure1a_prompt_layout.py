@@ -729,8 +729,10 @@ async def test_a_consumer_request_without_the_probe_is_not_skipped(tmp_path: Any
     linkage = _linkage(harness, records)
     assert "DEPENDENCY_NOT_FULLY_DELIVERED" in linkage["reason_codes"]
     assert [failure["reason"] for failure in linkage["dependency_failures"]] == [
-        "NO_PROBE_ON_CONSUMER_REQUEST"
+        "PROBE_MISSING_ON_CONSUMER_REQUEST"
     ]
+    # The call that lost its probe is named, not just counted.
+    assert linkage["dependency_failures"][0]["calls_without_probe"] == [consumer["call_index"]]
 
 
 def test_an_empty_dependency_body_is_still_a_structured_block() -> None:

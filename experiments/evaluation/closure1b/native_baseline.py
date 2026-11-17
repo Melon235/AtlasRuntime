@@ -55,6 +55,7 @@ from experiments.evaluation.fixtures import (
     workspace_hashes,
 )
 from experiments.evaluation.models import (
+    EFFECTIVE_PUBLIC_TASK_DIGEST_VERSION,
     BenchmarkTask,
     EvalRunResult,
     FailureClass,
@@ -62,6 +63,7 @@ from experiments.evaluation.models import (
     RunIdentity,
     RuntimeMetrics,
     canonical_digest,
+    effective_public_task_digest,
 )
 from experiments.evaluation.runner import (
     EvaluationEnvironmentError,
@@ -221,6 +223,12 @@ async def run_native_sample(
         ),
         "tools": list(NEUTRAL_TOOLS),
         "scripted_provider": scripted,
+        # Same function the Atlas arm calls, so an arm comparison can be gated on digest equality.
+        "task_identity": {
+            "fixture_digest": identity.fixture_digest,
+            "effective_public_task_digest": effective_public_task_digest(task),
+            "effective_public_task_digest_version": EFFECTIVE_PUBLIC_TASK_DIGEST_VERSION,
+        },
     }
 
     try:

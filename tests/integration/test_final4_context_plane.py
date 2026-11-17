@@ -377,29 +377,37 @@ def test_request_evidence_links_the_outgoing_request_to_the_render() -> None:
     assert probe["content_present"] is True
     assert probe["probe_kind"] == "FULL_STRUCTURED_BLOCK"
 
-    linkage = _request_linkage(
-        per_task,
-        evidence.records,
-        {
-            "w2": SimpleNamespace(
-                agent_config=SimpleNamespace(system_prompt="SYSTEM-w2"),
-                record=SimpleNamespace(
-                    task_id="run-w2",
-                    worker_id="run-w2",
-                    profile_id="coding_worker",
-                    effective_system_prompt_hash=hashlib.sha256(b"SYSTEM-w2").hexdigest(),
-                    execution_context=SimpleNamespace(attributes={"run_id": "run"}),
-                ),
-            )
-        },
-        responses_observed=2,
-    )
+    workers = {
+        "w2": SimpleNamespace(
+            agent_config=SimpleNamespace(system_prompt="SYSTEM-w2"),
+            record=SimpleNamespace(
+                task_id="run-w2",
+                worker_id="run-w2",
+                profile_id="coding_worker",
+                effective_system_prompt_hash=hashlib.sha256(b"SYSTEM-w2").hexdigest(),
+                execution_context=SimpleNamespace(attributes={"run_id": "run"}),
+            ),
+        )
+    }
+    # Closure-1C: a consumer request observed before the dependency existed carries no probe, and
+    # that is now a failure rather than something the check skips over.
+    partial = _request_linkage(per_task, evidence.records, workers, responses_observed=2)
+    assert partial["status"] == "REQUEST_CONTENT_PARTIAL"
+    assert partial["dependency_failures"][0]["reason"] == "PROBE_MISSING_ON_CONSUMER_REQUEST"
+    assert partial["dependency_failures"][0]["calls_without_probe"] == [0]
+
+    # A single-request view: ``call_index`` is the wrapper's own dense ordering, so the slice is
+    # renumbered exactly as a run that issued one request would have produced it.
+    only = dict(evidence.records[1])
+    only["call_index"] = 0
+    only["request_index"] = 0
+    linkage = _request_linkage(per_task, [only], workers, responses_observed=1)
     assert linkage["status"] == "REQUEST_CONTENT_VERIFIED", linkage["reason_codes"]
     assert linkage["coverage"]["status"] == "RECONCILED"
-    assert linkage["requests_linked_to_a_render"] == 2
-    assert linkage["requests_with_trusted_identity"] == 2
-    assert linkage["requests"][1]["matched_task_id"] == "w2"
-    assert linkage["requests"][1]["matched_worker_task_id"] == "w2"
+    assert linkage["requests_linked_to_a_render"] == 1
+    assert linkage["requests_with_trusted_identity"] == 1
+    assert linkage["requests"][0]["matched_task_id"] == "w2"
+    assert linkage["requests"][0]["matched_worker_task_id"] == "w2"
     delivered = [item for item in linkage["dependency_delivery_in_request"] if item["present"]]
     assert {(item["task_id"], item["block_id"]) for item in delivered} == {("w2", "task-output:w1")}
     summary = evidence.as_dict()
