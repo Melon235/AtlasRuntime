@@ -18,7 +18,7 @@ Model calls: **0**. Sandbox runs: **0**. Budget approval: **still `PENDING_OWNER
 | C2-A task commit | `7f5c1eae12e466e6a37ce2a7d77608ba65a009a5` |
 | `C2_A_HEAD_SHA` (branch point) | `ac7af16b4506afafe6e932e2cc351b04354b9f57` |
 | Repair branch | `fix/closure-2a-r1-review` |
-| Repair commit | recorded by the follow-up evidence-freeze commit (this table is written by it) |
+| Repair commit | `71f5c8e0784c281e23b5c1b37d31640f8f9c50cd` |
 | C2-A preregistration digest | `f7bbdfb8350589a959d78be00a9dc150c3b12fd6d277cf0fe2cee8a8b536b058` |
 | R1 preregistration digest | `3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765` |
 | Router policy | `r0.1.0`, `5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244` (unchanged) |
