@@ -2,6 +2,10 @@
 
 Status: `AWAITING_INDEPENDENT_REVIEW` (offline only). Live execution: **not approved, not run**.
 
+Revision `closure-2b-0-r1` adds the pilot scope authorization, honest sandbox accounting, three-state
+budget/usage semantics and the native config fingerprint (§R1). The eight-cell pilot is unchanged and
+still unapproved; benchmark and pilot approvals are both `PENDING_OWNER_APPROVAL`.
+
 This stage adds one thin orchestration module over the frozen Closure-2A benchmark. It implements no
 agent loop, no scheduler, no worker, no sandbox and no oracle: it maps six frozen arms onto the two
 engines that already exist, verifies every frozen identity before planning or executing, and writes
@@ -111,25 +115,64 @@ Tasks, seeds, references, oracles, requirements and DAGs are untouched; the runn
    `/workspace/project`, temperature `0`, `max_tokens` 8000;
 7. all three YAML configs resolve to that same sandbox block and the same provider model;
 8. the A1-L/A1-P configs still differ **only** in `context.prompt_layout`;
-9. the six arm digests are distinct.
+9. the six arm digests are distinct;
+10. the native config's full effective digest equals `FROZEN_NATIVE_CONFIG_DIGEST` (R1-04 — the
+    per-field checks above cannot see a change to pricing, tools or trajectory, and pricing feeds
+    the cost estimate).
 
 Any failure is a `PilotContractError` and stops the run — for the dry run it is reported as
 `contract_ok: false` and the CLI exits `1`.
 
 ## 4. Approval and the execution order
 
-`run_live_pilot` is ordered so that nothing expensive can happen first:
+Two independent authorizations, checked in this order so that nothing expensive can happen first:
 
-1. `live_intent` must be `True` (CLI: `--live --confirm-live`);
-2. `require_execution_approval()` — raises `PermissionError` unless the live registration still hashes
-   to the frozen digest and the approval record names that digest with approver, commit and
-   timestamp;
-3. `require_frozen_contract()` — any drift aborts the whole pilot rather than running part of it;
-4. only then is an executor constructed and a cell dispatched.
+1. `live_intent` must be `True` (CLI: `--live --confirm-live`; no environment variable can set it);
+2. **Layer A — the definition**: `require_execution_approval()` raises `PermissionError` unless the
+   live registration still hashes to the frozen digest and `protocol.APPROVAL_RECORD` names that
+   digest with approver, commit and timestamp;
+3. **Layer B — the scope**: `require_pilot_authorization()` raises `PilotNotAuthorized` unless the
+   requested `(cells, repetition)` tuple is exactly the approved one in `PILOT_PLAN`, the record
+   names the current plan digest, and the cost ceiling is usable (§4.1);
+4. `require_frozen_contract()` — any drift aborts the whole pilot rather than running part of it;
+5. only then is an executor constructed and a cell dispatched.
 
-The approval record is still `PENDING_OWNER_APPROVAL` and this stage did not change it. Offline
-evidence that the gate is on the path: unit tests assert the executor list stays empty for a pending
-record, a wrong digest, a missing approver/commit/timestamp, and a drifted budget.
+Approving the benchmark does not authorize any cell, and approving a pilot plan does not authorize a
+benchmark: both records are still `PENDING_OWNER_APPROVAL`, and this stage changed neither.
+
+### 4.1 Pilot scope authorization (R1-01)
+
+| Object | Contents | Can it change the other? |
+|---|---|---|
+| `PILOT_PLAN` (frozen) | `plan_id`, benchmark id, preregistration digest, runner revision, the 8 cell ids in execution order, approved repetitions `(0,)`, `max_cell_executions=8`, `estimated_cost_ceiling_usd` | — |
+| `PILOT_APPROVAL` (mutable) | `status`, `approved_plan_digest`, `approved_by`, `approval_commit`, `approved_at` | No: moving it to approved cannot change the plan digest |
+
+The plan digest is `canonical_digest(PILOT_PLAN.payload())` — no timestamp, no path, no random id.
+Changing a cell, a repetition, the execution cap or the ceiling moves it; changing the approval state
+does not.
+
+The requested sequence must equal the authorized sequence **exactly**. An extra cell, a missing cell,
+a duplicate cell and an unapproved repetition are each refused with the offending difference named. A
+partial retry or a single-cell diagnostic run would need its own authorization record, which this
+stage deliberately does not define. `run_live_pilot` takes no approval argument at all, so a caller
+cannot hand in its own record; the tests substitute the module-level record instead.
+
+### 4.2 Cost ceiling semantics (R1-01)
+
+`estimated_cost_ceiling_usd` is part of the plan, so approving a plan approves its ceiling. It is
+`None` here: the owner sets the number, and until then `cost_policy()["valid"]` is false and a live
+run refuses with `COST_CEILING_NOT_APPROVED`. `None` is never read as "unlimited".
+
+**`COST_CEILING_NOT_HARD_ENFORCED`.** Neither engine has a pre-send dollar guard — Atlas guards
+*tokens* before send, native only after the run — so nothing here can promise a maximum spend. The
+ceiling is checked **between** cells against the runner's `estimated_cost_usd`:
+
+* after each cell, if any cost so far is unknown, dispatch stops (`COST_UNKNOWN`);
+* if the known sum exceeds the ceiling, dispatch stops (`COST_CEILING_EXCEEDED`);
+* a cell already executing can overspend before that check sees it.
+
+`observed_cost_usd_total` stays `None`: no runner reports a billed amount, and an estimate is not an
+observation. `cost_ceiling_guarantee` is always `COST_CEILING_NOT_HARD_ENFORCED`.
 
 ## 5. Dry-run semantics
 
@@ -206,13 +249,16 @@ outcome       agent_success, oracle_passed, task_success, failure_class, failure
               oracle_environment_failure, oracle_failure_kind
 usage         provider_prompt_tokens, provider_completion_tokens, cache_hit_tokens,
               cache_miss_tokens, cache_usage_complete, cache_split_status,
-              provider_usage_complete, provider_usage_source, estimated_cost_usd,
-              model_calls, model_calls_source, tool_calls
-budget        budget_exceeded, budget_rejected_requests, budget_record,
-              deliverable_passed_but_budget_failed
+              provider_token_usage_observed, provider_usage_complete, provider_usage_source,
+              estimated_cost_usd, model_calls, model_calls_source, model_calls_semantics,
+              tool_calls
+budget        budget_exceeded, budget_final_verdict, budget_verdict_basis,
+              budget_admission_rejected, budget_observed_limit_exceeded,
+              budget_rejected_requests, budget_record, deliverable_passed_but_budget_failed
 timing        agent_latency_ms, end_to_end_latency_ms, parallel_overlap_evidence,
               parallel_overlap_source
-isolation     workspace_isolated, sandbox_created, sandbox_destroyed
+isolation     workspace_isolated, sandbox_created, sandbox_destroyed, sandbox_creation_status,
+              sandbox_count_scope, oracle_sandbox_counted
 ```
 
 **Missing is missing.** A value the runner does not expose is `None` plus a `*_source` field naming
@@ -224,14 +270,64 @@ lifecycle timings in `run_dir/stage_e_evidence.json` and does not return them. C
 the DAG would be exactly the "DAG allows parallelism" → "parallelism happened" confusion this schema
 is meant to prevent.
 
+### 8.1 Sandbox counting (R1-02)
+
+A sandbox count is only published when every cell's creation state is known:
+
+| Field | Meaning |
+|---|---|
+| `sandbox_creation_status` (per cell) | `SANDBOX_CREATED_CONFIRMED`, `SANDBOX_NOT_CREATED_CONFIRMED`, `SANDBOX_CREATION_UNKNOWN` |
+| `agent_sandbox_runs_confirmed_min` | cells that confirm a created sandbox |
+| `agent_sandbox_runs_confirmed_not_created` | cells that confirm none was created |
+| `agent_sandbox_runs_unknown` | cells with no lifecycle evidence |
+| `agent_sandbox_runs_total` | the confirmed count, but only when `unknown == 0`; otherwise `None` |
+| `agent_sandbox_runs_complete` | `unknown == 0` |
+| `oracle_sandbox_runs` | always `None` — the oracle runs in its own sandbox and the runner does not count it |
+
+A cell that raises before returning a result has no lifecycle record, so its state is `UNKNOWN` and
+the total becomes `None`. A failed *cleanup* (`sandbox_destroyed=false`) does not erase the creation
+fact. The scope is named `agent_sandbox_only`; the oracle side is never inferred from
+`sandbox_created`.
+
+### 8.2 Budget three-state (R1-03)
+
+`budget_final_verdict` is `EXCEEDED`, `NOT_EXCEEDED` or `UNKNOWN`, and `budget_verdict_basis` says
+which evidence produced it:
+
+| Basis | Verdict |
+|---|---|
+| `runner_failure_class` (`BUDGET_EXCEEDED`) | `EXCEEDED` — outranks any counter |
+| `pre_send_rejections` (Atlas `admission_rejections > 0`) | `EXCEEDED` |
+| `post_hoc_check` (native `exceeded`) | `EXCEEDED` / `NOT_EXCEEDED` |
+| `no_negative_verdict_from_runner` | `UNKNOWN` |
+
+Zero pre-send refusals alone are **not** a negative verdict: the last admitted request can still
+cross the threshold, so that case stays `UNKNOWN` (`budget_exceeded = None`). `budget_exceeded` maps
+`EXCEEDED → true`, `NOT_EXCEEDED → false`, `UNKNOWN → null`.
+
+`deliverable_passed_but_budget_failed` follows three-state logic:
+
+| `oracle_passed` | `budget_exceeded` | composite |
+|---|---|---|
+| `false` | anything | `false` (a failed deliverable cannot be "passed but over budget") |
+| `true` | `true` | `true` |
+| `true` | `false` | `false` |
+| `true` | `null` | `null` |
+
+`provider_usage_complete` and `cache_usage_complete` are independent. Neither runner attests that
+*every* request reported usage, so token-usage completeness is `null` with
+`provider_usage_source = "not_exposed_by_runner: …"`; `provider_token_usage_observed` only says
+whether the totals are present. A complete cache split does not imply complete token usage, and it is
+never copied across.
+
 ## 9. Failure classification
 
 | Situation | Recorded as |
 |---|---|
-| the cell raised before producing a result | `status=EXECUTION_ERROR`, `failure_class=HARNESS_ERROR`, numeric fields `None`; the pilot continues |
+| the cell raised before producing a result | `status=EXECUTION_ERROR`, `failure_class=HARNESS_ERROR`, numeric fields `None`, `sandbox_creation_status=UNKNOWN`; dispatch stops because the spend is now unknown |
 | oracle failed on the deliverable | `oracle_passed=false`, `oracle_environment_failure=false` |
 | oracle infrastructure failed | `oracle_environment_failure=true` + `oracle_failure_kind` |
-| budget exceeded | `budget_exceeded=true`, separately from `oracle_passed` |
+| budget exceeded | `budget_exceeded=true` with a basis, separately from `oracle_passed` |
 | earned success but over budget | `deliverable_passed_but_budget_failed=true` |
 | A2-P on N1 | `resolved_route=direct`, `executed_worker_count=1`, `multi_worker_execution=false` |
 
@@ -240,15 +336,62 @@ No cell is retried on another engine, and no failure is converted into a pass.
 ## 10. Limitations and what Closure-2B-1 needs
 
 1. **No live cell has run.** Nothing here measured turns, tokens, cache behaviour, latency or cost.
-2. **Approval is pending.** `execution_ready` is `false` and this stage did not approve anything.
-3. **The gate is verified, not enforced by a runner.** There is no B-1 runner yet; when one is
-   written it must call `require_execution_approval()` before any sandbox or provider work.
-4. **Cost control is a manual decision.** The pilot has no per-run cost cap beyond the token budget;
-   the owner sets the ceiling before approval.
+2. **Both approvals are pending.** `execution_ready` and `pilot_execution_ready` are `false`, and this
+   stage approved nothing.
+3. **The gates are verified, not enforced by a runner.** There is no B-1 runner yet; when one is
+   written it must call `require_execution_approval()` and `require_pilot_authorization()` before any
+   sandbox or provider work.
+4. **`COST_CEILING_NOT_HARD_ENFORCED`.** The ceiling is checked between cells; a cell already running
+   can overspend first. No absolute spend guarantee is claimed anywhere in the schema.
 5. **OpenSandbox availability is assumed, not tested at this stage.** A real cell needs
    `opensandbox-server` running; the dry run deliberately does not touch it.
 6. **Real parallelism is unmeasured.** The multi arms may or may not overlap; the evidence field is
    honest about missing it.
-7. **`model_calls` has two sources.** Atlas reports `requests_observed`; native falls back to
-   `model_turns`. The source is recorded per record and must be read before comparing arms.
+7. **`model_calls` has two sources.** Atlas reports `requests_observed` (requests sent); native falls
+   back to `model_turns` (completed responses). `model_calls_semantics` names which one produced the
+   number.
 8. **One repetition per pilot cell.** No variance estimate, no significance claim, no ranking.
+9. **Sandbox counting covers the agent side only.** The oracle sandbox is not observable here, so
+   `oracle_sandbox_runs` is `None` and must not be inferred from `sandbox_created`.
+10. **Provider usage completeness is unproven.** The archives report aggregated usage; neither runner
+    attests that every request reported it, so the field stays `null` until B-1 can prove it.
+
+---
+
+# Closure-2B-0-R1 — authorization and evidence integrity repair
+
+Four defects found by review of B-0. Each was reproduced on `9e3ce87` before being fixed. No frozen
+task, config, router policy or budget value changed; the preregistration digest is still
+`3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765`.
+
+| Issue | Root cause on B-0 | Repair |
+|---|---|---|
+| B0-R1-01 | `require_execution_approval()` approves the *benchmark definition*, not a cell scope; `--cells` and `--repetition` were unconstrained, so an approval of "the benchmark" could be stretched into any 18 cells × any repetition | `PilotPlan` + `pilot_plan_digest()` + `PILOT_APPROVAL` + `pilot_authorization_gate()`; the requested `(cells, repetition)` must equal the approved one exactly, the plan digest must be the approved one, and the cost ceiling must be usable |
+| B0-R1-02 | an exception path recorded no `sandbox_created` key, and the summary summed only `sandbox_created is True`, so a cell that provisioned a sandbox and then raised was undercounted | per-cell `sandbox_creation_status` (`CREATED` / `NOT_CREATED` / `UNKNOWN`), `agent_sandbox_runs_confirmed_min`, `agent_sandbox_runs_unknown`, `agent_sandbox_runs_total = None` unless complete, and an explicit `agent_sandbox_only` scope with `oracle_sandbox_runs = None` |
+| B0-R1-03 | `budget_exceeded` was inferred from `admission_rejections`, and `provider_usage_complete` was copied from `cache_metrics_complete` | `budget_final_verdict` + `budget_verdict_basis` (runner verdict outranks counters), three-state `deliverable_passed_but_budget_failed`, and independent `provider_token_usage_observed` / `cache_usage_complete` with `provider_usage_complete = null` |
+| B0-R1-04 | `check_frozen_contract()` checked native *fields* but not the whole effective config, so a pricing/tools/trajectory change would slip through | `FROZEN_NATIVE_CONFIG_DIGEST` = `6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14`, verified with the same `config_semantic_digest()` used everywhere else and enforced in `check_frozen_contract()` |
+
+## R1.1 Order of the live path
+
+```text
+live_intent  ->  benchmark approval (Layer A)  ->  pilot scope approval (Layer B)
+             ->  frozen contract (incl. native config digest)  ->  executor
+             ->  after each cell: cost dispatch check (unknown or over ceiling stops dispatch)
+```
+
+## R1.2 Accepted behaviour, exercised offline
+
+* extra cell / missing cell / duplicate cell / unapproved repetition / wrong plan digest /
+  missing approver|commit|timestamp / missing or non-positive ceiling → refused before any executor;
+* benchmark approved alone → refused; pilot approved alone → refused;
+* a cell whose cost is unknown, or whose sum crosses the ceiling, stops the next dispatch with
+  `stopped_reason` and `not_started_cells` recorded;
+* a raised cell is `EXECUTION_ERROR` with `sandbox_creation_status=UNKNOWN`, and the pilot total
+  sandbox count becomes `None`;
+* `admission_rejections=0` with `failure_class=BUDGET_EXCEEDED` → `EXCEEDED` (basis
+  `runner_failure_class`);
+* oracle pass with unknown budget → `deliverable_passed_but_budget_failed = null`;
+* token totals present with no cache split → `provider_token_usage_observed=true`,
+  `provider_usage_complete=null`, `cache_usage_complete=null`;
+* a pricing/tools/provider/trajectory edit in the native YAML moves its digest; a comment-only edit
+  does not; restoring the file restores the frozen digest.

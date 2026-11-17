@@ -8,6 +8,7 @@ a test.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import inspect
 import json
 from pathlib import Path
@@ -26,18 +27,26 @@ from experiments.evaluation.closure2.pilot_runner import (
     ARM_ORDER,
     ARM_SPECS,
     FROZEN_MAX_TOKENS_PER_REQUEST,
+    FROZEN_NATIVE_CONFIG_DIGEST,
+    PILOT_PLAN,
     PROPOSED_PILOT_CELLS,
     ArmSpec,
     Cell,
     PilotContractError,
+    PilotNotAuthorized,
+    PilotPlan,
     build_dry_run_manifest,
     cell_descriptor,
     check_frozen_contract,
+    cost_policy,
     effective_model,
     frozen_budget,
+    native_config_digest,
     normalize_result,
+    pilot_authorization_gate,
     pilot_cells,
     plan_cells,
+    require_pilot_authorization,
     route_expectation,
     run_live_pilot,
     settings_for,
@@ -63,6 +72,48 @@ APPROVED = {
 
 def describe(task_id: str, arm_id: str) -> dict[str, Any]:
     return cell_descriptor(Cell(task_id, arm_id), runs_root=Path("experiments/runs/closure2"))
+
+
+def approve_benchmark(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Layer A: approve the frozen benchmark definition."""
+
+    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(APPROVED))
+
+
+def approve_pilot(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    cells: tuple[Cell, ...] | None = None,
+    ceiling: float | None = 5.0,
+    repetitions: tuple[int, ...] = (0,),
+) -> PilotPlan:
+    """Layer B: authorize exactly ``cells`` under a ceiling, by replacing the controlled record.
+
+    The production entry point reads the module-level record; it takes no approval argument, so a
+    caller cannot forge one. A test can only substitute the record itself.
+    """
+
+    selected = tuple(cell.cell_id for cell in cells) if cells is not None else PILOT_PLAN.cells
+    plan = dataclasses.replace(
+        PILOT_PLAN,
+        cells=selected,
+        repetitions=repetitions,
+        max_cell_executions=len(selected) * len(repetitions),
+        estimated_cost_ceiling_usd=ceiling,
+    )
+    monkeypatch.setattr(pilot_runner, "PILOT_PLAN", plan)
+    monkeypatch.setattr(
+        pilot_runner,
+        "PILOT_APPROVAL",
+        {
+            "status": "APPROVED",
+            "approved_plan_digest": plan.digest(),
+            "approved_by": "unit-test",
+            "approval_commit": "0" * 40,
+            "approved_at": "2026-11-17T00:00:00+00:00",
+        },
+    )
+    return plan
 
 
 # ------------------------------------------------------------------ A. the manifest
@@ -98,13 +149,17 @@ def test_the_dry_run_manifest_claims_no_execution() -> None:
     manifest = build_dry_run_manifest()
     assert manifest["mode"] == "DRY_RUN"
     assert manifest["model_calls"] == 0
-    assert manifest["sandbox_runs"] == 0
+    assert manifest["agent_sandbox_runs_total"] == 0
     assert manifest["contains_live_outcomes"] is False
     assert manifest["route_expectation_is_prediction"] is True
     assert manifest["cell_count"] == 18
     assert manifest["contract_ok"] is True
     assert manifest["contract_problems"] == []
-    assert manifest["proposed_live_pilot"]["approved"] is False
+    assert manifest["pilot_plan"]["approval_status"] == "PENDING_OWNER_APPROVAL"
+    assert manifest["pilot_plan"]["execution_ready"] is False
+    assert manifest["pilot_execution_ready"] is False
+    assert manifest["pilot_plan"]["estimated_cost_ceiling_usd"] is None
+    assert manifest["pilot_plan"]["cost_policy"]["valid"] is False
 
 
 def test_every_cell_carries_its_frozen_identity() -> None:
@@ -342,6 +397,11 @@ def test_the_contract_check_blocks_a_run_whose_gate_was_satisfied(
         "require_execution_approval",
         lambda **kwargs: {"status": "APPROVED", "approved_digest": "x", "execution_ready": True},
     )
+    monkeypatch.setattr(
+        pilot_runner,
+        "require_pilot_authorization",
+        lambda **kwargs: {"plan_id": "simulated", "plan_digest": "x"},
+    )
     monkeypatch.setitem(protocol.BUDGET["multi"], "max_tool_calls", 120)
     calls: list[Any] = []
     with pytest.raises(PilotContractError, match="frozen contract violated"):
@@ -359,7 +419,8 @@ def test_the_contract_check_blocks_a_run_whose_gate_was_satisfied(
 def test_an_approved_live_run_reaches_the_executor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(APPROVED))
+    approve_benchmark(monkeypatch)
+    plan = approve_pilot(monkeypatch, cells=(Cell(P1, "A0"), Cell(P1, "A1-P")))
     calls: list[Any] = []
     summary = asyncio.run(
         run_live_pilot(
@@ -372,18 +433,25 @@ def test_an_approved_live_run_reaches_the_executor(
     assert len(calls) == 2
     assert summary["mode"] == "LIVE"
     assert summary["cell_count"] == 2
+    assert summary["pilot_plan_digest"] == plan.digest()
+    assert summary["cost_ceiling_usd"] == 5.0
+    assert summary["cost_ceiling_guarantee"] == "COST_CEILING_NOT_HARD_ENFORCED"
     assert [record["status"] for record in summary["cells"]] == ["COMPLETED", "COMPLETED"]
 
 
-def test_a_failing_cell_is_recorded_and_does_not_stop_the_pilot(
+def test_a_failing_cell_is_recorded_and_never_reads_as_a_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(APPROVED))
+    """A raised cell is data, not a crash — but it also makes the spend unmeasurable.
+
+    The cost policy is fail-closed, so dispatch stops: an erased cost could hide any spend.
+    """
+
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "N0"), Cell(P1, "A0")))
 
     async def executor(cell: Cell, **kwargs: Any) -> Any:
-        if cell.arm_id == "N0":
-            raise RuntimeError("sandbox never came up")
-        return _fake_result()
+        raise RuntimeError("sandbox never came up")
 
     summary = asyncio.run(
         run_live_pilot(
@@ -398,12 +466,19 @@ def test_a_failing_cell_is_recorded_and_does_not_stop_the_pilot(
     assert broken["failure_class"] == "HARNESS_ERROR"
     assert "sandbox never came up" in broken["failure_reason"]
     assert broken["oracle_passed"] is None
-    assert summary["cells"][1]["status"] == "COMPLETED"
+    assert broken["task_success"] is None
     # One unmeasured cell makes the pilot total unknown; it is not a sum of the known ones.
     assert summary["model_calls"] is None
-    # Only the completed stub claims a sandbox; the failed cell contributes no such claim.
-    assert summary["sandbox_runs"] == 1
-    assert "sandbox_created" not in broken
+    # The failed cell created an unknown number of sandboxes, so no total is claimed.
+    assert broken["sandbox_created"] is None
+    assert broken["sandbox_creation_status"] == "SANDBOX_CREATION_UNKNOWN"
+    assert summary["agent_sandbox_runs_confirmed_min"] == 0
+    assert summary["agent_sandbox_runs_unknown"] == 1
+    assert summary["agent_sandbox_runs_total"] is None
+    assert summary["agent_sandbox_runs_complete"] is False
+    # Unknown spend cannot be proven under the ceiling, so the next cell is not dispatched.
+    assert summary["stopped_reason"] == "COST_UNKNOWN"
+    assert summary["not_started_cells"] == [Cell(P1, "A0").cell_id]
 
 
 def test_an_unknown_arm_is_refused() -> None:
@@ -417,6 +492,567 @@ def test_the_default_approval_is_still_pending() -> None:
     gate = approval_gate()
     assert gate["execution_ready"] is False
     assert gate["status"] == "PENDING_OWNER_APPROVAL"
+
+
+# --------------------------------------------------- R1-01: the pilot scope authorization
+
+
+def test_the_pilot_plan_is_pinned_to_the_frozen_identity() -> None:
+    assert PILOT_PLAN.benchmark_id == BENCHMARK_ID
+    assert PILOT_PLAN.preregistration_digest == C2A_R1_PREREGISTRATION_DIGEST
+    assert PILOT_PLAN.cells == tuple(f"{task}::{arm}" for task, arm in PROPOSED_PILOT_CELLS)
+    assert PILOT_PLAN.repetitions == (0,)
+    assert PILOT_PLAN.max_cell_executions == 8
+    assert PILOT_PLAN.planned_executions == 8
+    assert PILOT_PLAN.estimated_cost_ceiling_usd is None
+
+
+def test_the_plan_digest_ignores_the_approval_but_not_the_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    before = PILOT_PLAN.digest()
+    # Approval is a separate record: approving must not move the plan identity.
+    approve_pilot(monkeypatch, cells=pilot_cells(), ceiling=None)
+    assert pilot_runner.PILOT_PLAN.digest() == before
+
+    # A different scope must move it.
+    assert dataclasses.replace(PILOT_PLAN, repetitions=(0, 1)).digest() != before
+    assert dataclasses.replace(PILOT_PLAN, estimated_cost_ceiling_usd=1.0).digest() != before
+    assert dataclasses.replace(PILOT_PLAN, max_cell_executions=99).digest() != before
+
+
+def test_the_plan_digest_is_reproducible_and_path_free() -> None:
+    assert PILOT_PLAN.digest() == PILOT_PLAN.digest()
+    payload = json.dumps(PILOT_PLAN.payload())
+    assert str(pilot_runner.REPO_ROOT) not in payload
+    assert "generated_at" not in payload
+
+
+def test_the_benchmark_gate_is_evaluated_before_the_pilot_gate(tmp_path: Path) -> None:
+    """With both layers pending, the benchmark refusal is the one reported."""
+
+    calls: list[Any] = []
+    with pytest.raises(PermissionError):
+        asyncio.run(
+            run_live_pilot(
+                pilot_cells(),
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert calls == []
+
+
+def test_the_benchmark_gate_alone_does_not_authorize_the_pilot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Layer A approved, layer B pending: still refused, and still before any executor."""
+
+    approve_benchmark(monkeypatch)
+    calls: list[Any] = []
+    with pytest.raises(PilotNotAuthorized, match="not 'APPROVED'"):
+        asyncio.run(
+            run_live_pilot(
+                pilot_cells(),
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert calls == []
+
+
+def test_the_pilot_approval_alone_does_not_authorize_the_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Layer B approved, layer A pending: refused by the benchmark gate first."""
+
+    approve_pilot(monkeypatch, cells=pilot_cells())
+    calls: list[Any] = []
+    with pytest.raises(PermissionError):
+        asyncio.run(
+            run_live_pilot(
+                pilot_cells(),
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert calls == []
+
+
+def test_an_extra_cell_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=pilot_cells())
+    requested = (*pilot_cells(), Cell(P2, "A0"))
+    calls: list[Any] = []
+    with pytest.raises(PilotNotAuthorized, match="extra"):
+        asyncio.run(
+            run_live_pilot(
+                requested,
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert calls == []
+
+
+def test_a_subset_of_the_authorized_cells_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partial run would need its own authorization record; it must not ride this one."""
+
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=pilot_cells())
+    calls: list[Any] = []
+    with pytest.raises(PilotNotAuthorized, match="missing"):
+        asyncio.run(
+            run_live_pilot(
+                (Cell(P1, "N0"),),
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert calls == []
+
+
+def test_a_duplicate_cell_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    approve_benchmark(monkeypatch)
+    cell = Cell(P1, "A0")
+    approve_pilot(monkeypatch, cells=(cell,))
+    calls: list[Any] = []
+    with pytest.raises(PilotNotAuthorized, match="twice"):
+        asyncio.run(
+            run_live_pilot(
+                (cell, cell),
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert calls == []
+
+
+def test_an_unauthorized_repetition_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),))
+    calls: list[Any] = []
+    with pytest.raises(PilotNotAuthorized, match="repetition 1"):
+        asyncio.run(
+            run_live_pilot(
+                (Cell(P1, "A0"),),
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+                repetition_id=1,
+            )
+        )
+    assert calls == []
+
+
+def test_a_wrong_plan_digest_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    plan = approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),))
+    monkeypatch.setattr(
+        pilot_runner,
+        "PILOT_APPROVAL",
+        {**pilot_runner.PILOT_APPROVAL, "approved_plan_digest": "0" * 64},
+    )
+    gate = pilot_authorization_gate(cells=(Cell(P1, "A0"),), repetition_id=0)
+    assert gate["execution_ready"] is False
+    assert any("pilot plan digest" in problem for problem in gate["problems"])
+    with pytest.raises(PilotNotAuthorized):
+        require_pilot_authorization(cells=(Cell(P1, "A0"),), repetition_id=0)
+    assert plan.digest() != "0" * 64
+
+
+@pytest.mark.parametrize("missing", ["approved_by", "approval_commit", "approved_at"])
+def test_an_approval_without_evidence_is_refused(
+    missing: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),))
+    monkeypatch.setattr(
+        pilot_runner, "PILOT_APPROVAL", {**pilot_runner.PILOT_APPROVAL, missing: None}
+    )
+    gate = pilot_authorization_gate(cells=(Cell(P1, "A0"),), repetition_id=0)
+    assert gate["execution_ready"] is False
+    assert gate["problems"]
+
+
+def test_a_missing_cost_ceiling_blocks_the_pilot() -> None:
+    policy = cost_policy(dataclasses.replace(PILOT_PLAN, estimated_cost_ceiling_usd=None))
+    assert policy["valid"] is False
+    assert policy["reason"] == "COST_CEILING_NOT_APPROVED"
+    assert policy["hard_enforcement"] is False
+    assert policy["guarantee"] == "COST_CEILING_NOT_HARD_ENFORCED"
+
+
+def test_a_non_positive_ceiling_is_refused() -> None:
+    policy = cost_policy(dataclasses.replace(PILOT_PLAN, estimated_cost_ceiling_usd=0.0))
+    assert policy["valid"] is False
+    assert policy["reason"] == "COST_CEILING_NOT_POSITIVE"
+
+
+@pytest.mark.parametrize("ceiling", [None, 0.0])
+def test_the_live_entry_point_refuses_without_a_usable_ceiling(
+    ceiling: float | None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),), ceiling=ceiling)
+    calls: list[Any] = []
+    with pytest.raises(PilotNotAuthorized, match="cost policy"):
+        asyncio.run(
+            run_live_pilot(
+                (Cell(P1, "A0"),),
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert calls == []
+
+
+def test_dispatch_stops_once_the_ceiling_is_crossed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"), Cell(P1, "A1-P")), ceiling=5.0)
+    calls: list[Any] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell)
+        return _fake_result(estimated_cost_usd=9.0)
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"), Cell(P1, "A1-P")),
+            runs_root=tmp_path,
+            executor=executor,
+            live_intent=True,
+        )
+    )
+    assert [cell.arm_id for cell in calls] == ["A0"]
+    assert summary["stopped_reason"] == "COST_CEILING_EXCEEDED"
+    assert summary["not_started_cells"] == [Cell(P1, "A1-P").cell_id]
+    assert summary["estimated_cost_usd_total"] == 9.0
+    assert summary["observed_cost_usd_total"] is None
+
+
+def test_dispatch_stops_when_the_cost_is_unknown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Unknown cost is not "probably fine": the next cell is not dispatched."""
+
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"), Cell(P1, "A1-P")), ceiling=5.0)
+    calls: list[Any] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell)
+        return _fake_result(estimated_cost_usd=None)
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"), Cell(P1, "A1-P")),
+            runs_root=tmp_path,
+            executor=executor,
+            live_intent=True,
+        )
+    )
+    assert [cell.arm_id for cell in calls] == ["A0"]
+    assert summary["stopped_reason"] == "COST_UNKNOWN"
+    assert summary["estimated_cost_usd_total"] is None
+
+
+def test_dispatch_continues_within_the_ceiling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"), Cell(P1, "A1-P")), ceiling=5.0)
+    calls: list[Any] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell)
+        return _fake_result(estimated_cost_usd=1.0)
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"), Cell(P1, "A1-P")),
+            runs_root=tmp_path,
+            executor=executor,
+            live_intent=True,
+        )
+    )
+    assert len(calls) == 2
+    assert summary["stopped_reason"] is None
+    assert summary["not_started_cells"] == []
+    assert summary["estimated_cost_usd_total"] == 2.0
+
+
+# --------------------------------------------------- R1-02: sandbox evidence
+
+
+def test_a_completed_cell_confirms_sandbox_creation() -> None:
+    record = normalize_result(Cell(P1, "A0"), _fake_result())
+    assert record["sandbox_creation_status"] == "SANDBOX_CREATED_CONFIRMED"
+    assert record["sandbox_created"] is True
+    assert record["sandbox_count_scope"] == "agent_sandbox_only"
+    assert record["oracle_sandbox_counted"] is False
+
+
+def test_a_run_that_created_no_sandbox_says_so() -> None:
+    record = normalize_result(Cell(P1, "A0"), _fake_result(sandbox_created=False))
+    assert record["sandbox_creation_status"] == "SANDBOX_NOT_CREATED_CONFIRMED"
+    assert record["sandbox_created"] is False
+
+
+def test_a_cleanup_failure_does_not_erase_the_creation_fact() -> None:
+    result = _fake_result()
+    result.metrics.sandbox_destroyed = False
+    record = normalize_result(Cell(P1, "A0"), result)
+    assert record["sandbox_created"] is True
+    assert record["sandbox_destroyed"] is False
+    assert record["sandbox_creation_status"] == "SANDBOX_CREATED_CONFIRMED"
+
+
+def test_an_error_before_a_result_is_an_unknown_sandbox() -> None:
+    record = pilot_runner._execution_error_record(Cell(P1, "A0"), RuntimeError("boom"))
+    assert record["sandbox_created"] is None
+    assert record["sandbox_creation_status"] == "SANDBOX_CREATION_UNKNOWN"
+    assert "no lifecycle record" in record["sandbox_evidence_source"]
+
+
+def test_one_created_and_one_unknown_never_produces_a_total(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"), Cell(P1, "A1-P")))
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        if cell.arm_id == "A1-P":
+            raise RuntimeError("died after provisioning")
+        return _fake_result()
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"), Cell(P1, "A1-P")),
+            runs_root=tmp_path,
+            executor=executor,
+            live_intent=True,
+        )
+    )
+    assert summary["agent_sandbox_runs_confirmed_min"] == 1
+    assert summary["agent_sandbox_runs_unknown"] == 1
+    assert summary["agent_sandbox_runs_total"] is None
+    assert summary["agent_sandbox_runs_complete"] is False
+    assert summary["oracle_sandbox_runs"] is None
+
+
+def test_the_dry_run_never_claims_an_oracle_sandbox_count() -> None:
+    manifest = build_dry_run_manifest()
+    assert manifest["sandbox_count_scope"] == "agent_sandbox_only"
+    assert manifest["oracle_sandbox_runs"] is None
+    assert manifest["agent_sandbox_runs_total"] == 0
+    assert manifest["agent_sandbox_runs_complete"] is True
+
+
+# --------------------------------------------------- R1-03: metric normalisation
+
+
+def test_a_runner_verdict_outranks_zero_admission_rejections() -> None:
+    record = normalize_result(
+        Cell(P1, "A1-P"),
+        _fake_result(
+            extra={"budget": {"admission_rejections": 0}}, failure_class="BUDGET_EXCEEDED"
+        ),
+    )
+    assert record["budget_admission_rejected"] == 0
+    assert record["budget_final_verdict"] == "EXCEEDED"
+    assert record["budget_verdict_basis"] == "runner_failure_class"
+    assert record["budget_exceeded"] is True
+
+
+def test_a_missing_budget_record_stays_unknown() -> None:
+    record = normalize_result(Cell(P1, "A1-P"), _fake_result())
+    assert record["budget_admission_rejected"] is None
+    assert record["budget_rejected_requests"] is None
+    assert record["budget_final_verdict"] == "UNKNOWN"
+    assert record["budget_exceeded"] is None
+    assert record["budget_verdict_basis"] == "no_negative_verdict_from_runner"
+
+
+def test_oracle_pass_with_unknown_budget_is_unknown_not_false() -> None:
+    record = normalize_result(Cell(P1, "A1-P"), _fake_result(oracle_passed=True))
+    assert record["oracle_passed"] is True
+    assert record["budget_exceeded"] is None
+    assert record["deliverable_passed_but_budget_failed"] is None
+
+
+def test_oracle_failure_makes_the_composite_false() -> None:
+    record = normalize_result(Cell(P1, "A1-P"), _fake_result(oracle_passed=False))
+    assert record["deliverable_passed_but_budget_failed"] is False
+
+
+def test_oracle_pass_over_budget_is_true() -> None:
+    record = normalize_result(
+        Cell(P1, "A1-P"),
+        _fake_result(
+            oracle_passed=True,
+            extra={"budget": {"admission_rejections": 3}},
+            failure_class="BUDGET_EXCEEDED",
+        ),
+    )
+    assert record["budget_final_verdict"] == "EXCEEDED"
+    assert record["deliverable_passed_but_budget_failed"] is True
+
+
+def test_native_post_hoc_budget_verdict_is_used() -> None:
+    record = normalize_result(
+        Cell(P1, "N1"),
+        _fake_result(
+            environment={"budget_check": {"exceeded": True, "reasons": ["tokens"]}},
+            failure_class="BUDGET_EXCEEDED",
+        ),
+    )
+    assert record["budget_observed_limit_exceeded"] is True
+    assert record["budget_final_verdict"] == "EXCEEDED"
+    assert record["budget_rejected_requests"] is None
+    assert record["budget_semantics"] == "post_hoc_after_run"
+
+
+def test_native_post_hoc_negative_verdict_is_not_exceeded() -> None:
+    record = normalize_result(
+        Cell(P1, "N1"),
+        _fake_result(environment={"budget_check": {"exceeded": False, "reasons": []}}),
+    )
+    assert record["budget_final_verdict"] == "NOT_EXCEEDED"
+    assert record["budget_exceeded"] is False
+
+
+def test_atlas_pre_send_rejections_are_recorded_as_such() -> None:
+    record = normalize_result(
+        Cell(P1, "A1-P"), _fake_result(extra={"budget": {"admission_rejections": 2}})
+    )
+    assert record["budget_final_verdict"] == "EXCEEDED"
+    assert record["budget_verdict_basis"] == "pre_send_rejections"
+    assert record["budget_rejected_requests"] == 2
+
+
+def test_token_usage_and_cache_completeness_are_independent() -> None:
+    record = normalize_result(
+        Cell(P1, "A1-P"), _fake_result(prompt_tokens=1000, completion_tokens=200)
+    )
+    assert record["provider_token_usage_observed"] is True
+    assert record["provider_usage_complete"] is None
+    assert "not_exposed_by_runner" in record["provider_usage_source"]
+    assert record["cache_usage_complete"] is None
+    assert record["cache_split_status"] is None
+
+
+def test_a_complete_cache_split_does_not_imply_complete_token_usage() -> None:
+    record = normalize_result(
+        Cell(P1, "A1-P"),
+        _fake_result(
+            prompt_tokens=1000,
+            completion_tokens=200,
+            extra={"cache_metrics_complete": True, "cache_split_status": "COMPLETE"},
+        ),
+    )
+    assert record["cache_usage_complete"] is True
+    assert record["provider_usage_complete"] is None
+
+
+def test_partial_usage_is_reported_as_unknown_observation() -> None:
+    record = normalize_result(
+        Cell(P1, "A1-P"), _fake_result(prompt_tokens=1000, completion_tokens=None)
+    )
+    assert record["provider_token_usage_observed"] is None
+    assert record["provider_completion_tokens"] is None
+
+
+def test_a_missing_request_count_is_not_written_as_zero() -> None:
+    result = _fake_result()
+    result.metrics.model_turns = None
+    result.metrics.extra = {}
+    record = normalize_result(Cell(P1, "N1"), result)
+    assert record["model_calls"] is None
+    assert record["model_calls_source"] == "not_exposed_by_runner"
+
+
+def test_the_model_call_semantics_follow_the_source() -> None:
+    atlas = normalize_result(
+        Cell(P1, "A1-P"), _fake_result(extra={"request_evidence": {"requests_observed": 7}})
+    )
+    assert atlas["model_calls"] == 7
+    assert atlas["model_calls_semantics"] == "requests_observed"
+    native = normalize_result(Cell(P1, "N1"), _fake_result())
+    assert native["model_calls"] == 3
+    assert native["model_calls_semantics"] == "completed_model_turns"
+
+
+# --------------------------------------------------- R1-04: native config identity
+
+
+def test_the_native_config_is_the_frozen_one() -> None:
+    assert native_config_digest() == FROZEN_NATIVE_CONFIG_DIGEST
+    assert FROZEN_NATIVE_CONFIG_DIGEST == (
+        "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14"
+    )
+
+
+@pytest.mark.parametrize(
+    ("case", "needle", "replacement"),
+    [
+        ("pricing", "output_per_million: 1.2", "output_per_million: 1.3"),
+        ("tools", "max_results: 5", "max_results: 9"),
+        ("provider", "model: deepseek-chat", "model: deepseek-reasoner"),
+        ("trajectory", "store_root: trajectory", "store_root: other"),
+    ],
+)
+def test_a_meaningful_native_config_change_moves_the_digest(
+    case: str, needle: str, replacement: str, tmp_path: Path
+) -> None:
+    text = (pilot_runner.REPO_ROOT / pilot_runner.NATIVE_CONFIG).read_text(encoding="utf-8")
+    mutated = text.replace(needle, replacement)
+    assert mutated != text, f"the frozen native config no longer contains {case} {needle!r}"
+    target = tmp_path / pilot_runner.NATIVE_CONFIG
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(mutated, encoding="utf-8", newline="\n")
+    assert native_config_digest(root=tmp_path) != FROZEN_NATIVE_CONFIG_DIGEST
+    # Restoring the frozen text restores the frozen identity.
+    target.write_text(text, encoding="utf-8", newline="\n")
+    assert native_config_digest(root=tmp_path) == FROZEN_NATIVE_CONFIG_DIGEST
+
+
+def test_a_comment_only_native_config_change_keeps_the_digest(tmp_path: Path) -> None:
+    text = (pilot_runner.REPO_ROOT / pilot_runner.NATIVE_CONFIG).read_text(encoding="utf-8")
+    target = tmp_path / pilot_runner.NATIVE_CONFIG
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# a comment\n" + text + "\n\n", encoding="utf-8", newline="\n")
+    assert native_config_digest(root=tmp_path) == FROZEN_NATIVE_CONFIG_DIGEST
+
+
+def test_the_contract_check_compares_the_native_digest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert check_frozen_contract() == []
+    monkeypatch.setattr(pilot_runner, "native_config_digest", lambda **kwargs: "0" * 64)
+    problems = check_frozen_contract()
+    assert any(pilot_runner.NATIVE_CONFIG in problem for problem in problems)
+    assert any("frozen" in problem for problem in problems)
+
+
+def test_the_atlas_config_digests_are_unchanged() -> None:
+    assert protocol.config_semantic_digest(protocol.LEGACY_CONTEXT_CONFIG) == (
+        "16f587b3696e5d4e9f9a7868aa0859c89da876975ef7060f8a2936ce72899eb8"
+    )
+    assert protocol.config_semantic_digest(protocol.SHARED_PREFIX_CONFIG) == (
+        "751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a"
+    )
 
 
 # ------------------------------------------------------------------ D. the runner adapter
@@ -536,8 +1172,8 @@ def _fake_result(**overrides: Any) -> SimpleNamespace:
         model_turns=3,
         tool_calls=5,
         latency_ms=1234.0,
-        sandbox_created=True,
-        sandbox_destroyed=True,
+        sandbox_created=overrides.pop("sandbox_created", True),
+        sandbox_destroyed=overrides.pop("sandbox_destroyed", True),
         worker_selection=list(overrides.pop("workers", ("w1",))),
         extra=overrides.pop("extra", {}),
     )
@@ -578,7 +1214,7 @@ def test_an_unknown_cache_split_stays_unknown() -> None:
     assert record["cache_miss_tokens"] is None
     assert record["cache_usage_complete"] is None
     assert record["provider_usage_complete"] is None
-    assert record["provider_usage_source"] == "not_exposed_by_runner"
+    assert record["provider_usage_source"].startswith("not_exposed_by_runner")
 
 
 def test_missing_usage_is_never_written_as_zero() -> None:

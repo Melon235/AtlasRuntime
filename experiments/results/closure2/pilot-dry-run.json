@@ -1,4 +1,9 @@
 {
+  "agent_sandbox_runs_complete": true,
+  "agent_sandbox_runs_confirmed_min": 0,
+  "agent_sandbox_runs_confirmed_not_created": 0,
+  "agent_sandbox_runs_total": 0,
+  "agent_sandbox_runs_unknown": 0,
   "approval": {
     "execution_ready": false,
     "problems": [
@@ -1204,14 +1209,20 @@
   "contains_live_outcomes": false,
   "contract_ok": true,
   "contract_problems": [],
+  "evidence_schema_version": "closure-2b-0-r1",
   "execution_ready": false,
+  "frozen_native_config_digest": "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14",
   "frozen_preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
-  "generated_at": "2026-11-17T11:28:19.589197+00:00",
+  "generated_at": "2026-11-17T12:06:49.902147+00:00",
   "mode": "DRY_RUN",
   "model_calls": 0,
-  "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
-  "proposed_live_pilot": {
-    "approved": false,
+  "native_config_digest": "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14",
+  "oracle_sandbox_runs": null,
+  "oracle_sandbox_source": "not_exposed_by_runner: the oracle sandbox is created separately",
+  "pilot_execution_ready": false,
+  "pilot_plan": {
+    "approval_status": "PENDING_OWNER_APPROVAL",
+    "approved_plan_digest": null,
     "cells": [
       "closure2-pipeline-migration::N0",
       "closure2-pipeline-migration::N1",
@@ -1222,15 +1233,38 @@
       "closure2-plugin-migration::A1-P",
       "closure2-state-machine-refactor::A2-P"
     ],
-    "note": "proposal only: the owner must approve this selection and its cost ceiling before any live cell runs",
-    "repetitions": 1
+    "cost_policy": {
+      "ceiling_usd": null,
+      "enforcement": "ADVISORY_POST_CELL",
+      "guarantee": "COST_CEILING_NOT_HARD_ENFORCED",
+      "hard_enforcement": false,
+      "reason": "COST_CEILING_NOT_APPROVED",
+      "valid": false
+    },
+    "estimated_cost_ceiling_usd": null,
+    "execution_ready": false,
+    "max_cell_executions": 8,
+    "plan_digest": "a99342dd55adab0fa14a0f69797f42462e38e2f70fba238e28cde7167427bcf8",
+    "plan_id": "closure2-pilot-1",
+    "problems": [
+      "pilot approval status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
+      "pilot plan digest 'a99342dd55adab0fa14a0f69797f42462e38e2f70fba238e28cde7167427bcf8' is not the approved None",
+      "pilot approval has no approver",
+      "pilot approval has no approval commit",
+      "pilot approval has no approval timestamp",
+      "cost policy is not usable: COST_CEILING_NOT_APPROVED"
+    ],
+    "repetitions": [
+      0
+    ]
   },
+  "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
   "protocol_revision": "closure-2a-r1",
   "route_expectation_is_prediction": true,
   "router_policy": {
     "digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
     "version": "r0.1.0"
   },
-  "sandbox_runs": 0,
+  "sandbox_count_scope": "agent_sandbox_only",
   "stage": "closure-2b-0"
 }

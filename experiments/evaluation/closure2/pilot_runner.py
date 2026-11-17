@@ -23,9 +23,11 @@ variable can flip:
     frozen Python data and nothing else.
 
 ``run_live_pilot()``
-    Real execution. The *first* statement is ``require_execution_approval()``; only after the frozen
-    identity and the owner approval agree does an executor get called. Without an explicit
-    ``live_intent=True`` it refuses before that too.
+    Real execution, behind **two** independent authorizations: the benchmark definition
+    (``require_execution_approval()``) and this specific pilot's scope
+    (``require_pilot_authorization()``). The requested cells and repetition must equal the
+    authorized ones exactly, so an approval of "the benchmark" can never be stretched into "any
+    cells I like". Without an explicit ``live_intent=True`` it refuses before that too.
 
 The default is always the dry run.
 """
@@ -72,7 +74,11 @@ from experiments.evaluation.closure2.protocol import (
     require_execution_approval,
     resolve_repo_path,
 )
-from experiments.evaluation.models import BenchmarkTask, effective_public_task_digest
+from experiments.evaluation.models import (
+    BenchmarkTask,
+    canonical_digest,
+    effective_public_task_digest,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DRY_RUN_OUT = REPO_ROOT / "experiments" / "results" / "closure2" / "pilot-dry-run.json"
@@ -124,6 +130,17 @@ PROPOSED_PILOT_CELLS: tuple[tuple[str, str], ...] = (
 )
 PILOT_REPETITIONS = 1
 
+#: B-0 execution-adapter fingerprint of the native engine's own config. The native arm never reads
+#: the Atlas YAML, so its config is an execution dependency in its own right: pricing, tools,
+#: trajectory and provider blocks all change what the arm measures or what it costs. This is **not**
+#: a Closure-2A preregistration identity — it constrains the adapter, and changing it means the
+#: adapter needs a new review, not that the benchmark moved.
+FROZEN_NATIVE_CONFIG_DIGEST = "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14"
+
+#: Bumped whenever the live-summary / dry-run schema changes, so an old artifact cannot be read with
+#: new semantics.
+EVIDENCE_SCHEMA_VERSION = "closure-2b-0-r1"
+
 
 class PilotContractError(RuntimeError):
     """A frozen identity or a runner contract does not match. Never downgraded, never retried."""
@@ -131,6 +148,10 @@ class PilotContractError(RuntimeError):
 
 class LiveExecutionBlocked(RuntimeError):
     """A live run was requested without the approval or the explicit intent it requires."""
+
+
+class PilotNotAuthorized(LiveExecutionBlocked):
+    """The requested execution scope is not the one the owner approved."""
 
 
 # --------------------------------------------------------------------------------------- the arms
@@ -207,6 +228,225 @@ class Cell:
 
     def config_relative(self) -> str:
         return self.spec.config or NATIVE_CONFIG
+
+
+# ---------------------------------------------------------------- the authorized execution scope
+
+
+@dataclass(frozen=True)
+class PilotPlan:
+    """The execution scope one pilot approval covers. Immutable, digestible, approval-independent.
+
+    Two different questions, two different objects:
+
+    * this plan answers *which cells, which repetitions, how many executions, under which cost
+      ceiling*;
+    * ``PILOT_APPROVAL`` answers *whether the owner approved this plan digest*.
+
+    Moving the approval from pending to approved therefore cannot change the plan identity, and
+    changing a cell, a repetition or the ceiling cannot silently keep the old approval valid.
+    """
+
+    plan_id: str
+    benchmark_id: str
+    preregistration_digest: str
+    runner_revision: str
+    cells: tuple[str, ...]
+    repetitions: tuple[int, ...]
+    max_cell_executions: int
+    estimated_cost_ceiling_usd: float | None
+
+    def payload(self) -> dict[str, Any]:
+        """Every field that defines the scope. No timestamp, no path, no random id."""
+
+        return {
+            "plan_id": self.plan_id,
+            "benchmark_id": self.benchmark_id,
+            "preregistration_digest": self.preregistration_digest,
+            "runner_revision": self.runner_revision,
+            "cells": list(self.cells),
+            "repetitions": list(self.repetitions),
+            "max_cell_executions": self.max_cell_executions,
+            "estimated_cost_ceiling_usd": self.estimated_cost_ceiling_usd,
+        }
+
+    def digest(self) -> str:
+        return canonical_digest(self.payload())
+
+    @property
+    def planned_executions(self) -> int:
+        return len(self.cells) * len(self.repetitions)
+
+
+#: The one pilot this stage proposes. Eight cells, one repetition, **no approved cost ceiling**;
+#: the owner sets that number, and until then ``cost_policy()["valid"]`` is false and live refuses.
+PILOT_PLAN = PilotPlan(
+    plan_id="closure2-pilot-1",
+    benchmark_id=BENCHMARK_ID,
+    preregistration_digest=C2A_R1_PREREGISTRATION_DIGEST,
+    runner_revision="closure-2b-0-r1",
+    cells=tuple(f"{task_id}::{arm_id}" for task_id, arm_id in PROPOSED_PILOT_CELLS),
+    repetitions=tuple(range(PILOT_REPETITIONS)),
+    max_cell_executions=len(PROPOSED_PILOT_CELLS),
+    estimated_cost_ceiling_usd=None,
+)
+
+#: Mutable approval record for the *scope*, separate from ``protocol.APPROVAL_RECORD`` which
+#: approves the *definition*. Deliberately not a parameter of ``run_live_pilot``: a caller must not
+#: be able to hand in its own approval.
+PILOT_APPROVAL: dict[str, Any] = {
+    "status": "PENDING_OWNER_APPROVAL",
+    "approved_plan_digest": None,
+    "approved_by": None,
+    "approval_commit": None,
+    "approved_at": None,
+}
+
+
+def cost_policy(plan: PilotPlan | None = None) -> dict[str, Any]:
+    """What the cost ceiling actually guarantees — which is nothing hard, and that is recorded.
+
+    Neither engine has a pre-send dollar guard: Atlas guards tokens before send, native only after
+    the run. A cell that is already executing can therefore overspend before the next dispatch is
+    stopped. ``hard_enforcement`` is therefore always ``False`` and the reason code says why.
+    """
+
+    target = plan or PILOT_PLAN
+    ceiling = target.estimated_cost_ceiling_usd
+    if ceiling is None:
+        return {
+            "valid": False,
+            "reason": "COST_CEILING_NOT_APPROVED",
+            "ceiling_usd": None,
+            "enforcement": "ADVISORY_POST_CELL",
+            "hard_enforcement": False,
+            "guarantee": "COST_CEILING_NOT_HARD_ENFORCED",
+        }
+    if float(ceiling) <= 0:
+        return {
+            "valid": False,
+            "reason": "COST_CEILING_NOT_POSITIVE",
+            "ceiling_usd": ceiling,
+            "enforcement": "ADVISORY_POST_CELL",
+            "hard_enforcement": False,
+            "guarantee": "COST_CEILING_NOT_HARD_ENFORCED",
+        }
+    return {
+        "valid": True,
+        "reason": "COST_CEILING_APPROVED",
+        "ceiling_usd": ceiling,
+        "enforcement": "ADVISORY_POST_CELL",
+        "hard_enforcement": False,
+        "guarantee": "COST_CEILING_NOT_HARD_ENFORCED",
+        "scope": (
+            "checked between cells from the runner's estimated cost; a cell already executing can "
+            "exceed the ceiling before the next dispatch is stopped"
+        ),
+    }
+
+
+def pilot_authorization_gate(
+    *,
+    cells: tuple[Cell, ...],
+    repetition_id: int,
+    plan: PilotPlan | None = None,
+    record: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Layer B: is *this* execution the one the owner authorized?
+
+    The requested sequence must equal the authorized sequence exactly. A subset, an extra cell, a
+    different order or an unapproved repetition is refused; a partial retry would need its own
+    authorization record, which this stage does not define.
+    """
+
+    target = plan or PILOT_PLAN
+    active = PILOT_APPROVAL if record is None else record
+    requested = tuple(cell.cell_id for cell in cells)
+    digest = target.digest()
+    approved_digest = active.get("approved_plan_digest")
+    problems: list[str] = []
+    if active.get("status") != "APPROVED":
+        problems.append(f"pilot approval status is {active.get('status')!r}, not 'APPROVED'")
+    if approved_digest != digest:
+        problems.append(f"pilot plan digest {digest!r} is not the approved {approved_digest!r}")
+    if not active.get("approved_by"):
+        problems.append("pilot approval has no approver")
+    if not active.get("approval_commit"):
+        problems.append("pilot approval has no approval commit")
+    if not active.get("approved_at"):
+        problems.append("pilot approval has no approval timestamp")
+    if target.preregistration_digest != C2A_R1_PREREGISTRATION_DIGEST:
+        problems.append("pilot plan is pinned to a different preregistration digest")
+    if preregistration_digest() != target.preregistration_digest:
+        problems.append(
+            "the live preregistration digest differs from the one the pilot plan was pinned to"
+        )
+    if len(set(requested)) != len(requested):
+        problems.append("the requested list contains the same cell twice")
+    if requested != target.cells:
+        missing = [cell for cell in target.cells if cell not in requested]
+        extra = [cell for cell in requested if cell not in target.cells]
+        problems.append(
+            "requested cells are not the authorized cells: "
+            f"missing={missing}, extra={extra}, order_matches={requested == target.cells}"
+        )
+    if repetition_id not in target.repetitions:
+        problems.append(
+            f"repetition {repetition_id} is not authorized; approved {list(target.repetitions)}"
+        )
+    if len(requested) > target.max_cell_executions:
+        problems.append(
+            f"{len(requested)} executions requested, {target.max_cell_executions} authorized"
+        )
+    policy = cost_policy(target)
+    if not policy["valid"]:
+        problems.append(f"cost policy is not usable: {policy['reason']}")
+    return {
+        "execution_ready": not problems,
+        "problems": problems,
+        "plan_id": target.plan_id,
+        "plan_digest": digest,
+        "approved_plan_digest": approved_digest,
+        "approved_cells": list(target.cells),
+        "requested_cells": list(requested),
+        "approved_repetitions": list(target.repetitions),
+        "requested_repetition": repetition_id,
+        "max_cell_executions": target.max_cell_executions,
+        "approval_status": active.get("status"),
+        "cost_policy": policy,
+    }
+
+
+def require_pilot_authorization(*, cells: tuple[Cell, ...], repetition_id: int) -> dict[str, Any]:
+    """Raise unless the requested scope is the approved scope. Called by the live entry point."""
+
+    gate = pilot_authorization_gate(cells=cells, repetition_id=repetition_id)
+    if not gate["execution_ready"]:
+        raise PilotNotAuthorized("PILOT_NOT_AUTHORIZED: " + "; ".join(gate["problems"]))
+    return gate
+
+
+def _sum_or_none(values: list[Any]) -> float | None:
+    """Sum only when every term is known. One unknown term makes the total unknown."""
+
+    if not values or any(value is None for value in values):
+        return None
+    return float(sum(float(value) for value in values))
+
+
+def _cost_dispatch_state(records: list[dict[str, Any]], plan: PilotPlan) -> dict[str, Any]:
+    """May the next cell be dispatched? Unknown cost is not "probably fine"."""
+
+    ceiling = plan.estimated_cost_ceiling_usd
+    if ceiling is None:
+        return {"can_dispatch": False, "reason": "COST_CEILING_NOT_APPROVED", "spent_usd": None}
+    costs = [record.get("estimated_cost_usd") for record in records]
+    if any(cost is None for cost in costs):
+        return {"can_dispatch": False, "reason": "COST_UNKNOWN", "spent_usd": None}
+    spent = float(sum(float(cost) for cost in costs))
+    if spent > float(ceiling):
+        return {"can_dispatch": False, "reason": "COST_CEILING_EXCEEDED", "spent_usd": spent}
+    return {"can_dispatch": True, "reason": "WITHIN_CEILING", "spent_usd": spent}
 
 
 def frozen_budget(topology: str) -> dict[str, Any]:
@@ -340,6 +580,12 @@ def _sandbox_of(relative: str) -> dict[str, Any]:
     }
 
 
+def native_config_digest(*, root: Path | None = None) -> str:
+    """The native config's semantics, through the same canonicalisation as every other config."""
+
+    return config_semantic_digest(NATIVE_CONFIG, root=root)
+
+
 def check_frozen_contract() -> list[str]:
     """Every identity the pilot depends on, re-derived. An empty list means "safe to plan".
 
@@ -407,6 +653,18 @@ def check_frozen_contract() -> list[str]:
     digests = {arm: arm_config_digest(arm) for arm in ARM_ORDER}
     if len(set(digests.values())) != len(digests):
         problems.append("two arms share one config digest")
+
+    # R1-04: the native config is an execution dependency of its own. Field checks above cannot
+    # notice a change to pricing, tools or trajectory, and pricing feeds the cost estimate.
+    try:
+        live_native = native_config_digest()
+    except Exception as error:  # noqa: BLE001 - any load failure is a contract failure
+        problems.append(f"{NATIVE_CONFIG} could not be hashed: {error}")
+    else:
+        if live_native != FROZEN_NATIVE_CONFIG_DIGEST:
+            problems.append(
+                f"{NATIVE_CONFIG} semantics are {live_native}, frozen {FROZEN_NATIVE_CONFIG_DIGEST}"
+            )
     return problems
 
 
@@ -528,21 +786,24 @@ def build_dry_run_manifest(*, runs_root: Path | None = None) -> dict[str, Any]:
     for descriptor in cells:
         descriptor["approval_status"] = gate["status"]
         descriptor["execution_allowed"] = False
+    pilot = pilot_authorization_gate(cells=pilot_cells(), repetition_id=0)
     return {
         "mode": "DRY_RUN",
         "stage": "closure-2b-0",
+        "evidence_schema_version": EVIDENCE_SCHEMA_VERSION,
         "benchmark_id": BENCHMARK_ID,
         "benchmark_version": DATASET_VERSION,
         "protocol_revision": PROTOCOL_REVISION,
         "preregistration_digest": preregistration_digest(),
         "frozen_preregistration_digest": C2A_R1_PREREGISTRATION_DIGEST,
+        "native_config_digest": native_config_digest(),
+        "frozen_native_config_digest": FROZEN_NATIVE_CONFIG_DIGEST,
         "router_policy": {
             "version": ROUTING_POLICY_VERSION,
             "digest": ROUTING_POLICY_DIGEST,
         },
         "generated_at": _now(),
         "model_calls": 0,
-        "sandbox_runs": 0,
         "contains_live_outcomes": False,
         "route_expectation_is_prediction": True,
         "approval": {
@@ -550,20 +811,33 @@ def build_dry_run_manifest(*, runs_root: Path | None = None) -> dict[str, Any]:
             "execution_ready": gate["execution_ready"],
             "problems": gate["problems"],
         },
+        "pilot_plan": {
+            "plan_id": PILOT_PLAN.plan_id,
+            "plan_digest": pilot["plan_digest"],
+            "approved_plan_digest": pilot["approved_plan_digest"],
+            "approval_status": pilot["approval_status"],
+            "execution_ready": pilot["execution_ready"],
+            "problems": pilot["problems"],
+            "cells": list(PILOT_PLAN.cells),
+            "repetitions": list(PILOT_PLAN.repetitions),
+            "max_cell_executions": PILOT_PLAN.max_cell_executions,
+            "estimated_cost_ceiling_usd": PILOT_PLAN.estimated_cost_ceiling_usd,
+            "cost_policy": pilot["cost_policy"],
+        },
         "execution_ready": gate["execution_ready"],
+        "pilot_execution_ready": pilot["execution_ready"],
         "contract_problems": problems,
         "contract_ok": not problems,
         "cell_count": len(cells),
         "cells": cells,
-        "proposed_live_pilot": {
-            "approved": False,
-            "repetitions": PILOT_REPETITIONS,
-            "cells": [cell.cell_id for cell in pilot_cells()],
-            "note": (
-                "proposal only: the owner must approve this selection and its cost ceiling before "
-                "any live cell runs"
-            ),
-        },
+        "sandbox_count_scope": "agent_sandbox_only",
+        "agent_sandbox_runs_confirmed_min": 0,
+        "agent_sandbox_runs_confirmed_not_created": 0,
+        "agent_sandbox_runs_unknown": 0,
+        "agent_sandbox_runs_total": 0,
+        "agent_sandbox_runs_complete": True,
+        "oracle_sandbox_runs": None,
+        "oracle_sandbox_source": "not_exposed_by_runner: the oracle sandbox is created separately",
     }
 
 
@@ -648,12 +922,23 @@ async def run_live_pilot(
             "enable a live run"
         )
     gate = require_execution_approval()
+    pilot_gate = require_pilot_authorization(cells=cells, repetition_id=repetition_id)
     require_frozen_contract()
 
     runner = executor or _default_executor
     model = effective_model()
     records: list[dict[str, Any]] = []
-    for cell in cells:
+    stopped_reason: str | None = None
+    not_started: list[str] = []
+    for index, cell in enumerate(cells):
+        if index:
+            # The ceiling is advisory and evaluated between cells: a cell already running can
+            # overspend before this check sees it. Unknown cost also stops the dispatch.
+            state = _cost_dispatch_state(records, PILOT_PLAN)
+            if not state["can_dispatch"]:
+                stopped_reason = state["reason"]
+                not_started = [pending.cell_id for pending in cells[index:]]
+                break
         settings = settings_for(cell, runs_root=runs_root, model=model)
         task = cell.benchmark_task()
         try:
@@ -665,12 +950,17 @@ async def run_live_pilot(
                 repetition_id=repetition_id,
             )
         except Exception as error:  # noqa: BLE001 - a failed cell is data, not a crash
-            records.append(_execution_error_record(cell, error))
+            records.append(_execution_error_record(cell, error, repetition_id=repetition_id))
             continue
         records.append(normalize_result(cell, result, settings=settings))
+    statuses = [record.get("sandbox_creation_status") for record in records]
+    confirmed = sum(1 for status in statuses if status == "SANDBOX_CREATED_CONFIRMED")
+    confirmed_absent = sum(1 for status in statuses if status == "SANDBOX_NOT_CREATED_CONFIRMED")
+    unknown = len(statuses) - confirmed - confirmed_absent
     return {
         "mode": "LIVE",
         "stage": "closure-2b-0",
+        "evidence_schema_version": EVIDENCE_SCHEMA_VERSION,
         "benchmark_id": BENCHMARK_ID,
         "protocol_revision": PROTOCOL_REVISION,
         "preregistration_digest": preregistration_digest(),
@@ -679,10 +969,35 @@ async def run_live_pilot(
         "repetition_id": repetition_id,
         "approval_status": gate["status"],
         "approved_digest": gate["approved_digest"],
+        "pilot_plan_id": pilot_gate["plan_id"],
+        "pilot_plan_digest": pilot_gate["plan_digest"],
+        "authorized_cells": pilot_gate["approved_cells"],
+        "authorized_repetitions": pilot_gate["approved_repetitions"],
+        "max_cell_executions": pilot_gate["max_cell_executions"],
+        "cost_policy": pilot_gate["cost_policy"],
+        "cost_ceiling_usd": pilot_gate["cost_policy"]["ceiling_usd"],
+        "cost_ceiling_enforcement": pilot_gate["cost_policy"]["enforcement"],
+        "cost_ceiling_guarantee": pilot_gate["cost_policy"]["guarantee"],
         "cell_count": len(records),
         # Unknown stays unknown: a pilot with one unmeasured cell does not have a total.
         "model_calls": _total_or_none([record.get("model_calls") for record in records]),
-        "sandbox_runs": sum(1 for record in records if record.get("sandbox_created") is True),
+        "estimated_cost_usd_total": _sum_or_none(
+            [record.get("estimated_cost_usd") for record in records]
+        ),
+        # Nothing in this runner reports a billed amount; an estimate is not an observation.
+        "observed_cost_usd_total": None,
+        "observed_cost_source": "not_exposed_by_runner",
+        "stopped_reason": stopped_reason,
+        "not_started_cells": not_started,
+        # Agent sandboxes only: the oracle has its own, which the runner does not count here.
+        "sandbox_count_scope": "agent_sandbox_only",
+        "agent_sandbox_runs_confirmed_min": confirmed,
+        "agent_sandbox_runs_confirmed_not_created": confirmed_absent,
+        "agent_sandbox_runs_unknown": unknown,
+        "agent_sandbox_runs_total": None if unknown else confirmed,
+        "agent_sandbox_runs_complete": unknown == 0,
+        "oracle_sandbox_runs": None,
+        "oracle_sandbox_source": "not_exposed_by_runner: the oracle sandbox is created separately",
         "cells": records,
     }
 
@@ -695,11 +1010,20 @@ def _total_or_none(values: list[Any]) -> int | None:
     return sum(int(value) for value in values)
 
 
-def _execution_error_record(cell: Cell, error: BaseException) -> dict[str, Any]:
+def _execution_error_record(
+    cell: Cell, error: BaseException, *, repetition_id: int = 0
+) -> dict[str, Any]:
+    """A failed cell, recorded without inventing a lifecycle it cannot observe.
+
+    The exception carries no sandbox event stream, so the creation state is ``UNKNOWN`` — never
+    ``False``. A cell that created a sandbox and then raised would otherwise be counted as zero.
+    """
+
     return {
         "cell_id": cell.cell_id,
         "task_id": cell.task_id,
         "arm_id": cell.arm_id,
+        "repetition_id": int(repetition_id),
         "status": "EXECUTION_ERROR",
         "failure_class": "HARNESS_ERROR",
         "failure_reason": f"{type(error).__name__}: {error}",
@@ -707,13 +1031,25 @@ def _execution_error_record(cell: Cell, error: BaseException) -> dict[str, Any]:
         "agent_success": None,
         "task_success": None,
         "model_calls": None,
+        "model_calls_source": "not_observed: the cell raised before producing a result",
         "provider_prompt_tokens": None,
         "provider_completion_tokens": None,
         "cache_hit_tokens": None,
         "cache_miss_tokens": None,
         "estimated_cost_usd": None,
         "budget_exceeded": None,
+        "budget_final_verdict": "UNKNOWN",
+        "budget_verdict_basis": "no_result",
+        "budget_admission_rejected": None,
         "budget_rejected_requests": None,
+        # No lifecycle record exists for a cell that raised before returning.
+        "sandbox_created": None,
+        "sandbox_destroyed": None,
+        "sandbox_creation_status": "SANDBOX_CREATION_UNKNOWN",
+        "sandbox_count_scope": "agent_sandbox_only",
+        "sandbox_evidence_source": "no lifecycle record: the executor raised before returning",
+        "oracle_sandbox_counted": False,
+        "raw_evidence_preserved": True,
     }
 
 
@@ -772,20 +1108,53 @@ def normalize_result(cell: Cell, result: Any, *, settings: Any | None = None) ->
     direct_downgrade = bool(routing) and int(routing.get("executed_worker_count") or 0) == 1
     # Atlas counts refusals before send; native has no guard at all, so "rejected requests" is not
     # applicable there and must stay ``None`` rather than be reported as an observed zero.
-    budget_rejected = None
     guarded = attestation["budget"]
-    if isinstance(guarded, dict):
-        budget_rejected = guarded.get("admission_rejections")
-    budget_exceeded = None
-    if isinstance(guarded, dict):
-        budget_exceeded = bool(budget_rejected)
-    elif isinstance(native_budget, dict):
-        budget_exceeded = bool(native_budget.get("exceeded"))
-    # The runner's own verdict wins: a run can cross the threshold without a pre-send refusal.
+    budget_admission_rejected = (
+        guarded.get("admission_rejections") if isinstance(guarded, dict) else None
+    )
+    budget_observed_limit_exceeded = None
+    if isinstance(native_budget, dict) and "exceeded" in native_budget:
+        budget_observed_limit_exceeded = bool(native_budget["exceeded"])
+    # The runner's own verdict outranks anything inferred from a counter, and zero pre-send refusals
+    # are not proof that nothing overshot: the last admitted request can still cross the threshold.
     if result.failure_class == "BUDGET_EXCEEDED":
-        budget_exceeded = True
+        budget_final_verdict, budget_verdict_basis = "EXCEEDED", "runner_failure_class"
+    elif budget_admission_rejected is not None and int(budget_admission_rejected) > 0:
+        budget_final_verdict, budget_verdict_basis = "EXCEEDED", "pre_send_rejections"
+    elif budget_observed_limit_exceeded is True:
+        budget_final_verdict, budget_verdict_basis = "EXCEEDED", "post_hoc_check"
+    elif budget_observed_limit_exceeded is False:
+        budget_final_verdict, budget_verdict_basis = "NOT_EXCEEDED", "post_hoc_check"
+    else:
+        budget_final_verdict, budget_verdict_basis = "UNKNOWN", "no_negative_verdict_from_runner"
+    budget_exceeded = {"EXCEEDED": True, "NOT_EXCEEDED": False}.get(budget_final_verdict)
 
     oracle_passed = bool(result.oracle.passed)
+    # Three-state composite: an oracle failure makes "passed but over budget" impossible, an unknown
+    # budget leaves it unknown rather than optimistically false.
+    if not oracle_passed:
+        deliverable_over_budget: bool | None = False
+    elif budget_exceeded is None:
+        deliverable_over_budget = None
+    else:
+        deliverable_over_budget = bool(budget_exceeded)
+
+    prompt_tokens = metrics.prompt_tokens
+    completion_tokens = metrics.completion_tokens
+    if prompt_tokens is None and completion_tokens is None:
+        usage_observed: bool | None = False
+    elif prompt_tokens is None or completion_tokens is None:
+        usage_observed = None
+    else:
+        usage_observed = True
+
+    created = metrics.sandbox_created
+    if created is True:
+        sandbox_status = "SANDBOX_CREATED_CONFIRMED"
+    elif created is False:
+        sandbox_status = "SANDBOX_NOT_CREATED_CONFIRMED"
+    else:
+        sandbox_status = "SANDBOX_CREATION_UNKNOWN"
     return {
         "cell_id": cell.cell_id,
         "status": "COMPLETED",
@@ -822,24 +1191,38 @@ def normalize_result(cell: Cell, result: Any, *, settings: Any | None = None) ->
         "task_success": bool(result.success),
         "failure_class": result.failure_class,
         "failure_reason": result.failure_reason,
-        "provider_prompt_tokens": metrics.prompt_tokens,
-        "provider_completion_tokens": metrics.completion_tokens,
+        "provider_prompt_tokens": prompt_tokens,
+        "provider_completion_tokens": completion_tokens,
         "cache_hit_tokens": metrics.cache_hit_tokens,
         "cache_miss_tokens": metrics.cache_miss_tokens,
         "cache_usage_complete": attestation["cache_metrics_complete"],
         "cache_split_status": attestation["cache_split_status"],
-        "provider_usage_complete": attestation["cache_metrics_complete"],
+        # Two different questions. The cache split can be complete while the token totals are not
+        # attested, and neither runner attests that *every* request reported usage, so token-usage
+        # completeness stays unknown instead of being copied from the cache flag.
+        "provider_token_usage_observed": usage_observed,
+        "provider_usage_complete": None,
         "provider_usage_source": (
-            "metrics.extra.cache_metrics_complete"
-            if attestation["cache_metrics_complete"] is not None
-            else "not_exposed_by_runner"
+            "not_exposed_by_runner: usage is aggregated across requests but completeness is not "
+            "attested"
         ),
         "estimated_cost_usd": metrics.estimated_cost_usd,
         "model_calls": attestation["model_calls"],
         "model_calls_source": attestation["model_calls_source"],
+        "model_calls_semantics": (
+            "requests_observed"
+            if attestation["model_calls_source"].startswith("request_evidence")
+            else "completed_model_turns"
+            if attestation["model_calls_source"] == "metrics.model_turns"
+            else None
+        ),
         "tool_calls": metrics.tool_calls,
         "budget_exceeded": budget_exceeded,
-        "budget_rejected_requests": budget_rejected,
+        "budget_final_verdict": budget_final_verdict,
+        "budget_verdict_basis": budget_verdict_basis,
+        "budget_admission_rejected": budget_admission_rejected,
+        "budget_observed_limit_exceeded": budget_observed_limit_exceeded,
+        "budget_rejected_requests": budget_admission_rejected,
         "budget_record": attestation["budget"] or native_budget,
         "agent_latency_ms": environment.get("agent_latency_ms"),
         "end_to_end_latency_ms": metrics.latency_ms,
@@ -848,10 +1231,15 @@ def normalize_result(cell: Cell, result: Any, *, settings: Any | None = None) ->
             "not_exposed_by_runner: worker lifecycle timings live in run_dir/stage_e_evidence.json "
             "and are computed in Closure-2B-1"
         ),
-        "deliverable_passed_but_budget_failed": bool(oracle_passed and budget_exceeded),
+        "deliverable_passed_but_budget_failed": deliverable_over_budget,
         "workspace_isolated": environment.get("workspace_isolation"),
         "sandbox_created": metrics.sandbox_created,
         "sandbox_destroyed": metrics.sandbox_destroyed,
+        "sandbox_creation_status": sandbox_status,
+        # An agent sandbox is not an oracle sandbox: the oracle runs in its own, which this runner
+        # does not expose. Counting the agent side must never be read as the whole lifecycle.
+        "sandbox_count_scope": "agent_sandbox_only",
+        "oracle_sandbox_counted": False,
         "oracle_environment_failure": bool(result.oracle.environment_failure),
         "oracle_failure_kind": result.oracle.failure_kind,
         "raw_result_path": str(Path(result.run_dir) / "result.json"),
@@ -911,8 +1299,11 @@ def main(argv: list[str] | None = None) -> int:
                     "contract_problems": manifest["contract_problems"],
                     "execution_ready": manifest["execution_ready"],
                     "approval": manifest["approval"]["status"],
+                    "pilot_plan_digest": manifest["pilot_plan"]["plan_digest"],
+                    "pilot_approval": manifest["pilot_plan"]["approval_status"],
+                    "pilot_execution_ready": manifest["pilot_execution_ready"],
                     "model_calls": manifest["model_calls"],
-                    "sandbox_runs": manifest["sandbox_runs"],
+                    "agent_sandbox_runs_total": manifest["agent_sandbox_runs_total"],
                     "out": str(Path(args.out)),
                 },
                 indent=2,

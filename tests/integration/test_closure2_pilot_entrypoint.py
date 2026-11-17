@@ -33,12 +33,39 @@ def manifest() -> dict[str, Any]:
 
 def test_the_dry_run_manifest_is_complete(manifest: dict[str, Any]) -> None:
     assert manifest["mode"] == "DRY_RUN"
+    assert manifest["evidence_schema_version"] == pilot_runner.EVIDENCE_SCHEMA_VERSION
     assert manifest["cell_count"] == 18
     assert manifest["contract_ok"] is True
     assert manifest["execution_ready"] is False
     assert manifest["approval"]["status"] == "PENDING_OWNER_APPROVAL"
     assert {cell["arm_id"] for cell in manifest["cells"]} == set(pilot_runner.ARM_ORDER)
     assert len({cell["task_id"] for cell in manifest["cells"]}) == 3
+
+
+def test_the_dry_run_reports_the_pilot_scope_it_does_not_authorize(
+    manifest: dict[str, Any],
+) -> None:
+    """The plan identity is visible before execution; its approval is not granted by this stage."""
+
+    plan = manifest["pilot_plan"]
+    assert plan["plan_id"] == "closure2-pilot-1"
+    assert plan["plan_digest"] == pilot_runner.PILOT_PLAN.digest()
+    assert plan["approved_plan_digest"] is None
+    assert plan["approval_status"] == "PENDING_OWNER_APPROVAL"
+    assert plan["execution_ready"] is False
+    assert plan["cells"] == list(pilot_runner.PILOT_PLAN.cells)
+    assert len(plan["cells"]) == 8
+    assert plan["repetitions"] == [0]
+    assert plan["max_cell_executions"] == 8
+    assert plan["estimated_cost_ceiling_usd"] is None
+    assert plan["cost_policy"]["valid"] is False
+    assert plan["cost_policy"]["hard_enforcement"] is False
+    assert manifest["pilot_execution_ready"] is False
+
+
+def test_the_dry_run_binds_the_native_config(manifest: dict[str, Any]) -> None:
+    assert manifest["native_config_digest"] == pilot_runner.FROZEN_NATIVE_CONFIG_DIGEST
+    assert manifest["frozen_native_config_digest"] == pilot_runner.FROZEN_NATIVE_CONFIG_DIGEST
 
 
 def test_a_dry_run_builds_no_sandbox_and_no_provider(
@@ -55,7 +82,8 @@ def test_a_dry_run_builds_no_sandbox_and_no_provider(
     monkeypatch.setattr(pilot_runner, "_default_executor", forbidden, raising=False)
     manifest = build_dry_run_manifest()
     assert manifest["cell_count"] == 18
-    assert manifest["sandbox_runs"] == 0
+    assert manifest["agent_sandbox_runs_total"] == 0
+    assert manifest["agent_sandbox_runs_complete"] is True
 
 
 def test_the_dry_run_is_reproducible(tmp_path: Path) -> None:
@@ -74,6 +102,8 @@ def test_the_cli_writes_the_manifest(tmp_path: Path) -> None:
     assert payload["mode"] == "DRY_RUN"
     assert payload["cell_count"] == 18
     assert payload["contains_live_outcomes"] is False
+    assert payload["agent_sandbox_runs_total"] == 0
+    assert payload["pilot_execution_ready"] is False
     assert str(pilot_runner.REPO_ROOT) not in out.read_text(encoding="utf-8")
 
 
