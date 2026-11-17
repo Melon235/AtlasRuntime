@@ -36,6 +36,7 @@ environment variables, historical run ids and Git history keep `atlasos` / `atla
 | C1-A | effective prompt layout correction — `docs/closure-1a-prompt-layout.md` (R1 evidence fix at `7b30e59`, approved) |
 | C1-B | native AnyCode baseline on the shared OpenSandbox environment (N0/N1) — `docs/closure-1b-native-baseline.md`; real-container acceptance `REAL_SANDBOX_ACCEPTED`, parity `BASELINE_PARITY_PASS` |
 | C1-C | metrics and historical evidence closure — `docs/closure-1c-metrics-evidence.md`: metric dictionary, cache-split status, request-evidence/index integrity, `effective_public_task_digest`. **Closure-1 complete** |
+| C2-A | frozen final benchmark + fairness protocol + preregistration — `docs/closure-2-{benchmark-design,fairness-protocol,preregistration}.md`; `closure2-final-benchmark-v1`, six arms, deterministic preflight PASSED, 0 model calls. Budget still `PENDING_OWNER_APPROVAL` |
 | Paused research branch | `feat/placement-coding-integration` = `0252bdb` (G1) — retained, never merged |
 | Final-1.5 baseline (`BASE_SHA` of that stage) | `16251d05c34cff41d280396a1647214914e51a31` |
 | Final-1.6 ported fix | `1b4f6be` = cherry-pick of `18e523c` (coding-session outcome attribution, 2 files) |
@@ -244,8 +245,10 @@ was re-measured after the Final-1.6 port: 891 passed / 6 skipped / 1 deselected
 8. **Closure stage** — `docs/final-closure-roadmap.md`. C1-0 (roadmap frozen), C1-A (effective
    prompt layout), C1-B (native neutral baseline, real-container acceptance) and C1-C (metric
    semantics, request evidence, historical consolidation) are done, so **Closure-1 is complete**.
-   Remaining: Closure-2 (final benchmark and module evidence loop), Closure-3 (Web Workbench over
-   the existing backend) and Closure-4 (regression, documentation, packaging, version freeze).
+   C2-A (frozen benchmark, fairness protocol, preregistration) is also done. Remaining: Closure-2B
+   (live pilot, blocked on budget approval), 2C (formal repetitions and attribution), 2D (evidence
+   freeze), Closure-3 (Web Workbench over the existing backend) and Closure-4 (regression,
+   documentation, packaging, version freeze).
 
 Decisions owed by the project owner before Final-3 (from
 `docs/final-2-evaluation-design-report.md` §11): R-4/R-5 the minimal Context-Plane wiring plus

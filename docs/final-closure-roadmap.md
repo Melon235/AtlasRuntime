@@ -137,6 +137,16 @@ contexts* — the structure multi-worker execution can actually help — plus th
 table. Closure-2 does not resurrect unbounded multi-worker optimisation, and it does not claim a
 cache benefit that the provider state cannot separate.
 
+| Sub-stage | Content | Status |
+|---|---|---|
+| **2A** | Frozen benchmark, fairness protocol and preregistration: P1/P2/N1, six arms, budget proposal, deterministic preflight | **done** — `docs/closure-2-benchmark-design.md`, `docs/closure-2-fairness-protocol.md`, `docs/closure-2-preregistration.md` |
+| **2B** | Live pilot on the approved budget: model calls, real sandboxes, preregistered cells only | blocked on budget approval |
+| **2C** | Formal repetitions and attribution (three paired repetitions per cell) | not started |
+| **2D** | Evidence freeze and the consolidated result table | not started |
+
+Closure-2A is design only: it ran no model and created no sandbox. `BUDGET["approval"]` is
+`PENDING_OWNER_APPROVAL`, and 2B must not begin until that changes in a new commit.
+
 ### Closure-3 — Web Workbench
 
 Front end over the **existing** backend. No new runtime capability is introduced to support the UI.
