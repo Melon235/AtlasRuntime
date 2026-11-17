@@ -23,6 +23,11 @@ from experiments.evaluation.closure2.catalog import (
     Topology,
     build_task,
 )
+from experiments.evaluation.closure2.pilot_ledger import (
+    PilotAlreadyClaimed,
+    PilotLedger,
+    PilotLedgerStateInvalid,
+)
 from experiments.evaluation.closure2.pilot_runner import (
     ARM_ORDER,
     ARM_SPECS,
@@ -35,6 +40,7 @@ from experiments.evaluation.closure2.pilot_runner import (
     PilotContractError,
     PilotNotAuthorized,
     PilotPlan,
+    _cost_dispatch_state,
     build_dry_run_manifest,
     cell_descriptor,
     check_frozen_contract,
@@ -72,6 +78,19 @@ APPROVED = {
 
 def describe(task_id: str, arm_id: str) -> dict[str, Any]:
     return cell_descriptor(Cell(task_id, arm_id), runs_root=Path("experiments/runs/closure2"))
+
+
+@pytest.fixture(autouse=True)
+def isolated_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Every test gets its own ledger file.
+
+    The production ledger lives in per-user state and is consumed permanently, so a test that
+    used it would break the next run — and would write to the developer's machine.
+    """
+
+    path = tmp_path / "pilot-ledger.sqlite"
+    monkeypatch.setattr(pilot_runner, "_ledger_factory", lambda: PilotLedger(path))
+    return path
 
 
 def approve_benchmark(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1053,6 +1072,300 @@ def test_the_atlas_config_digests_are_unchanged() -> None:
     assert protocol.config_semantic_digest(protocol.SHARED_PREFIX_CONFIG) == (
         "751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a"
     )
+
+
+# --------------------------------------------------- R2-01: the durable execution lease
+
+
+def test_a_live_run_claims_the_plan_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, isolated_ledger: Path
+) -> None:
+    approve_benchmark(monkeypatch)
+    plan = approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),))
+    calls: list[Any] = []
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"),),
+            runs_root=tmp_path,
+            executor=_recording_executor(calls),
+            live_intent=True,
+        )
+    )
+
+    claim = summary["execution_claim"]
+    assert claim["claimed"] is True
+    assert claim["claim_status"] == "CONSUMED"
+    assert claim["plan_digest"] == plan.digest()
+    assert claim["ledger_path"] == str(isolated_ledger)
+    stored = PilotLedger(isolated_ledger).get_claim(plan.digest())
+    assert stored is not None
+    assert stored["claim_status"] == "CONSUMED"
+    assert [row["status"] for row in PilotLedger(isolated_ledger).cell_rows(plan.digest())] == [
+        "COMPLETED"
+    ]
+
+    with pytest.raises(PilotAlreadyClaimed):
+        asyncio.run(
+            run_live_pilot(
+                (Cell(P1, "A0"),),
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert len(calls) == 1, "the second attempt must not reach the executor"
+
+
+def test_changing_runs_root_does_not_reset_the_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The lease is user state, not a results directory: a new runs_root is not a new allowance."""
+
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),))
+    calls: list[Any] = []
+    asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"),),
+            runs_root=tmp_path / "first-root",
+            executor=_recording_executor(calls),
+            live_intent=True,
+        )
+    )
+    with pytest.raises(PilotAlreadyClaimed):
+        asyncio.run(
+            run_live_pilot(
+                (Cell(P1, "A0"),),
+                runs_root=tmp_path / "second-root",
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert len(calls) == 1
+
+
+def test_a_pending_pilot_approval_never_creates_a_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, isolated_ledger: Path
+) -> None:
+    approve_benchmark(monkeypatch)  # Layer B stays pending
+    with pytest.raises(PilotNotAuthorized):
+        asyncio.run(
+            run_live_pilot(
+                (Cell(P1, "A0"),),
+                runs_root=tmp_path,
+                executor=_recording_executor([]),
+                live_intent=True,
+            )
+        )
+    assert not isolated_ledger.exists()
+
+
+def test_a_rejected_claim_leaves_the_executor_untouched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),))
+
+    class _RejectingLedger:
+        def claim_plan(self, **kwargs: Any) -> Any:
+            raise PilotAlreadyClaimed("PILOT_ALREADY_CLAIMED: simulated")
+
+    monkeypatch.setattr(pilot_runner, "_ledger_factory", _RejectingLedger)
+    calls: list[Any] = []
+    with pytest.raises(PilotAlreadyClaimed):
+        asyncio.run(
+            run_live_pilot(
+                (Cell(P1, "A0"),),
+                runs_root=tmp_path,
+                executor=_recording_executor(calls),
+                live_intent=True,
+            )
+        )
+    assert calls == []
+
+
+def test_a_ledger_write_failure_is_recorded_not_hidden(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),))
+
+    class _BrokenLease:
+        attempt_id = "broken"
+        path = Path("broken.sqlite")
+
+        def mark_running(self, *args: Any, **kwargs: Any) -> None:
+            raise PilotLedgerStateInvalid("PILOT_LEDGER_STATE_INVALID: simulated")
+
+        mark_completed = mark_running
+        mark_failed = mark_running
+
+    class _BrokenLedger:
+        def claim_plan(self, **kwargs: Any) -> Any:
+            return _BrokenLease()
+
+    monkeypatch.setattr(pilot_runner, "_ledger_factory", _BrokenLedger)
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"),),
+            runs_root=tmp_path,
+            executor=_recording_executor([]),
+            live_intent=True,
+        )
+    )
+    assert summary["cells"][0]["status"] == "COMPLETED"
+    assert len(summary["ledger_write_failures"]) >= 2
+    assert all("simulated" in failure for failure in summary["ledger_write_failures"])
+
+
+# --------------------------------------------------- R2-02: finite cost integrity
+
+
+@pytest.mark.parametrize(
+    ("ceiling", "reason"),
+    [
+        (None, "COST_CEILING_NOT_APPROVED"),
+        (0.0, "COST_CEILING_NOT_POSITIVE"),
+        (-1.0, "COST_CEILING_NOT_POSITIVE"),
+        (float("nan"), "COST_CEILING_INVALID"),
+        (float("inf"), "COST_CEILING_INVALID"),
+        (float("-inf"), "COST_CEILING_INVALID"),
+        ("5.0", "COST_CEILING_INVALID"),
+        (True, "COST_CEILING_INVALID"),
+    ],
+    ids=["none", "zero", "negative", "nan", "inf", "-inf", "string", "boolean"],
+)
+def test_an_illegal_ceiling_is_never_accepted(ceiling: Any, reason: str) -> None:
+    policy = cost_policy(dataclasses.replace(PILOT_PLAN, estimated_cost_ceiling_usd=ceiling))
+    assert policy["valid"] is False
+    assert policy["reason"] == reason
+    assert policy["hard_enforcement"] is False
+
+
+def test_a_finite_positive_ceiling_is_accepted() -> None:
+    policy = cost_policy(dataclasses.replace(PILOT_PLAN, estimated_cost_ceiling_usd=12.5))
+    assert policy["valid"] is True
+    assert policy["ceiling_usd"] == 12.5
+
+
+def _record_with_cost(cell: Cell, cost: Any) -> dict[str, Any]:
+    return normalize_result(cell, _fake_result(estimated_cost_usd=cost))
+
+
+@pytest.mark.parametrize(
+    ("cost", "reason"),
+    [
+        (float("nan"), "COST_INVALID"),
+        (float("inf"), "COST_INVALID"),
+        (float("-inf"), "COST_INVALID"),
+        (-1.0, "COST_INVALID"),
+        (10**400, "COST_INVALID"),
+        (None, "COST_UNKNOWN"),
+    ],
+    ids=["nan", "inf", "-inf", "negative", "overflow", "unknown"],
+)
+def test_an_unusable_cell_cost_stops_dispatch(cost: Any, reason: str) -> None:
+    plan = dataclasses.replace(PILOT_PLAN, estimated_cost_ceiling_usd=5.0)
+    state = _cost_dispatch_state([_record_with_cost(Cell(P1, "A0"), cost)], plan)
+    assert state["can_dispatch"] is False
+    assert state["reason"] == reason
+
+
+def test_an_invalid_cost_is_not_written_as_zero() -> None:
+    record = _record_with_cost(Cell(P1, "A0"), float("nan"))
+    assert record["estimated_cost_usd"] is None
+    assert record["estimated_cost_usd_state"] == "INVALID"
+
+
+def test_reaching_the_ceiling_stops_the_next_cell() -> None:
+    plan = dataclasses.replace(PILOT_PLAN, estimated_cost_ceiling_usd=5.0)
+    state = _cost_dispatch_state([_record_with_cost(Cell(P1, "A0"), 5.0)], plan)
+    assert state["can_dispatch"] is False
+    assert state["reason"] == "COST_CEILING_REACHED"
+
+
+def test_crossing_the_ceiling_stops_the_next_cell() -> None:
+    plan = dataclasses.replace(PILOT_PLAN, estimated_cost_ceiling_usd=5.0)
+    state = _cost_dispatch_state([_record_with_cost(Cell(P1, "A0"), 5.5)], plan)
+    assert state["can_dispatch"] is False
+    assert state["reason"] == "COST_CEILING_EXCEEDED"
+
+
+def test_an_overflowing_aggregate_is_invalid_not_infinite() -> None:
+    plan = dataclasses.replace(PILOT_PLAN, estimated_cost_ceiling_usd=5.0)
+    records = [
+        _record_with_cost(Cell(P1, "A0"), 1e308),
+        _record_with_cost(Cell(P1, "A1-P"), 1e308),
+    ]
+    state = _cost_dispatch_state(records, plan)
+    assert state["can_dispatch"] is False
+    assert state["reason"] == "COST_INVALID"
+
+
+def test_the_last_cell_overrun_is_recorded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No next dispatch exists, so the final state has to carry the breach."""
+
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),), ceiling=5.0)
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        return _fake_result(estimated_cost_usd=9.0)
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"),),
+            runs_root=tmp_path,
+            executor=executor,
+            live_intent=True,
+        )
+    )
+    assert summary["stopped_reason"] is None, "nothing was skipped"
+    assert summary["cost_ceiling_state"] == "COST_CEILING_EXCEEDED"
+    assert summary["cost_ceiling_breached"] is True
+    assert summary["final_cost_state"]["spent_usd"] == 9.0
+
+
+def test_the_last_cell_exactly_at_the_ceiling_is_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),), ceiling=5.0)
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        return _fake_result(estimated_cost_usd=5.0)
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"),),
+            runs_root=tmp_path,
+            executor=executor,
+            live_intent=True,
+        )
+    )
+    assert summary["cost_ceiling_state"] == "COST_CEILING_REACHED"
+    assert summary["cost_ceiling_breached"] is True
+
+
+def test_a_completed_run_under_the_ceiling_is_not_flagged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),), ceiling=5.0)
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        return _fake_result(estimated_cost_usd=1.0)
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"),),
+            runs_root=tmp_path,
+            executor=executor,
+            live_intent=True,
+        )
+    )
+    assert summary["cost_ceiling_state"] == "WITHIN_CEILING"
+    assert summary["cost_ceiling_breached"] is False
 
 
 # ------------------------------------------------------------------ D. the runner adapter

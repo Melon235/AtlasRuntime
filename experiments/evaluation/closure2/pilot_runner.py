@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,6 +53,12 @@ from experiments.evaluation.closure2.catalog import (
     Task,
     build_task,
     task_digests,
+)
+from experiments.evaluation.closure2.pilot_ledger import (
+    ExecutionLease,
+    PilotLedger,
+    PilotLedgerError,
+    default_ledger_path,
 )
 from experiments.evaluation.closure2.preflight import (
     C2A_FROZEN_TASK_DIGESTS,
@@ -303,6 +310,34 @@ PILOT_APPROVAL: dict[str, Any] = {
 }
 
 
+def _finite_number(value: Any) -> float | None:
+    """A usable finite number, or ``None``.
+
+    ``float("nan") <= 0`` is false and ``float("inf") <= 0`` is false, so a plain comparison lets
+    NaN and infinity through every "is this a sane ceiling" check. Booleans are rejected even though
+    ``True`` is an ``int``, because ``True`` as a dollar amount is a bug, not a value.
+    """
+
+    if value is None or isinstance(value, bool):
+        return None
+    if not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _finite_cost(value: Any) -> float | None:
+    """A usable cost: finite and non-negative."""
+
+    number = _finite_number(value)
+    if number is None or number < 0:
+        return None
+    return number
+
+
 def cost_policy(plan: PilotPlan | None = None) -> dict[str, Any]:
     """What the cost ceiling actually guarantees — which is nothing hard, and that is recorded.
 
@@ -312,8 +347,8 @@ def cost_policy(plan: PilotPlan | None = None) -> dict[str, Any]:
     """
 
     target = plan or PILOT_PLAN
-    ceiling = target.estimated_cost_ceiling_usd
-    if ceiling is None:
+    raw_ceiling = target.estimated_cost_ceiling_usd
+    if raw_ceiling is None:
         return {
             "valid": False,
             "reason": "COST_CEILING_NOT_APPROVED",
@@ -322,7 +357,18 @@ def cost_policy(plan: PilotPlan | None = None) -> dict[str, Any]:
             "hard_enforcement": False,
             "guarantee": "COST_CEILING_NOT_HARD_ENFORCED",
         }
-    if float(ceiling) <= 0:
+    ceiling = _finite_number(raw_ceiling)
+    if ceiling is None:
+        return {
+            "valid": False,
+            "reason": "COST_CEILING_INVALID",
+            "ceiling_usd": None,
+            "ceiling_raw": repr(raw_ceiling),
+            "enforcement": "ADVISORY_POST_CELL",
+            "hard_enforcement": False,
+            "guarantee": "COST_CEILING_NOT_HARD_ENFORCED",
+        }
+    if ceiling <= 0:
         return {
             "valid": False,
             "reason": "COST_CEILING_NOT_POSITIVE",
@@ -426,27 +472,120 @@ def require_pilot_authorization(*, cells: tuple[Cell, ...], repetition_id: int) 
     return gate
 
 
-def _sum_or_none(values: list[Any]) -> float | None:
-    """Sum only when every term is known. One unknown term makes the total unknown."""
+def _ledger_factory() -> PilotLedger:
+    """The production ledger. One per-user file, shared by every checkout on this machine.
 
-    if not values or any(value is None for value in values):
+    Deliberately not derived from ``--runs-root``, and deliberately not a CLI option: a caller who
+    can point the ledger somewhere else can hand itself a fresh, empty ledger and reuse an approval.
+    Tests substitute this factory; the CLI never passes a path.
+    """
+
+    return PilotLedger(default_ledger_path())
+
+
+def _sum_or_none(values: list[Any]) -> float | None:
+    """Sum only when every term is known and finite. One bad term makes the total unknown."""
+
+    if not values:
         return None
-    return float(sum(float(value) for value in values))
+    numbers = [_finite_cost(value) for value in values]
+    if any(number is None for number in numbers):
+        return None
+    try:
+        total = math.fsum(numbers)  # type: ignore[arg-type]
+    except OverflowError:
+        return None
+    return total if math.isfinite(total) else None
 
 
 def _cost_dispatch_state(records: list[dict[str, Any]], plan: PilotPlan) -> dict[str, Any]:
-    """May the next cell be dispatched? Unknown cost is not "probably fine"."""
+    """May the next cell be dispatched?
 
-    ceiling = plan.estimated_cost_ceiling_usd
-    if ceiling is None:
-        return {"can_dispatch": False, "reason": "COST_CEILING_NOT_APPROVED", "spent_usd": None}
-    costs = [record.get("estimated_cost_usd") for record in records]
-    if any(cost is None for cost in costs):
-        return {"can_dispatch": False, "reason": "COST_UNKNOWN", "spent_usd": None}
-    spent = float(sum(float(cost) for cost in costs))
-    if spent > float(ceiling):
-        return {"can_dispatch": False, "reason": "COST_CEILING_EXCEEDED", "spent_usd": spent}
-    return {"can_dispatch": True, "reason": "WITHIN_CEILING", "spent_usd": spent}
+    Fail-closed on every unknown: an unset ceiling, a non-finite ceiling, a cell whose cost is
+    missing or invalid, and a sum that overflows. ``spent == ceiling`` stops too — the next cell
+    would cross the line by definition.
+    """
+
+    raw_ceiling = plan.estimated_cost_ceiling_usd
+    if raw_ceiling is None:
+        return {
+            "can_dispatch": False,
+            "reason": "COST_CEILING_NOT_APPROVED",
+            "spent_usd": None,
+            "ceiling_usd": None,
+        }
+    ceiling = _finite_number(raw_ceiling)
+    if ceiling is None or ceiling <= 0:
+        return {
+            "can_dispatch": False,
+            "reason": "COST_CEILING_INVALID",
+            "spent_usd": None,
+            "ceiling_usd": None,
+        }
+    costs: list[float] = []
+    for record in records:
+        # The record already classified its own cost: unknown and invalid are different problems and
+        # must not collapse into one "missing" bucket.
+        if record.get("estimated_cost_usd_state") == "INVALID":
+            return {
+                "can_dispatch": False,
+                "reason": "COST_INVALID",
+                "spent_usd": None,
+                "ceiling_usd": ceiling,
+            }
+        raw_cost = record.get("estimated_cost_usd")
+        if raw_cost is None:
+            return {
+                "can_dispatch": False,
+                "reason": "COST_UNKNOWN",
+                "spent_usd": None,
+                "ceiling_usd": ceiling,
+            }
+        value = _finite_cost(raw_cost)
+        if value is None:
+            return {
+                "can_dispatch": False,
+                "reason": "COST_INVALID",
+                "spent_usd": None,
+                "ceiling_usd": ceiling,
+            }
+        costs.append(value)
+    try:
+        spent = math.fsum(costs)
+    except OverflowError:
+        return {
+            "can_dispatch": False,
+            "reason": "COST_INVALID",
+            "spent_usd": None,
+            "ceiling_usd": ceiling,
+        }
+    if not math.isfinite(spent):
+        return {
+            "can_dispatch": False,
+            "reason": "COST_INVALID",
+            "spent_usd": None,
+            "ceiling_usd": ceiling,
+        }
+    if spent > ceiling:
+        return {
+            "can_dispatch": False,
+            "reason": "COST_CEILING_EXCEEDED",
+            "spent_usd": spent,
+            "ceiling_usd": ceiling,
+        }
+    if spent >= ceiling:
+        return {
+            "can_dispatch": False,
+            "reason": "COST_CEILING_REACHED",
+            "spent_usd": spent,
+            "ceiling_usd": ceiling,
+        }
+    return {
+        "can_dispatch": True,
+        "reason": "WITHIN_CEILING",
+        "spent_usd": spent,
+        "ceiling_usd": ceiling,
+    }
 
 
 def frozen_budget(topology: str) -> dict[str, Any]:
@@ -894,6 +1033,56 @@ async def _default_executor(
     raise PilotContractError(f"arm {cell.arm_id} names unknown runner {cell.spec.runner!r}")
 
 
+def _mark(
+    lease: ExecutionLease,
+    cell_id: str,
+    repetition_id: int,
+    status: str,
+    *,
+    result_path: str | None = None,
+    failure_reason: str | None = None,
+) -> list[str]:
+    """Write one cell state. A ledger write failure is recorded, never treated as a release."""
+
+    try:
+        if status == "RUNNING":
+            lease.mark_running(cell_id, repetition_id)
+        elif status == "COMPLETED":
+            lease.mark_completed(cell_id, repetition_id, result_path=result_path)
+        elif status == "FAILED":
+            lease.mark_failed(
+                cell_id,
+                repetition_id,
+                failure_reason=failure_reason or "unspecified",
+                result_path=result_path,
+            )
+        else:
+            lease.mark(cell_id, repetition_id, status)
+    except PilotLedgerError as error:
+        return [f"{cell_id}@{repetition_id}: {status}: {error}"]
+    return []
+
+
+def _git_commit() -> str | None:
+    """Best-effort commit for the ledger's audit column. A failure is not a reason to abort."""
+
+    import subprocess
+
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed.returncode != 0:
+        return None
+    return completed.stdout.strip() or None
+
+
 async def run_live_pilot(
     cells: tuple[Cell, ...],
     *,
@@ -907,13 +1096,17 @@ async def run_live_pilot(
     Order is the contract:
 
     1. ``live_intent`` must be explicit — no environment variable, no default, no inference.
-    2. ``require_execution_approval()`` — raises before *any* executor exists, so before a sandbox
-       is provisioned or a request is sent.
-    3. The frozen contract is re-checked; a drift aborts the whole pilot instead of running part.
-    4. Only then does each cell reach its engine.
+    2. ``require_execution_approval()`` — raises before *any* executor exists.
+    3. ``require_pilot_authorization()`` — the scope must be the approved scope.
+    4. The frozen contract is re-checked; a drift aborts the whole pilot instead of running part.
+    5. The plan is claimed in the durable ledger. One claim per plan digest, taken in a single
+       transaction, before any provider request or sandbox provisioning. A plan that was already
+       claimed is refused even if the previous attempt crashed.
+    6. Only then does each cell reach its engine; each state change is persisted.
 
-    A cell that raises is recorded as ``EXECUTION_ERROR`` and the pilot continues: one broken cell
-    is never rewritten as a success and never silently retried on another engine.
+    A cell that raises is recorded as ``EXECUTION_ERROR`` and the pilot continues unless the cost
+    state becomes unknowable: one broken cell is never rewritten as a success and never silently
+    retried on another engine.
     """
 
     if not live_intent:
@@ -925,15 +1118,27 @@ async def run_live_pilot(
     pilot_gate = require_pilot_authorization(cells=cells, repetition_id=repetition_id)
     require_frozen_contract()
 
+    # The lease is taken after every approval and before any provider or sandbox work. If the plan
+    # was ever claimed, this raises and nothing downstream runs — a crashed process does not give
+    # its claim back.
+    lease = _ledger_factory().claim_plan(
+        plan_digest=pilot_gate["plan_digest"],
+        plan_id=pilot_gate["plan_id"],
+        cells=[(cell.cell_id, repetition_id) for cell in cells],
+        runner_revision=PILOT_PLAN.runner_revision,
+        git_commit=_git_commit(),
+    )
+
     runner = executor or _default_executor
     model = effective_model()
     records: list[dict[str, Any]] = []
+    ledger_write_failures: list[str] = []
     stopped_reason: str | None = None
     not_started: list[str] = []
     for index, cell in enumerate(cells):
         if index:
             # The ceiling is advisory and evaluated between cells: a cell already running can
-            # overspend before this check sees it. Unknown cost also stops the dispatch.
+            # overspend before this check sees it. Unknown, invalid or exhausted cost stops too.
             state = _cost_dispatch_state(records, PILOT_PLAN)
             if not state["can_dispatch"]:
                 stopped_reason = state["reason"]
@@ -941,6 +1146,7 @@ async def run_live_pilot(
                 break
         settings = settings_for(cell, runs_root=runs_root, model=model)
         task = cell.benchmark_task()
+        ledger_write_failures.extend(_mark(lease, cell.cell_id, repetition_id, "RUNNING"))
         try:
             result = await runner(
                 cell,
@@ -950,9 +1156,31 @@ async def run_live_pilot(
                 repetition_id=repetition_id,
             )
         except Exception as error:  # noqa: BLE001 - a failed cell is data, not a crash
-            records.append(_execution_error_record(cell, error, repetition_id=repetition_id))
+            record = _execution_error_record(cell, error, repetition_id=repetition_id)
+            records.append(record)
+            ledger_write_failures.extend(
+                _mark(
+                    lease,
+                    cell.cell_id,
+                    repetition_id,
+                    "FAILED",
+                    failure_reason=record["failure_reason"],
+                )
+            )
             continue
-        records.append(normalize_result(cell, result, settings=settings))
+        record = normalize_result(cell, result, settings=settings)
+        records.append(record)
+        ledger_write_failures.extend(
+            _mark(
+                lease,
+                cell.cell_id,
+                repetition_id,
+                "COMPLETED",
+                result_path=record.get("raw_result_path"),
+            )
+        )
+    # The last cell never gets a "next dispatch" check, so its own overrun must be recorded here.
+    final_cost_state = _cost_dispatch_state(records, PILOT_PLAN)
     statuses = [record.get("sandbox_creation_status") for record in records]
     confirmed = sum(1 for status in statuses if status == "SANDBOX_CREATED_CONFIRMED")
     confirmed_absent = sum(1 for status in statuses if status == "SANDBOX_NOT_CREATED_CONFIRMED")
@@ -989,6 +1217,20 @@ async def run_live_pilot(
         "observed_cost_source": "not_exposed_by_runner",
         "stopped_reason": stopped_reason,
         "not_started_cells": not_started,
+        # Evaluated after the last cell too: nothing checks "the next dispatch" past the end.
+        "final_cost_state": final_cost_state,
+        "cost_ceiling_state": final_cost_state["reason"],
+        "cost_ceiling_breached": final_cost_state["reason"]
+        in {"COST_CEILING_REACHED", "COST_CEILING_EXCEEDED"},
+        "execution_claim": {
+            "claimed": True,
+            "claim_status": "CONSUMED",
+            "plan_digest": pilot_gate["plan_digest"],
+            "attempt_id": lease.attempt_id,
+            "ledger_path": str(lease.path),
+            "ledger_scope": "local_user_state",
+        },
+        "ledger_write_failures": ledger_write_failures,
         # Agent sandboxes only: the oracle has its own, which the runner does not count here.
         "sandbox_count_scope": "agent_sandbox_only",
         "agent_sandbox_runs_confirmed_min": confirmed,
@@ -1037,6 +1279,7 @@ def _execution_error_record(
         "cache_hit_tokens": None,
         "cache_miss_tokens": None,
         "estimated_cost_usd": None,
+        "estimated_cost_usd_state": "UNKNOWN",
         "budget_exceeded": None,
         "budget_final_verdict": "UNKNOWN",
         "budget_verdict_basis": "no_result",
@@ -1155,6 +1398,14 @@ def normalize_result(cell: Cell, result: Any, *, settings: Any | None = None) ->
         sandbox_status = "SANDBOX_NOT_CREATED_CONFIRMED"
     else:
         sandbox_status = "SANDBOX_CREATION_UNKNOWN"
+
+    # A NaN or infinite cost must never enter the numbers: it would poison every later comparison.
+    raw_cost = metrics.estimated_cost_usd
+    if raw_cost is None:
+        cell_cost, cell_cost_state = None, "UNKNOWN"
+    else:
+        cell_cost = _finite_cost(raw_cost)
+        cell_cost_state = "COMPLETE" if cell_cost is not None else "INVALID"
     return {
         "cell_id": cell.cell_id,
         "status": "COMPLETED",
@@ -1206,7 +1457,8 @@ def normalize_result(cell: Cell, result: Any, *, settings: Any | None = None) ->
             "not_exposed_by_runner: usage is aggregated across requests but completeness is not "
             "attested"
         ),
-        "estimated_cost_usd": metrics.estimated_cost_usd,
+        "estimated_cost_usd": cell_cost,
+        "estimated_cost_usd_state": cell_cost_state,
         "model_calls": attestation["model_calls"],
         "model_calls_source": attestation["model_calls_source"],
         "model_calls_semantics": (
@@ -1336,10 +1588,20 @@ def main(argv: list[str] | None = None) -> int:
                 live_intent=True,
             )
         )
-    except (LiveExecutionBlocked, PilotContractError, PermissionError) as error:
+    except (
+        LiveExecutionBlocked,
+        PilotContractError,
+        PermissionError,
+        PilotLedgerError,
+    ) as error:
         print(
             json.dumps(
-                {"status": "REFUSED", "reason": str(error)},
+                {
+                    "status": "REFUSED",
+                    # A ledger refusal keeps its own code so it is not read as a harness failure.
+                    "reason": getattr(error, "reason_code", type(error).__name__),
+                    "detail": str(error),
+                },
                 indent=2,
                 sort_keys=True,
             )
@@ -1348,7 +1610,18 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.out).with_name("pilot-live-summary.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
-    print(json.dumps({"mode": "LIVE", "cells": summary["cell_count"], "out": str(out)}, indent=2))
+    print(
+        json.dumps(
+            {
+                "mode": "LIVE",
+                "cells": summary["cell_count"],
+                "execution_claim": summary["execution_claim"],
+                "cost_ceiling_state": summary["cost_ceiling_state"],
+                "out": str(out),
+            },
+            indent=2,
+        )
+    )
     return 0
 
 

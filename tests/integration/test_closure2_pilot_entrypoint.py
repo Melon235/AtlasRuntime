@@ -16,6 +16,7 @@ from typing import Any
 
 import pytest
 from experiments.evaluation.closure2 import pilot_runner, protocol
+from experiments.evaluation.closure2.pilot_ledger import PilotLedger
 from experiments.evaluation.closure2.pilot_runner import (
     Cell,
     build_dry_run_manifest,
@@ -25,10 +26,55 @@ from experiments.evaluation.closure2.pilot_runner import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMMITTED_DRY_RUN = REPO_ROOT / "experiments" / "results" / "closure2" / "pilot-dry-run.json"
 
+APPROVED = {
+    "status": "APPROVED",
+    "approved_digest": protocol.C2A_R1_PREREGISTRATION_DIGEST,
+    "approved_by": "integration-test",
+    "approval_commit": "0" * 40,
+    "approved_at": "2026-11-17T00:00:00+00:00",
+}
+
 
 @pytest.fixture(scope="module")
 def manifest() -> dict[str, Any]:
     return build_dry_run_manifest()
+
+
+@pytest.fixture(autouse=True)
+def isolated_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Never let a test touch the per-user ledger, which is permanent once written."""
+
+    path = tmp_path / "pilot-ledger.sqlite"
+    monkeypatch.setattr(pilot_runner, "_ledger_factory", lambda: PilotLedger(path))
+    return path
+
+
+def authorize(monkeypatch: pytest.MonkeyPatch, cells: tuple[Cell, ...]) -> str:
+    """Approve both layers and return the plan digest, without touching the real records."""
+
+    import dataclasses
+
+    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(APPROVED))
+    plan = dataclasses.replace(
+        pilot_runner.PILOT_PLAN,
+        cells=tuple(cell.cell_id for cell in cells),
+        repetitions=(0,),
+        max_cell_executions=len(cells),
+        estimated_cost_ceiling_usd=5.0,
+    )
+    monkeypatch.setattr(pilot_runner, "PILOT_PLAN", plan)
+    monkeypatch.setattr(
+        pilot_runner,
+        "PILOT_APPROVAL",
+        {
+            "status": "APPROVED",
+            "approved_plan_digest": plan.digest(),
+            "approved_by": "integration-test",
+            "approval_commit": "0" * 40,
+            "approved_at": "2026-11-17T00:00:00+00:00",
+        },
+    )
+    return plan.digest()
 
 
 def test_the_dry_run_manifest_is_complete(manifest: dict[str, Any]) -> None:
@@ -162,6 +208,55 @@ def test_a_live_run_never_reaches_the_executor_while_pending(tmp_path: Path) -> 
                 executor=executor,
                 live_intent=True,
             )
+        )
+    assert calls == []
+
+
+def test_the_cli_reports_a_consumed_claim_as_its_own_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, isolated_ledger: Path
+) -> None:
+    """A consumed plan is refused with a ledger code, not lumped into a harness failure."""
+
+    cell = Cell("closure2-pipeline-migration", "A0")
+    digest = authorize(monkeypatch, (cell,))
+    PilotLedger(isolated_ledger).claim_plan(
+        plan_digest=digest,
+        plan_id=pilot_runner.PILOT_PLAN.plan_id,
+        cells=[(cell.cell_id, 0)],
+        runner_revision="integration-test",
+    )
+
+    out = tmp_path / "never.json"
+    exit_code = pilot_runner.main(
+        ["--live", "--confirm-live", "--out", str(out), "--runs-root", str(tmp_path)]
+    )
+
+    assert exit_code == 3
+    assert not (tmp_path / "pilot-live-summary.json").exists()
+
+
+def test_a_live_run_refuses_a_plan_that_was_already_claimed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, isolated_ledger: Path
+) -> None:
+    from experiments.evaluation.closure2.pilot_ledger import PilotAlreadyClaimed
+
+    cell = Cell("closure2-pipeline-migration", "A0")
+    digest = authorize(monkeypatch, (cell,))
+    PilotLedger(isolated_ledger).claim_plan(
+        plan_digest=digest,
+        plan_id=pilot_runner.PILOT_PLAN.plan_id,
+        cells=[(cell.cell_id, 0)],
+        runner_revision="integration-test",
+    )
+    calls: list[Any] = []
+
+    async def executor(cell_: Cell, **kwargs: Any) -> Any:
+        calls.append(cell_)
+        raise AssertionError("unreachable")
+
+    with pytest.raises(PilotAlreadyClaimed):
+        asyncio.run(
+            run_live_pilot((cell,), runs_root=tmp_path, executor=executor, live_intent=True)
         )
     assert calls == []
 
