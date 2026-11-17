@@ -1,0 +1,1236 @@
+{
+  "approval": {
+    "execution_ready": false,
+    "problems": [
+      "approval status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
+      "approval names digest None but the frozen R1 digest is '3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765'",
+      "approval has no approver",
+      "approval has no approval commit",
+      "approval has no approval timestamp"
+    ],
+    "status": "PENDING_OWNER_APPROVAL"
+  },
+  "benchmark_id": "closure2-final-benchmark-v1",
+  "benchmark_version": "closure2-final-benchmark-v1",
+  "cell_count": 18,
+  "cells": [
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "e74f8e36fafb531091233ab99da17e7696b437ada36343150b6b1f2c14a670ac",
+      "arm_id": "N0",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": 36,
+        "max_turns_per_worker": null,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "single",
+        "workers": null
+      },
+      "budget_semantics": "post_hoc_after_run",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "main"
+        }
+      ],
+      "candidate_worker_count": 1,
+      "cell_id": "closure2-pipeline-migration::N0",
+      "config": "experiments/configs/eval-benchmark.yaml",
+      "config_semantic_digest": "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14",
+      "effective_public_task_digest": "b89987bdbee4ca79f5728c00df6ed13e979464c0173744397d1f1ff4c73db18d",
+      "engine": "anycode-0.9.0-native",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "native",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "single",
+        "executed_worker_count": 1,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "native",
+      "settings_digest": "fc11cccc5d94fec82fd569172d778cc6a13ac5f8f3acca4b248c1cb7a18a2516",
+      "task_id": "closure2-pipeline-migration",
+      "tool_error_mode": "corrected",
+      "topology": "single"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "aadc7f129ce23239dfc80d07c100373ebf44055337976e61ef9b42cce0bda746",
+      "arm_id": "N1",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "post_hoc_after_run",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "parse"
+        },
+        {
+          "depends_on": [],
+          "task_id": "aggregate"
+        },
+        {
+          "depends_on": [
+            "parse",
+            "aggregate"
+          ],
+          "task_id": "integrate"
+        }
+      ],
+      "candidate_worker_count": 3,
+      "cell_id": "closure2-pipeline-migration::N1",
+      "config": "experiments/configs/eval-benchmark.yaml",
+      "config_semantic_digest": "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14",
+      "effective_public_task_digest": "c4b5373c162e0082cc90104afb8c0dee916b2cee1f678ab5198a6f39cb1d57b6",
+      "engine": "anycode-0.9.0-native",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "native",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 3,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "native",
+      "settings_digest": "9a4864c35e0bd25f193dfe7cab410cc0a2e7c1951834862038e265248693efc3",
+      "task_id": "closure2-pipeline-migration",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "4ae0f21142df3ff6b0b9046a92c191be3ac144380648dce1b4115e3dda5de1f1",
+      "arm_id": "A0",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": 36,
+        "max_turns_per_worker": null,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "single",
+        "workers": null
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "main"
+        }
+      ],
+      "candidate_worker_count": 1,
+      "cell_id": "closure2-pipeline-migration::A0",
+      "config": "experiments/configs/final4-context.yaml",
+      "config_semantic_digest": "16f587b3696e5d4e9f9a7868aa0859c89da876975ef7060f8a2936ce72899eb8",
+      "effective_public_task_digest": "b89987bdbee4ca79f5728c00df6ed13e979464c0173744397d1f1ff4c73db18d",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "legacy",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "single",
+        "executed_worker_count": 1,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "atlas",
+      "settings_digest": "190989d6eaf2cf5a14ac42b0b43f28851690cf9fe106d55cd078aeb598899462",
+      "task_id": "closure2-pipeline-migration",
+      "tool_error_mode": "corrected",
+      "topology": "single"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "296a1db1e70124e92121ab1cb390cebe97d5043404c0c4d7a55dbffe67ac0a53",
+      "arm_id": "A1-L",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "parse"
+        },
+        {
+          "depends_on": [],
+          "task_id": "aggregate"
+        },
+        {
+          "depends_on": [
+            "parse",
+            "aggregate"
+          ],
+          "task_id": "integrate"
+        }
+      ],
+      "candidate_worker_count": 3,
+      "cell_id": "closure2-pipeline-migration::A1-L",
+      "config": "experiments/configs/final4-context.yaml",
+      "config_semantic_digest": "16f587b3696e5d4e9f9a7868aa0859c89da876975ef7060f8a2936ce72899eb8",
+      "effective_public_task_digest": "c4b5373c162e0082cc90104afb8c0dee916b2cee1f678ab5198a6f39cb1d57b6",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "legacy",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 3,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "atlas",
+      "settings_digest": "6eff1bcef4a571a4e478f2e3d3c9229e05228d83e3009c466f8d2f27fe23861b",
+      "task_id": "closure2-pipeline-migration",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "fb1a2dff282e84bd855d7647d1599c9bff497463c7052436639c36e6858a3633",
+      "arm_id": "A1-P",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "parse"
+        },
+        {
+          "depends_on": [],
+          "task_id": "aggregate"
+        },
+        {
+          "depends_on": [
+            "parse",
+            "aggregate"
+          ],
+          "task_id": "integrate"
+        }
+      ],
+      "candidate_worker_count": 3,
+      "cell_id": "closure2-pipeline-migration::A1-P",
+      "config": "experiments/configs/closure2-shared-prefix.yaml",
+      "config_semantic_digest": "751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a",
+      "effective_public_task_digest": "c4b5373c162e0082cc90104afb8c0dee916b2cee1f678ab5198a6f39cb1d57b6",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "shared_prefix",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 3,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "atlas",
+      "settings_digest": "228d90671eab5dce8288e004a82eaaf850dd1c26b310a16c139ea6c7d38a8d77",
+      "task_id": "closure2-pipeline-migration",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "a1bc879ad7c1227a4c8a83746ad284fc1850157a4a5891bfb46b68e5350fe8b2",
+      "arm_id": "A2-P",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "parse"
+        },
+        {
+          "depends_on": [],
+          "task_id": "aggregate"
+        },
+        {
+          "depends_on": [
+            "parse",
+            "aggregate"
+          ],
+          "task_id": "integrate"
+        }
+      ],
+      "candidate_worker_count": 3,
+      "cell_id": "closure2-pipeline-migration::A2-P",
+      "config": "experiments/configs/closure2-shared-prefix.yaml",
+      "config_semantic_digest": "751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a",
+      "effective_public_task_digest": "c4b5373c162e0082cc90104afb8c0dee916b2cee1f678ab5198a6f39cb1d57b6",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "shared_prefix",
+      "requested_route": "selective",
+      "resolved_route_expectation": "delegate_parallel",
+      "route_expectation": {
+        "applicable": true,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 3,
+        "policy_digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
+        "policy_version": "r0.1.0",
+        "reason_codes": [
+          "DELEGATION_ADMITTED"
+        ],
+        "route": "delegate_parallel"
+      },
+      "runner": "atlas",
+      "settings_digest": "627e35dcc4d2ad207b3539b0b5679ad431d29287969e54e780c5887b3b576e88",
+      "task_id": "closure2-pipeline-migration",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "e74f8e36fafb531091233ab99da17e7696b437ada36343150b6b1f2c14a670ac",
+      "arm_id": "N0",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": 36,
+        "max_turns_per_worker": null,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "single",
+        "workers": null
+      },
+      "budget_semantics": "post_hoc_after_run",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "main"
+        }
+      ],
+      "candidate_worker_count": 1,
+      "cell_id": "closure2-plugin-migration::N0",
+      "config": "experiments/configs/eval-benchmark.yaml",
+      "config_semantic_digest": "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14",
+      "effective_public_task_digest": "4e97b92d94c6f8fdeb624d5252c7c576ef922d9879768412399d6d1ceededd61",
+      "engine": "anycode-0.9.0-native",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "native",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "single",
+        "executed_worker_count": 1,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "native",
+      "settings_digest": "fc11cccc5d94fec82fd569172d778cc6a13ac5f8f3acca4b248c1cb7a18a2516",
+      "task_id": "closure2-plugin-migration",
+      "tool_error_mode": "corrected",
+      "topology": "single"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "aadc7f129ce23239dfc80d07c100373ebf44055337976e61ef9b42cce0bda746",
+      "arm_id": "N1",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "post_hoc_after_run",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "csv"
+        },
+        {
+          "depends_on": [],
+          "task_id": "json"
+        },
+        {
+          "depends_on": [
+            "csv",
+            "json"
+          ],
+          "task_id": "register"
+        }
+      ],
+      "candidate_worker_count": 3,
+      "cell_id": "closure2-plugin-migration::N1",
+      "config": "experiments/configs/eval-benchmark.yaml",
+      "config_semantic_digest": "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14",
+      "effective_public_task_digest": "8bf208d30d6c8f2f543174a612a742adc7059d92457e1ef0e4bbb0edbeb89e31",
+      "engine": "anycode-0.9.0-native",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "native",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 3,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "native",
+      "settings_digest": "9a4864c35e0bd25f193dfe7cab410cc0a2e7c1951834862038e265248693efc3",
+      "task_id": "closure2-plugin-migration",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "4ae0f21142df3ff6b0b9046a92c191be3ac144380648dce1b4115e3dda5de1f1",
+      "arm_id": "A0",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": 36,
+        "max_turns_per_worker": null,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "single",
+        "workers": null
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "main"
+        }
+      ],
+      "candidate_worker_count": 1,
+      "cell_id": "closure2-plugin-migration::A0",
+      "config": "experiments/configs/final4-context.yaml",
+      "config_semantic_digest": "16f587b3696e5d4e9f9a7868aa0859c89da876975ef7060f8a2936ce72899eb8",
+      "effective_public_task_digest": "4e97b92d94c6f8fdeb624d5252c7c576ef922d9879768412399d6d1ceededd61",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "legacy",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "single",
+        "executed_worker_count": 1,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "atlas",
+      "settings_digest": "190989d6eaf2cf5a14ac42b0b43f28851690cf9fe106d55cd078aeb598899462",
+      "task_id": "closure2-plugin-migration",
+      "tool_error_mode": "corrected",
+      "topology": "single"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "296a1db1e70124e92121ab1cb390cebe97d5043404c0c4d7a55dbffe67ac0a53",
+      "arm_id": "A1-L",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "csv"
+        },
+        {
+          "depends_on": [],
+          "task_id": "json"
+        },
+        {
+          "depends_on": [
+            "csv",
+            "json"
+          ],
+          "task_id": "register"
+        }
+      ],
+      "candidate_worker_count": 3,
+      "cell_id": "closure2-plugin-migration::A1-L",
+      "config": "experiments/configs/final4-context.yaml",
+      "config_semantic_digest": "16f587b3696e5d4e9f9a7868aa0859c89da876975ef7060f8a2936ce72899eb8",
+      "effective_public_task_digest": "8bf208d30d6c8f2f543174a612a742adc7059d92457e1ef0e4bbb0edbeb89e31",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "legacy",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 3,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "atlas",
+      "settings_digest": "6eff1bcef4a571a4e478f2e3d3c9229e05228d83e3009c466f8d2f27fe23861b",
+      "task_id": "closure2-plugin-migration",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "fb1a2dff282e84bd855d7647d1599c9bff497463c7052436639c36e6858a3633",
+      "arm_id": "A1-P",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "csv"
+        },
+        {
+          "depends_on": [],
+          "task_id": "json"
+        },
+        {
+          "depends_on": [
+            "csv",
+            "json"
+          ],
+          "task_id": "register"
+        }
+      ],
+      "candidate_worker_count": 3,
+      "cell_id": "closure2-plugin-migration::A1-P",
+      "config": "experiments/configs/closure2-shared-prefix.yaml",
+      "config_semantic_digest": "751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a",
+      "effective_public_task_digest": "8bf208d30d6c8f2f543174a612a742adc7059d92457e1ef0e4bbb0edbeb89e31",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "shared_prefix",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 3,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "atlas",
+      "settings_digest": "228d90671eab5dce8288e004a82eaaf850dd1c26b310a16c139ea6c7d38a8d77",
+      "task_id": "closure2-plugin-migration",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "a1bc879ad7c1227a4c8a83746ad284fc1850157a4a5891bfb46b68e5350fe8b2",
+      "arm_id": "A2-P",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "csv"
+        },
+        {
+          "depends_on": [],
+          "task_id": "json"
+        },
+        {
+          "depends_on": [
+            "csv",
+            "json"
+          ],
+          "task_id": "register"
+        }
+      ],
+      "candidate_worker_count": 3,
+      "cell_id": "closure2-plugin-migration::A2-P",
+      "config": "experiments/configs/closure2-shared-prefix.yaml",
+      "config_semantic_digest": "751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a",
+      "effective_public_task_digest": "8bf208d30d6c8f2f543174a612a742adc7059d92457e1ef0e4bbb0edbeb89e31",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "shared_prefix",
+      "requested_route": "selective",
+      "resolved_route_expectation": "delegate_parallel",
+      "route_expectation": {
+        "applicable": true,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 3,
+        "policy_digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
+        "policy_version": "r0.1.0",
+        "reason_codes": [
+          "DELEGATION_ADMITTED"
+        ],
+        "route": "delegate_parallel"
+      },
+      "runner": "atlas",
+      "settings_digest": "627e35dcc4d2ad207b3539b0b5679ad431d29287969e54e780c5887b3b576e88",
+      "task_id": "closure2-plugin-migration",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "e74f8e36fafb531091233ab99da17e7696b437ada36343150b6b1f2c14a670ac",
+      "arm_id": "N0",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": 36,
+        "max_turns_per_worker": null,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "single",
+        "workers": null
+      },
+      "budget_semantics": "post_hoc_after_run",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "main"
+        }
+      ],
+      "candidate_worker_count": 1,
+      "cell_id": "closure2-state-machine-refactor::N0",
+      "config": "experiments/configs/eval-benchmark.yaml",
+      "config_semantic_digest": "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14",
+      "effective_public_task_digest": "7014163b05f184239e62168c30fe36f3a007323152f80feaa9ce5615130b8cfd",
+      "engine": "anycode-0.9.0-native",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "native",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "single",
+        "executed_worker_count": 1,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "native",
+      "settings_digest": "fc11cccc5d94fec82fd569172d778cc6a13ac5f8f3acca4b248c1cb7a18a2516",
+      "task_id": "closure2-state-machine-refactor",
+      "tool_error_mode": "corrected",
+      "topology": "single"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "aadc7f129ce23239dfc80d07c100373ebf44055337976e61ef9b42cce0bda746",
+      "arm_id": "N1",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "post_hoc_after_run",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "machine"
+        },
+        {
+          "depends_on": [
+            "machine"
+          ],
+          "task_id": "callers"
+        }
+      ],
+      "candidate_worker_count": 2,
+      "cell_id": "closure2-state-machine-refactor::N1",
+      "config": "experiments/configs/eval-benchmark.yaml",
+      "config_semantic_digest": "6cb2d1d91badaa235efa4427e5a53bdfc17610931e7b4c13e524406c2a863d14",
+      "effective_public_task_digest": "104306bf95e4d6e731a4d5279960344a45fc31d74a472d58ace6b7d11bb1bae6",
+      "engine": "anycode-0.9.0-native",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "native",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 2,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "native",
+      "settings_digest": "9a4864c35e0bd25f193dfe7cab410cc0a2e7c1951834862038e265248693efc3",
+      "task_id": "closure2-state-machine-refactor",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "4ae0f21142df3ff6b0b9046a92c191be3ac144380648dce1b4115e3dda5de1f1",
+      "arm_id": "A0",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": 36,
+        "max_turns_per_worker": null,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "single",
+        "workers": null
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "main"
+        }
+      ],
+      "candidate_worker_count": 1,
+      "cell_id": "closure2-state-machine-refactor::A0",
+      "config": "experiments/configs/final4-context.yaml",
+      "config_semantic_digest": "16f587b3696e5d4e9f9a7868aa0859c89da876975ef7060f8a2936ce72899eb8",
+      "effective_public_task_digest": "7014163b05f184239e62168c30fe36f3a007323152f80feaa9ce5615130b8cfd",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "legacy",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "single",
+        "executed_worker_count": 1,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "atlas",
+      "settings_digest": "190989d6eaf2cf5a14ac42b0b43f28851690cf9fe106d55cd078aeb598899462",
+      "task_id": "closure2-state-machine-refactor",
+      "tool_error_mode": "corrected",
+      "topology": "single"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "296a1db1e70124e92121ab1cb390cebe97d5043404c0c4d7a55dbffe67ac0a53",
+      "arm_id": "A1-L",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "machine"
+        },
+        {
+          "depends_on": [
+            "machine"
+          ],
+          "task_id": "callers"
+        }
+      ],
+      "candidate_worker_count": 2,
+      "cell_id": "closure2-state-machine-refactor::A1-L",
+      "config": "experiments/configs/final4-context.yaml",
+      "config_semantic_digest": "16f587b3696e5d4e9f9a7868aa0859c89da876975ef7060f8a2936ce72899eb8",
+      "effective_public_task_digest": "104306bf95e4d6e731a4d5279960344a45fc31d74a472d58ace6b7d11bb1bae6",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "legacy",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 2,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "atlas",
+      "settings_digest": "6eff1bcef4a571a4e478f2e3d3c9229e05228d83e3009c466f8d2f27fe23861b",
+      "task_id": "closure2-state-machine-refactor",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "fb1a2dff282e84bd855d7647d1599c9bff497463c7052436639c36e6858a3633",
+      "arm_id": "A1-P",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "machine"
+        },
+        {
+          "depends_on": [
+            "machine"
+          ],
+          "task_id": "callers"
+        }
+      ],
+      "candidate_worker_count": 2,
+      "cell_id": "closure2-state-machine-refactor::A1-P",
+      "config": "experiments/configs/closure2-shared-prefix.yaml",
+      "config_semantic_digest": "751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a",
+      "effective_public_task_digest": "104306bf95e4d6e731a4d5279960344a45fc31d74a472d58ace6b7d11bb1bae6",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "shared_prefix",
+      "requested_route": "off",
+      "resolved_route_expectation": null,
+      "route_expectation": {
+        "applicable": false,
+        "blocked_gates": [],
+        "executed_topology": "multi",
+        "executed_worker_count": 2,
+        "reason": "arm route is 'off'; the router does not run",
+        "reason_codes": [],
+        "route": null
+      },
+      "runner": "atlas",
+      "settings_digest": "228d90671eab5dce8288e004a82eaaf850dd1c26b310a16c139ea6c7d38a8d77",
+      "task_id": "closure2-state-machine-refactor",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    },
+    {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "arm_config_digest": "a1bc879ad7c1227a4c8a83746ad284fc1850157a4a5891bfb46b68e5350fe8b2",
+      "arm_id": "A2-P",
+      "benchmark_id": "closure2-final-benchmark-v1",
+      "budget": {
+        "max_tokens_per_request": 8000,
+        "max_tool_calls": 90,
+        "max_turns": null,
+        "max_turns_per_worker": 12,
+        "sandbox": {
+          "cpu": "1",
+          "image": "atlas-uat-python:3.12",
+          "memory": "1Gi",
+          "network": "none",
+          "workspace_root": "/workspace/project"
+        },
+        "temperature": 0.0,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "topology": "multi",
+        "workers": 3
+      },
+      "budget_semantics": "guarded_before_send",
+      "candidate_dag": [
+        {
+          "depends_on": [],
+          "task_id": "machine"
+        },
+        {
+          "depends_on": [
+            "machine"
+          ],
+          "task_id": "callers"
+        }
+      ],
+      "candidate_worker_count": 2,
+      "cell_id": "closure2-state-machine-refactor::A2-P",
+      "config": "experiments/configs/closure2-shared-prefix.yaml",
+      "config_semantic_digest": "751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a",
+      "effective_public_task_digest": "104306bf95e4d6e731a4d5279960344a45fc31d74a472d58ace6b7d11bb1bae6",
+      "engine": "atlas",
+      "execution_allowed": false,
+      "handoff_mode": "legacy",
+      "model": "deepseek-chat",
+      "oracle_mode": "sandbox",
+      "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+      "prompt_layout": "shared_prefix",
+      "requested_route": "selective",
+      "resolved_route_expectation": "direct",
+      "route_expectation": {
+        "applicable": true,
+        "blocked_gates": [
+          "GATE_2_DEPENDENCY_COUPLING"
+        ],
+        "executed_topology": "single_worker_direct",
+        "executed_worker_count": 1,
+        "policy_digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
+        "policy_version": "r0.1.0",
+        "reason_codes": [
+          "SHARED_WRITE_RISK",
+          "UNSTABLE_INTERFACE"
+        ],
+        "route": "direct"
+      },
+      "runner": "atlas",
+      "settings_digest": "627e35dcc4d2ad207b3539b0b5679ad431d29287969e54e780c5887b3b576e88",
+      "task_id": "closure2-state-machine-refactor",
+      "tool_error_mode": "corrected",
+      "topology": "multi"
+    }
+  ],
+  "contains_live_outcomes": false,
+  "contract_ok": true,
+  "contract_problems": [],
+  "execution_ready": false,
+  "frozen_preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+  "generated_at": "2026-11-17T11:28:19.589197+00:00",
+  "mode": "DRY_RUN",
+  "model_calls": 0,
+  "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+  "proposed_live_pilot": {
+    "approved": false,
+    "cells": [
+      "closure2-pipeline-migration::N0",
+      "closure2-pipeline-migration::N1",
+      "closure2-pipeline-migration::A0",
+      "closure2-pipeline-migration::A1-L",
+      "closure2-pipeline-migration::A1-P",
+      "closure2-pipeline-migration::A2-P",
+      "closure2-plugin-migration::A1-P",
+      "closure2-state-machine-refactor::A2-P"
+    ],
+    "note": "proposal only: the owner must approve this selection and its cost ceiling before any live cell runs",
+    "repetitions": 1
+  },
+  "protocol_revision": "closure-2a-r1",
+  "route_expectation_is_prediction": true,
+  "router_policy": {
+    "digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
+    "version": "r0.1.0"
+  },
+  "sandbox_runs": 0,
+  "stage": "closure-2b-0"
+}
