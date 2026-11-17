@@ -1,0 +1,632 @@
+{
+  "benchmark_id": "closure2-final-benchmark-v1",
+  "benchmark_version": "closure2-final-benchmark-v1",
+  "budget": {
+    "consistent": true,
+    "multi": {
+      "max_tool_calls": 90,
+      "max_turns_per_worker": 12,
+      "theoretical_worker_turns": 36,
+      "timeout_seconds": 1800,
+      "token_budget": 260000,
+      "workers": 3
+    },
+    "problems": [],
+    "semantics": {
+      "atlas": "shared run budget guarded before send: a request that would breach the token budget is refused, so the arm can end with a budget rejection and an incomplete deliverable",
+      "consequence": "a TASK_SUCCESS comparison alone cannot separate budget effects; results must report oracle pass, budget overrun, rejected requests and 'deliverable passed but budget failed' separately",
+      "native": "no in-run guard: the same public thresholds are applied after the run, and the wall clock is the only enforced limit, so an over-budget native run is reported, not stopped"
+    },
+    "shared": {
+      "cpu": "1",
+      "initial_fixture": "the task seed, staged into a fresh git repository per run",
+      "max_tokens_per_request": 8000,
+      "memory": "1Gi",
+      "network": "none",
+      "oracle": "isolated sandbox, same image, hidden tests",
+      "sandbox_image": "atlas-uat-python:3.12",
+      "temperature": 0.0,
+      "workspace_root": "/workspace/project"
+    },
+    "single": {
+      "max_tool_calls": 90,
+      "max_turns": 36,
+      "timeout_seconds": 1800,
+      "token_budget": 260000
+    }
+  },
+  "checks": {
+    "arms_are_distinct": true,
+    "budget_protocol_consistent": true,
+    "closure2-pipeline-migration:dag_integration_dependencies": true,
+    "closure2-pipeline-migration:dag_legal": true,
+    "closure2-pipeline-migration:declared_write_paths_match_ownership": true,
+    "closure2-pipeline-migration:reference_oracle_passes": true,
+    "closure2-pipeline-migration:reference_public_passes": true,
+    "closure2-pipeline-migration:same_task_facts": true,
+    "closure2-pipeline-migration:seed_oracle_fails": true,
+    "closure2-pipeline-migration:seed_public_fails": true,
+    "closure2-pipeline-migration:workspace_isolated": true,
+    "closure2-plugin-migration:dag_integration_dependencies": true,
+    "closure2-plugin-migration:dag_legal": true,
+    "closure2-plugin-migration:declared_write_paths_match_ownership": true,
+    "closure2-plugin-migration:reference_oracle_passes": true,
+    "closure2-plugin-migration:reference_public_passes": true,
+    "closure2-plugin-migration:same_task_facts": true,
+    "closure2-plugin-migration:seed_oracle_fails": true,
+    "closure2-plugin-migration:seed_public_fails": true,
+    "closure2-plugin-migration:workspace_isolated": true,
+    "closure2-state-machine-refactor:dag_integration_dependencies": true,
+    "closure2-state-machine-refactor:dag_legal": true,
+    "closure2-state-machine-refactor:declared_write_paths_match_ownership": true,
+    "closure2-state-machine-refactor:reference_oracle_passes": true,
+    "closure2-state-machine-refactor:reference_public_passes": true,
+    "closure2-state-machine-refactor:same_task_facts": true,
+    "closure2-state-machine-refactor:seed_oracle_fails": true,
+    "closure2-state-machine-refactor:seed_public_fails": true,
+    "closure2-state-machine-refactor:workspace_isolated": true,
+    "digest_groups_equal": true,
+    "layout_configs_executable": true,
+    "preregistration_complete": true,
+    "router_policy_digest_frozen": true,
+    "task_facts_equal_across_topologies": true
+  },
+  "dataset_version": "closure2-final-benchmark-v1",
+  "execution_order": {
+    "pairing": "each repetition of a task is a paired block across all arms of that task",
+    "rationale": "provider latency, cache warmth and time-of-day drift are shared inside a block instead of being aliased onto one arm",
+    "repetitions": 3,
+    "rule": "tasks x repetitions are the outer loop and arms the inner loop, with the arm order rotated per repetition; no arm is ever run to completion before the next one starts"
+  },
+  "generated_at": "2026-11-17T03:36:42.160357+00:00",
+  "kind": "deterministic_benchmark_preflight",
+  "layout": {
+    "legacy_config": "final4-context.yaml",
+    "legacy_ok": true,
+    "legacy_resolved_layout": "legacy",
+    "policy_task_scoped": true,
+    "renderer_stable": true,
+    "shared_prefix_config": "closure2-shared-prefix.yaml",
+    "shared_prefix_ok": true,
+    "shared_prefix_resolved_layout": "shared_prefix",
+    "transform_identity": true,
+    "unknown_layout_rejected": true
+  },
+  "metrics": {
+    "primary": "independent oracle correctness (OracleOutcome.passed)",
+    "reporting_rules": [
+      "a success rate never hides budget overruns",
+      "a cost is labelled provider-usage or estimate, never both",
+      "cache hit/miss stays Unknown without a provider-reported split",
+      "cache hit rate never substitutes for total cost"
+    ],
+    "secondary": [
+      "TASK_SUCCESS",
+      "provider prompt tokens",
+      "provider cache hit / miss (Unknown when the provider did not report a split)",
+      "estimated cost (None when the split is incomplete)",
+      "agent latency",
+      "end-to-end latency",
+      "model calls",
+      "tool calls",
+      "budget violations",
+      "parallel execution overlap",
+      "context delivery correctness",
+      "safety and environment failures"
+    ]
+  },
+  "model_calls": 0,
+  "parity": {
+    "all_groups_equal": true,
+    "all_task_facts_equal": true,
+    "cross_topology": {
+      "closure2-pipeline-migration": {
+        "differ": true,
+        "multi": "c4b5373c162e0082cc90104afb8c0dee916b2cee1f678ab5198a6f39cb1d57b6",
+        "single": "b89987bdbee4ca79f5728c00df6ed13e979464c0173744397d1f1ff4c73db18d"
+      },
+      "closure2-plugin-migration": {
+        "differ": true,
+        "multi": "8bf208d30d6c8f2f543174a612a742adc7059d92457e1ef0e4bbb0edbeb89e31",
+        "single": "4e97b92d94c6f8fdeb624d5252c7c576ef922d9879768412399d6d1ceededd61"
+      },
+      "closure2-state-machine-refactor": {
+        "differ": true,
+        "multi": "104306bf95e4d6e731a4d5279960344a45fc31d74a472d58ace6b7d11bb1bae6",
+        "single": "7014163b05f184239e62168c30fe36f3a007323152f80feaa9ce5615130b8cfd"
+      }
+    },
+    "groups": [
+      {
+        "arms": [
+          "N0",
+          "A0"
+        ],
+        "digests": {
+          "A0": "b89987bdbee4ca79f5728c00df6ed13e979464c0173744397d1f1ff4c73db18d",
+          "N0": "b89987bdbee4ca79f5728c00df6ed13e979464c0173744397d1f1ff4c73db18d"
+        },
+        "equal": true,
+        "task_id": "closure2-pipeline-migration"
+      },
+      {
+        "arms": [
+          "N0",
+          "A0"
+        ],
+        "digests": {
+          "A0": "4e97b92d94c6f8fdeb624d5252c7c576ef922d9879768412399d6d1ceededd61",
+          "N0": "4e97b92d94c6f8fdeb624d5252c7c576ef922d9879768412399d6d1ceededd61"
+        },
+        "equal": true,
+        "task_id": "closure2-plugin-migration"
+      },
+      {
+        "arms": [
+          "N0",
+          "A0"
+        ],
+        "digests": {
+          "A0": "7014163b05f184239e62168c30fe36f3a007323152f80feaa9ce5615130b8cfd",
+          "N0": "7014163b05f184239e62168c30fe36f3a007323152f80feaa9ce5615130b8cfd"
+        },
+        "equal": true,
+        "task_id": "closure2-state-machine-refactor"
+      },
+      {
+        "arms": [
+          "N1",
+          "A1-L",
+          "A1-P"
+        ],
+        "digests": {
+          "A1-L": "c4b5373c162e0082cc90104afb8c0dee916b2cee1f678ab5198a6f39cb1d57b6",
+          "A1-P": "c4b5373c162e0082cc90104afb8c0dee916b2cee1f678ab5198a6f39cb1d57b6",
+          "N1": "c4b5373c162e0082cc90104afb8c0dee916b2cee1f678ab5198a6f39cb1d57b6"
+        },
+        "equal": true,
+        "task_id": "closure2-pipeline-migration"
+      },
+      {
+        "arms": [
+          "N1",
+          "A1-L",
+          "A1-P"
+        ],
+        "digests": {
+          "A1-L": "8bf208d30d6c8f2f543174a612a742adc7059d92457e1ef0e4bbb0edbeb89e31",
+          "A1-P": "8bf208d30d6c8f2f543174a612a742adc7059d92457e1ef0e4bbb0edbeb89e31",
+          "N1": "8bf208d30d6c8f2f543174a612a742adc7059d92457e1ef0e4bbb0edbeb89e31"
+        },
+        "equal": true,
+        "task_id": "closure2-plugin-migration"
+      },
+      {
+        "arms": [
+          "N1",
+          "A1-L",
+          "A1-P"
+        ],
+        "digests": {
+          "A1-L": "104306bf95e4d6e731a4d5279960344a45fc31d74a472d58ace6b7d11bb1bae6",
+          "A1-P": "104306bf95e4d6e731a4d5279960344a45fc31d74a472d58ace6b7d11bb1bae6",
+          "N1": "104306bf95e4d6e731a4d5279960344a45fc31d74a472d58ace6b7d11bb1bae6"
+        },
+        "equal": true,
+        "task_id": "closure2-state-machine-refactor"
+      }
+    ],
+    "task_facts": {
+      "closure2-pipeline-migration": {
+        "multi_digest": "c4b5373c162e0082cc90104afb8c0dee916b2cee1f678ab5198a6f39cb1d57b6",
+        "multi_steps_carry_shared_context": true,
+        "same_allowed_paths": true,
+        "same_forbidden_paths": true,
+        "same_hidden_files": true,
+        "same_required_artifacts": true,
+        "same_visible_files": true,
+        "single_digest": "b89987bdbee4ca79f5728c00df6ed13e979464c0173744397d1f1ff4c73db18d",
+        "single_prompt_contains_shared_context": true
+      },
+      "closure2-plugin-migration": {
+        "multi_digest": "8bf208d30d6c8f2f543174a612a742adc7059d92457e1ef0e4bbb0edbeb89e31",
+        "multi_steps_carry_shared_context": true,
+        "same_allowed_paths": true,
+        "same_forbidden_paths": true,
+        "same_hidden_files": true,
+        "same_required_artifacts": true,
+        "same_visible_files": true,
+        "single_digest": "4e97b92d94c6f8fdeb624d5252c7c576ef922d9879768412399d6d1ceededd61",
+        "single_prompt_contains_shared_context": true
+      },
+      "closure2-state-machine-refactor": {
+        "multi_digest": "104306bf95e4d6e731a4d5279960344a45fc31d74a472d58ace6b7d11bb1bae6",
+        "multi_steps_carry_shared_context": true,
+        "same_allowed_paths": true,
+        "same_forbidden_paths": true,
+        "same_hidden_files": true,
+        "same_required_artifacts": true,
+        "same_visible_files": true,
+        "single_digest": "7014163b05f184239e62168c30fe36f3a007323152f80feaa9ce5615130b8cfd",
+        "single_prompt_contains_shared_context": true
+      }
+    }
+  },
+  "preregistration_digest": "f7bbdfb8350589a959d78be00a9dc150c3b12fd6d277cf0fe2cee8a8b536b058",
+  "router_policy": {
+    "digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
+    "frozen_digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
+    "version": "r0.1.0"
+  },
+  "sandbox_runs": 0,
+  "stage": "closure-2a",
+  "status": "PASSED",
+  "tasks": {
+    "closure2-pipeline-migration": {
+      "dag": {
+        "declared_write_paths": {
+          "aggregate": [
+            "pipeline/aggregate.py",
+            "pipeline/store.py"
+          ],
+          "integrate": [
+            "pipeline/api.py",
+            "pipeline/report.py"
+          ],
+          "parse": [
+            "pipeline/normalise.py",
+            "pipeline/parsing.py"
+          ]
+        },
+        "declared_write_paths_match_ownership": true,
+        "dependency_complete": true,
+        "first_wave": [
+          "aggregate",
+          "parse"
+        ],
+        "first_wave_disjoint": true,
+        "first_wave_write_overlap": [],
+        "integration_dependencies_are_declared_steps": true,
+        "max_wave_width": 2,
+        "task_ids": [
+          "parse",
+          "aggregate",
+          "integrate"
+        ],
+        "wave_zero_width_is_two": true,
+        "waves": [
+          [
+            "parse",
+            "aggregate"
+          ],
+          [
+            "integrate"
+          ]
+        ]
+      },
+      "family": "P1",
+      "router": {
+        "blocked_gates": [],
+        "diagnostics": [],
+        "execution_mode": "a1",
+        "gates": [
+          {
+            "gate": "GATE_0_PROPOSAL_VALIDITY",
+            "reason_codes": [],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_1_DELEGATION_NECESSITY",
+            "reason_codes": [
+              "INDEPENDENT_DELIVERABLES"
+            ],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_2_DEPENDENCY_COUPLING",
+            "reason_codes": [
+              "DATA_DEPENDENCY"
+            ],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_3_PARALLEL_OPPORTUNITY",
+            "reason_codes": [],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_4_SIDE_EFFECT_RISK",
+            "reason_codes": [],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_5_CONTEXT_SUFFICIENCY",
+            "reason_codes": [],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_6_ADMISSION",
+            "reason_codes": [
+              "DELEGATION_ADMITTED",
+              "INDEPENDENT_DELIVERABLES"
+            ],
+            "status": "pass"
+          }
+        ],
+        "max_parallel_wave_width": 2,
+        "max_parallel_workers": 2,
+        "policy_digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
+        "policy_version": "r0.1.0",
+        "proposal_digest": "d45e0f18edc4580a15b734f95829de27152b22226742c7681f802772fe7874a2",
+        "reason_codes": [
+          "DELEGATION_ADMITTED"
+        ],
+        "route": "delegate_parallel"
+      },
+      "selftest": {
+        "reference_oracle_passes": true,
+        "reference_oracle_tail": "....................                                                     [100%]\n20 passed in 0.04s",
+        "reference_public_passes": true,
+        "reference_public_tail": ".........                                                                [100%]\n9 passed in 0.02s",
+        "seed_oracle_fails": true,
+        "seed_oracle_tail": "FAILED test_public.py::test_store_keeps_the_last_record_per_name - AssertionE...\nFAILED test_public.py::test_build_report_runs_the_whole_path - AssertionError...\nFAILED test_public.py::test_render_is_sorted_and_has_no_trailing_newline - As...\n17 failed, 3 passed in 0.11s",
+        "seed_public_fails": true,
+        "seed_public_tail": "FAILED test_public.py::test_store_keeps_the_last_record_per_name - AssertionE...\nFAILED test_public.py::test_build_report_runs_the_whole_path - AssertionError...\nFAILED test_public.py::test_render_is_sorted_and_has_no_trailing_newline - As...\n8 failed, 1 passed in 0.08s"
+      },
+      "workspace_isolation": {
+        "leaks": [],
+        "passed": true,
+        "visible_files": [
+          "README.md",
+          "docs/INTERFACE.md",
+          "pipeline/__init__.py",
+          "pipeline/aggregate.py",
+          "pipeline/api.py",
+          "pipeline/normalise.py",
+          "pipeline/parsing.py",
+          "pipeline/report.py",
+          "pipeline/store.py",
+          "test_public.py"
+        ]
+      }
+    },
+    "closure2-plugin-migration": {
+      "dag": {
+        "declared_write_paths": {
+          "csv": [
+            "plugins/csv_fields.py",
+            "plugins/csv_plugin.py"
+          ],
+          "json": [
+            "plugins/json_fields.py",
+            "plugins/json_plugin.py"
+          ],
+          "register": [
+            "plugins/loader.py",
+            "plugins/registry.py"
+          ]
+        },
+        "declared_write_paths_match_ownership": true,
+        "dependency_complete": true,
+        "first_wave": [
+          "csv",
+          "json"
+        ],
+        "first_wave_disjoint": true,
+        "first_wave_write_overlap": [],
+        "integration_dependencies_are_declared_steps": true,
+        "max_wave_width": 2,
+        "task_ids": [
+          "csv",
+          "json",
+          "register"
+        ],
+        "wave_zero_width_is_two": true,
+        "waves": [
+          [
+            "csv",
+            "json"
+          ],
+          [
+            "register"
+          ]
+        ]
+      },
+      "family": "P2",
+      "router": {
+        "blocked_gates": [],
+        "diagnostics": [],
+        "execution_mode": "a1",
+        "gates": [
+          {
+            "gate": "GATE_0_PROPOSAL_VALIDITY",
+            "reason_codes": [],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_1_DELEGATION_NECESSITY",
+            "reason_codes": [
+              "INDEPENDENT_DELIVERABLES"
+            ],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_2_DEPENDENCY_COUPLING",
+            "reason_codes": [
+              "DATA_DEPENDENCY"
+            ],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_3_PARALLEL_OPPORTUNITY",
+            "reason_codes": [],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_4_SIDE_EFFECT_RISK",
+            "reason_codes": [],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_5_CONTEXT_SUFFICIENCY",
+            "reason_codes": [],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_6_ADMISSION",
+            "reason_codes": [
+              "DELEGATION_ADMITTED",
+              "INDEPENDENT_DELIVERABLES"
+            ],
+            "status": "pass"
+          }
+        ],
+        "max_parallel_wave_width": 2,
+        "max_parallel_workers": 2,
+        "policy_digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
+        "policy_version": "r0.1.0",
+        "proposal_digest": "0031270057afe947652178ba2213ffb46e175656b320a7d14ded75c4445c2e49",
+        "reason_codes": [
+          "DELEGATION_ADMITTED"
+        ],
+        "route": "delegate_parallel"
+      },
+      "selftest": {
+        "reference_oracle_passes": true,
+        "reference_oracle_tail": ".....................                                                    [100%]\n21 passed in 0.04s",
+        "reference_public_passes": true,
+        "reference_public_tail": ".........                                                                [100%]\n9 passed in 0.03s",
+        "seed_oracle_fails": true,
+        "seed_oracle_tail": "FAILED test_public.py::test_registry_rejects_a_duplicate_name - Failed: DID N...\nFAILED test_public.py::test_loader_dispatches_by_source - AssertionError: ass...\nFAILED test_public.py::test_loader_rejects_an_unsupported_source - Failed: DI...\n19 failed, 2 passed in 0.14s",
+        "seed_public_fails": true,
+        "seed_public_tail": "FAILED test_public.py::test_registry_rejects_a_duplicate_name - Failed: DID N...\nFAILED test_public.py::test_loader_dispatches_by_source - AssertionError: ass...\nFAILED test_public.py::test_loader_rejects_an_unsupported_source - Failed: DI...\n9 failed in 0.10s"
+      },
+      "workspace_isolation": {
+        "leaks": [],
+        "passed": true,
+        "visible_files": [
+          "README.md",
+          "docs/INTERFACE.md",
+          "plugins/__init__.py",
+          "plugins/base.py",
+          "plugins/csv_fields.py",
+          "plugins/csv_plugin.py",
+          "plugins/json_fields.py",
+          "plugins/json_plugin.py",
+          "plugins/loader.py",
+          "plugins/registry.py",
+          "test_public.py"
+        ]
+      }
+    },
+    "closure2-state-machine-refactor": {
+      "dag": {
+        "declared_write_paths": {
+          "callers": [
+            "lifecycle/approval.py",
+            "lifecycle/audit.py",
+            "lifecycle/shipping.py",
+            "lifecycle/state.py"
+          ],
+          "machine": [
+            "lifecycle/state.py"
+          ]
+        },
+        "declared_write_paths_match_ownership": true,
+        "dependency_complete": true,
+        "first_wave": [
+          "machine"
+        ],
+        "first_wave_disjoint": true,
+        "first_wave_write_overlap": [],
+        "integration_dependencies_are_declared_steps": true,
+        "max_wave_width": 1,
+        "task_ids": [
+          "machine",
+          "callers"
+        ],
+        "wave_zero_width_is_two": false,
+        "waves": [
+          [
+            "machine"
+          ],
+          [
+            "callers"
+          ]
+        ]
+      },
+      "family": "N1",
+      "router": {
+        "blocked_gates": [
+          "GATE_2_DEPENDENCY_COUPLING"
+        ],
+        "diagnostics": [],
+        "execution_mode": "a0",
+        "gates": [
+          {
+            "gate": "GATE_0_PROPOSAL_VALIDITY",
+            "reason_codes": [],
+            "status": "pass"
+          },
+          {
+            "gate": "GATE_1_DELEGATION_NECESSITY",
+            "reason_codes": [
+              "NO_PARALLEL_WAVE"
+            ],
+            "status": "info"
+          },
+          {
+            "gate": "GATE_2_DEPENDENCY_COUPLING",
+            "reason_codes": [
+              "DATA_DEPENDENCY",
+              "SHARED_WRITE_RISK",
+              "UNSTABLE_INTERFACE"
+            ],
+            "status": "block"
+          }
+        ],
+        "max_parallel_wave_width": 1,
+        "max_parallel_workers": 2,
+        "policy_digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
+        "policy_version": "r0.1.0",
+        "proposal_digest": "8d611fc0b53a0433f52f59145d8c86af702061ef5a4cec0596d1bd6efdfd52ba",
+        "reason_codes": [
+          "SHARED_WRITE_RISK",
+          "UNSTABLE_INTERFACE"
+        ],
+        "route": "direct"
+      },
+      "selftest": {
+        "reference_oracle_passes": true,
+        "reference_oracle_tail": "..............                                                           [100%]\n14 passed in 0.03s",
+        "reference_public_passes": true,
+        "reference_public_tail": ".......                                                                  [100%]\n7 passed in 0.02s",
+        "seed_oracle_fails": true,
+        "seed_oracle_tail": "ERROR test_hidden_lifecycle.py\nERROR test_public.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!\n2 errors in 0.13s",
+        "seed_public_fails": true,
+        "seed_public_tail": "=========================== short test summary info ===========================\nERROR test_public.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.11s"
+      },
+      "workspace_isolation": {
+        "leaks": [],
+        "passed": true,
+        "visible_files": [
+          "README.md",
+          "docs/INTERFACE.md",
+          "lifecycle/__init__.py",
+          "lifecycle/approval.py",
+          "lifecycle/audit.py",
+          "lifecycle/shipping.py",
+          "lifecycle/state.py",
+          "test_public.py"
+        ]
+      }
+    }
+  },
+  "unsupported": [
+    "Router-assisted vs static multi for a task whose DAG the router refuses: A2-P collapses to the single worker, so it is not a multi-worker cell and must not be reported as one",
+    "single vs multi across different tasks: topologies are compared only inside one task",
+    "a Native vs Atlas difference attributed to the Context Plane alone: the two engines differ in execution control, tool organisation and budget enforcement as well",
+    "any cost claim from a run whose provider cache split is Unknown",
+    "any statistical claim from a single repetition"
+  ]
+}

@@ -1,0 +1,53 @@
+# Closure-2 arm A1-P / A2-P: the Atlas Context Plane with the shared-prefix prompt layout.
+#
+# Byte-identical to `final4-context.yaml` except for `context.prompt_layout`. That is the whole
+# point of the A1-L vs A1-P ablation: same policy, same renderer, same transform, same tools, same
+# budget, same DAG, same tasks — only the layout of the request changes.
+#
+# `prompt_layout: shared_prefix` is refused by `ContextConfig` unless policy=task_scoped,
+# renderer=stable_deterministic and transform=identity, so this file cannot silently degrade.
+provider:
+  name: deepseek
+  model: deepseek-chat
+
+context:
+  policy: task_scoped
+  renderer: stable_deterministic
+  prompt_layout: shared_prefix
+  transform:
+    name: identity
+
+placement:
+  policy: bypass
+
+tools:
+  mode: progressive
+  search_backend: keyword
+  max_results: 5
+
+trajectory:
+  enabled: true
+  store_root: trajectory
+
+pricing:
+  provider: deepseek
+  cache_hit_input_per_million: 0.006
+  cache_miss_input_per_million: 0.3
+  output_per_million: 1.2
+  snapshot_date: 2026-11-06
+
+sandbox:
+  enabled: true
+  provider: opensandbox
+  endpoint: localhost:8080
+  protocol: http
+  image: atlas-uat-python:3.12
+  workspace_root: /workspace/project
+  network: none
+  max_bundle_bytes: 67108864
+  timeout_minutes: 20
+  ready_timeout_seconds: 240
+  cpu: "1"
+  memory: "1Gi"
+  use_server_proxy: true
+  retain_on_failure: false
