@@ -291,6 +291,13 @@ Closure-2 subset: `tests/unit/test_closure2_benchmark.py` (52 tests) and
 
 The 6 skips are pre-existing optional-dependency/platform skips, unchanged by this stage.
 
+**Environment note.** On this machine the default `pytest` run can exit `1` at session teardown after
+reaching `100%` with no failure recorded: the shell's bulk-delete guard blocks pytest's garbage
+collection of its own temporary directories (`[safe-delete]
+[SAFE_DELETE_BULK_CONFIRM_REQUIRED] … pytest-of-86180/garbage-…`). Running with an isolated
+`--basetemp` gives `exit 0` and the summary above. This is a host artifact, not a test outcome; it is
+recorded here so a reviewer who sees `exit 1` does not mistake it for a regression.
+
 ---
 
 ## 7. Scope audit
