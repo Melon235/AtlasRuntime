@@ -42,18 +42,43 @@ ROUTING_POLICY_VERSION = "r0.1.0"
 def resolve_repo_path(relative: str, *, root: Path | None = None) -> Path:
     """Resolve a frozen repository-relative POSIX path against ``root``.
 
-    Refuses absolute input and any ``..`` segment: the frozen identity is a path *inside* the
-    checkout, and a caller must not be able to point the protocol at an arbitrary file.
+    Two layers, because either one alone is bypassable:
+
+    1. **lexical** — non-empty, ``/``-only separators, no ``\\``, no drive or UNC prefix, no ``..``
+       component. The validation and the file access must agree on what a separator is: on Windows
+       ``experiments\\..\\..\\outside.yaml`` is one POSIX component and three Windows components, so
+       a POSIX-only check would pass input that the OS then resolves *outside* the checkout.
+    2. **resolved containment** — after ``resolve()`` the candidate must still be inside the
+       resolved repository root. This is what catches a symlink or junction that points outside.
+       ``str(candidate).startswith(str(root))`` would not: ``/repo-other`` shares that prefix with
+       ``/repo`` and is a different tree.
     """
 
     text = str(relative)
-    if not text or text.startswith("/") or Path(text).is_absolute() or ":" in text:
+    if not text:
+        raise ValueError("frozen protocol paths must not be empty")
+    if "\\" in text:
+        raise ValueError(f"frozen protocol paths must use '/' as the only separator: {relative!r}")
+    if text.startswith("/"):
         raise ValueError(f"frozen protocol paths must be repository-relative: {relative!r}")
+    if ":" in text:
+        raise ValueError(
+            f"frozen protocol paths must not carry a drive or stream prefix: {relative!r}"
+        )
     parts = PurePosixPath(text).parts
     if any(part == ".." for part in parts):
         raise ValueError(f"frozen protocol paths must not escape the repository: {relative!r}")
+
     base = Path(root) if root is not None else REPO_ROOT
-    return base.joinpath(*parts)
+    candidate = base.joinpath(*parts)
+    resolved_base = base.resolve()
+    resolved_candidate = candidate.resolve()
+    if not resolved_candidate.is_relative_to(resolved_base):
+        raise ValueError(
+            f"frozen protocol path resolves outside the repository root: {relative!r} "
+            f"-> {resolved_candidate}"
+        )
+    return candidate
 
 
 #: One arm per row. ``topology`` selects the BenchmarkTask the arm runs; ``runner`` selects which
@@ -278,26 +303,40 @@ C2A_R1_PREREGISTRATION_DIGEST = "3080f3137a408856337681c14ff4e10fc67b50a15c602f5
 
 
 def approval_gate(
-    *, record: dict[str, Any] | None = None, digest: str | None = None
+    *, record: dict[str, Any] | None = None, root: Path | None = None
 ) -> dict[str, Any]:
     """Decide whether Closure-2B may start.
 
-    ``execution_ready`` is true only when the record is approved, names the *current* frozen digest,
-    and carries a non-empty approver, approval commit and timestamp. A pending record is the expected
-    state for this stage: the offline preflight passes, the live pilot stays closed. An approval that
-    names a different digest is a *wrong* approval, not a usable one: it fails closed.
+    ``execution_ready`` requires **all** of:
+
+    * the live registration still hashes to the frozen R1 digest — comparing an approval only with
+      the *current* digest would let anyone approve a drifted benchmark by re-signing the drift, so
+      the frozen identity is a separate, non-negotiable condition;
+    * the record is ``APPROVED`` and names that same frozen digest;
+    * an approver, an approval commit and a timestamp are present.
+
+    There is deliberately **no** ``digest`` parameter: an override would be a bypass, because a
+    caller could hand in the frozen value while the repository says something else. ``root`` exists
+    only so a test can point the loader at another checkout of the same content; it can make the gate
+    stricter, never looser.
     """
 
     active = APPROVAL_RECORD if record is None else record
-    target = preregistration_digest() if digest is None else digest
+    frozen = C2A_R1_PREREGISTRATION_DIGEST
+    current = preregistration_digest(root=root)
     approved_digest = active.get("approved_digest")
     status = active.get("status")
     problems: list[str] = []
+    if current != frozen:
+        problems.append(
+            f"current preregistration digest {current!r} does not match the frozen R1 digest "
+            f"{frozen!r}: the frozen definition moved"
+        )
     if status != "APPROVED":
         problems.append(f"approval status is {status!r}, not 'APPROVED'")
-    if approved_digest != target:
+    if approved_digest != frozen:
         problems.append(
-            f"approval names digest {approved_digest!r} but the frozen digest is {target!r}"
+            f"approval names digest {approved_digest!r} but the frozen R1 digest is {frozen!r}"
         )
     if not active.get("approved_by"):
         problems.append("approval has no approver")
@@ -308,7 +347,10 @@ def approval_gate(
     return {
         "status": status,
         "execution_ready": not problems,
-        "target_digest": target,
+        "frozen_digest": frozen,
+        "current_digest": current,
+        # Kept so an existing reader of the artifact does not silently lose the field it compares.
+        "target_digest": frozen,
         "approved_digest": approved_digest,
         "problems": problems,
         "record": dict(active),
@@ -318,8 +360,10 @@ def approval_gate(
 def require_execution_approval(*, record: dict[str, Any] | None = None) -> dict[str, Any]:
     """The only sanctioned entry point for a live Closure-2B run.
 
-    Raises instead of returning a boolean: a caller cannot accidentally treat a pending or
-    mismatched approval as permission. Offline preflight never calls this.
+    Raises instead of returning a boolean: a caller cannot accidentally treat a pending, drifted or
+    mismatched approval as permission. It takes no path or digest argument at all, so the execution
+    path always evaluates the live repository against the frozen identity. Offline preflight never
+    calls it for a run.
     """
 
     gate = approval_gate(record=record)

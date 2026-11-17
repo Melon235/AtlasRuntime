@@ -18,6 +18,7 @@ Exit codes: ``0`` all checks passed, ``1`` a check failed.
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import re
 import shutil
@@ -130,9 +131,11 @@ ROUTER_EXPECTATIONS: dict[str, dict[str, Any]] = {
     },
 }
 
-#: Failure kinds that mean "the seed does not satisfy the contract" rather than "the harness broke".
-_DELIVERABLE_SEED_FAILURES = frozenset({"TEST_FAILURE", "COLLECT_ERROR"})
-#: Kinds that are only ever a harness problem. They never stand in for a legitimate defect.
+#: Failure kinds that mean "the suite genuinely ran and genuinely failed". Only these, plus a
+#: collection error whose cause is a workspace interface mismatch, count as the seed violating the
+#: contract. Everything else is a harness problem and must never stand in for a defect.
+_DELIVERABLE_SEED_FAILURES = frozenset({"TEST_FAILURE"})
+#: Kinds that are only ever a harness problem. They block the preflight instead of excusing the seed.
 _HARNESS_FAILURES = frozenset(
     {
         "NO_TESTS_COLLECTED",
@@ -141,9 +144,22 @@ _HARNESS_FAILURES = frozenset(
         "INTERRUPTED",
         "INTERNAL_ERROR",
         "TIMEOUT",
+        "UNKNOWN_ERROR",
+        "SETUP_ERROR",
+        "TEARDOWN_ERROR",
+        "MIXED_ERROR",
         "ERROR",
     }
 )
+
+#: Fixture-phase markers in the pytest ``ERRORS`` section. A test that never reached its body is not
+#: evidence about the deliverable, and pytest reports all of these as exit code 1.
+_SETUP_MARKER = "ERROR at setup of "
+_TEARDOWN_MARKER = "ERROR at teardown of "
+#: Collection-error cause shapes, used only to decide whether the workspace owns the missing name.
+_CANNOT_IMPORT_RE = re.compile(r"cannot import name '([^']+)' from '([^']+)'")
+_NO_MODULE_RE = re.compile(r"No module named '([^']+)'")
+_NO_ATTRIBUTE_RE = re.compile(r"module '([^']+)' has no attribute '([^']+)'")
 
 
 # ---------------------------------------------------------------------------------- test execution
@@ -152,9 +168,13 @@ _HARNESS_FAILURES = frozenset(
 def classify_pytest(returncode: int, output: str) -> str:
     """Map one pytest session onto what actually happened.
 
-    A collection error is not a test failure, and neither is an unusable test session. For a *seed*
-    run both of the first two mean the seed does not satisfy the contract; for a *reference* run only
-    ``PASSED`` is acceptable.
+    Exit code 1 is **not** "assertion failed": pytest also uses it for fixture setup errors, fixture
+    teardown errors and a session that has both. Reporting a broken fixture as "the seed does not
+    satisfy the contract" is a false positive of exactly the kind this stage must eliminate, so the
+    phase markers and the summary counts decide instead of the exit code.
+
+    Anything that cannot be read reliably becomes ``UNKNOWN_ERROR``, which is a harness problem and
+    fails the preflight. Unknown is never success and never a defect.
     """
 
     text = output
@@ -170,9 +190,90 @@ def classify_pytest(returncode: int, output: str) -> str:
         return "INTERNAL_ERROR"
     if returncode == 2:
         return "INTERRUPTED"
-    if returncode == 1:
+    if returncode != 1:
+        return "UNKNOWN_ERROR"
+
+    counts = _parse_counts(text)
+    failed = counts.get("failed", 0)
+    setups = text.count(_SETUP_MARKER)
+    teardowns = text.count(_TEARDOWN_MARKER)
+    if failed and (setups or teardowns):
+        return "MIXED_ERROR"
+    if failed:
         return "TEST_FAILURE"
-    return "ERROR"
+    if setups and teardowns:
+        return "MIXED_ERROR"
+    if setups:
+        return "SETUP_ERROR"
+    if teardowns:
+        return "TEARDOWN_ERROR"
+    return "UNKNOWN_ERROR"
+
+
+def _module_is_local(workspace_root: Path, dotted: str) -> bool:
+    """Is this module name provided by the workspace (the staged seed) rather than by site-packages?
+
+    Only used to separate "the seed lacks the v2 interface the oracle imports" from "the test
+    environment is broken". A `lifecycle.approval` whose `lifecycle` is a single-file module counts:
+    the name lives in the workspace, so the workspace is the one not providing it.
+    """
+
+    parts = [part for part in dotted.split(".") if part]
+    if not parts:
+        return False
+    candidate = workspace_root.joinpath(*parts)
+    if candidate.with_suffix(".py").is_file() or candidate.is_dir():
+        return True
+    if len(parts) > 1:
+        parent = workspace_root.joinpath(*parts[:-1])
+        if parent.with_suffix(".py").is_file() or parent.is_dir():
+            return True
+    return False
+
+
+def collect_cause_class(output: str, workspace_root: Path | None = None) -> str | None:
+    """Classify a ``COLLECT_ERROR`` as a workspace interface mismatch or an environment problem.
+
+    ``INTERFACE_MISMATCH`` means the failing name belongs to a module the workspace itself ships, so
+    the seed really does not implement the published interface. Everything else — a missing
+    third-party package, a plugin crash, a syntax error in test infrastructure — is ``ENVIRONMENT``
+    and must not be read as a benchmark finding.
+    """
+
+    for pattern in (_CANNOT_IMPORT_RE, _NO_ATTRIBUTE_RE):
+        match = pattern.search(output)
+        if match is not None:
+            module = match.group(2) if pattern is _CANNOT_IMPORT_RE else match.group(1)
+            if workspace_root is not None and _module_is_local(workspace_root, module):
+                return "INTERFACE_MISMATCH"
+            return "ENVIRONMENT"
+    match = _NO_MODULE_RE.search(output)
+    if match is not None:
+        if workspace_root is not None and _module_is_local(workspace_root, match.group(1)):
+            return "INTERFACE_MISMATCH"
+        return "ENVIRONMENT"
+    return "ENVIRONMENT"
+
+
+def session_is_valid_defect(session: dict[str, Any]) -> bool:
+    """Does this session prove the seed violates the contract?
+
+    A passing, skipped, timed-out or fixture-broken session proves nothing about the deliverable. A
+    collection error proves it only when the missing name is one the workspace itself provides.
+    """
+
+    kind = session["kind"]
+    if kind in _DELIVERABLE_SEED_FAILURES:
+        return True
+    return kind == "COLLECT_ERROR" and session.get("cause_class") == "INTERFACE_MISMATCH"
+
+
+def harness_blocked(session: dict[str, Any]) -> bool:
+    """A session the harness could not execute correctly. It blocks the preflight either way."""
+
+    return session["kind"] in _HARNESS_FAILURES or (
+        session["kind"] == "COLLECT_ERROR" and not session_is_valid_defect(session)
+    )
 
 
 _COUNT_RE = re.compile(r"(\d+) (passed|failed|error|errors|skipped)")
@@ -232,6 +333,7 @@ def _run_pytest(root: Path, targets: list[str], *, timeout: int = 180) -> dict[s
             "tail": "no test target was given; refusing to collect the whole workspace",
             "counts": {},
             "cause": None,
+            "cause_class": None,
             "passed": False,
         }
 
@@ -251,6 +353,7 @@ def _run_pytest(root: Path, targets: list[str], *, timeout: int = 180) -> dict[s
             "tail": f"pytest exceeded {timeout}s",
             "counts": {},
             "cause": f"pytest exceeded {timeout}s",
+            "cause_class": None,
             "passed": False,
         }
 
@@ -266,6 +369,9 @@ def _run_pytest(root: Path, targets: list[str], *, timeout: int = 180) -> dict[s
         "targets": list(targets),
         "exit_code": completed.returncode,
         "kind": kind,
+        "cause_class": collect_cause_class(raw, root) if kind == "COLLECT_ERROR" else None,
+        "setup_errors": raw.count(_SETUP_MARKER),
+        "teardown_errors": raw.count(_TEARDOWN_MARKER),
         # The artifact is published: no host path may survive in it.
         "tail": "\n".join(lines[-4:]).replace(workspace, "<workspace>"),
         "counts": _parse_counts(raw),
@@ -293,12 +399,14 @@ def seed_hidden_gate(session: dict[str, Any]) -> bool:
     """True when the seed genuinely fails the hidden oracle.
 
     A missing target interface shows up as ``COLLECT_ERROR`` (the hidden test cannot import the v2
-    API) and counts: the deliverable does not satisfy the contract. ``NO_TESTS_COLLECTED``,
-    ``USAGE_ERROR`` and ``INTERRUPTED`` do **not** count — those are harness problems, and reporting
+    API) and counts **only** when the missing name belongs to the workspace. A collection error
+    caused by a missing third-party package or a broken plugin does not count, and neither do
+    ``SETUP_ERROR``, ``TEARDOWN_ERROR``, ``MIXED_ERROR``, ``NO_TESTS_COLLECTED``, ``USAGE_ERROR``,
+    ``INTERRUPTED``, ``TIMEOUT`` or ``UNKNOWN_ERROR`` — those are harness problems, and reporting
     them as "the oracle found a defect" would be fake evidence.
     """
 
-    return session["kind"] in _DELIVERABLE_SEED_FAILURES
+    return session_is_valid_defect(session)
 
 
 def task_selftest(task: Task) -> dict[str, Any]:
@@ -341,7 +449,7 @@ def task_selftest(task: Task) -> dict[str, Any]:
         "seed_hidden": seed_hidden,
         "reference_public": reference_public,
         "reference_hidden": reference_hidden,
-        "seed_public_fails": seed_public["kind"] in _DELIVERABLE_SEED_FAILURES,
+        "seed_public_fails": session_is_valid_defect(seed_public),
         "seed_hidden_fails": seed_hidden_gate(seed_hidden),
         "seed_hidden_kind": seed_hidden["kind"],
         "reference_public_passes": reference_public["passed"],
@@ -351,8 +459,18 @@ def task_selftest(task: Task) -> dict[str, Any]:
         "seed_hidden_executed_assertions": (
             seed_hidden["counts"].get("passed", 0) + seed_hidden["counts"].get("failed", 0) > 0
         ),
+        "harness_blocked": {
+            "seed_public": harness_blocked(seed_public),
+            "seed_hidden": harness_blocked(seed_hidden),
+            "reference_public": harness_blocked(reference_public),
+            "reference_hidden": harness_blocked(reference_hidden),
+        },
         "hidden_collection_diagnostics": (
-            {"kind": seed_hidden["kind"], "cause": seed_hidden["cause"]}
+            {
+                "kind": seed_hidden["kind"],
+                "cause_class": seed_hidden["cause_class"],
+                "cause": seed_hidden["cause"],
+            }
             if seed_hidden["kind"] in {"COLLECT_ERROR", "TIMEOUT", "NO_TESTS_COLLECTED"}
             else None
         ),
@@ -371,7 +489,11 @@ def task_selftest(task: Task) -> dict[str, Any]:
             "seed_hidden": seed_hidden["kind"],
             "reference_public": reference_public["kind"],
             "reference_hidden": reference_hidden["kind"],
+            "seed_public_cause_class": seed_public["cause_class"],
+            "seed_hidden_cause_class": seed_hidden["cause_class"],
             "harness_problem_kinds_never_count_as_a_defect": sorted(_HARNESS_FAILURES),
+            "only_these_count_as_a_seed_defect": sorted(_DELIVERABLE_SEED_FAILURES)
+            + ["COLLECT_ERROR/INTERFACE_MISMATCH"],
         },
     }
 
@@ -812,6 +934,64 @@ def budget_protocol() -> dict[str, Any]:
     }
 
 
+def approval_binding_probe() -> dict[str, Any]:
+    """Prove that an execution approval binds the **frozen** digest, not the current one.
+
+    Two throwaway checkouts of the same configs: one faithful, one drifted. A record that correctly
+    approves the drifted checkout, with a digest that matches it exactly, must still be refused —
+    otherwise "re-sign the drift" would be a way to run a benchmark nobody registered.
+    """
+
+    faithful = Path(tempfile.mkdtemp(prefix="closure2-r2-approval-faithful-"))
+    drifted = Path(tempfile.mkdtemp(prefix="closure2-r2-approval-drifted-"))
+    try:
+        legacy = (REPO_ROOT / LEGACY_CONTEXT_CONFIG).read_text(encoding="utf-8")
+        shared = (REPO_ROOT / SHARED_PREFIX_CONFIG).read_text(encoding="utf-8")
+        _write_files(faithful, {LEGACY_CONTEXT_CONFIG: legacy, SHARED_PREFIX_CONFIG: shared})
+        drifted_text = shared.replace("max_results: 5", "max_results: 6")
+        if drifted_text == shared:
+            raise ValueError("the frozen shared-prefix config no longer sets tools.max_results")
+        _write_files(drifted, {LEGACY_CONTEXT_CONFIG: legacy, SHARED_PREFIX_CONFIG: drifted_text})
+
+        def approved(digest: str) -> dict[str, Any]:
+            return {
+                "status": "APPROVED",
+                "approved_digest": digest,
+                "approved_by": "preflight-simulation",
+                "approval_commit": "preflight-simulation",
+                "approved_at": "preflight-simulation",
+            }
+
+        frozen = C2A_R1_PREREGISTRATION_DIGEST
+        faithful_digest = preregistration_digest(root=faithful)
+        drifted_digest = preregistration_digest(root=drifted)
+        facts = {
+            "faithful_copy_hashes_to_the_frozen_digest": faithful_digest == frozen,
+            "faithful_copy_can_be_approved": approval_gate(record=approved(frozen), root=faithful)[
+                "execution_ready"
+            ],
+            "drifted_copy_hashes_to_a_different_digest": drifted_digest != frozen,
+            "drifted_copy_cannot_be_approved_even_with_its_own_digest": approval_gate(
+                record=approved(drifted_digest), root=drifted
+            )["execution_ready"]
+            is False,
+            "frozen_approval_does_not_cover_a_drifted_checkout": approval_gate(
+                record=approved(frozen), root=drifted
+            )["execution_ready"]
+            is False,
+        }
+        return {
+            "passed": all(facts.values()),
+            "facts": facts,
+            "frozen_digest": frozen,
+            "faithful_digest": faithful_digest,
+            "drifted_digest": drifted_digest,
+        }
+    finally:
+        for root in (faithful, drifted):
+            shutil.rmtree(root, ignore_errors=True)
+
+
 def _absolute_paths_in_payload(payload: dict[str, Any]) -> list[str]:
     """Any host-absolute path inside the frozen payload would break cross-machine reproducibility."""
 
@@ -855,6 +1035,7 @@ def run_preflight() -> dict[str, Any]:
     parity = digest_parity()
     layout = layout_executable()
     binding = config_binding_probe()
+    approval_binding = approval_binding_probe()
     budget = budget_protocol()
     payload = preregistration_payload()
     gate = approval_gate()
@@ -871,15 +1052,7 @@ def run_preflight() -> dict[str, Any]:
         checks[f"{task_id}:reference_hidden_passes"] = selftest["reference_hidden_passes"]
         checks[f"{task_id}:hidden_oracle_executes"] = selftest["hidden_oracle_really_executes"]
         checks[f"{task_id}:oracle_sessions_independent"] = all(selftest["independence"].values())
-        checks[f"{task_id}:no_harness_failure"] = not (
-            {
-                selftest["seed_public"]["kind"],
-                selftest["seed_hidden"]["kind"],
-                selftest["reference_public"]["kind"],
-                selftest["reference_hidden"]["kind"],
-            }
-            & _HARNESS_FAILURES
-        )
+        checks[f"{task_id}:no_harness_failure"] = not any(selftest["harness_blocked"].values())
         checks[f"{task_id}:frozen_task_identity"] = record["frozen_identity"]["matches"]
         checks[f"{task_id}:answer_leak_guard"] = record["answer_leak_guard"]["passed"]
         checks[f"{task_id}:dag_legal"] = record["dag"]["dependency_complete"]
@@ -959,6 +1132,13 @@ def run_preflight() -> dict[str, Any]:
         }
     )
     checks["wrong_digest_approval_fails_closed"] = wrong_digest["execution_ready"] is False
+    # R2-01: an approval must name the frozen R1 identity, not merely the digest of whatever the
+    # repository currently contains. Signing the drift is not an approval of the registration.
+    checks["approval_gate_binds_frozen_digest"] = approval_binding["passed"]
+    checks["approval_gate_has_no_digest_override"] = (
+        "digest" not in inspect.signature(approval_gate).parameters
+        and "digest" not in inspect.signature(require_execution_approval).parameters
+    )
     # A record is either a pending record with no claimed digest, or a usable approval. Anything else
     # (an approval naming a stale digest, an unknown status) is a broken record and must fail.
     if gate["execution_ready"]:
@@ -1008,6 +1188,10 @@ def run_preflight() -> dict[str, Any]:
                 and not record["selftest"]["seed_hidden_executed_assertions"]
             ),
             "seed_hidden_cause": record["selftest"]["hidden_collection_diagnostics"],
+            "seed_hidden_cause_class": (
+                record["selftest"]["hidden_collection_diagnostics"] or {}
+            ).get("cause_class"),
+            "harness_blocked": record["selftest"]["harness_blocked"],
         }
         for task_id, record in per_task.items()
     }
@@ -1015,6 +1199,7 @@ def run_preflight() -> dict[str, Any]:
     return {
         "stage": "closure-2a-r1",
         "protocol_revision": PROTOCOL_REVISION,
+        "repair_revision": "closure-2a-r2",
         "kind": "deterministic_benchmark_preflight",
         "supersedes": payload["supersedes"],
         "generated_at": datetime.now(UTC).isoformat(),
@@ -1028,6 +1213,7 @@ def run_preflight() -> dict[str, Any]:
         "parity": parity,
         "layout": layout,
         "config_binding": binding,
+        "approval_binding": approval_binding,
         "budget": budget,
         "approval": gate,
         "execution_ready": gate["execution_ready"],

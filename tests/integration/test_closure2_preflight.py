@@ -1,9 +1,13 @@
-"""Closure-2A-R1: the executable preflight and its negative controls.
+"""Closure-2A-R1/R2: the executable preflight and its negative controls.
 
 This is the only test module that spawns pytest subprocesses. It proves the benchmark before any
 model may run — seed fails, oracle executes, reference passes, the DAG is legal, the router decision
 is exactly the registered one, the workspace carries no answer — and it proves that each check can
 actually *fail*, because a check that cannot fail is not evidence.
+
+R2 adds one more kind of evidence: the pytest *session classification* is exercised against real
+subprocesses for every failure shape the review named, so "the oracle found a defect" can only ever
+mean "a test in the oracle failed", never "the fixture broke" or "the environment was unwell".
 
 Every negative control here mutates a copy in memory or a temporary directory. No frozen task, no
 router policy and no oracle is edited.
@@ -27,13 +31,18 @@ from experiments.evaluation.closure2.preflight import (
     ROUTING_POLICY_DIGEST,
     _run_pytest,
     _write,
+    _write_files,
     answer_leak_guard,
+    classify_pytest,
+    collect_cause_class,
     dag_audit,
     frozen_identity,
+    harness_blocked,
     layout_executable,
     router_audit,
     router_gate,
     run_preflight,
+    session_is_valid_defect,
     task_selftest,
     workspace_isolation,
 )
@@ -102,6 +111,25 @@ def test_the_registration_identity_is_the_pinned_r1_one(preflight_payload: dict)
     assert preflight_payload["checks"]["preregistration_digest_differs_from_c2a"] is True
 
 
+def test_the_approval_gate_binds_the_frozen_digest(preflight_payload: dict) -> None:
+    """R2-01: a drifted checkout approved with its own digest is still refused."""
+
+    binding = preflight_payload["approval_binding"]
+    assert binding["passed"] is True
+    assert binding["frozen_digest"] == C2A_R1_PREREGISTRATION_DIGEST
+    assert binding["faithful_digest"] == C2A_R1_PREREGISTRATION_DIGEST
+    assert binding["drifted_digest"] != C2A_R1_PREREGISTRATION_DIGEST
+    facts = binding["facts"]
+    assert facts["faithful_copy_can_be_approved"] is True
+    assert facts["drifted_copy_cannot_be_approved_even_with_its_own_digest"] is True
+    assert facts["frozen_approval_does_not_cover_a_drifted_checkout"] is True
+    assert preflight_payload["checks"]["approval_gate_binds_frozen_digest"] is True
+
+
+def test_the_approval_gate_exposes_no_digest_override(preflight_payload: dict) -> None:
+    assert preflight_payload["checks"]["approval_gate_has_no_digest_override"] is True
+
+
 def test_the_config_binding_probe_passed(preflight_payload: dict) -> None:
     binding = preflight_payload["config_binding"]
     assert binding["passed"] is True
@@ -145,10 +173,12 @@ def test_the_n1_seed_failure_is_classified_honestly(preflight_payload: dict) -> 
     assert independence["seed_hidden"] == "COLLECT_ERROR"
     assert independence["seed_hidden_failed_without_executing_assertions"] is True
     assert independence["seed_hidden_cause"]["cause"].startswith("ImportError")
+    assert independence["seed_hidden_cause_class"] == "INTERFACE_MISMATCH"
     assert independence["reference_hidden"] == "PASSED"
     assert independence["hidden_oracle_executed_tests"] > 0
     checks = preflight_payload["checks"]
     assert checks[f"{N1.task_id}:no_harness_failure"] is True
+    assert independence["harness_blocked"]["seed_hidden"] is False
 
 
 def test_a_failing_public_test_does_not_turn_into_a_failing_oracle() -> None:
@@ -384,6 +414,215 @@ def test_same_topology_digests_are_equal(preflight_payload: dict) -> None:
     assert preflight_payload["parity"]["all_task_facts_equal"] is True
 
 
+# ------------------------------------------------------------------ R2-03: session classification
+
+CLASSIFICATION_CASES: dict[str, dict] = {
+    "assertion": {
+        "files": {"test_a.py": "def test_failure():\n    assert False\n"},
+        "kind": "TEST_FAILURE",
+        "cause_class": None,
+        "valid_defect": True,
+        "harness_blocked": False,
+    },
+    "fixture_setup_error": {
+        "files": {
+            "test_a.py": (
+                "import pytest\n\n\n"
+                "@pytest.fixture\n"
+                "def broken_fixture():\n"
+                "    raise RuntimeError('setup failed')\n\n\n"
+                "def test_example(broken_fixture):\n"
+                "    assert True\n"
+            )
+        },
+        "kind": "SETUP_ERROR",
+        "cause_class": None,
+        "valid_defect": False,
+        "harness_blocked": True,
+    },
+    "fixture_teardown_error": {
+        "files": {
+            "test_a.py": (
+                "import pytest\n\n\n"
+                "@pytest.fixture\n"
+                "def broken_teardown():\n"
+                "    yield 1\n"
+                "    raise RuntimeError('teardown failed')\n\n\n"
+                "def test_example(broken_teardown):\n"
+                "    assert True\n"
+            )
+        },
+        "kind": "TEARDOWN_ERROR",
+        "cause_class": None,
+        "valid_defect": False,
+        "harness_blocked": True,
+    },
+    "collection_interface_mismatch": {
+        "files": {
+            "lifecycle.py": "def approve():\n    return True\n",
+            "test_a.py": "from lifecycle import reject\n\n\ndef test_x():\n    assert True\n",
+        },
+        "kind": "COLLECT_ERROR",
+        "cause_class": "INTERFACE_MISMATCH",
+        "valid_defect": True,
+        "harness_blocked": False,
+    },
+    "collection_environment": {
+        "files": {"test_a.py": "import third_party_missing\n\n\ndef test_x():\n    assert True\n"},
+        "kind": "COLLECT_ERROR",
+        "cause_class": "ENVIRONMENT",
+        "valid_defect": False,
+        "harness_blocked": True,
+    },
+    "collection_unparsable": {
+        "files": {"test_a.py": "def test_ok(:\n    assert True\n"},
+        "kind": "COLLECT_ERROR",
+        "cause_class": "ENVIRONMENT",
+        "valid_defect": False,
+        "harness_blocked": True,
+    },
+    "mixed_failure_and_setup_error": {
+        "files": {
+            "test_a.py": (
+                "import pytest\n\n\n"
+                "@pytest.fixture\n"
+                "def broken_fixture():\n"
+                "    raise RuntimeError('setup failed')\n\n\n"
+                "def test_fails():\n"
+                "    assert False\n\n\n"
+                "def test_setup_error(broken_fixture):\n"
+                "    assert True\n"
+            )
+        },
+        "kind": "MIXED_ERROR",
+        "cause_class": None,
+        "valid_defect": False,
+        "harness_blocked": True,
+    },
+    "passing": {
+        "files": {"test_a.py": "def test_ok():\n    assert True\n"},
+        "kind": "PASSED",
+        "cause_class": None,
+        "valid_defect": False,
+        "harness_blocked": False,
+    },
+}
+
+
+@pytest.mark.parametrize("case", sorted(CLASSIFICATION_CASES), ids=str)
+def test_r2_03_each_pytest_shape_is_classified_and_gated(case: str, tmp_path: Path) -> None:
+    """Exit code 1 is not one fact. Every shape below is a real pytest session, not a guess."""
+
+    expected = CLASSIFICATION_CASES[case]
+    workspace = tmp_path / case
+    _write_files(workspace, expected["files"])
+
+    record = _run_pytest(workspace, ["test_a.py"], timeout=120)
+
+    assert record["kind"] == expected["kind"], (record["kind"], record["tail"])
+    assert record["cause_class"] == expected["cause_class"], (
+        record["cause_class"],
+        record["cause"],
+    )
+    assert session_is_valid_defect(record) is expected["valid_defect"], record["tail"]
+    assert harness_blocked(record) is expected["harness_blocked"], record["tail"]
+
+
+def test_r2_03_a_broken_fixture_never_reads_as_a_seed_defect() -> None:
+    """The gate itself must refuse a setup error, not only the classifier."""
+
+    synthetic = dataclasses.replace(
+        P1,
+        oracle_tests={
+            "test_hidden_broken.py": (
+                "import pytest\n\n\n"
+                "@pytest.fixture\n"
+                "def broken_fixture():\n"
+                "    raise RuntimeError('setup failed')\n\n\n"
+                "def test_hidden_contract(broken_fixture):\n"
+                "    assert True\n"
+            )
+        },
+    )
+    record = task_selftest(synthetic)
+
+    assert record["seed_hidden"]["kind"] == "SETUP_ERROR"
+    assert record["seed_hidden_fails"] is False
+    assert record["harness_blocked"]["seed_hidden"] is True
+    assert record["failure_classification"]["seed_hidden"] == "SETUP_ERROR"
+
+
+def test_r2_03_a_third_party_collection_error_does_not_count_as_an_interface_gap() -> None:
+    """A missing dependency is not the seed failing to implement the contract."""
+
+    synthetic = dataclasses.replace(
+        P1,
+        oracle_tests={
+            "test_hidden_dependency.py": (
+                "import a_package_that_is_not_installed\n\n\n"
+                "def test_hidden_contract():\n"
+                "    assert True\n"
+            )
+        },
+    )
+    record = task_selftest(synthetic)
+
+    assert record["seed_hidden"]["kind"] == "COLLECT_ERROR"
+    assert record["seed_hidden"]["cause_class"] == "ENVIRONMENT"
+    assert record["seed_hidden_fails"] is False
+    assert record["harness_blocked"]["seed_hidden"] is True
+
+
+def test_r2_03_the_classifier_reads_phases_not_just_the_exit_code() -> None:
+    """Recorded pytest output, asserted directly: the exit code carries no phase information."""
+
+    setup = (
+        "_______________________ ERROR at setup of test_example ________________________\n"
+        "E       RuntimeError: setup failed\n"
+        "=========================== short test summary info ===========================\n"
+        "ERROR test_a.py::test_example - RuntimeError: setup failed\n"
+        "1 error in 0.05s\n"
+    )
+    teardown = (
+        "______________________ ERROR at teardown of test_example ______________________\n"
+        "E       RuntimeError: teardown failed\n"
+        "1 passed, 1 error in 0.04s\n"
+    )
+    mixed = (
+        "_____________________ ERROR at setup of test_setup_error ______________________\n"
+        "FAILED test_a.py::test_fails - assert False\n"
+        "1 failed, 1 error in 0.05s\n"
+    )
+    assertion = "FAILED test_a.py::test_failure - assert False\n1 failed in 0.05s\n"
+
+    assert classify_pytest(1, setup) == "SETUP_ERROR"
+    assert classify_pytest(1, teardown) == "TEARDOWN_ERROR"
+    assert classify_pytest(1, mixed) == "MIXED_ERROR"
+    assert classify_pytest(1, assertion) == "TEST_FAILURE"
+    # An exit code 1 with nothing readable in it is not a defect either.
+    assert classify_pytest(1, "something went wrong\n") == "UNKNOWN_ERROR"
+    assert classify_pytest(1, "1 error in 0.05s\n") == "UNKNOWN_ERROR"
+    assert classify_pytest(7, "weird\n") == "UNKNOWN_ERROR"
+    assert classify_pytest(0, "") == "PASSED"
+
+
+def test_r2_03_a_collection_error_names_its_cause_class(tmp_path: Path) -> None:
+    local = "E   ImportError: cannot import name 'reject' from 'lifecycle.approval'\n"
+    missing_local = "E   ModuleNotFoundError: No module named 'lifecycle_helper'\n"
+    missing_third_party = "E   ModuleNotFoundError: No module named 'pytest_asyncio'\n"
+    attribute = "E   AttributeError: module 'lifecycle' has no attribute 'reject'\n"
+
+    (tmp_path / "lifecycle.py").write_text("def approve():\n    return True\n", encoding="utf-8")
+
+    assert collect_cause_class(local, tmp_path) == "INTERFACE_MISMATCH"
+    assert collect_cause_class(attribute, tmp_path) == "INTERFACE_MISMATCH"
+    assert collect_cause_class(missing_third_party, tmp_path) == "ENVIRONMENT"
+    assert collect_cause_class(missing_local, tmp_path) == "ENVIRONMENT"
+    assert collect_cause_class("E   SyntaxError: invalid syntax\n", tmp_path) == "ENVIRONMENT"
+    # Without a workspace there is nothing to compare against, so nothing may be called a mismatch.
+    assert collect_cause_class(local, None) == "ENVIRONMENT"
+
+
 # ------------------------------------------------------------------ artifact
 
 
@@ -395,11 +634,13 @@ def test_the_r1_artifact_is_written_with_its_own_identity(
     reloaded = json.loads(target.read_text(encoding="utf-8"))
 
     assert reloaded["stage"] == "closure-2a-r1"
+    assert reloaded["repair_revision"] == "closure-2a-r2"
     assert reloaded["preregistration_digest"] == C2A_R1_PREREGISTRATION_DIGEST
     assert reloaded["status"] == "PASSED"
     assert reloaded["execution_ready"] is False
     assert reloaded["model_calls"] == 0
     assert reloaded["sandbox_runs"] == 0
+    assert reloaded["approval_binding"]["passed"] is True
     assert target.parent == tmp_path
 
 

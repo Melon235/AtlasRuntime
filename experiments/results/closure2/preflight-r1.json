@@ -2,10 +2,12 @@
   "absolute_paths_in_payload": [],
   "approval": {
     "approved_digest": null,
+    "current_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
     "execution_ready": false,
+    "frozen_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
     "problems": [
       "approval status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
-      "approval names digest None but the frozen digest is '3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765'",
+      "approval names digest None but the frozen R1 digest is '3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765'",
       "approval has no approver",
       "approval has no approval commit",
       "approval has no approval timestamp"
@@ -19,6 +21,19 @@
     },
     "status": "PENDING_OWNER_APPROVAL",
     "target_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765"
+  },
+  "approval_binding": {
+    "drifted_digest": "b575859a10ba0a9f85bf31c2643b84e7762c885457fec532b5ae886954a25982",
+    "facts": {
+      "drifted_copy_cannot_be_approved_even_with_its_own_digest": true,
+      "drifted_copy_hashes_to_a_different_digest": true,
+      "faithful_copy_can_be_approved": true,
+      "faithful_copy_hashes_to_the_frozen_digest": true,
+      "frozen_approval_does_not_cover_a_drifted_checkout": true
+    },
+    "faithful_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+    "frozen_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+    "passed": true
   },
   "benchmark_id": "closure2-final-benchmark-v1",
   "benchmark_version": "closure2-final-benchmark-v1",
@@ -58,6 +73,8 @@
   },
   "c2a_preregistration_digest": "f7bbdfb8350589a959d78be00a9dc150c3b12fd6d277cf0fe2cee8a8b536b058",
   "checks": {
+    "approval_gate_binds_frozen_digest": true,
+    "approval_gate_has_no_digest_override": true,
     "approval_outside_frozen_identity": true,
     "approval_record_consistent": true,
     "arms_are_distinct": true,
@@ -154,7 +171,7 @@
   },
   "execution_ready": false,
   "frozen_preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
-  "generated_at": "2026-11-17T04:25:03.046954+00:00",
+  "generated_at": "2026-11-17T10:44:33.853890+00:00",
   "kind": "deterministic_benchmark_preflight",
   "layout": {
     "ablation_differing_keys": [
@@ -198,32 +215,54 @@
   "model_calls": 0,
   "oracle_independence": {
     "closure2-pipeline-migration": {
+      "harness_blocked": {
+        "reference_hidden": false,
+        "reference_public": false,
+        "seed_hidden": false,
+        "seed_public": false
+      },
       "hidden_oracle_executed_tests": 11,
       "reference_hidden": "PASSED",
       "reference_public": "PASSED",
       "seed_hidden": "TEST_FAILURE",
       "seed_hidden_cause": null,
+      "seed_hidden_cause_class": null,
       "seed_hidden_failed_without_executing_assertions": false,
       "seed_public": "TEST_FAILURE"
     },
     "closure2-plugin-migration": {
+      "harness_blocked": {
+        "reference_hidden": false,
+        "reference_public": false,
+        "seed_hidden": false,
+        "seed_public": false
+      },
       "hidden_oracle_executed_tests": 12,
       "reference_hidden": "PASSED",
       "reference_public": "PASSED",
       "seed_hidden": "TEST_FAILURE",
       "seed_hidden_cause": null,
+      "seed_hidden_cause_class": null,
       "seed_hidden_failed_without_executing_assertions": false,
       "seed_public": "TEST_FAILURE"
     },
     "closure2-state-machine-refactor": {
+      "harness_blocked": {
+        "reference_hidden": false,
+        "reference_public": false,
+        "seed_hidden": false,
+        "seed_public": false
+      },
       "hidden_oracle_executed_tests": 7,
       "reference_hidden": "PASSED",
       "reference_public": "PASSED",
       "seed_hidden": "COLLECT_ERROR",
       "seed_hidden_cause": {
         "cause": "ImportError: cannot import name 'reject' from 'lifecycle.approval' (<workspace>\\lifecycle\\approval.py)",
+        "cause_class": "INTERFACE_MISMATCH",
         "kind": "COLLECT_ERROR"
       },
+      "seed_hidden_cause_class": "INTERFACE_MISMATCH",
       "seed_hidden_failed_without_executing_assertions": true,
       "seed_public": "COLLECT_ERROR"
     }
@@ -366,6 +405,7 @@
   },
   "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
   "protocol_revision": "closure-2a-r1",
+  "repair_revision": "closure-2a-r2",
   "router_policy": {
     "digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
     "frozen_digest": "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244",
@@ -568,15 +608,31 @@
             "ERROR",
             "INTERNAL_ERROR",
             "INTERRUPTED",
+            "MIXED_ERROR",
             "NO_TARGETS",
             "NO_TESTS_COLLECTED",
+            "SETUP_ERROR",
+            "TEARDOWN_ERROR",
             "TIMEOUT",
+            "UNKNOWN_ERROR",
             "USAGE_ERROR"
+          ],
+          "only_these_count_as_a_seed_defect": [
+            "TEST_FAILURE",
+            "COLLECT_ERROR/INTERFACE_MISMATCH"
           ],
           "reference_hidden": "PASSED",
           "reference_public": "PASSED",
           "seed_hidden": "TEST_FAILURE",
-          "seed_public": "TEST_FAILURE"
+          "seed_hidden_cause_class": null,
+          "seed_public": "TEST_FAILURE",
+          "seed_public_cause_class": null
+        },
+        "harness_blocked": {
+          "reference_hidden": false,
+          "reference_public": false,
+          "seed_hidden": false,
+          "seed_public": false
         },
         "hidden_collection_diagnostics": null,
         "hidden_oracle_executed_tests": 11,
@@ -591,34 +647,41 @@
         },
         "reference_hidden": {
           "cause": null,
+          "cause_class": null,
           "counts": {
             "passed": 11
           },
           "exit_code": 0,
           "kind": "PASSED",
           "passed": true,
-          "tail": "...........                                                              [100%]\n11 passed in 0.02s",
+          "setup_errors": 0,
+          "tail": "...........                                                              [100%]\n11 passed in 0.03s",
           "targets": [
             "test_hidden_pipeline.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "reference_hidden_passes": true,
         "reference_public": {
           "cause": null,
+          "cause_class": null,
           "counts": {
             "passed": 9
           },
           "exit_code": 0,
           "kind": "PASSED",
           "passed": true,
-          "tail": ".........                                                                [100%]\n9 passed in 0.03s",
+          "setup_errors": 0,
+          "tail": ".........                                                                [100%]\n9 passed in 0.02s",
           "targets": [
             "test_public.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "reference_public_passes": true,
         "seed_hidden": {
           "cause": "Failed: DID NOT RAISE ValueError",
+          "cause_class": null,
           "counts": {
             "failed": 9,
             "passed": 2
@@ -626,16 +689,19 @@
           "exit_code": 1,
           "kind": "TEST_FAILURE",
           "passed": false,
+          "setup_errors": 0,
           "tail": "FAILED test_hidden_pipeline.py::test_store_returns_one_record_per_name_in_name_order\nFAILED test_hidden_pipeline.py::test_build_report_propagates_a_parse_error - ...\nFAILED test_hidden_pipeline.py::test_the_public_api_still_accepts_a_plain_list_of_lines\n9 failed, 2 passed in 0.09s",
           "targets": [
             "test_hidden_pipeline.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "seed_hidden_executed_assertions": true,
         "seed_hidden_fails": true,
         "seed_hidden_kind": "TEST_FAILURE",
         "seed_public": {
           "cause": "AssertionError: assert {'name': '  C...value': ' 3 '} == {'name': 'cou... 'value': '3'}",
+          "cause_class": null,
           "counts": {
             "failed": 8,
             "passed": 1
@@ -643,10 +709,12 @@
           "exit_code": 1,
           "kind": "TEST_FAILURE",
           "passed": false,
-          "tail": "FAILED test_public.py::test_store_keeps_the_last_record_per_name - AssertionE...\nFAILED test_public.py::test_build_report_runs_the_whole_path - AssertionError...\nFAILED test_public.py::test_render_is_sorted_and_has_no_trailing_newline - As...\n8 failed, 1 passed in 0.09s",
+          "setup_errors": 0,
+          "tail": "FAILED test_public.py::test_store_keeps_the_last_record_per_name - AssertionE...\nFAILED test_public.py::test_build_report_runs_the_whole_path - AssertionError...\nFAILED test_public.py::test_render_is_sorted_and_has_no_trailing_newline - As...\n8 failed, 1 passed in 0.11s",
           "targets": [
             "test_public.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "seed_public_fails": true
       },
@@ -856,15 +924,31 @@
             "ERROR",
             "INTERNAL_ERROR",
             "INTERRUPTED",
+            "MIXED_ERROR",
             "NO_TARGETS",
             "NO_TESTS_COLLECTED",
+            "SETUP_ERROR",
+            "TEARDOWN_ERROR",
             "TIMEOUT",
+            "UNKNOWN_ERROR",
             "USAGE_ERROR"
+          ],
+          "only_these_count_as_a_seed_defect": [
+            "TEST_FAILURE",
+            "COLLECT_ERROR/INTERFACE_MISMATCH"
           ],
           "reference_hidden": "PASSED",
           "reference_public": "PASSED",
           "seed_hidden": "TEST_FAILURE",
-          "seed_public": "TEST_FAILURE"
+          "seed_hidden_cause_class": null,
+          "seed_public": "TEST_FAILURE",
+          "seed_public_cause_class": null
+        },
+        "harness_blocked": {
+          "reference_hidden": false,
+          "reference_public": false,
+          "seed_hidden": false,
+          "seed_public": false
         },
         "hidden_collection_diagnostics": null,
         "hidden_oracle_executed_tests": 12,
@@ -879,34 +963,41 @@
         },
         "reference_hidden": {
           "cause": null,
+          "cause_class": null,
           "counts": {
             "passed": 12
           },
           "exit_code": 0,
           "kind": "PASSED",
           "passed": true,
+          "setup_errors": 0,
           "tail": "............                                                             [100%]\n12 passed in 0.03s",
           "targets": [
             "test_hidden_plugins.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "reference_hidden_passes": true,
         "reference_public": {
           "cause": null,
+          "cause_class": null,
           "counts": {
             "passed": 9
           },
           "exit_code": 0,
           "kind": "PASSED",
           "passed": true,
-          "tail": ".........                                                                [100%]\n9 passed in 0.03s",
+          "setup_errors": 0,
+          "tail": ".........                                                                [100%]\n9 passed in 0.02s",
           "targets": [
             "test_public.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "reference_public_passes": true,
         "seed_hidden": {
           "cause": "assert [{'key': '\"a', 'value': 'b\"'}] == [{'key': 'a,b', 'value': '1'}]",
+          "cause_class": null,
           "counts": {
             "failed": 10,
             "passed": 2
@@ -914,26 +1005,31 @@
           "exit_code": 1,
           "kind": "TEST_FAILURE",
           "passed": false,
+          "setup_errors": 0,
           "tail": "FAILED test_hidden_plugins.py::test_the_loader_rejects_a_payload_the_plugin_cannot_parse\nFAILED test_hidden_plugins.py::test_both_plugins_return_the_same_shape - Asse...\nFAILED test_hidden_plugins.py::test_the_registry_is_shared_across_a_load - As...\n10 failed, 2 passed in 0.10s",
           "targets": [
             "test_hidden_plugins.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "seed_hidden_executed_assertions": true,
         "seed_hidden_fails": true,
         "seed_hidden_kind": "TEST_FAILURE",
         "seed_public": {
           "cause": "NotImplementedError",
+          "cause_class": null,
           "counts": {
             "failed": 9
           },
           "exit_code": 1,
           "kind": "TEST_FAILURE",
           "passed": false,
-          "tail": "FAILED test_public.py::test_registry_rejects_a_duplicate_name - Failed: DID N...\nFAILED test_public.py::test_loader_dispatches_by_source - AssertionError: ass...\nFAILED test_public.py::test_loader_rejects_an_unsupported_source - Failed: DI...\n9 failed in 0.11s",
+          "setup_errors": 0,
+          "tail": "FAILED test_public.py::test_registry_rejects_a_duplicate_name - Failed: DID N...\nFAILED test_public.py::test_loader_dispatches_by_source - AssertionError: ass...\nFAILED test_public.py::test_loader_rejects_an_unsupported_source - Failed: DI...\n9 failed in 0.10s",
           "targets": [
             "test_public.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "seed_public_fails": true
       },
@@ -1119,18 +1215,35 @@
             "ERROR",
             "INTERNAL_ERROR",
             "INTERRUPTED",
+            "MIXED_ERROR",
             "NO_TARGETS",
             "NO_TESTS_COLLECTED",
+            "SETUP_ERROR",
+            "TEARDOWN_ERROR",
             "TIMEOUT",
+            "UNKNOWN_ERROR",
             "USAGE_ERROR"
+          ],
+          "only_these_count_as_a_seed_defect": [
+            "TEST_FAILURE",
+            "COLLECT_ERROR/INTERFACE_MISMATCH"
           ],
           "reference_hidden": "PASSED",
           "reference_public": "PASSED",
           "seed_hidden": "COLLECT_ERROR",
-          "seed_public": "COLLECT_ERROR"
+          "seed_hidden_cause_class": "INTERFACE_MISMATCH",
+          "seed_public": "COLLECT_ERROR",
+          "seed_public_cause_class": "INTERFACE_MISMATCH"
+        },
+        "harness_blocked": {
+          "reference_hidden": false,
+          "reference_public": false,
+          "seed_hidden": false,
+          "seed_public": false
         },
         "hidden_collection_diagnostics": {
           "cause": "ImportError: cannot import name 'reject' from 'lifecycle.approval' (<workspace>\\lifecycle\\approval.py)",
+          "cause_class": "INTERFACE_MISMATCH",
           "kind": "COLLECT_ERROR"
         },
         "hidden_oracle_executed_tests": 7,
@@ -1145,60 +1258,72 @@
         },
         "reference_hidden": {
           "cause": null,
+          "cause_class": null,
           "counts": {
             "passed": 7
           },
           "exit_code": 0,
           "kind": "PASSED",
           "passed": true,
+          "setup_errors": 0,
           "tail": ".......                                                                  [100%]\n7 passed in 0.02s",
           "targets": [
             "test_hidden_lifecycle.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "reference_hidden_passes": true,
         "reference_public": {
           "cause": null,
+          "cause_class": null,
           "counts": {
             "passed": 7
           },
           "exit_code": 0,
           "kind": "PASSED",
           "passed": true,
+          "setup_errors": 0,
           "tail": ".......                                                                  [100%]\n7 passed in 0.02s",
           "targets": [
             "test_public.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "reference_public_passes": true,
         "seed_hidden": {
           "cause": "ImportError: cannot import name 'reject' from 'lifecycle.approval' (<workspace>\\lifecycle\\approval.py)",
+          "cause_class": "INTERFACE_MISMATCH",
           "counts": {
             "error": 1
           },
           "exit_code": 2,
           "kind": "COLLECT_ERROR",
           "passed": false,
-          "tail": "=========================== short test summary info ===========================\nERROR test_hidden_lifecycle.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.11s",
+          "setup_errors": 0,
+          "tail": "=========================== short test summary info ===========================\nERROR test_hidden_lifecycle.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.12s",
           "targets": [
             "test_hidden_lifecycle.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "seed_hidden_executed_assertions": false,
         "seed_hidden_fails": true,
         "seed_hidden_kind": "COLLECT_ERROR",
         "seed_public": {
           "cause": "ImportError: cannot import name 'reject' from 'lifecycle.approval' (<workspace>\\lifecycle\\approval.py)",
+          "cause_class": "INTERFACE_MISMATCH",
           "counts": {
             "error": 1
           },
           "exit_code": 2,
           "kind": "COLLECT_ERROR",
           "passed": false,
-          "tail": "=========================== short test summary info ===========================\nERROR test_public.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.12s",
+          "setup_errors": 0,
+          "tail": "=========================== short test summary info ===========================\nERROR test_public.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.14s",
           "targets": [
             "test_public.py"
-          ]
+          ],
+          "teardown_errors": 0
         },
         "seed_public_fails": true
       },

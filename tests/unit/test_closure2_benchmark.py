@@ -14,7 +14,10 @@ The R1 repair files this suite guards:
 from __future__ import annotations
 
 import dataclasses
+import inspect
+import os
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -253,29 +256,21 @@ def test_changing_a_budget_parameter_changes_the_frozen_digest(monkeypatch) -> N
     assert arm_config_digest("N0") != arm_before
 
 
+PENDING_TEMPLATE: dict[str, Any] = {
+    "status": "PENDING_OWNER_APPROVAL",
+    "approved_digest": None,
+    "approved_by": None,
+    "approval_commit": None,
+    "approved_at": None,
+}
+
+
 def test_a_pending_record_blocks_execution() -> None:
-    gate = approval_gate(
-        record={
-            "status": "PENDING_OWNER_APPROVAL",
-            "approved_digest": None,
-            "approved_by": None,
-            "approval_commit": None,
-            "approved_at": None,
-        },
-        digest=preregistration_digest(),
-    )
+    gate = approval_gate(record=PENDING_TEMPLATE)
     assert gate["execution_ready"] is False
     assert any("not 'APPROVED'" in problem for problem in gate["problems"])
     with pytest.raises(PermissionError):
-        require_execution_approval(
-            record={
-                "status": "PENDING_OWNER_APPROVAL",
-                "approved_digest": None,
-                "approved_by": None,
-                "approval_commit": None,
-                "approved_at": None,
-            }
-        )
+        require_execution_approval(record=PENDING_TEMPLATE)
 
 
 def test_an_approval_of_the_wrong_digest_fails_closed() -> None:
@@ -300,6 +295,93 @@ def test_a_correct_approval_is_accepted() -> None:
     assert require_execution_approval(record=record)["execution_ready"] is True
 
 
+# ------------------------------------------------- R2-01: approval binds the frozen identity
+
+
+def test_r2_01_a_correct_approval_of_the_frozen_digest_is_accepted() -> None:
+    """TEST A — frozen identity matches, so a complete, correct approval is usable."""
+
+    record = {**APPROVED_TEMPLATE, "approved_digest": C2A_R1_PREREGISTRATION_DIGEST}
+    gate = approval_gate(record=record)
+    assert gate["frozen_digest"] == C2A_R1_PREREGISTRATION_DIGEST
+    assert gate["current_digest"] == C2A_R1_PREREGISTRATION_DIGEST
+    assert gate["execution_ready"] is True
+    assert gate["problems"] == []
+
+
+def test_r2_01_approving_a_drifted_budget_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TEST C — re-signing the drift must not turn a changed budget into an approved benchmark."""
+
+    monkeypatch.setitem(protocol.BUDGET["single"], "token_budget", 280_000)
+    monkeypatch.setitem(protocol.BUDGET["multi"], "token_budget", 280_000)
+    drifted = preregistration_digest()
+    assert drifted != C2A_R1_PREREGISTRATION_DIGEST
+
+    # A perfectly self-consistent signature: the approval names what the repository says right now.
+    record = {**APPROVED_TEMPLATE, "approved_digest": drifted}
+    gate = approval_gate(record=record)
+
+    assert gate["current_digest"] == gate["approved_digest"] == drifted
+    assert gate["execution_ready"] is False
+    assert any("frozen definition moved" in problem for problem in gate["problems"])
+    assert any("frozen R1 digest" in problem for problem in gate["problems"])
+    with pytest.raises(PermissionError, match="frozen definition moved"):
+        require_execution_approval(record=record)
+
+
+def test_r2_01_approving_a_drifted_config_is_refused(tmp_path: Path) -> None:
+    """TEST D — a drifted YAML approved by its own digest is still not the R1 registration."""
+
+    copy_frozen_configs(tmp_path)
+    text = read_config(SHARED_PREFIX_CONFIG)
+    drifted_text = text.replace("max_results: 5", "max_results: 6")
+    assert drifted_text != text
+    write_config(tmp_path, SHARED_PREFIX_CONFIG, drifted_text)
+
+    drifted = preregistration_digest(root=tmp_path)
+    assert drifted != C2A_R1_PREREGISTRATION_DIGEST
+    record = {**APPROVED_TEMPLATE, "approved_digest": drifted}
+
+    gate = approval_gate(record=record, root=tmp_path)
+    assert gate["current_digest"] == drifted
+    assert gate["execution_ready"] is False
+    assert any("frozen definition moved" in problem for problem in gate["problems"])
+
+
+def test_r2_01_the_frozen_identity_still_approves_from_another_checkout(tmp_path: Path) -> None:
+    """The frozen check must not become a path check: identical content approves from elsewhere."""
+
+    copy_frozen_configs(tmp_path)
+    record = {**APPROVED_TEMPLATE, "approved_digest": C2A_R1_PREREGISTRATION_DIGEST}
+    gate = approval_gate(record=record, root=tmp_path)
+    assert gate["current_digest"] == C2A_R1_PREREGISTRATION_DIGEST
+    assert gate["execution_ready"] is True
+
+
+def test_r2_01_the_gate_accepts_no_digest_override() -> None:
+    """An override would let a caller pass the frozen value while the repository says otherwise."""
+
+    assert "digest" not in inspect.signature(approval_gate).parameters
+    assert "digest" not in inspect.signature(require_execution_approval).parameters
+    with pytest.raises(TypeError):
+        approval_gate(**{"record": APPROVED_TEMPLATE, "digest": C2A_R1_PREREGISTRATION_DIGEST})
+    with pytest.raises(TypeError):
+        require_execution_approval(
+            **{"record": APPROVED_TEMPLATE, "digest": C2A_R1_PREREGISTRATION_DIGEST}
+        )
+
+
+def test_r2_01_the_live_record_is_still_pending() -> None:
+    """TEST F — this stage does not approve anything, and the gate says so."""
+
+    gate = approval_gate()
+    assert gate["execution_ready"] is False
+    assert gate["status"] == "PENDING_OWNER_APPROVAL"
+    assert gate["approved_digest"] is None
+    with pytest.raises(PermissionError):
+        require_execution_approval()
+
+
 # ------------------------------------------------------------------ R1-02: no checkout path
 
 
@@ -318,13 +400,124 @@ def test_a_relative_path_resolves_against_the_repository_root() -> None:
     assert resolved.is_file()
 
 
+def _make_dir_link(target: Path, link: Path) -> str:
+    """Create a directory link, preferring a symlink and falling back to a Windows junction."""
+
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pass
+    else:
+        return "symlink"
+
+    completed = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode == 0 and link.exists():
+        return "junction"
+    return "none"
+
+
 @pytest.mark.parametrize(
     "candidate",
-    ["/etc/passwd", "C:\\Windows\\win.ini", "../outside.yaml", "experiments/../../x.yaml", ""],
+    [
+        "/etc/passwd",
+        "C:\\Windows\\win.ini",
+        "C:/Windows/win.ini",
+        "..\\outside.yaml",
+        "experiments\\..\\..\\outside.yaml",
+        "../outside.yaml",
+        "experiments/../../x.yaml",
+        "\\\\server\\share\\file.yaml",
+        "//server/share/file.yaml",
+        "",
+    ],
 )
 def test_escaping_paths_are_refused(candidate: str) -> None:
     with pytest.raises((ValueError, TypeError)):
         resolve_repo_path(candidate)
+
+
+def test_r2_02_a_backslash_path_never_reaches_the_filesystem(tmp_path: Path) -> None:
+    """Windows treats ``\\`` as a separator; POSIX validation treats it as an ordinary letter."""
+
+    for candidate in (
+        r"..\outside.yaml",
+        r"experiments\..\..\outside.yaml",
+        r"\\server\share\file.yaml",
+        r"experiments\configs\final4-context.yaml",
+    ):
+        with pytest.raises(ValueError, match="separator"):
+            resolve_repo_path(candidate, root=tmp_path)
+
+
+def test_r2_02_a_drive_prefix_is_refused_even_with_forward_slashes() -> None:
+    with pytest.raises(ValueError, match="drive or stream prefix"):
+        resolve_repo_path("C:/Windows/win.ini")
+    with pytest.raises(ValueError, match="drive or stream prefix"):
+        resolve_repo_path("C:relative/inside.yaml")
+
+
+def test_r2_02_a_legitimate_path_resolves_under_each_root(tmp_path: Path) -> None:
+    first = tmp_path / "checkout-one"
+    second = tmp_path / "checkout-two"
+    copy_frozen_configs(first)
+    copy_frozen_configs(second)
+    for root in (first, second):
+        resolved = resolve_repo_path(SHARED_PREFIX_CONFIG, root=root)
+        assert resolved.parent.parent.parent == root
+        assert resolved.is_file()
+
+
+def test_r2_02_a_link_that_leaves_the_root_is_refused(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    link = root / "escape"
+    kind = _make_dir_link(outside, link)
+    if kind == "none":
+        pytest.skip("this host cannot create a symlink or directory junction without elevation")
+    with pytest.raises(ValueError, match="outside the repository root"):
+        resolve_repo_path("escape/leak.yaml", root=root)
+
+
+def test_r2_02_a_sibling_tree_with_the_same_prefix_is_not_inside(tmp_path: Path) -> None:
+    """``repo-other`` shares a string prefix with ``repo`` yet is a different tree.
+
+    A ``startswith`` check would accept it; ``Path.is_relative_to`` after ``resolve()`` does not.
+    The sibling is reachable only through a link, which is exactly the shape being refused.
+    """
+
+    root = tmp_path / "repo"
+    sibling = tmp_path / "repo-other"
+    root.mkdir()
+    sibling.mkdir()
+    kind = _make_dir_link(sibling, root / "sibling")
+    if kind == "none":
+        pytest.skip("this host cannot create a symlink or directory junction without elevation")
+    with pytest.raises(ValueError, match="outside the repository root"):
+        resolve_repo_path("sibling/file.yaml", root=root)
+
+
+def test_r2_02_path_checks_do_not_change_the_frozen_identity() -> None:
+    """Validating a path must not rewrite a config, and must not move any digest."""
+
+    before = preregistration_digest()
+    shared_before = (REPO_ROOT / SHARED_PREFIX_CONFIG).read_text(encoding="utf-8")
+    for _ in range(3):
+        resolve_repo_path(LEGACY_CONTEXT_CONFIG)
+        resolve_repo_path(SHARED_PREFIX_CONFIG)
+    assert (REPO_ROOT / SHARED_PREFIX_CONFIG).read_text(encoding="utf-8") == shared_before
+    assert preregistration_digest() == before == C2A_R1_PREREGISTRATION_DIGEST
+    assert config_semantic_digest(LEGACY_CONTEXT_CONFIG) == (
+        "16f587b3696e5d4e9f9a7868aa0859c89da876975ef7060f8a2936ce72899eb8"
+    )
+    assert config_semantic_digest(SHARED_PREFIX_CONFIG) == (
+        "751beb1506602e250f240f69771514c7c2b569e3903c01060a554455dcfc549a"
+    )
 
 
 def test_the_registration_digest_is_identical_in_two_checkouts(tmp_path: Path) -> None:

@@ -19,6 +19,8 @@ Model calls: **0**. Sandbox runs: **0**. Budget approval: **still `PENDING_OWNER
 | `C2_A_HEAD_SHA` (branch point) | `ac7af16b4506afafe6e932e2cc351b04354b9f57` |
 | Repair branch | `fix/closure-2a-r1-review` |
 | Repair commit | `71f5c8e0784c281e23b5c1b37d31640f8f9c50cd` |
+| R2 baseline | `9a7767aff233397a4cb200bed24a842cf2f49bbd` |
+| R2 repair commit | `PENDING_R2_COMMIT` |
 | C2-A preregistration digest | `f7bbdfb8350589a959d78be00a9dc150c3b12fd6d277cf0fe2cee8a8b536b058` |
 | R1 preregistration digest | `3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765` |
 | Router policy | `r0.1.0`, `5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244` (unchanged) |
@@ -228,7 +230,7 @@ python -m experiments.evaluation.closure2.preflight \
 |---|---|
 | `stage` | `closure-2a-r1` |
 | `status` | `PASSED` |
-| Checks | 60 / 60 |
+| Checks | 60 / 60 at R1; **62 / 62** after R2 (§R2.5 — same file, two checks added) |
 | `preregistration_digest` | `3080f313…` (equals `frozen_preregistration_digest`) |
 | `execution_ready` | `false` |
 | `approval.status` | `PENDING_OWNER_APPROVAL` |
@@ -350,5 +352,161 @@ python -m ruff format --check .
 python -m pyright
 ```
 
-A reviewer should see: `PASSED`, 60/60, digest `3080f313…`, `execution_ready false`. A different
+A reviewer should see: `PASSED`, 62/62, digest `3080f313…`, `execution_ready false`. A different
 digest means the frozen content moved; stop and cut a new version instead of re-freezing.
+
+---
+
+# R2 — Final Preregistration and Execution Integrity Repair
+
+Status: `READY_FOR_FINAL_INDEPENDENT_REVIEW` (offline only; live pilot still blocked).
+
+A second review of R1 found three boundary defects. Same rules as R1: no task, seed, reference,
+oracle, requirement, DAG, arm, budget parameter or router policy changed, and the **R1
+preregistration digest is unchanged** (`3080f313…`). Model calls: 0. Sandbox runs: 0. Budget
+approval: still `PENDING_OWNER_APPROVAL`.
+
+## R2.1 Root cause
+
+Each defect was reproduced on the R1 commit (`9a7767a`) before it was fixed, in a detached worktree
+of that commit, not inferred from the review text.
+
+### R2-01 — the approval gate bound the *current* digest, not the frozen one
+
+`approval_gate()` computed `target = preregistration_digest() if digest is None else digest` and
+compared the approval against `target`. Two consequences:
+
+* a caller could pass `digest=<anything>`, so the gate never had to look at the repository;
+* with no override, the gate accepted a **self-consistent drift**: change
+  `BUDGET["single"]["token_budget"]` from 260 000 to 280 000, sign the new digest, and
+  `execution_ready` became `True`.
+
+Reproduced on `9a7767a`: drift to 280 000 → digest `3080f313…` → `7f0eafa8…`; a record naming
+`7f0eafa8…` yielded `execution_ready = True` and `require_execution_approval()` **returned
+normally**. A benchmark nobody registered could have been executed with a valid-looking approval.
+
+### R2-02 — POSIX-only traversal validation, Windows path resolution
+
+`resolve_repo_path()` validated `PurePosixPath(text).parts` and then handed the same string to
+`Path.joinpath`. On Windows `\` is a separator for the filesystem but an ordinary character for
+`PurePosixPath`, so `experiments\..\..\outside.yaml` was one harmless-looking component during
+validation and three components — the last two of them escaping — during the file access.
+
+Reproduced on `9a7767a`: `resolve_repo_path(r"experiments\..\..\outside.yaml")` returned
+`…\experiments\..\..\outside.yaml`, which the OS resolves to a directory above the checkout. The
+same hole admitted `..\outside.yaml` and `\\server\share\file.yaml`.
+
+### R2-03 — exit code 1 was read as "assertion failed"
+
+`classify_pytest()` returned `TEST_FAILURE` for every `returncode == 1`. pytest also uses 1 for a
+fixture setup error, a fixture teardown error, and a session that has both. Because the seed gates
+counted `TEST_FAILURE` as a valid defect, a broken fixture or a mixed session would have been
+reported as "the seed does not satisfy the contract" — a false positive of exactly the class R1 was
+supposed to eliminate.
+
+Reproduced on `9a7767a`: `classify_pytest(1, <setup-error output>)` → `TEST_FAILURE`;
+`classify_pytest(1, <failure + setup-error output>)` → `TEST_FAILURE`.
+
+## R2.2 Implementation
+
+| File | Change |
+|---|---|
+| `protocol.py::resolve_repo_path` | two layers — lexical (`\\` refused, `/`-only, no drive/UNC/stream prefix, no `..`) then `resolve()`-based containment via `Path.is_relative_to`; no `startswith` string comparison |
+| `protocol.py::approval_gate` | target is the constant `C2A_R1_PREREGISTRATION_DIGEST`; the current digest is checked *against* it; the `digest` override is removed; `root` is added so a test can point at another checkout (it can only make the gate stricter); result now reports `frozen_digest` and `current_digest` |
+| `protocol.py::require_execution_approval` | takes no path or digest argument at all, so the execution path always evaluates the live repository |
+| `preflight.py::classify_pytest` | phase markers (`ERROR at setup of`, `ERROR at teardown of`) plus the summary counts; `TEST_FAILURE`, `SETUP_ERROR`, `TEARDOWN_ERROR`, `MIXED_ERROR`, `UNKNOWN_ERROR` and the pre-existing kinds are distinct; anything unreadable is `UNKNOWN_ERROR` |
+| `preflight.py::collect_cause_class` | a `COLLECT_ERROR` becomes `INTERFACE_MISMATCH` only when the missing name belongs to a module the workspace ships; otherwise `ENVIRONMENT` |
+| `preflight.py::session_is_valid_defect` / `harness_blocked` | one place decides "this proves a defect" versus "this blocks the run"; the seed gates and the `no_harness_failure` check both use it |
+| `preflight.py::approval_binding_probe` | new check: a faithful checkout can be approved, a drifted checkout approved with its own digest cannot |
+| `preflight.py::run_preflight` | two new checks (below), `approval_binding` section, `repair_revision: closure-2a-r2`, `cause_class` in `oracle_independence` |
+
+`PROTOCOL_REVISION` stays `closure-2a-r1`: the frozen definition did not move, only the code that
+enforces it. The artifact carries a separate `repair_revision` field so the evidence says which
+build produced it without touching the identity.
+
+### New preflight checks (60 → 62)
+
+| Check | Why |
+|---|---|
+| `approval_gate_binds_frozen_digest` | proves, in throwaway checkouts, that a drifted registration cannot be approved by signing the drift |
+| `approval_gate_has_no_digest_override` | proves the bypass parameter is gone from both gate functions |
+
+Every R1 check is retained unchanged.
+
+## R2.3 Negative evidence
+
+| Defect | Control | Result |
+|---|---|---|
+| R2-01 | budget drift to 280 000 + approval naming the drifted digest | `execution_ready is False`, `PermissionError`, problem text names the frozen definition |
+| R2-01 | YAML drift in a temporary checkout + approval naming the drifted digest | refused |
+| R2-01 | faithful copy in another checkout + approval of `3080f313…` | accepted (the check is content-bound, not path-bound) |
+| R2-01 | `approval_gate(digest=…)` / `require_execution_approval(digest=…)` | `TypeError`; the parameter does not exist |
+| R2-02 | `..\outside.yaml`, `experiments\..\..\outside.yaml`, `\\server\share\file.yaml`, `experiments\configs\x.yaml` | `ValueError: … must use '/' as the only separator` |
+| R2-02 | `C:/Windows/win.ini`, `C:relative/inside.yaml` | `ValueError: … drive or stream prefix` |
+| R2-02 | `/etc/passwd`, `//server/share/file.yaml`, empty | refused |
+| R2-02 | directory link pointing outside the root; sibling tree `repo-other` reached through a link | `ValueError: … resolves outside the repository root` (executed via a Windows junction, not skipped) |
+| R2-03 | real pytest session per shape | `TEST_FAILURE` / `SETUP_ERROR` / `TEARDOWN_ERROR` / `COLLECT_ERROR`+`INTERFACE_MISMATCH` / `COLLECT_ERROR`+`ENVIRONMENT` / `MIXED_ERROR`, each with the expected `valid_defect` / `harness_blocked` |
+| R2-03 | a seed whose hidden oracle has a broken fixture | `seed_hidden_fails is False`, `harness_blocked.seed_hidden is True` |
+| R2-03 | a seed whose hidden oracle imports a missing third-party package | `COLLECT_ERROR`/`ENVIRONMENT`, `seed_hidden_fails is False` |
+
+`collect_cause_class` is conservative on purpose: without a workspace to compare against, a
+collection error is `ENVIRONMENT`, never a mismatch. That direction can only cause the preflight to
+fail, never to pass.
+
+## R2.4 Freeze preservation
+
+| Object | Evidence |
+|---|---|
+| R1 preregistration digest | `3080f313…` — unchanged; asserted by `preregistration_digest_matches_frozen_r1` and pinned by unit test |
+| Task content | live `task_digests` still equal the C2-A table for all three tasks |
+| Router policy | `r0.1.0` / `5e13c910…`; decisions unchanged (P1, P2 `delegate_parallel`; N1 `direct`) |
+| Configs | `experiments/configs/*.yaml` untouched; semantic digests `16f587b3…` / `751beb15…` unchanged and pinned by unit test |
+| Budget parameters | untouched; still inside the frozen payload |
+| N1 collection error | still reported as `COLLECT_ERROR`, now with `cause_class: INTERFACE_MISMATCH` and the original `ImportError` text |
+
+The repairs live entirely in the code that *evaluates* the registration. Nothing inside
+`preregistration_payload()` changed, which is why the digest cannot have moved.
+
+## R2.5 Regression
+
+| Command | Exit | Result |
+|---|---|---|
+| `python -m experiments.evaluation.closure2.preflight --out …/preflight-r1.json` | 0 | `PASSED`, 62/62, digest `3080f313…`, `execution_ready false` |
+| `python -m pytest tests/unit/test_closure2_benchmark.py` | 0 | 69 passed |
+| `python -m pytest tests/integration/test_closure2_preflight.py` | 0 | 40 passed |
+| `python -m pytest` (with an isolated `--basetemp`) | 0 | 1169 passed, 6 skipped, 1 deselected |
+| `python -m ruff check .` | 0 | `All checks passed!` |
+| `python -m ruff format --check .` | 0 | `424 files already formatted` |
+| `python -m pyright` | 0 | `0 errors, 0 warnings, 0 informations` |
+
+The R1 test count was 78 (52 + 26); R2 raises it to 109 (69 + 40). The 6 skips are the pre-existing
+optional-dependency/platform skips; the two link tests are **not** among them — the host accepted
+`mklink /J`, so they executed. The `--basetemp` note in §6 still applies: a default run can end
+with a non-zero exit at teardown when the shell's bulk-delete guard blocks pytest's own temporary
+directory cleanup, after the run has already finished.
+
+## R2.6 Limitations
+
+1. **No Closure-2B live run has been executed.** Nothing here measured turns, tokens, cache
+   behaviour, latency or cost, and no such claim is made.
+2. **The approval remains pending.** `execution_ready` is `false` by construction; this stage did not
+   approve anything.
+3. **Verifying the gate is not verifying a runner.** There is no Closure-2B runner yet. When one is
+   written it must call `require_execution_approval()` before any model request or sandbox
+   provisioning; nothing in this repository can enforce that for code that does not exist.
+4. **Path safety covers the frozen-config loader only.** It is not a general filesystem sandbox: it
+   does not stop an already-running process from opening arbitrary paths, does not validate symlinks
+   *inside* the root that stay inside it, and does not resolve Windows short (8.3) names beyond what
+   `Path.resolve()` does.
+5. **The pytest classifier is text-based.** It recognises the phase markers and summary lines of
+   pytest 7/8/9 as printed by this environment (9.2.0 verified). A future pytest that renames those
+   markers degrades to `UNKNOWN_ERROR`, which fails the preflight — fail closed, but the preflight
+   would need updating.
+6. **The collection-cause heuristic is about locality, not intent.** A missing *local* module is
+   classified as a workspace mismatch only when a matching file or package exists in the workspace;
+   otherwise it is `ENVIRONMENT`. That under-counts exotic cases and never over-counts.
+7. **Documentation drift, deliberately not fixed here.** `docs/closure-2-preregistration.md` §8 still
+   says "all 60 checks"; the count is 62 at this revision. The file is outside this stage's declared
+   change scope, so it is reported instead of edited. The digest and the four conditions in that
+   section are unaffected.
+8. **No CI workflow** runs the preflight; the command is documented so it can be added later.
