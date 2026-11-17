@@ -20,7 +20,7 @@ Model calls: **0**. Sandbox runs: **0**. Budget approval: **still `PENDING_OWNER
 | Repair branch | `fix/closure-2a-r1-review` |
 | Repair commit | `71f5c8e0784c281e23b5c1b37d31640f8f9c50cd` |
 | R2 baseline | `9a7767aff233397a4cb200bed24a842cf2f49bbd` |
-| R2 repair commit | `PENDING_R2_COMMIT` |
+| R2 repair commit | `f649a04c9abc47156803cff30ec88f54701483ae` |
 | C2-A preregistration digest | `f7bbdfb8350589a959d78be00a9dc150c3b12fd6d277cf0fe2cee8a8b536b058` |
 | R1 preregistration digest | `3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765` |
 | Router policy | `r0.1.0`, `5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa99244` (unchanged) |
