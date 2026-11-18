@@ -303,13 +303,22 @@ PILOT_PLAN = PilotPlan(
 #: Mutable approval record for the *scope*, separate from ``protocol.APPROVAL_RECORD`` which
 #: approves the *definition*. Deliberately not a parameter of ``run_live_pilot``: a caller must not
 #: be able to hand in its own approval.
+#:
+#: The one authorized execution has happened (attempt ``f862981c…``, 2026-11-18), so the status is
+#: no longer ``APPROVED``. The record keeps who approved what, against which digest, from which
+#: commit — and adds the attempt that spent it. This matters beyond bookkeeping: the claim lives in
+#: per-user state (``%LOCALAPPDATA%``), so on a *different* machine the ledger would be empty while
+#: this record, if still ``APPROVED``, would authorize a second paid run. A consumed status refuses
+#: before any claim is taken. Another execution needs a new owner authorization, not a status edit.
 PILOT_APPROVAL: dict[str, Any] = {
-    "status": "APPROVED",
+    "status": "CONSUMED_BY_EXECUTION",
     "approved_plan_digest": "0f61f84ad195fbfb2e27f4c80f7906530066f7128da84595b0293dfd0b2e32bb",
     "approved_by": "repository_owner",
     # The scope commit: it already exists, so approving it is not a self-reference.
     "approval_commit": "de2acbc4fad395e29364aa6900e388afb492f962",
     "approved_at": "2026-11-18T08:43:30+00:00",
+    "consumed_at": "2026-11-18T08:44:11.500026+00:00",
+    "consumed_attempt_id": "f862981c20a24fdf881884b9fbd891cc",
 }
 
 
