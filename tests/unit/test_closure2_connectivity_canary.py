@@ -248,7 +248,8 @@ def test_a_canary_run_does_not_touch_the_formal_approval_records(
     assert benchmark_before == protocol.APPROVAL_RECORD
     assert pilot_before == pilot_runner.PILOT_APPROVAL
     assert pilot_runner.PILOT_PLAN.digest() == plan_before
-    assert protocol.APPROVAL_RECORD["status"] == "PENDING_OWNER_APPROVAL"
+    # No absolute approval status is asserted: the formal records are a different object whose
+    # value is an owner decision, and this test's claim is that a canary run leaves them alone.
 
 
 def test_the_canary_claim_lives_in_its_own_namespace(
@@ -296,14 +297,57 @@ def test_a_canary_run_leaves_the_formal_dry_run_manifest_unchanged(
 # ------------------------------------------------------------------------ B. authorization paths
 
 
-def test_the_default_state_is_pending_and_unauthorized() -> None:
+def test_the_default_state_is_consumed_and_unauthorized() -> None:
+    """The one authorized attempt has been spent: the record is kept, and it authorises nothing."""
+
     gate = canary_authorization_gate(live_intent=False)
     assert gate["live_ready"] is False
-    assert gate["approval_status"] == "PENDING_OWNER_APPROVAL"
+    assert gate["approval_status"] == "CONSUMED_BY_EXECUTION"
     assert "LIVE_INTENT_NOT_CONFIRMED" in gate["reason_codes"]
     assert "CANARY_APPROVAL_NOT_APPROVED" in gate["reason_codes"]
-    assert "CANARY_COST_CEILING_NOT_APPROVED" in gate["reason_codes"]
-    assert CANARY_APPROVAL["approved_plan_digest"] is None
+    # The audit trail survives the consumption: it still names the plan it authorised and when it
+    # was spent, so "consumed" is readable instead of being an empty refusal.
+    assert CANARY_APPROVAL["approved_plan_digest"] == CANARY_PLAN.digest()
+    assert CANARY_APPROVAL["consumed_at"]
+    assert CANARY_APPROVAL["consumed_attempt_id"]
+
+
+def test_a_consumed_authorization_cannot_run_again(tmp_path: Path) -> None:
+    """The live default is no longer pending, so the refusal is proved against that default."""
+
+    calls: list[Any] = []
+
+    async def executor(*args: Any, **kwargs: Any) -> Any:
+        calls.append(args)
+        return make_result()
+
+    with pytest.raises(CanaryNotAuthorized) as caught:
+        run_canary(tmp_path, executor)
+    assert caught.value.reason_code == "CANARY_APPROVAL_NOT_APPROVED"
+    assert calls == []
+    assert not (tmp_path / "results" / "canary-summary.json").exists()
+
+
+def test_a_pending_approval_is_refused_by_explicit_injection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pending is no longer the live default, so it is exercised by installing the record."""
+
+    monkeypatch.setattr(
+        canary,
+        "CANARY_APPROVAL",
+        {
+            "status": "PENDING_OWNER_APPROVAL",
+            "approved_plan_digest": None,
+            "approved_by": None,
+            "approval_commit": None,
+            "approved_at": None,
+        },
+    )
+    gate = canary_authorization_gate(live_intent=True)
+    assert gate["live_ready"] is False
+    assert "CANARY_APPROVAL_NOT_APPROVED" in gate["reason_codes"]
+    assert "CANARY_APPROVAL_INCOMPLETE" in gate["reason_codes"]
 
 
 def test_live_without_approval_is_refused_before_the_executor(tmp_path: Path) -> None:
@@ -854,7 +898,10 @@ def test_the_precheck_touches_no_provider_and_no_sandbox(
     assert precheck["model_calls"] == 0
     assert precheck["sandbox_runs"] == 0
     assert precheck["live_authorized"] is False
-    assert precheck["approval"]["status"] == "PENDING_OWNER_APPROVAL"
+    # The precheck reports the record it found, never a status this test wishes for: an approval
+    # that has already been spent must stay visibly unusable here.
+    assert precheck["approval"]["status"] != "APPROVED"
+    assert "CANARY_APPROVAL_NOT_APPROVED" in precheck["approval"]["reason_codes"]
     assert precheck["precheck_ready"] is True
     assert precheck["blocking_problems"] == []
 

@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 from experiments.evaluation.closure2 import connectivity_canary as canary
-from experiments.evaluation.closure2 import pilot_runner, protocol
+from experiments.evaluation.closure2 import pilot_runner
 from experiments.evaluation.closure2.pilot_ledger import PilotAlreadyClaimed, PilotLedger
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -123,7 +123,8 @@ def test_the_precheck_is_offline_and_never_authorizes(
     assert payload["mode"] == "OFFLINE_PRECHECK"
     assert payload["precheck_ready"] is True
     assert payload["live_authorized"] is False
-    assert payload["approval"]["status"] == "PENDING_OWNER_APPROVAL"
+    assert payload["approval"]["status"] != "APPROVED"
+    assert "CANARY_APPROVAL_NOT_APPROVED" in payload["approval"]["reason_codes"]
     assert payload["model_calls"] == 0
     assert payload["sandbox_runs"] == 0
     assert payload["provider"]["model"] == canary.CANARY_MODEL
@@ -177,9 +178,15 @@ def test_the_cli_refuses_live_without_the_second_confirmation(tmp_path: Path) ->
     assert not (tmp_path / "results" / "canary-summary.json").exists()
 
 
-def test_the_cli_refuses_live_while_the_canary_is_pending(
+def test_the_cli_refuses_live_after_the_authorization_is_consumed(
     tmp_path: Path, isolated_ledger: Path
 ) -> None:
+    """The one authorized attempt is spent; the CLI must refuse before any claim is taken.
+
+    The formal approval record is deliberately not asserted here: it is a different object, decided
+    by the owner, and this refusal must not depend on it.
+    """
+
     exit_code = canary.main(
         [
             "--live",
@@ -193,8 +200,7 @@ def test_the_cli_refuses_live_while_the_canary_is_pending(
     assert exit_code == 3
     assert not (tmp_path / "results" / "canary-summary.json").exists()
     assert not isolated_ledger.exists()
-    assert protocol.APPROVAL_RECORD["status"] == "PENDING_OWNER_APPROVAL"
-    assert canary.CANARY_APPROVAL["status"] == "PENDING_OWNER_APPROVAL"
+    assert canary.CANARY_APPROVAL["status"] == "CONSUMED_BY_EXECUTION"
 
 
 def test_the_cli_estimate_is_offline_and_writes_nothing(
