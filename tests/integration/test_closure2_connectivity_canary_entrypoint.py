@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 from experiments.evaluation.closure2 import connectivity_canary as canary
-from experiments.evaluation.closure2 import pilot_runner
+from experiments.evaluation.closure2 import pilot_runner, protocol
 from experiments.evaluation.closure2.pilot_ledger import PilotAlreadyClaimed, PilotLedger
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -388,15 +388,42 @@ def test_the_formal_dry_run_is_still_the_frozen_eighteen_cells() -> None:
     assert manifest["contract_ok"] is True
     assert manifest["model_calls"] == 0
     assert manifest["agent_sandbox_runs_total"] == 0
-    assert manifest["execution_ready"] is False
-    assert manifest["pilot_execution_ready"] is False
-    assert manifest["approval"]["status"] == "PENDING_OWNER_APPROVAL"
+    # The approval state is an owner decision, so it is compared with the live record rather than
+    # with a constant: what must not drift is that the dry run itself authorizes nothing.
+    assert manifest["approval"]["status"] == protocol.APPROVAL_RECORD["status"]
+    assert manifest["pilot_plan"]["approval_status"] == pilot_runner.PILOT_APPROVAL["status"]
+
+
+#: Fields that record an owner decision or a generation time. They move when the scope is approved,
+#: while the committed artifact is frozen pre-approval evidence and is deliberately not regenerated.
+_STATE_FIELDS = (
+    "generated_at",
+    "approval",
+    "execution_ready",
+    "pilot_execution_ready",
+    "pilot_plan",
+)
+
+
+def _frozen_view(payload: dict[str, Any]) -> dict[str, Any]:
+    view = {key: value for key, value in payload.items() if key not in _STATE_FIELDS}
+    view["cells"] = [
+        {key: value for key, value in cell.items() if key != "approval_status"}
+        for cell in payload["cells"]
+    ]
+    return view
 
 
 def test_the_committed_dry_run_artifact_still_matches() -> None:
+    """The frozen benchmark part of the artifact is evidence: a stale copy must fail.
+
+    The pilot scope block is not compared: approving the USD 2.00 ceiling moved its digest to
+    ``0f61f84a…``, and the artifact keeps the scope it was generated under.
+    """
+
     assert COMMITTED_DRY_RUN.is_file()
     committed = json.loads(COMMITTED_DRY_RUN.read_text(encoding="utf-8"))
     fresh = pilot_runner.build_dry_run_manifest()
-    committed.pop("generated_at", None)
-    fresh.pop("generated_at", None)
-    assert committed == fresh
+    assert _frozen_view(committed) == _frozen_view(fresh)
+    assert len(fresh["pilot_plan"]["cells"]) == 8
+    assert fresh["pilot_plan"]["plan_digest"] == pilot_runner.PILOT_PLAN.digest()

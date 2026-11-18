@@ -96,17 +96,22 @@ def test_the_dry_run_reports_the_pilot_scope_it_does_not_authorize(
     plan = manifest["pilot_plan"]
     assert plan["plan_id"] == "closure2-pilot-1"
     assert plan["plan_digest"] == pilot_runner.PILOT_PLAN.digest()
-    assert plan["approved_plan_digest"] is None
-    assert plan["approval_status"] == "PENDING_OWNER_APPROVAL"
-    assert plan["execution_ready"] is False
+    assert plan["approved_plan_digest"] == pilot_runner.PILOT_APPROVAL["approved_plan_digest"]
+    assert plan["approval_status"] == pilot_runner.PILOT_APPROVAL["status"]
+    assert (
+        plan["execution_ready"]
+        == pilot_runner.pilot_authorization_gate(cells=pilot_runner.pilot_cells(), repetition_id=0)[
+            "execution_ready"
+        ]
+    )
     assert plan["cells"] == list(pilot_runner.PILOT_PLAN.cells)
     assert len(plan["cells"]) == 8
     assert plan["repetitions"] == [0]
     assert plan["max_cell_executions"] == 8
-    assert plan["estimated_cost_ceiling_usd"] is None
-    assert plan["cost_policy"]["valid"] is False
+    # The ceiling is an owner decision frozen into the plan identity, not a constant of planning.
+    assert plan["estimated_cost_ceiling_usd"] == pilot_runner.PILOT_PLAN.estimated_cost_ceiling_usd
     assert plan["cost_policy"]["hard_enforcement"] is False
-    assert manifest["pilot_execution_ready"] is False
+    assert manifest["pilot_execution_ready"] == plan["execution_ready"]
 
 
 def test_the_dry_run_binds_the_native_config(manifest: dict[str, Any]) -> None:
@@ -184,16 +189,43 @@ def test_the_cli_refuses_live_without_the_second_confirmation(tmp_path: Path) ->
     assert not out.exists()
 
 
-def test_the_cli_refuses_live_while_the_approval_is_pending(tmp_path: Path) -> None:
+PENDING = {
+    "status": "PENDING_OWNER_APPROVAL",
+    "approved_digest": None,
+    "approved_by": None,
+    "approval_commit": None,
+    "approved_at": None,
+}
+
+
+def _forbid_the_engine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make a real engine call impossible even if a gate were to fail open."""
+
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("a refused live run must never reach the engine")
+
+    monkeypatch.setattr(pilot_runner, "_default_executor", forbidden, raising=False)
+
+
+def test_the_cli_refuses_live_while_the_approval_is_pending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pending is installed explicitly: the live default is an owner decision, not a fixture."""
+
+    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(PENDING))
+    _forbid_the_engine(monkeypatch)
     out = tmp_path / "never.json"
     exit_code = pilot_runner.main(
         ["--live", "--confirm-live", "--out", str(out), "--runs-root", str(tmp_path)]
     )
     assert exit_code == 3
-    assert protocol.APPROVAL_RECORD["status"] == "PENDING_OWNER_APPROVAL"
+    assert not out.exists()
 
 
-def test_a_live_run_never_reaches_the_executor_while_pending(tmp_path: Path) -> None:
+def test_a_live_run_never_reaches_the_executor_while_pending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(PENDING))
     calls: list[Any] = []
 
     async def executor(cell: Cell, **kwargs: Any) -> Any:
@@ -261,12 +293,35 @@ def test_a_live_run_refuses_a_plan_that_was_already_claimed(
     assert calls == []
 
 
+#: Fields that record an owner decision or a generation time. They move when a scope is approved,
+#: while the committed artifact is frozen pre-approval evidence and is deliberately not rewritten.
+_STATE_FIELDS = (
+    "generated_at",
+    "approval",
+    "execution_ready",
+    "pilot_execution_ready",
+    "pilot_plan",
+)
+
+
+def _frozen_view(payload: dict[str, Any]) -> dict[str, Any]:
+    view = {key: value for key, value in payload.items() if key not in _STATE_FIELDS}
+    view["cells"] = [
+        {key: value for key, value in cell.items() if key != "approval_status"}
+        for cell in payload["cells"]
+    ]
+    return view
+
+
 def test_the_committed_artifact_matches_a_fresh_dry_run(manifest: dict[str, Any]) -> None:
-    """The committed manifest is evidence: a stale copy must fail rather than drift silently."""
+    """The committed manifest is evidence: a stale copy must fail rather than drift silently.
+
+    The pilot scope block is excluded because approving the USD 2.00 ceiling moved that digest to
+    ``0f61f84a…``; the artifact keeps the scope it was generated under and is not regenerated.
+    """
 
     assert COMMITTED_DRY_RUN.is_file(), "the dry-run artifact is part of the evidence"
     committed = json.loads(COMMITTED_DRY_RUN.read_text(encoding="utf-8"))
     fresh = json.loads(json.dumps(manifest))
-    committed.pop("generated_at", None)
-    fresh.pop("generated_at", None)
-    assert committed == fresh
+    assert _frozen_view(committed) == _frozen_view(fresh)
+    assert fresh["pilot_plan"]["plan_digest"] == pilot_runner.PILOT_PLAN.digest()

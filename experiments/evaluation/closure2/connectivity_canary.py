@@ -79,8 +79,13 @@ CANARY_BENCHMARK_ID = "closure2-connectivity-canary"
 #: The formal pilot this stage must not disturb. Pinned as constants so the isolation guard is a
 #: pure comparison: no import of the pilot runner, no YAML read, no digest recomputation at run
 #: time. A test asserts these still equal the live objects, so drift is caught by the suite.
+#:
+#: The digest tracks the pilot plan that is **currently authorized**, so it moved from
+#: ``a99342dd…`` (ceiling unset) to ``0f61f84a…`` when the owner approved the USD 2.00 estimate.
+#: Updating it does not touch the canary's own identity: ``CANARY_PLAN.digest()`` is unchanged and
+#: its consumed authorization still names ``95f9acf1…``.
 FORMAL_PILOT_PLAN_ID = "closure2-pilot-1"
-FORMAL_PILOT_PLAN_DIGEST = "a99342dd55adab0fa14a0f69797f42462e38e2f70fba238e28cde7167427bcf8"
+FORMAL_PILOT_PLAN_DIGEST = "0f61f84ad195fbfb2e27f4c80f7906530066f7128da84595b0293dfd0b2e32bb"
 FORMAL_BENCHMARK_ID = "closure2-final-benchmark-v1"
 FORMAL_RESULTS_ROOT = REPO_ROOT / "experiments" / "results" / "closure2"
 FORMAL_RUNS_ROOT = REPO_ROOT / "experiments" / "runs" / "closure2"

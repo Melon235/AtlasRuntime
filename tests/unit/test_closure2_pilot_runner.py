@@ -176,11 +176,15 @@ def test_the_dry_run_manifest_claims_no_execution() -> None:
     assert manifest["cell_count"] == 18
     assert manifest["contract_ok"] is True
     assert manifest["contract_problems"] == []
-    assert manifest["pilot_plan"]["approval_status"] == "PENDING_OWNER_APPROVAL"
-    assert manifest["pilot_plan"]["execution_ready"] is False
-    assert manifest["pilot_execution_ready"] is False
-    assert manifest["pilot_plan"]["estimated_cost_ceiling_usd"] is None
-    assert manifest["pilot_plan"]["cost_policy"]["valid"] is False
+    assert manifest["pilot_plan"]["approval_status"] == pilot_runner.PILOT_APPROVAL["status"]
+    assert manifest["pilot_execution_ready"] == manifest["pilot_plan"]["execution_ready"]
+    # The ceiling is owner-decided scope, described from the live plan rather than re-typed here;
+    # what the manifest must never claim is that the ceiling is enforced.
+    assert (
+        manifest["pilot_plan"]["estimated_cost_ceiling_usd"]
+        == pilot_runner.PILOT_PLAN.estimated_cost_ceiling_usd
+    )
+    assert manifest["pilot_plan"]["cost_policy"]["hard_enforcement"] is False
 
 
 def test_every_cell_carries_its_frozen_identity() -> None:
@@ -525,15 +529,20 @@ def test_the_pilot_plan_is_pinned_to_the_frozen_identity() -> None:
     assert PILOT_PLAN.repetitions == (0,)
     assert PILOT_PLAN.max_cell_executions == 8
     assert PILOT_PLAN.planned_executions == 8
-    assert PILOT_PLAN.estimated_cost_ceiling_usd is None
+    # Pinned on purpose: the ceiling is part of the plan identity the owner approved.
+    assert PILOT_PLAN.estimated_cost_ceiling_usd == 2.0
 
 
 def test_the_plan_digest_ignores_the_approval_but_not_the_scope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     before = PILOT_PLAN.digest()
-    # Approval is a separate record: approving must not move the plan identity.
-    approve_pilot(monkeypatch, cells=pilot_cells(), ceiling=None)
+    # Approval is a separate record: approving the same scope must not move the plan identity.
+    approve_pilot(
+        monkeypatch,
+        cells=pilot_cells(),
+        ceiling=PILOT_PLAN.estimated_cost_ceiling_usd,
+    )
     assert pilot_runner.PILOT_PLAN.digest() == before
 
     # A different scope must move it.

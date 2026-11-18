@@ -286,8 +286,9 @@ class PilotPlan:
         return len(self.cells) * len(self.repetitions)
 
 
-#: The one pilot this stage proposes. Eight cells, one repetition, **no approved cost ceiling**;
-#: the owner sets that number, and until then ``cost_policy()["valid"]`` is false and live refuses.
+#: The one pilot this stage proposes. Eight cells, one repetition, and the owner-approved estimated
+#: cost ceiling of USD 2.00. The ceiling is part of the plan digest, so approving that digest
+#: approves the number; ``cost_policy()`` still calls it advisory, never a hard stop.
 PILOT_PLAN = PilotPlan(
     plan_id="closure2-pilot-1",
     benchmark_id=BENCHMARK_ID,
@@ -296,7 +297,7 @@ PILOT_PLAN = PilotPlan(
     cells=tuple(f"{task_id}::{arm_id}" for task_id, arm_id in PROPOSED_PILOT_CELLS),
     repetitions=tuple(range(PILOT_REPETITIONS)),
     max_cell_executions=len(PROPOSED_PILOT_CELLS),
-    estimated_cost_ceiling_usd=None,
+    estimated_cost_ceiling_usd=2.00,
 )
 
 #: Mutable approval record for the *scope*, separate from ``protocol.APPROVAL_RECORD`` which
