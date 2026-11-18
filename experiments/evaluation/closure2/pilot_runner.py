@@ -351,12 +351,15 @@ ROUTING_PAIR_PLAN = PilotPlan(
     estimated_cost_ceiling_usd=0.10,
 )
 
+#: Owner authorization for the one routing execution. It names the scope commit that already
+#: exists, so approving it is not a self-reference, and it names the plan digest that carries the
+#: USD 0.10 estimate — approving either one separately is not possible.
 ROUTING_PAIR_APPROVAL: dict[str, Any] = {
-    "status": "PENDING_OWNER_APPROVAL",
-    "approved_plan_digest": None,
-    "approved_by": None,
-    "approval_commit": None,
-    "approved_at": None,
+    "status": "APPROVED",
+    "approved_plan_digest": "41551523488b6a4ae8e02fa9e195a1728fe061935beac856621c05c2457a6b99",
+    "approved_by": "repository_owner",
+    "approval_commit": "609da3d921492c9ce06a668e1821427a8848466e",
+    "approved_at": "2026-11-18T11:17:54+00:00",
 }
 
 

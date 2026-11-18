@@ -293,7 +293,22 @@ def test_the_pair_approval_cannot_authorize_the_pilot() -> None:
     assert any("is not the approved" in problem for problem in gate["problems"])
 
 
-def test_a_live_run_without_the_pair_approval_never_reaches_the_executor(tmp_path: Path) -> None:
+def test_a_live_run_without_the_pair_approval_never_reaches_the_executor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No-approval is installed explicitly: the live record is an owner decision, not a fixture."""
+
+    monkeypatch.setattr(
+        pilot_runner,
+        "ROUTING_PAIR_APPROVAL",
+        {
+            "status": "PENDING_OWNER_APPROVAL",
+            "approved_plan_digest": None,
+            "approved_by": None,
+            "approval_commit": None,
+            "approved_at": None,
+        },
+    )
     calls: list[Any] = []
 
     async def executor(cell: Cell, **kwargs: Any) -> Any:
