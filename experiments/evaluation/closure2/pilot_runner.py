@@ -336,8 +336,10 @@ ROUTING_PAIR_CELLS: tuple[str, ...] = (
     "closure2-state-machine-refactor::A2-P",
 )
 
-#: No owner authorization exists for a routing run, so the ceiling is deliberately unset: with
-#: ``None`` the cost policy is invalid and the gate refuses live execution on its own.
+#: The owner authorized a USD 0.10 *estimated* cost warning for this run. It is the advisory
+#: between-cell threshold, not a provider-side cap: a cell already started can overspend it, and the
+#: check only stops the next dispatch. The ceiling is part of the digest, so approving the digest is
+#: what approved the number.
 ROUTING_PAIR_PLAN = PilotPlan(
     plan_id=ROUTING_PAIR_PLAN_ID,
     benchmark_id=BENCHMARK_ID,
@@ -346,7 +348,7 @@ ROUTING_PAIR_PLAN = PilotPlan(
     cells=ROUTING_PAIR_CELLS,
     repetitions=(0,),
     max_cell_executions=2,
-    estimated_cost_ceiling_usd=None,
+    estimated_cost_ceiling_usd=0.10,
 )
 
 ROUTING_PAIR_APPROVAL: dict[str, Any] = {

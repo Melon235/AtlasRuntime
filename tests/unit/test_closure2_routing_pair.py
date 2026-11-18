@@ -48,7 +48,7 @@ FROZEN_ROUTER = "5e13c9106f8927fc116c00ff3d4ee91e9848205d0623925521ad6af12fa9924
 
 #: The pilot's executed plan, and the routing pair's preparation identity (ceiling unset, pending).
 PILOT_PLAN_DIGEST = "0f61f84ad195fbfb2e27f4c80f7906530066f7128da84595b0293dfd0b2e32bb"
-ROUTING_PAIR_PLAN_DIGEST = "ef8e65e788cfb898e703411128b946c57345c88b9970829039885046e8ff97a3"
+ROUTING_PAIR_PLAN_DIGEST = "41551523488b6a4ae8e02fa9e195a1728fe061935beac856621c05c2457a6b99"
 
 APPROVED_BENCHMARK = {
     "status": "APPROVED",
@@ -207,9 +207,13 @@ def test_the_pair_plan_is_pinned_to_the_frozen_identity() -> None:
     assert ROUTING_PAIR_PLAN.cells == ROUTING_PAIR_CELLS
     assert ROUTING_PAIR_PLAN.repetitions == (0,)
     assert ROUTING_PAIR_PLAN.max_cell_executions == 2
-    # No owner authorization exists for a routing run, so the ceiling stays unset on purpose.
-    assert ROUTING_PAIR_PLAN.estimated_cost_ceiling_usd is None
-    assert pilot_runner.cost_policy(ROUTING_PAIR_PLAN)["valid"] is False
+    # The owner authorized a USD 0.10 advisory estimate. It is a between-cell threshold, and the
+    # policy must keep saying so rather than implying a hard cap.
+    assert ROUTING_PAIR_PLAN.estimated_cost_ceiling_usd == 0.10
+    policy = pilot_runner.cost_policy(ROUTING_PAIR_PLAN)
+    assert policy["valid"] is True
+    assert policy["hard_enforcement"] is False
+    assert policy["enforcement"] == "ADVISORY_POST_CELL"
 
 
 # ------------------------------------------------------------------------------ 2. the digest
@@ -243,15 +247,25 @@ def test_the_pair_digest_covers_cells_order_repetitions_and_ceiling() -> None:
 
 
 def test_a_pending_pair_approval_refuses_the_pair() -> None:
+    """Pending is installed explicitly: the live record is an owner decision, not a fixture."""
+
     gate = pilot_authorization_gate(
         cells=pilot_runner.routing_pair_cells(),
         repetition_id=0,
         plan=ROUTING_PAIR_PLAN,
-        record=ROUTING_PAIR_APPROVAL,
+        record={
+            "status": "PENDING_OWNER_APPROVAL",
+            "approved_plan_digest": None,
+            "approved_by": None,
+            "approval_commit": None,
+            "approved_at": None,
+        },
     )
     assert gate["execution_ready"] is False
     assert any("not 'APPROVED'" in problem for problem in gate["problems"])
-    assert any("cost policy is not usable" in problem for problem in gate["problems"])
+    assert any("is not the approved" in problem for problem in gate["problems"])
+    # The ceiling itself is approved, so the refusal is about the record, not about money.
+    assert gate["cost_policy"]["valid"] is True
 
 
 def test_the_consumed_pilot_approval_cannot_authorize_the_pair() -> None:
