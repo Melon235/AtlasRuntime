@@ -260,10 +260,20 @@ run_goal
 | Token attribution | `UsageAttributionHook` per agent (AnyCode's `merge_usage` drops cache counters); a shared `RunBudgetState` for the Main and every child |
 | Checkpoint / resume | none — a goal run cannot be resumed (same limitation as the coding paths) |
 | Ablation | `delegation.enabled=false` removes both tools and runs the Main alone |
-| Evidence | `run_dir/session.json` (main usage, per-batch decisions, child outcomes with monotonic offsets, ownership denials), `workers.json`, `ledger.db`, `delegation/handoffs.json`, `tool_conversations.json`, `trajectory/` |
+| Sandbox (stage P) | `GoalRunOptions.sandbox` provisions one project sandbox (`ProjectSandboxManager` + `SandboxWorkspaceTools`) and passes it as `sandbox_tools=`; the Main and every child then share `/workspace/project`. Without it the run is Host mode and says so (`isolation: "host"`) |
+| Acceptance (stage P) | `GoalRunOptions.acceptance` = static checks over the exported snapshot + one fixed harness command inside the sandbox. `INCONCLUSIVE` is never `PASS`; a failing verdict forces `status=failed` |
+| Context metrics (stage P) | `session.json.metrics`: per-request context series, peak, cumulative, cache split, child totals, system total, handoff payload size, delegation rounds, observed concurrency. Unobserved fields are `null` and listed in `unavailable_fields` |
+| Evidence | `run_dir/session.json` (main usage, metrics, per-batch decisions, child outcomes with monotonic offsets, ownership denials, sandbox lifecycle, acceptance), `workers.json`, `ledger.db`, `delegation/handoffs.json`, `tool_conversations.json`, `workspace.patch`, `workspace/`, `trajectory/` |
 
 Frozen-router note: `r0.1.0` refuses *any* single write-capable task (`GATE_1_DELEGATION_NECESSITY`,
 `TRIVIAL_DIRECT_TASK`), and stage M may not change it. `DELEGATE_ONE` is therefore reachable for a
 single read-only, well-contextualized subtask; a single write subtask is refused and the Main does
 the work itself. Two or more independent subtasks take the parallel path, where shared-write
 conflicts are refused by `GATE_2_DEPENDENCY_COUPLING`.
+
+Refusal-fatal note (stage P): `ActionSafetyGate` returns `retry_safe=False` on a DENY, and AnyCode
+reads that as *"the effect may have happened"* → `stop_reason=side_effect_unknown` and the run ends.
+So the Main cannot survive a single refusal, and **it cannot run the acceptance suite itself**:
+`python3 -m pytest`, `pytest` and every other interpreter invocation are `OWNERSHIP_UNCLASSIFIABLE_SHELL`
+under `R0.1.0`. The harness runs the suite through `GoalSandbox.run_check` instead. See
+`docs/stage-p-main-driven-pipeline.md` §2 and §9 (`DEV-1`).

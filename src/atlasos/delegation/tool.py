@@ -64,9 +64,7 @@ class DelegateTasksTool:
                     data=json.dumps(
                         {
                             "route": "direct",
-                            "reason_codes": [
-                                self._disabled_reason or REASON_RUNTIME_UNAVAILABLE
-                            ],
+                            "reason_codes": [self._disabled_reason or REASON_RUNTIME_UNAVAILABLE],
                             "children": [],
                             "next": "No subworker was created. Continue in this agent loop.",
                         },

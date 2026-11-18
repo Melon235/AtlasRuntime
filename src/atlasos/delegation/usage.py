@@ -31,10 +31,11 @@ class UsageAttributionHook:
         self.cache_hit_tokens = 0
         self.cache_miss_tokens = 0
         self.completion_tokens = 0
+        #: Full prompt size of each request, in provider order. The observed context length, not
+        #: the billed miss side: a cache hit makes a request cheaper, never shorter.
+        self.context_tokens: list[int] = []
 
-    async def before_turn(
-        self, messages: list[LLMMessage], context: AgentInfo
-    ) -> list[LLMMessage]:
+    async def before_turn(self, messages: list[LLMMessage], context: AgentInfo) -> list[LLMMessage]:
         del context
         return messages
 
@@ -42,12 +43,18 @@ class UsageAttributionHook:
         del context
         usage = getattr(response, "usage", None)
         if usage is not None:
+            prompt = prompt_tokens_from_usage(usage)
             self.requests += 1
-            self.prompt_tokens += prompt_tokens_from_usage(usage)
+            self.prompt_tokens += prompt
+            self.context_tokens.append(prompt)
             self.cache_hit_tokens += max(0, int(usage.cache_read_input_tokens))
             self.cache_miss_tokens += max(0, int(usage.input_tokens))
             self.completion_tokens += max(0, int(usage.output_tokens))
         return response
+
+    @property
+    def peak_context_tokens(self) -> int:
+        return max(self.context_tokens, default=0)
 
     def as_dict(self) -> dict[str, int]:
         """Repository token vocabulary.
@@ -66,7 +73,11 @@ class UsageAttributionHook:
         }
 
     def as_evidence(self) -> dict[str, Any]:
-        return dict(self.as_dict())
+        return {
+            **self.as_dict(),
+            "peak_context_tokens": self.peak_context_tokens,
+            "context_tokens_by_request": list(self.context_tokens),
+        }
 
 
 __all__ = ["UsageAttributionHook"]

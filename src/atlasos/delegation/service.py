@@ -145,9 +145,7 @@ class DelegationService:
         self.router = router or DelegationRouter()
         self._clock = clock or (lambda: datetime.now(UTC))
         self.worker_store = worker_store or WorkerStore(self.run_dir / "workers.json")
-        self.handoff_store = handoff_store or HandoffStore(
-            self.run_dir / "handoffs", run_id=run_id
-        )
+        self.handoff_store = handoff_store or HandoffStore(self.run_dir / "handoffs", run_id=run_id)
         self.handoff_index = handoff_index or DelegatedResultIndex(
             run_id=run_id, path=self.run_dir / "delegation" / "handoffs.json"
         )
@@ -235,9 +233,7 @@ class DelegationService:
             decision=decision,
             children=tuple(outcomes),
             totals=_totals(outcomes),
-            batch_span_ms=max(
-                (outcome.finished_offset_ms for outcome in outcomes), default=0.0
-            ),
+            batch_span_ms=max((outcome.finished_offset_ms for outcome in outcomes), default=0.0),
             max_observed_concurrency=self._max_active_children,
         )
         self._batches.append(batch)
@@ -261,8 +257,7 @@ class DelegationService:
             max_children=self.limits.max_children_per_call,
             profiles=profiles,
             granted_write_paths={
-                profile_id: tuple(paths)
-                for profile_id, paths in self.granted_write_paths.items()
+                profile_id: tuple(paths) for profile_id, paths in self.granted_write_paths.items()
             },
             workspace_root=self._workspace_root(),
         )
@@ -273,9 +268,7 @@ class DelegationService:
             enabled=True,
             limits=self.limits.as_dict(),
             batches=tuple(self._batches),
-            totals=_totals(
-                [child for batch in self._batches for child in batch.children]
-            ),
+            totals=_totals([child for batch in self._batches for child in batch.children]),
             started_at=self._started_at,
             finished_at=self._finished_at or self._clock(),
         )
@@ -334,9 +327,7 @@ class DelegationService:
             )
         return worker
 
-    def _build_agent(
-        self, worker: WorkerInstance, usage: UsageAttributionHook
-    ) -> AtlasToolAgent:
+    def _build_agent(self, worker: WorkerInstance, usage: UsageAttributionHook) -> AtlasToolAgent:
         config = worker.agent_config.model_copy(
             update={
                 "max_turns": min(worker.profile.max_turns, self.limits.child_max_turns),

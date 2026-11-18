@@ -268,9 +268,7 @@ class DelegationRouter:
                     evidence_id=f"ev-risk-{spec.key}",
                     kind=EvidenceKind.RISK_CLASS,
                     subject_task_ids=(spec.key,),
-                    value=(
-                        "local_reversible_write" if write_paths else "read_only"
-                    ),
+                    value=("local_reversible_write" if write_paths else "read_only"),
                     # The runtime enforces the risk it reports: no grant means no writable path,
                     # and a grant means R1-1 checks every write against it.
                     source_kind=SourceKind.TRUSTED_METADATA,

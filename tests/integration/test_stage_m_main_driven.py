@@ -255,9 +255,7 @@ async def test_main_delegates_one_task_and_resumes_its_own_loop(tmp_path: Path) 
 async def test_two_children_run_concurrently_in_isolated_contexts(tmp_path: Path) -> None:
     rig = DelegationRig()
     rig.barrier = asyncio.Barrier(2)
-    rig.child_scripts["MARK-ALPHA"] = [
-        _text("ALPHA-HEAD " + "a" * 4000 + " ALPHA-TAIL-SECRET")
-    ]
+    rig.child_scripts["MARK-ALPHA"] = [_text("ALPHA-HEAD " + "a" * 4000 + " ALPHA-TAIL-SECRET")]
     rig.child_scripts["MARK-BETA"] = [_text("BETA-HEAD " + "b" * 4000 + " BETA-TAIL-SECRET")]
     rig.main_script = [
         _delegate_call(
@@ -478,9 +476,7 @@ async def test_timeout_and_child_error_are_reported_without_failing_the_goal(
     session = await _run(tmp_path, rig, delegation=_delegation(child_timeout_seconds=0.05))
 
     assert session["status"] == "succeeded"
-    children = {
-        child["key"]: child for child in session["delegation"]["batches"][0]["children"]
-    }
+    children = {child["key"]: child for child in session["delegation"]["batches"][0]["children"]}
     assert children["alpha"]["status"] == "timeout"
     assert children["alpha"]["success"] is False
     # A provider failure never becomes an empty success: the loop produced no completed turn.
@@ -497,9 +493,7 @@ async def test_cancelling_the_goal_reaps_every_child(tmp_path: Path) -> None:
     rig.slow_children["MARK-BETA"] = 30.0
     rig.child_started["MARK-ALPHA"] = asyncio.Event()
     rig.main_script = [
-        _delegate_call(
-            [_task("alpha", "MARK-ALPHA slow"), _task("beta", "MARK-BETA slow")]
-        ),
+        _delegate_call([_task("alpha", "MARK-ALPHA slow"), _task("beta", "MARK-BETA slow")]),
         _text("MAIN-FINAL"),
     ]
 
@@ -520,8 +514,7 @@ async def test_cancelling_the_goal_reaps_every_child(tmp_path: Path) -> None:
     leaked = [
         pending
         for pending in asyncio.all_tasks()
-        if pending is not asyncio.current_task()
-        and pending.get_name().startswith("delegate:")
+        if pending is not asyncio.current_task() and pending.get_name().startswith("delegate:")
     ]
     assert leaked == []
 
@@ -534,9 +527,7 @@ async def test_budget_admits_and_attributes_each_child_separately(tmp_path: Path
     rig.child_scripts["MARK-ALPHA"] = [_text("ALPHA")]
     rig.child_scripts["MARK-BETA"] = [_text("BETA")]
     rig.main_script = [
-        _delegate_call(
-            [_task("alpha", "MARK-ALPHA a"), _task("beta", "MARK-BETA b")]
-        ),
+        _delegate_call([_task("alpha", "MARK-ALPHA a"), _task("beta", "MARK-BETA b")]),
         _text("MAIN-FINAL"),
     ]
 
@@ -776,9 +767,7 @@ async def test_service_refuses_a_child_caller_without_creating_a_worker(tmp_path
         limits=DelegationLimits(),
         worker_store=WorkerStore(run_dir / "workers.json"),
     )
-    request = DelegateTasksInput.model_validate(
-        {"tasks": [_task("alpha", "MARK-ALPHA any work")]}
-    )
+    request = DelegateTasksInput.model_validate({"tasks": [_task("alpha", "MARK-ALPHA any work")]})
     child = _tool_context(
         _context(
             task_id="main-task:r1:alpha",

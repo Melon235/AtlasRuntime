@@ -54,6 +54,8 @@ from dotenv import load_dotenv
 
 from atlasos.actions import ActionCatalog, ActionPolicy, ActionRule
 from atlasos.actions.catalog import ActionMapping
+from atlasos.app.goal_sandbox import GoalSandbox, GoalSandboxOptions
+from atlasos.app.goal_verification import GoalAcceptance, verify_goal
 from atlasos.budget import RunBudgetState
 from atlasos.config import AtlasConfig, load_config
 from atlasos.delegation import (
@@ -82,6 +84,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CONFIG = REPO_ROOT / "experiments" / "configs" / "v2-uat.yaml"
 MAIN_AGENT_NAME = "atlas-main"
 MAIN_PROFILE_ID = "coding_worker"
+#: The workspace root inside a project sandbox (AnyCode's M5 contract fixes this value).
+SANDBOX_WORKSPACE_ROOT = "/workspace/project"
 
 #: Stable Main prompt. No timestamp, run id, path or metric may enter it (stable-prefix invariant).
 MAIN_SYSTEM_PROMPT = (
@@ -102,6 +106,11 @@ MAIN_SYSTEM_PROMPT = (
     "\n"
     "WORKSPACE\n"
     "- All file tools operate inside the workspace root. Use paths relative to it.\n"
+    "- A shell command that runs an interpreter (python, pytest, node, a script) is refused by\n"
+    "  the ownership policy, and a refused tool call ends the run. Verify with file reads and\n"
+    "  read-only shell commands such as ls, cat, grep or git diff.\n"
+    "- The harness runs the acceptance suite itself after you stop. Never claim a test result\n"
+    "  you did not observe.\n"
 )
 
 
@@ -128,6 +137,11 @@ class GoalRunOptions:
     #: Deterministic test seam. The default builds the real DeepSeek adapter from the environment.
     provider_factory: Callable[[], Any] | None = None
     run_id: str | None = None
+    #: Stage P: run every file and shell tool inside one project sandbox shared by the Main and all
+    #: children. ``None`` keeps the stage-M host mode, which has no isolation and says so.
+    sandbox: GoalSandboxOptions | None = None
+    #: Host-owned acceptance contract, evaluated after the run by the harness (never by the Main).
+    acceptance: GoalAcceptance | None = None
 
 
 def _goal_policy() -> ActionPolicy:
@@ -206,16 +220,105 @@ def _usage_evidence(usage: Any | None) -> dict[str, int]:
     }
 
 
+def _context_metrics(
+    main_tokens: Mapping[str, Any],
+    *,
+    main_requests: int,
+    main_context_tokens: list[int],
+    delegation_evidence: Any | None,
+    rounds: int,
+) -> dict[str, Any]:
+    """Per-request Main context plus the system totals, stated with their accounting.
+
+    Accounting, so a reader never has to guess:
+
+    * a request's *context* is the full prompt: cache-miss + cache reads (+ cache creation when the
+      provider reports it). It is what the model read, not what the provider billed.
+    * ``main_cumulative_input_tokens`` sums those context sizes over the Main's own requests only.
+    * ``child_total_prompt_tokens`` is the same quantity summed over every delegated child.
+    * ``system_total_tokens`` = Main + children, prompt + completion. Cache-hit tokens are part of
+      the prompt totals and are never added again.
+
+    Fields that were not observed are ``None`` and named in ``unavailable_fields``; nothing is
+    estimated to fill a gap.
+    """
+
+    totals = getattr(delegation_evidence, "totals", None)
+    batches = getattr(delegation_evidence, "batches", ()) or ()
+    child_prompt = int(getattr(totals, "total_prompt_tokens", 0) or 0)
+    child_completion = int(getattr(totals, "completion_tokens", 0) or 0)
+    handoff_chars = sum(int(getattr(batch, "result_chars", 0) or 0) for batch in batches)
+    concurrency = max(
+        (int(getattr(batch, "max_observed_concurrency", 0) or 0) for batch in batches),
+        default=0,
+    )
+
+    if main_requests <= 0:
+        unavailable = [
+            "main_peak_context_tokens",
+            "main_cumulative_input_tokens",
+            "main_context_tokens_by_request",
+            "main_cache_hit_tokens",
+            "main_cache_miss_tokens",
+            "main_completion_tokens",
+        ]
+        return {
+            "main_requests": 0,
+            "main_peak_context_tokens": None,
+            "main_cumulative_input_tokens": None,
+            "main_context_tokens_by_request": None,
+            "main_cache_hit_tokens": None,
+            "main_cache_miss_tokens": None,
+            "main_completion_tokens": None,
+            "child_total_prompt_tokens": child_prompt,
+            "child_completion_tokens": child_completion,
+            "system_total_tokens": child_prompt + child_completion,
+            "handoff_payload_chars": handoff_chars,
+            "delegation_rounds": rounds,
+            "max_observed_child_concurrency": concurrency,
+            "unavailable_fields": unavailable,
+        }
+
+    main_prompt = int(main_tokens.get("total_prompt_tokens", 0) or 0)
+    main_completion = int(main_tokens.get("completion_tokens", 0) or 0)
+    return {
+        "main_requests": main_requests,
+        "main_peak_context_tokens": max(main_context_tokens, default=0),
+        "main_cumulative_input_tokens": main_prompt,
+        "main_context_tokens_by_request": list(main_context_tokens),
+        "main_cache_hit_tokens": int(main_tokens.get("cache_hit_tokens", 0) or 0),
+        "main_cache_miss_tokens": int(main_tokens.get("cache_miss_tokens", 0) or 0),
+        "main_completion_tokens": main_completion,
+        "child_total_prompt_tokens": child_prompt,
+        "child_completion_tokens": child_completion,
+        "system_total_tokens": main_prompt + main_completion + child_prompt + child_completion,
+        "handoff_payload_chars": handoff_chars,
+        "delegation_rounds": rounds,
+        "max_observed_child_concurrency": concurrency,
+        "unavailable_fields": [],
+    }
+
+
 async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     """Run one natural-language goal through the Main-driven delegation plane."""
 
     run_id = options.run_id or f"goal-{uuid.uuid4().hex}"
     runs_root = options.runs_root.resolve()
-    workspace_root = options.workspace_root.resolve()
     run_dir = runs_root / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
-    if not workspace_root.is_dir():
+    # In sandbox mode the workspace is the sandbox's, and the Host path is only an evidence label:
+    # what gets provisioned is the source repository, never the Host working directory.
+    sandboxed = options.sandbox is not None
+    workspace_root = options.workspace_root.resolve()
+    if sandboxed:
+        assert options.sandbox is not None
+        source_repo = options.sandbox.source_repo.resolve()
+        if not source_repo.is_dir():
+            raise SystemExit(f"sandbox source repository does not exist: {source_repo}")
+    elif not workspace_root.is_dir():
         raise SystemExit(f"workspace does not exist: {workspace_root}")
+    #: The workspace path every tool, ownership check and child sees.
+    tool_workspace = SANDBOX_WORKSPACE_ROOT if sandboxed else str(workspace_root)
 
     problem = _config_error(options.config)
     if problem is not None:
@@ -242,10 +345,8 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         factory = options.provider_factory
         _register_provider(provider_name, factory)
 
-    tool_security = ToolSecurityPolicy(workspace_root=str(workspace_root))
-    enforcer, ownership = build_delegation_ownership(
-        run_id=run_id, workspace_root=str(workspace_root)
-    )
+    tool_security = ToolSecurityPolicy(workspace_root=tool_workspace)
+    enforcer, ownership = build_delegation_ownership(run_id=run_id, workspace_root=tool_workspace)
     ownership.declare(
         worker_id=main_worker_id,
         task_id=main_task_id,
@@ -269,9 +370,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     )
 
     store = FilesystemRunStore(run_dir / "trajectory")
-    recorder = TrajectoryRecorder(
-        store, run_id, agent_name=MAIN_AGENT_NAME, model=options.model
-    )
+    recorder = TrajectoryRecorder(store, run_id, agent_name=MAIN_AGENT_NAME, model=options.model)
     ledger = SQLiteActionLedgerStore(run_dir / "ledger.db")
     idempotency = SQLiteToolIdempotencyStore(run_dir / "idempotency.db")
     budget_state = (
@@ -293,19 +392,34 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     # Ablation: with delegation disabled neither tool exists, so the Main cannot delegate at all
     # and the run is a plain single-agent baseline.
     core_tools = (
-        [delegate_tool.definition(), reader.tool_definition()]
-        if delegation_config.enabled
-        else []
+        [delegate_tool.definition(), reader.tool_definition()] if delegation_config.enabled else []
     )
 
     runtime: AtlasToolRuntime | None = None
     service: DelegationService | None = None
     engine: AtlasContextEngine | None = None
+    sandbox: GoalSandbox | None = None
     main_result: Any | None = None
     failure: str | None = None
+    sandbox_failure: str | None = None
+    exported: dict[str, Any] | None = None
+    acceptance_result: dict[str, Any] | None = None
     main_usage = UsageAttributionHook()
 
     try:
+        if options.sandbox is not None:
+            sandbox = GoalSandbox(
+                options.sandbox,
+                config=options.config,
+                run_id=run_id,
+                run_dir=run_dir,
+                recorder=recorder,
+            )
+            await sandbox.start(
+                task_id=main_task_id,
+                context=main_context,
+                worker_id=main_worker_id,
+            )
         runtime = AtlasToolRuntime(
             run_id,
             state_path=run_dir / "tool_state.json",
@@ -317,6 +431,9 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             action_ledger=ledger,
             action_external_policy=enforcer,
             idempotency_store=idempotency,
+            # Same six tools, physical backend = the sandbox. Empty when there is no sandbox, so the
+            # Host configuration is unchanged for the stage-M host mode.
+            sandbox_tools=sandbox.sandbox_tools if sandbox is not None else None,
             trajectory_recorder=recorder,
             runtime_instance_id=f"goal-{run_id}",
         )
@@ -380,6 +497,17 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         finally:
             reset_current_task_id(token)
         main_result = team_result.agent_results.get(main_agent_name)
+        if sandbox is not None:
+            # Export before teardown: the patch and the workspace copy are the run's artifacts, and
+            # they can only be read while the binding is alive.
+            exported = await sandbox.export()
+            if options.acceptance is not None:
+                acceptance_result = await verify_goal(
+                    options.acceptance,
+                    snapshot=Path(exported["workspace_path"]),
+                    sandbox=sandbox,
+                    sandbox_failed=failure is not None,
+                )
     except BaseException as error:  # noqa: BLE001 - recorded, then classified below
         failure = safe_exception_message(error)
         if not isinstance(error, Exception):
@@ -395,11 +523,23 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         if runtime is not None:
             with contextlib.suppress(Exception):
                 await runtime.close()
+        if sandbox is not None:
+            try:
+                await sandbox.close(failed=failure is not None)
+            except Exception as error:  # noqa: BLE001 - a leaked sandbox is a recorded failure
+                sandbox_failure = safe_exception_message(error)
+                failure = failure or sandbox_failure
         with contextlib.suppress(Exception):
             await idempotency.teardown()
+        acceptance_failed = (
+            acceptance_result is not None and acceptance_result.get("verdict") == "FAIL"
+        )
         recorder_status = (
             "completed"
-            if failure is None and main_result is not None and main_result.success
+            if failure is None
+            and main_result is not None
+            and main_result.success
+            and not acceptance_failed
             else "failed"
         )
         try:  # noqa: SIM105 - evidence is optional
@@ -423,18 +563,30 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     child_usage = (
         delegation_evidence.totals.model_dump(mode="json") if delegation_evidence else None
     )
-    succeeded = (
-        failure is None and main_result is not None and bool(main_result.success)
+    metrics = _context_metrics(
+        main_tokens,
+        main_requests=main_usage.requests,
+        main_context_tokens=list(main_usage.context_tokens),
+        delegation_evidence=delegation_evidence,
+        rounds=service.rounds if service is not None else 0,
     )
+    execution_succeeded = failure is None and main_result is not None and bool(main_result.success)
+    acceptance_verdict = (
+        acceptance_result["verdict"] if acceptance_result is not None else "NOT_CONFIGURED"
+    )
+    succeeded = execution_succeeded and acceptance_verdict in ("PASS", "NOT_CONFIGURED")
     session: dict[str, Any] = {
         "run_id": run_id,
         "mode": "main_driven",
         "goal": options.goal,
         "run_dir": str(run_dir),
         "workspace_root": str(workspace_root),
+        "workspace_tool_root": tool_workspace,
+        "isolation": "sandbox" if sandboxed else "host",
         "provider": options.provider,
         "model": options.model,
         "status": "succeeded" if succeeded else "failed",
+        "execution_succeeded": execution_succeeded,
         "failure": failure,
         "main": {
             "agent": main_agent_name,
@@ -443,6 +595,11 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             "success": bool(main_result.success) if main_result is not None else False,
             "stop_reason": (
                 main_result.stop_reason.code
+                if main_result is not None and main_result.stop_reason is not None
+                else None
+            ),
+            "stop_message": (
+                main_result.stop_reason.message
                 if main_result is not None and main_result.stop_reason is not None
                 else None
             ),
@@ -462,6 +619,11 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         "delegation": delegation_evidence.as_dict() if delegation_evidence else None,
         "delegation_enabled": delegation_config.enabled,
         "child_tokens": child_usage,
+        "metrics": metrics,
+        "sandbox": sandbox.evidence.as_dict() if sandbox is not None else None,
+        "artifacts": exported,
+        "verification": acceptance_result,
+        "acceptance": acceptance_verdict,
         "budget": budget_state.as_dict() if budget_state is not None else None,
         "ownership": ownership.evidence_snapshot(),
         "handoff_reads": service.reader_metrics() if service is not None else None,
@@ -487,9 +649,17 @@ def _options_from_args(args: argparse.Namespace) -> GoalRunOptions:
         max_turns=args.max_turns,
         token_budget=args.token_budget,
         main_write_paths=tuple(args.main_write_path or ()),
-        child_write_grants={
-            profile: tuple(paths) for profile, paths in (args.child_grant or ())
-        },
+        child_write_grants={profile: tuple(paths) for profile, paths in (args.child_grant or ())},
+        sandbox=(
+            GoalSandboxOptions(
+                provider=args.sandbox_provider,
+                source_repo=args.sandbox_source,
+                image=args.sandbox_image,
+                retain_on_failure=args.retain_sandbox_on_failure,
+            )
+            if args.sandbox_source is not None
+            else None
+        ),
     )
 
 
@@ -508,6 +678,17 @@ def main() -> None:
     parser.add_argument("--token-budget", type=int, default=None)
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--main-write-path", action="append", default=None)
+    parser.add_argument(
+        "--sandbox-source",
+        type=Path,
+        default=None,
+        help=(
+            "clean git repository to provision into a project sandbox; omitting it runs on the Host"
+        ),
+    )
+    parser.add_argument("--sandbox-provider", default="opensandbox")
+    parser.add_argument("--sandbox-image", default=None)
+    parser.add_argument("--retain-sandbox-on-failure", action="store_true")
     parser.add_argument(
         "--child-grant",
         action="append",

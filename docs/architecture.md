@@ -216,6 +216,23 @@ Three properties are structural, not prompt-level:
   and is read-only. A child cannot delegate (`delegate_tasks` is not in any profile and the tool
   refuses non-main callers).
 
+Stage P adds the sandbox and the acceptance oracle around that composition:
+
+```text
+run_goal ──► GoalSandbox.start      provision + network/host probes + SandboxWorkspaceTools
+          │      ↑ the six workspace tools are *replaced*, never supplemented: there is no Host
+          │        file backend left in the runtime for a child (or the Main) to fall back to
+          ├─► Main loop ─► delegate_tasks ─► children (same runtime, same workspace)
+          ├─► GoalSandbox.export     workspace.patch + run_dir/workspace
+          ├─► verify_goal            static checks over the export + one fixed command in the sandbox
+          └─► GoalSandbox.close      destroy, or retain only on explicit request
+```
+
+One caveat is structural, not incidental: `R0.1.0` refuses every interpreter command, and M3 marks
+a denial `retry_safe=False`, which AnyCode turns into `side_effect_unknown` — a denial ends the run.
+The Main therefore cannot execute the test suite; the harness does, in the same sandbox, after the
+Main stops. See `docs/stage-p-main-driven-pipeline.md`.
+
 ---
 
 ## 5. Budget termination path
