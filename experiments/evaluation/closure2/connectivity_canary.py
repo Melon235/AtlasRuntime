@@ -317,8 +317,8 @@ class CanaryPlan:
         return canonical_digest(self.payload())
 
 
-#: The one canary this stage proposes. The cost ceiling is deliberately ``None``: the owner sets the
-#: number, and until then the gate refuses a live run with ``CANARY_COST_CEILING_NOT_APPROVED``.
+#: The one canary this stage proposes. The ceiling was ``None`` until the owner approved one attempt
+#: at USD 0.05; the number is part of the digest, so approving it is what fixed this identity.
 CANARY_PLAN = CanaryPlan(
     canary_id=CANARY_ID,
     plan_revision=CANARY_RUNNER_REVISION,
@@ -336,7 +336,7 @@ CANARY_PLAN = CanaryPlan(
     max_tool_calls=CANARY_LIMITS["max_tool_calls"],
     timeout_seconds=CANARY_LIMITS["timeout_seconds"],
     outer_timeout_seconds=CANARY_LIMITS["outer_timeout_seconds"],
-    estimated_cost_ceiling_usd=None,
+    estimated_cost_ceiling_usd=0.05,
 )
 
 #: Mutable approval record for the canary scope. A caller cannot pass its own: the entry point reads
