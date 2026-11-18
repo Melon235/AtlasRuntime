@@ -110,11 +110,12 @@ after two public ones.
 DeepSeek adapter — writes `run_dir/preflight.json`, and raises before any provider or sandbox
 exists if the status is BLOCKED.
 
-Sixteen checks: sandbox configured, real provider, `require_real`, absolute sandbox workspace, clean
-source repo, write scope declared and relative, public suite configured, public ≠ oracle, acceptance
-configured, acceptance digest declared, budget present (named as advisory), delegation bounds,
-context metrics, provider `deepseek`, model equals `config.provider.model`, API key present, no
-injected factory, and a run directory outside `experiments/results` and `experiments/runs`.
+Nineteen checks: sandbox configured, real provider, `require_real`, absolute sandbox workspace,
+clean source repo, write scope declared, write scope relative, public suite configured, public ≠
+oracle, acceptance configured, acceptance digest declared, budget present (named as advisory),
+delegation bounds, context metrics (advisory), provider `deepseek`, model equals
+`config.provider.model`, API key present, no injected factory, and a run directory outside
+`experiments/results` and `experiments/runs`.
 
 Reported by the current tree (fake provider, no key, no public suite):
 
