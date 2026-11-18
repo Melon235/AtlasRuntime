@@ -228,10 +228,18 @@ run_goal ──► GoalSandbox.start      provision + network/host probes + Sand
           └─► GoalSandbox.close      destroy, or retain only on explicit request
 ```
 
-One caveat is structural, not incidental: `R0.1.0` refuses every interpreter command, and M3 marks
-a denial `retry_safe=False`, which AnyCode turns into `side_effect_unknown` — a denial ends the run.
-The Main therefore cannot execute the test suite; the harness does, in the same sandbox, after the
-Main stops. See `docs/stage-p-main-driven-pipeline.md`.
+Refusals are classified, not fatal (stage P0.1). `ActionSafetyGate` knows that every result it
+returns *before* calling the executor is a deterministic pre-execution refusal, so with
+`pre_execution_denials_retry_safe=True` — the goal path's setting, and only that path's — such a
+refusal is `retry_safe=True`: the tool body never ran, nothing is unknown, and the Main reads the
+reason and chooses another action. A tool that *ran* and whose outcome cannot be confirmed still
+returns `retry_safe=False` and still stops the run with `side_effect_unknown`.
+
+`R0.1.0` still refuses every interpreter command, so the Main cannot invoke `pytest` through
+`bash`. It gets a Host-authorized `run_public_tests` instead: one fixed command, inside the same
+sandbox, at most `max_calls` times, returning the exit code and a bounded output tail. The oracle
+keeps a different command, a different channel (`run_check`, digests only) and a different
+authorization (harness, after the Main stops).
 
 ---
 

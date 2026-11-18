@@ -195,6 +195,11 @@ same sandbox and the Main cannot see or fake the result, but "Main runs the publ
 achieved. Unblocking it requires either an explicit Host-declared test-command allowlist in the R1-1
 manifest or a change to M3 deny semantics — both are owner decisions outside this stage.
 
+> **Resolved in stage P0.1** (`docs/stage-p01-execution-semantics.md`): the gate now distinguishes a
+> proven pre-execution refusal (`retry_safe=True`, the Main continues) from an unknown side effect
+> (`retry_safe=False`, still terminal), and a Host-authorized `run_public_tests` tool runs a fixed
+> command inside the sandbox. `R0.1.0` was not touched.
+
 Other limitations:
 
 * **DEV-2 — the deterministic provider is not isolation.** It executes real subprocesses on the

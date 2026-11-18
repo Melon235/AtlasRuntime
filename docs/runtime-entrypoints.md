@@ -271,9 +271,25 @@ single read-only, well-contextualized subtask; a single write subtask is refused
 the work itself. Two or more independent subtasks take the parallel path, where shared-write
 conflicts are refused by `GATE_2_DEPENDENCY_COUPLING`.
 
-Refusal-fatal note (stage P): `ActionSafetyGate` returns `retry_safe=False` on a DENY, and AnyCode
-reads that as *"the effect may have happened"* → `stop_reason=side_effect_unknown` and the run ends.
-So the Main cannot survive a single refusal, and **it cannot run the acceptance suite itself**:
-`python3 -m pytest`, `pytest` and every other interpreter invocation are `OWNERSHIP_UNCLASSIFIABLE_SHELL`
-under `R0.1.0`. The harness runs the suite through `GoalSandbox.run_check` instead. See
-`docs/stage-p-main-driven-pipeline.md` §2 and §9 (`DEV-1`).
+Refusal semantics (stage P0.1): `ActionSafetyGate` returns every pre-execution refusal through one
+seam. With `pre_execution_denials_retry_safe=True` (set by this path only) a refusal is
+`retry_safe=True`, so the Main reads the reason and continues; without it the previous fatal
+behaviour is unchanged. A tool that ran with an unconfirmed outcome still reports
+`retry_safe=False` and still ends the run with `side_effect_unknown`.
+
+Public suite vs oracle:
+
+| | Public (Main) | Oracle (harness) |
+|---|---|---|
+| Tool / API | `run_public_tests` → `GoalSandbox.run_public_command` | `GoalSandbox.run_check` |
+| Command | Host-fixed, `python3 -B -m pytest -q tests/<public>` | Host-fixed, `python3 -m pytest -q` |
+| Output | bounded text tail | digests and sizes only |
+| Limits | `max_calls`, timeout, output cap | one run |
+| Verdict | input to the Main's own repair loop | the run's `acceptance` |
+
+`R0.1.0` still refuses interpreter commands, which is why the public suite is a dedicated tool and
+not `bash`.
+
+Live admission: `run_live_preflight(options)` (also `--preflight`) checks the P1 prerequisites and
+writes `run_dir/preflight.json`. `run_goal` runs it whenever it would build the real provider and
+refuses to start when the status is `BLOCKED`.

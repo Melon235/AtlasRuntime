@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from anycode.types import ToolUseBlock
 from tests.helpers.fake_sandbox_provider import FakeSandboxProvider
 from tests.helpers.stage_p import (
     PipelineRig,
@@ -31,6 +32,7 @@ from tests.helpers.stage_p import (
 )
 
 from atlasos.app.main_driven import GoalRunOptions, run_goal
+from atlasos.app.public_tests import PUBLIC_TEST_TOOL, PublicTestContract
 from atlasos.delegation import DelegationConfig
 
 GOAL = (
@@ -240,6 +242,9 @@ async def test_the_pipeline_runs_inside_a_real_opensandbox_container(tmp_path: P
     from atlasos.config import SandboxConfig
 
     rig = _rig()
+    # Same script as the deterministic test: a wrong fix, a real failing run in the container, a
+    # repair, a passing run. The public channel is exercised against the real provider too.
+    rig.main_script = _public_fix_script()
     source = git_repo(tmp_path / "source")
     sandbox_config = SandboxConfig(
         enabled=True,
@@ -268,6 +273,7 @@ async def test_the_pipeline_runs_inside_a_real_opensandbox_container(tmp_path: P
             image=sandbox_config.image,
         ),
         acceptance=acceptance(),
+        public_tests=_public_test_contract(),
     )
 
     session = await run_goal(options)
@@ -287,8 +293,15 @@ async def test_the_pipeline_runs_inside_a_real_opensandbox_container(tmp_path: P
     assert session["acceptance"] == "PASS"
     assert session["verification"]["dynamic"]["exit_code"] == 0
     assert session["delegation"]["batches"][0]["max_observed_concurrency"] == 2
+    # The public channel ran in the same container: one failing run, one repair, one passing run.
+    assert [run["status"] for run in session["public_tests"]["runs"]] == ["FAIL", "PASS"]
+    assert (
+        session["public_tests"]["runs"][0]["output_digest"]
+        != (session["public_tests"]["runs"][1]["output_digest"])
+    )
     # The Host never received the change: only the export did.
     assert "subtract" not in (tmp_path / "source" / "app" / "calc.py").read_text(encoding="utf-8")
+    print(json.dumps(session["public_tests"], indent=2))
     print(json.dumps(session["sandbox"], indent=2))
     print(json.dumps(session["metrics"], indent=2))
     print(json.dumps(session["verification"]["dynamic"], indent=2))
@@ -315,3 +328,107 @@ async def test_a_failed_child_does_not_stop_the_integration(tmp_path: Path) -> N
     assert session["status"] == "succeeded", session["failure"]
     assert session["delegation"]["totals"]["children_failed"] == 1
     assert session["acceptance"] == "PASS"
+
+
+# ---------------------------------------------------------------- public test loop (P0.1)
+
+
+def _public_test_contract() -> PublicTestContract:
+    # ``-B`` matters: a repair that keeps the file size identical can land inside the same
+    # filesystem second as the failing run, and a ``.pyc`` written by that run stores the mtime in
+    # seconds — the second run would then import the pre-repair bytecode and report the old
+    # failure. No bytecode is written, so there is nothing stale to read.
+    return PublicTestContract(
+        test_id="public",
+        command="python3 -B -m pytest -q tests/test_public.py",
+        timeout_seconds=120,
+        max_calls=4,
+    )
+
+
+def _public_fix_script() -> list[Any]:
+    """Delegation, a wrong fix, a real failing run, a repair, a passing run."""
+
+    buggy = (
+        "    return a + b\n"
+        "\n"
+        "\n"
+        "def subtract(a, b):\n"
+        '    """Return the difference of two numbers."""\n'
+        "    return a + b\n"
+    )
+    fixed = (
+        "    return a + b\n"
+        "\n"
+        "\n"
+        "def subtract(a, b):\n"
+        '    """Return the difference of two numbers."""\n'
+        "    return a - b\n"
+    )
+    return [
+        delegate_call(
+            [
+                task("calc", "MARK-CALC report what app/calc.py defines"),
+                task("text", "MARK-TEXT report what app/text.py defines"),
+            ]
+        ),
+        lambda _: [
+            ToolUseBlock(
+                id="e1",
+                name="file_edit",
+                input={
+                    "path": "app/calc.py",
+                    "old_string": "    return a + b\n",
+                    "new_string": buggy,
+                },
+            )
+        ],
+        lambda _: [ToolUseBlock(id="t1", name=PUBLIC_TEST_TOOL, input={"reason": "first attempt"})],
+        lambda _: [
+            ToolUseBlock(
+                id="e2",
+                name="file_edit",
+                input={"path": "app/calc.py", "old_string": buggy, "new_string": fixed},
+            )
+        ],
+        lambda _: [ToolUseBlock(id="t2", name=PUBLIC_TEST_TOOL, input={"reason": "after repair"})],
+        text("MAIN-FINAL: subtract implemented; the public suite passes."),
+    ]
+
+
+async def test_the_main_repairs_after_a_failing_public_run(tmp_path: Path) -> None:
+    rig = PipelineRig()
+    rig.barrier = asyncio.Barrier(2)
+    rig.child_scripts["MARK-CALC"] = [text("CALC-REPORT: add only.")]
+    rig.child_scripts["MARK-TEXT"] = [text("TEXT-REPORT: normalize.")]
+    rig.main_script = _public_fix_script()
+    provider = FakeSandboxProvider(tmp_path / "sandboxes")
+
+    session = await _run(tmp_path, rig, provider, public_tests=_public_test_contract())
+
+    public = session["public_tests"]
+    assert [run["status"] for run in public["runs"]] == ["FAIL", "PASS"]
+    assert public["runs"][0]["exit_code"] == 1
+    assert public["runs"][1]["exit_code"] == 0
+    assert public["calls"] == 2
+    assert public["oracle_is_separate"] is True
+
+    # The failing run did not end the loop: the Main saw real pytest output from the sandbox.
+    main_requests = rig.main_requests()
+    assert len(main_requests) == 6
+    failure_turn = json.dumps(main_requests[3])
+    assert "test_subtract" in failure_turn or "assert" in failure_turn
+    assert "FAILED" in failure_turn
+
+    # The repair happened inside the sandbox, and the oracle then ran its own command.
+    assert session["status"] == "succeeded", session["failure"]
+    assert session["execution_succeeded"] is True
+    assert session["acceptance"] == "PASS"
+    assert session["verification"]["dynamic"]["command"] == "python3 -m pytest -q"
+    assert session["verification"]["dynamic"]["exit_code"] == 0
+
+    # Two pytest executions by the Main plus one by the oracle; nothing else ran pytest.
+    executed = [command for command, _cwd in provider.commands]
+    assert sum("pytest" in command for command in executed) == 3
+    assert sum("tests/test_public.py" in command for command in executed) == 2
+    assert session["sandbox"]["destroyed"] is True

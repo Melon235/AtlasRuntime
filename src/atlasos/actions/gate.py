@@ -88,6 +88,7 @@ class ActionSafetyGate:
         tool_sources: Mapping[str, str] | None = None,
         trajectory_recorder: TrajectoryRecorder | None = None,
         external_denial_retry_safe: bool = False,
+        pre_execution_denials_retry_safe: bool = False,
     ) -> None:
         self._executor = executor
         self._registry = registry
@@ -104,8 +105,26 @@ class ActionSafetyGate:
         #: side effect and the worker may continue. Defaults to False to keep the pre-R1-1
         #: failure semantics for every existing caller.
         self.external_denial_retry_safe = external_denial_retry_safe
+        #: Stage P0.1: every result this gate returns *before* it calls the executor is a
+        #: deterministic pre-execution refusal — the tool body never ran, so no side effect is
+        #: unknown. With this on, such a refusal is reported as ``retry_safe=True`` and the agent
+        #: loop may continue; the refusal itself, its reason codes and the audit record are
+        #: unchanged. Defaults to False: the pre-P0.1 failure semantics stay the default, so no
+        #: existing caller or frozen evaluation changes behaviour.
+        self.pre_execution_denials_retry_safe = pre_execution_denials_retry_safe
         self.audits: list[ActionAudit] = []
         self.preflight_evaluations: list[ActionEvaluation] = []
+
+    def _pre_execution_failure(self, message: str, *, retry_safe: bool = False) -> ToolResult:
+        """A refusal this gate proved happened **before** the tool body ran.
+
+        The tool never executed, so no effect of this call is unknown and the agent may continue
+        with a different action. ``pre_execution_denials_retry_safe`` decides whether the caller
+        wants that continuation; the message, the reason codes and the ``executed=False`` audit are
+        identical either way.
+        """
+
+        return _failure(message, retry_safe=retry_safe or self.pre_execution_denials_retry_safe)
 
     # -- side-effect-free authorization -------------------------------------
 
@@ -218,7 +237,7 @@ class ActionSafetyGate:
                 call_id=uuid.uuid4().hex,
             )
             if evaluation.failure_message is not None:
-                return _failure(evaluation.failure_message)
+                return self._pre_execution_failure(evaluation.failure_message)
 
             if evaluation.outcome == "DENY":
                 self._audit(
@@ -226,7 +245,7 @@ class ActionSafetyGate:
                     human_outcome=None,
                     executed=False,
                 )
-                return _failure(
+                return self._pre_execution_failure(
                     "action_denied: " + ", ".join(evaluation.reason_codes or ("denied",)),
                     retry_safe=(
                         self.external_denial_retry_safe and _denied_by_external_policy(evaluation)
@@ -241,18 +260,20 @@ class ActionSafetyGate:
                         human_outcome="unavailable_or_rejected",
                         executed=False,
                     )
-                    return _failure("action_denied: human approval unavailable or rejected")
+                    return self._pre_execution_failure(
+                        "action_denied: human approval unavailable or rejected"
+                    )
                 if not response.approved:
                     self._audit(
                         evaluation,
                         human_outcome="rejected",
                         executed=False,
                     )
-                    return _failure("action_denied: human approval rejected")
+                    return self._pre_execution_failure("action_denied: human approval rejected")
                 if response.modified_input:
                     tool = self._registry.get(tool_name)
                     if tool is None:
-                        return _failure(f'Tool "{tool_name}" is not registered.')
+                        return self._pre_execution_failure(f'Tool "{tool_name}" is not registered.')
                     try:
                         modified = tool.input_model.model_validate(response.modified_input)
                     except Exception as error:
@@ -261,7 +282,7 @@ class ActionSafetyGate:
                             human_outcome="modified_invalid",
                             executed=False,
                         )
-                        return _failure(
+                        return self._pre_execution_failure(
                             "action_denied: modified input is invalid: "
                             + safe_exception_message(error)
                         )
@@ -272,7 +293,9 @@ class ActionSafetyGate:
                         executed=False,
                     )
                     if attempt >= self.max_modified_attempts:
-                        return _failure("action_denied: modified input reauthorization limit")
+                        return self._pre_execution_failure(
+                            "action_denied: modified input reauthorization limit"
+                        )
                     continue
                 self._audit(
                     evaluation,
@@ -295,7 +318,7 @@ class ActionSafetyGate:
                 idempotency_key=idempotency_key,
             )
 
-        return _failure("action_denied: reauthorization exhausted")
+        return self._pre_execution_failure("action_denied: reauthorization exhausted")
 
     async def execute_revalidated(
         self,
@@ -313,13 +336,17 @@ class ActionSafetyGate:
         """
 
         if evaluation.outcome == "DENY" or evaluation.failure_message is not None:
-            return _failure(evaluation.failure_message or "action_denied: evaluation denied")
+            return self._pre_execution_failure(
+                evaluation.failure_message or "action_denied: evaluation denied"
+            )
         tool = self._registry.get(evaluation.tool_name)
         if tool is None:
-            return _failure(f'Tool "{evaluation.tool_name}" is not registered.')
+            return self._pre_execution_failure(f'Tool "{evaluation.tool_name}" is not registered.')
         current_binding = self._binding_digest(evaluation.tool_name, tool)
         if evaluation.tool_binding_digest and current_binding != evaluation.tool_binding_digest:
-            return _failure("action_denied: tool binding changed before execution")
+            return self._pre_execution_failure(
+                "action_denied: tool binding changed before execution"
+            )
         self._audit(evaluation, human_outcome=human_outcome, executed=True)
         return await self._execute(
             evaluation.tool_name,

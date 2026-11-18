@@ -12,12 +12,13 @@ A run passes only when both pass. "The command could not run" is ``INCONCLUSIVE`
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from atlasos.verification.engine import VerificationEngine
-from atlasos.verification.models import VerificationSpec
+from atlasos.verification.models import Category, CheckSpec, VerificationSpec
 
 VERDICT_PASS = "PASS"
 VERDICT_FAIL = "FAIL"
@@ -47,6 +48,41 @@ class GoalAcceptance:
     dynamic_timeout_seconds: int = 300
     #: When ``True`` a missing dynamic result makes the run ``INCONCLUSIVE`` instead of ``PASS``.
     require_dynamic: bool = True
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, Any]) -> GoalAcceptance:
+        """Load a Host-authored contract from JSON (``spec`` + ``dynamic_command``).
+
+        The digest is recomputed from the content: a payload cannot declare one digest and carry
+        another set of checks.
+        """
+
+        raw = dict(payload["spec"])
+        spec = VerificationSpec(
+            spec_id=str(raw["spec_id"]),
+            version=str(raw["version"]),
+            deliverable_type=str(raw["deliverable_type"]),
+            required_artifacts=tuple(raw.get("required_artifacts") or ()),
+            checks=tuple(
+                CheckSpec(
+                    check_id=str(item["check_id"]),
+                    category=cast(Category, str(item["category"])),
+                    kind=str(item["kind"]),
+                    artifact=item.get("artifact"),
+                    params=dict(item.get("params") or {}),
+                    authoritative=bool(item.get("authoritative", True)),
+                )
+                for item in raw.get("checks") or ()
+            ),
+            notes=str(raw.get("notes") or ""),
+        ).with_declared_digest()
+        command = payload.get("dynamic_command")
+        return cls(
+            spec=spec,
+            dynamic_command=str(command) if command else None,
+            dynamic_timeout_seconds=int(payload.get("dynamic_timeout_seconds", 300)),
+            require_dynamic=bool(payload.get("require_dynamic", True)),
+        )
 
 
 async def verify_goal(

@@ -75,7 +75,11 @@ def _child_turns(rig: PipelineRig, role: str) -> str:
 # ---------------------------------------------------------------- ownership on the Main
 
 
-async def test_a_main_write_outside_its_grant_fails_closed(tmp_path: Path) -> None:
+async def test_a_main_write_outside_its_grant_is_refused_and_the_main_continues(
+    tmp_path: Path,
+) -> None:
+    """Stage P0.1: a proven pre-execution refusal is data, not a terminal side effect."""
+
     rig = PipelineRig()
     rig.main_script = [
         lambda _: [
@@ -93,11 +97,15 @@ async def test_a_main_write_outside_its_grant_fails_closed(tmp_path: Path) -> No
     # The write never happened, in the sandbox or on the export.
     assert not (_sandbox_workspace(session, provider) / "secret.txt").exists()
     assert not (Path(session["artifacts"]["workspace_path"]) / "secret.txt").exists()
-    # A refused call is not retry-safe, so AnyCode ends the run instead of continuing blind. The
-    # run must not be reported as a success.
-    assert session["status"] == "failed"
-    assert session["main"]["stop_reason"] == "side_effect_unknown"
-    assert "OWNERSHIP_DENIED_UNDECLARED_PATH" in (session["main"]["stop_message"] or "")
+    # The Main read the refusal and finished its own loop in a second turn.
+    assert session["main"]["success"] is True
+    assert session["main"]["stop_reason"] == "success"
+    assert session["execution_succeeded"] is True
+    assert session["main"]["turns"] == 2
+    assert len(rig.main_requests()) == 2
+    # The scenario delivers no code, so the deliverable is still a FAIL — execution is not
+    # acceptance, and the run says so instead of reporting an overall success.
+    assert session["acceptance"] == "FAIL"
     # Cleanup still happened.
     assert session["sandbox"]["destroyed"] is True
     assert provider.destroy_count == 1
@@ -116,11 +124,11 @@ async def test_an_interpreter_command_is_refused_and_never_reaches_the_sandbox(
     session = await _run(tmp_path, rig, provider)
 
     assert session["ownership"]["denials"][0]["reason_code"] == "OWNERSHIP_UNCLASSIFIABLE_SHELL"
-    # The only pytest execution in the whole run is the harness's own dynamic check.
+    # The command never reached the provider; the run's only pytest is the harness's own check.
     assert sum("pytest" in command for command, _cwd in provider.commands) == 1
     assert session["verification"]["dynamic"]["command"] == "python3 -m pytest -q"
-    assert session["status"] == "failed"
-    assert session["main"]["stop_reason"] == "side_effect_unknown"
+    assert session["main"]["success"] is True
+    assert session["main"]["turns"] == 2
     # R1-1 coverage is partial by design; the run states that instead of implying full control.
     assert session["ownership"]["coverage"] == "PARTIAL"
     assert provider.destroy_count == 1
@@ -146,13 +154,14 @@ async def test_a_child_cannot_read_outside_the_sandbox_workspace(tmp_path: Path)
     batch = session["delegation"]["batches"][0]
     assert batch["route"] == "delegate_one"
     child = batch["children"][0]
-    # The sandbox tool refuses the path; the refusal is not retry-safe, so the child ends there.
-    assert child["status"] in ("failed", "completed")
-    assert "CALC-LEAKED" not in json.dumps(batch)
+    # The path is refused before the filesystem is touched (the tool security policy or the
+    # sandbox itself, whichever runs first) and the child never receives file content.
+    assert '"is_error": true' in _child_turns(rig, "MARK-CALC")
     assert "root:" not in json.dumps(session["delegation"])
     assert "root:" not in _child_turns(rig, "MARK-CALC")
     # The Main is unaffected and the oracle still evaluates the exported workspace.
     assert session["verification"] is not None
+    assert child["status"] in ("failed", "completed")
 
 
 async def test_a_child_cannot_read_a_sibling_result(tmp_path: Path) -> None:

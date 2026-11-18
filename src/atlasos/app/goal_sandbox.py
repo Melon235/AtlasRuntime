@@ -63,6 +63,17 @@ FAKE_PROVIDER = "fake"
 FAKE_IMAGE = "fake@sha256:0123456789abcdef"
 
 
+def _bounded_output(text: str, cap: int) -> tuple[str, bool]:
+    """Keep the head and the tail: a failing suite explains itself at the end."""
+
+    if cap <= 0 or len(text) <= cap:
+        return text, False
+    marker = "\n... [truncated] ...\n"
+    head = max(cap // 4, 0)
+    tail = max(cap - head - len(marker), 0)
+    return text[:head] + marker + (text[-tail:] if tail else ""), True
+
+
 class GoalSandboxError(RuntimeError):
     """The goal pipeline cannot obtain or keep the sandbox it was configured with."""
 
@@ -324,6 +335,59 @@ class GoalSandbox:
             "sandbox_only_read_back": separation.sandbox_only_read_back,
         }
         require_host_separation(separation)
+
+    # -- the public channel: Host-authorized command, model-visible text ------
+
+    async def run_public_command(
+        self,
+        command: str,
+        *,
+        timeout_seconds: int = 120,
+        output_chars: int = 4_000,
+    ) -> dict[str, Any]:
+        """Run a Host-authorized command and return a bounded, model-visible tail.
+
+        Deliberately separate from :meth:`run_check`. This channel is reachable from the Main
+        through the ``run_public_tests`` tool while the run is live, so it returns text — that is
+        the point of a public test. The oracle channel returns digests and sizes only, is never
+        registered as a tool, and runs after the Main stops. Same execution infrastructure, two
+        different authorization and evidence boundaries; neither can impersonate the other.
+        """
+
+        if self._provider is None or self._binding is None or self._task_id is None:
+            raise GoalSandboxError("the goal sandbox has not been started")
+        started = time.perf_counter()
+        result = await self._provider.execute(
+            self._binding.sandbox_handle,
+            SandboxCommand(
+                command=command,
+                cwd=self._binding.workspace_root,
+                timeout_seconds=timeout_seconds,
+            ),
+        )
+        elapsed_ms = round((time.perf_counter() - started) * 1000.0, 3)
+        self.evidence.check_runs += 1
+        stdout = result.stdout or ""
+        stderr = result.stderr or ""
+        combined = stdout if not stderr else f"{stdout}\n-- stderr --\n{stderr}"
+        output, truncated = _bounded_output(combined, output_chars)
+        ok = bool(result.ok)
+        exit_code = getattr(result, "exit_code", None)
+        return {
+            "command": command,
+            "cwd": self._binding.workspace_root,
+            "ok": ok,
+            "exit_code": int(exit_code) if exit_code is not None else None,
+            "status": ("ERROR" if not ok else ("PASS" if int(exit_code or 0) == 0 else "FAIL")),
+            "output": output,
+            "output_chars": len(combined),
+            "output_truncated": truncated,
+            "output_digest": "sha256:" + hashlib.sha256(combined.encode("utf-8")).hexdigest(),
+            "elapsed_ms": elapsed_ms,
+            "error": (
+                None if ok else str(getattr(result, "error", "") or "sandbox execution failed")
+            ),
+        }
 
     # -- runs the harness controls, not the model ----------------------------
 

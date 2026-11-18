@@ -149,6 +149,7 @@ class AtlasToolRuntime:
         execution_integrity_mode: str = EXECUTION_INTEGRITY_OFF,
         tool_payload_corpus: ToolPayloadCorpus | None = None,
         external_denial_retry_safe: bool = False,
+        pre_execution_denials_retry_safe: bool = False,
     ) -> None:
         if action_ledger is not None and action_policy is None:
             raise ValueError("action_ledger requires action_policy; M4 runs only after M3")
@@ -252,6 +253,7 @@ class AtlasToolRuntime:
                 tool_sources=self._tool_sources,
                 trajectory_recorder=trajectory_recorder,
                 external_denial_retry_safe=external_denial_retry_safe,
+                pre_execution_denials_retry_safe=pre_execution_denials_retry_safe,
             )
             self._inner_executor = cast(Any, self.action_safety_gate)
         else:

@@ -56,6 +56,13 @@ from atlasos.actions import ActionCatalog, ActionPolicy, ActionRule
 from atlasos.actions.catalog import ActionMapping
 from atlasos.app.goal_sandbox import GoalSandbox, GoalSandboxOptions
 from atlasos.app.goal_verification import GoalAcceptance, verify_goal
+from atlasos.app.live_preflight import READY, run_live_preflight
+from atlasos.app.public_tests import (
+    PUBLIC_TEST_ACTION,
+    PUBLIC_TEST_TOOL,
+    PublicTestContract,
+    PublicTestRunner,
+)
 from atlasos.budget import RunBudgetState
 from atlasos.config import AtlasConfig, load_config
 from atlasos.delegation import (
@@ -107,10 +114,10 @@ MAIN_SYSTEM_PROMPT = (
     "WORKSPACE\n"
     "- All file tools operate inside the workspace root. Use paths relative to it.\n"
     "- A shell command that runs an interpreter (python, pytest, node, a script) is refused by\n"
-    "  the ownership policy, and a refused tool call ends the run. Verify with file reads and\n"
-    "  read-only shell commands such as ls, cat, grep or git diff.\n"
-    "- The harness runs the acceptance suite itself after you stop. Never claim a test result\n"
-    "  you did not observe.\n"
+    "  the ownership policy. Read the refusal, then choose another action; a refusal is data.\n"
+    "- If a public test tool is available, it runs the project's authorized suite inside the\n"
+    "  sandbox with a host-fixed command. It is not the acceptance oracle: the harness verifies\n"
+    "  the deliverable independently after you stop. Never claim a test result you did not see.\n"
 )
 
 
@@ -142,6 +149,9 @@ class GoalRunOptions:
     sandbox: GoalSandboxOptions | None = None
     #: Host-owned acceptance contract, evaluated after the run by the harness (never by the Main).
     acceptance: GoalAcceptance | None = None
+    #: Host-fixed public suite the Main may run on itself. Requires ``sandbox``: the suite must
+    #: execute inside the sandbox, and the command is never model-supplied.
+    public_tests: PublicTestContract | None = None
 
 
 def _goal_policy() -> ActionPolicy:
@@ -152,6 +162,9 @@ def _goal_policy() -> ActionPolicy:
         "control.dispatch",
         "delegation.dispatch",
         "delegation.read",
+        # Stage P0.1: the Host-authorized public suite. The action is distinct from
+        # ``shell.execute`` so an audit can tell a fixed harness command from model-chosen shell.
+        PUBLIC_TEST_ACTION,
         "filesystem.read",
         "filesystem.write",
         "shell.execute",
@@ -173,6 +186,7 @@ def _goal_catalog() -> ActionCatalog:
         + (
             ActionMapping(STAGE_M_DELEGATE_TOOL, "delegation.dispatch"),
             ActionMapping(DELEGATE_READ_TOOL, "delegation.read"),
+            ActionMapping(PUBLIC_TEST_TOOL, PUBLIC_TEST_ACTION),
         )
     )
 
@@ -330,6 +344,20 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     main_worker_id = f"{run_id}-main-worker"
     main_agent_name = MAIN_AGENT_NAME
 
+    # A live run must pass admission before any provider is built or any sandbox is started. A
+    # deterministic test injects a factory and skips it: the report describes the live
+    # configuration, not the seam.
+    preflight: dict[str, Any] | None = None
+    if options.provider_factory is None:
+        preflight = run_live_preflight(options)
+        (run_dir / "preflight.json").write_text(json.dumps(preflight, indent=2), encoding="utf-8")
+        if preflight["status"] != READY:
+            raise SystemExit(
+                "live preflight is BLOCKED: "
+                + ", ".join(preflight["blocking_failures"])
+                + f"; report: {run_dir / 'preflight.json'}"
+            )
+
     # Registry names are immutable for the process lifetime, so the name is derived from the run
     # id instead of being reused across runs.
     suffix = hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:10]
@@ -394,6 +422,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     core_tools = (
         [delegate_tool.definition(), reader.tool_definition()] if delegation_config.enabled else []
     )
+    public_tests: PublicTestRunner | None = None
 
     runtime: AtlasToolRuntime | None = None
     service: DelegationService | None = None
@@ -420,6 +449,19 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
                 context=main_context,
                 worker_id=main_worker_id,
             )
+        if options.public_tests is not None:
+            if sandbox is None:
+                raise SystemExit(
+                    "public_tests require sandbox mode: the suite must run inside the sandbox, "
+                    "never on the host"
+                )
+            public_tests = PublicTestRunner(
+                sandbox,
+                options.public_tests,
+                task_id=main_task_id,
+                agent_name=main_agent_name,
+            )
+            core_tools = [*core_tools, public_tests.tool_definition()]
         runtime = AtlasToolRuntime(
             run_id,
             state_path=run_dir / "tool_state.json",
@@ -436,6 +478,9 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             sandbox_tools=sandbox.sandbox_tools if sandbox is not None else None,
             trajectory_recorder=recorder,
             runtime_instance_id=f"goal-{run_id}",
+            # P0.1: every refusal this gate returns happens before the tool body runs, so the Main
+            # may read the reason and choose another action instead of losing the run.
+            pre_execution_denials_retry_safe=True,
         )
         if delegation_config.enabled:
             service = DelegationService(
@@ -570,6 +615,18 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         delegation_evidence=delegation_evidence,
         rounds=service.rounds if service is not None else 0,
     )
+    # AnyCode turns a provider failure into an ``error`` event and returns without a ``done`` one,
+    # so ``Agent`` reports an empty run whose ``success`` is True. A Main that completed no turn
+    # and produced no output did not succeed, and must not be reported as if it had (the same
+    # guard the delegation service applies to every child).
+    main_silent_failure = (
+        main_result is not None
+        and bool(main_result.success)
+        and not main_result.messages
+        and not main_output
+    )
+    if main_silent_failure:
+        failure = failure or "main_no_result: the model loop ended without completing a turn"
     execution_succeeded = failure is None and main_result is not None and bool(main_result.success)
     acceptance_verdict = (
         acceptance_result["verdict"] if acceptance_result is not None else "NOT_CONFIGURED"
@@ -624,6 +681,8 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         "artifacts": exported,
         "verification": acceptance_result,
         "acceptance": acceptance_verdict,
+        "public_tests": _public_test_evidence(options, public_tests),
+        "preflight": preflight,
         "budget": budget_state.as_dict() if budget_state is not None else None,
         "ownership": ownership.evidence_snapshot(),
         "handoff_reads": service.reader_metrics() if service is not None else None,
@@ -633,10 +692,44 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     return session
 
 
+def _public_test_evidence(
+    options: GoalRunOptions, runner: PublicTestRunner | None
+) -> dict[str, Any]:
+    """The public channel's evidence, kept apart from the oracle's verdict."""
+
+    if options.public_tests is None:
+        return {"status": "NOT_CONFIGURED", "oracle_is_separate": True, "calls": 0, "runs": []}
+    return {
+        "contract": options.public_tests.payload(),
+        "command_digest": options.public_tests.command_digest(),
+        "calls": runner.calls if runner is not None else 0,
+        "runs": runner.evidence() if runner is not None else [],
+        "oracle_is_separate": True,
+    }
+
+
+def _load_acceptance(path: Path | None) -> GoalAcceptance | None:
+    if path is None:
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise SystemExit(f"acceptance contract must be a JSON object: {path}")
+    return GoalAcceptance.from_payload(payload)
+
+
 def _options_from_args(args: argparse.Namespace) -> GoalRunOptions:
     config = load_config(args.config) if args.config is not None else AtlasConfig()
     delegation = (
         load_delegation_config(args.config) if args.config is not None else DelegationConfig()
+    )
+    public_tests = (
+        PublicTestContract(
+            test_id=args.public_test_id,
+            command=args.public_test_command,
+            timeout_seconds=args.public_test_timeout,
+        )
+        if args.public_test_command
+        else None
     )
     return GoalRunOptions(
         goal=args.goal,
@@ -660,6 +753,8 @@ def _options_from_args(args: argparse.Namespace) -> GoalRunOptions:
             if args.sandbox_source is not None
             else None
         ),
+        public_tests=public_tests,
+        acceptance=_load_acceptance(args.acceptance_spec),
     )
 
 
@@ -690,6 +785,24 @@ def main() -> None:
     parser.add_argument("--sandbox-image", default=None)
     parser.add_argument("--retain-sandbox-on-failure", action="store_true")
     parser.add_argument(
+        "--public-test-command",
+        default=None,
+        help="host-fixed public suite the Main may run itself (requires --sandbox-source)",
+    )
+    parser.add_argument("--public-test-id", default="public")
+    parser.add_argument("--public-test-timeout", type=int, default=120)
+    parser.add_argument(
+        "--acceptance-spec",
+        type=Path,
+        default=None,
+        help="JSON file with the host-owned acceptance contract (spec + dynamic_command)",
+    )
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="print the Stage P1 admission report and exit; never calls a provider",
+    )
+    parser.add_argument(
         "--child-grant",
         action="append",
         nargs=2,
@@ -697,7 +810,12 @@ def main() -> None:
         default=None,
     )
     args = parser.parse_args()
-    session = asyncio.run(run_goal(_options_from_args(args)))
+    options = _options_from_args(args)
+    if args.preflight:
+        report = run_live_preflight(options)
+        print(json.dumps(report, indent=2))
+        raise SystemExit(0 if report["status"] == READY else 2)
+    session = asyncio.run(run_goal(options))
     print(json.dumps({k: session[k] for k in ("run_id", "status", "failure")}, indent=2))
     raise SystemExit(0 if session["status"] == "succeeded" else 1)
 
