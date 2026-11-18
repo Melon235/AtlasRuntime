@@ -360,6 +360,7 @@ never copied across.
 | oracle failed on the deliverable | `oracle_passed=false`, `oracle_environment_failure=false` |
 | oracle infrastructure failed | `oracle_environment_failure=true` + `oracle_failure_kind` |
 | budget exceeded | `budget_exceeded=true` with a basis, separately from `oracle_passed` |
+| a cell state could not be persisted | `execution_integrity_status` = `BLOCKED_LEDGER_PRE_EXECUTION` / `BLOCKED_LEDGER_POST_EXECUTION`, with `ledger_integrity` naming the phase, cell, attempted state and reason code (§R3) |
 | earned success but over budget | `deliverable_passed_but_budget_failed=true` |
 | A2-P on N1 | `resolved_route=direct`, `executed_worker_count=1`, `multi_worker_execution=false` |
 
@@ -527,3 +528,87 @@ An invalid value is never coerced to `0`: the record keeps `estimated_cost_usd =
 * a failed cell insert rolls the plan row back (no half claim);
 * NaN / infinity / negative / non-numeric ceilings and cell costs are refused, `spent == ceiling`
   stops dispatch, and the last cell's overrun appears in `final_cost_state`.
+
+---
+
+# Closure-2B-0-R3 — ledger state writes fail closed
+
+One defect found by review of B0-R2. Reproduced on `3559ff0` before being fixed, with the same
+probe: every ledger state write raising `PILOT_LEDGER_LOCKED` produced **two executor calls, two
+`COMPLETED` records and no integrity field at all** — the run looked successful while the durable
+record said nothing had happened.
+
+| Issue | Root cause on B0-R2 | Repair |
+|---|---|---|
+| B0-R3-01 | `_mark()` caught `PilotLedgerError` and returned the message as a string; `run_live_pilot` extended a list with it and dispatched anyway, so a `RUNNING` row that never landed still let the engine run | two phases: a failed `RUNNING` write stops the cell **before** the executor, and a failed `COMPLETED`/`FAILED` write stops the **next** dispatch; `_mark()` now propagates and the caller records the phase |
+
+## R3.1 The invariant
+
+```text
+durable RUNNING row  ->  executor  ->  durable COMPLETED/FAILED row
+```
+
+The first arrow is the one that matters for cost and safety: without a persisted `RUNNING` state the
+runner cannot know, after a crash, that the cell was ever started, so it must not start it. The
+second is what makes the record trustworthy afterwards; losing it does not undo the work, but it does
+mean the pilot cannot claim to be complete.
+
+| Phase | Failure | Executor for that cell | Executor for later cells | Agent result |
+|---|---|---|---|---|
+| pre-execution | `mark_running` raises | **not called** | not called | none exists |
+| post-execution | `mark_completed` raises | already ran | not called | kept, with its raw path |
+| post-execution | `mark_failed` raises | already ran and raised | not called | kept, with the original exception |
+
+Nothing is retried, nothing is released, and the plan claim stays `CONSUMED` in all three cases.
+
+## R3.2 What the summary says
+
+```text
+execution_integrity_status : COMPLETE | BLOCKED_LEDGER_PRE_EXECUTION | BLOCKED_LEDGER_POST_EXECUTION
+execution_integrity_ok     : bool
+ledger_integrity           : null when complete, else
+                             {status, phase, cell_id, repetition_id, attempted_status,
+                              error_code, error_class, message, executed_before_failure,
+                              claim_status, auto_retry}
+ledger_write_failures      : [str]        (at most one; dispatch stops at the first)
+stopped_reason             : the ledger reason code when dispatch stopped for this reason
+not_started_cells          : everything from the blocked cell onward
+```
+
+`stopped_reason` carries `PILOT_LEDGER_LOCKED` / `PILOT_LEDGER_UNAVAILABLE` /
+`PILOT_LEDGER_STATE_INVALID`, which is how a reader tells a durability stop from a cost stop
+(`COST_*`). The two are never merged.
+
+A pre-execution failure produces **no cell record at all**: the cell never started, so inventing an
+`EXECUTION_ERROR` for it would be a fabricated agent outcome. A post-execution failure keeps the real
+record and reports the ledger problem beside it.
+
+## R3.3 CLI exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | the pilot ran to the end **and** every state change was persisted |
+| 3 | refused before execution (approval, scope, frozen contract, claim) |
+| 4 | executed, but the durable record is incomplete — the partial summary is still written |
+| 5 | the summary itself could not be written; nothing is claimed to be saved |
+
+Exit 4 exists because "the cells ran" and "the pilot is trustworthy evidence" are different claims.
+
+## R3.4 Evidence schema note
+
+The live summary gains `execution_integrity_status`, `execution_integrity_ok` and `ledger_integrity`.
+The shared `evidence_schema_version` stays `closure-2b-0-r1`: the dry-run manifest is byte-identical,
+and re-versioning the envelope would have rewritten a published artifact that this stage is not
+allowed to touch. The additions are live-only and marked here.
+
+## R3.5 Accepted behaviour, exercised offline
+
+* `mark_running` raising `LOCKED`, `UNAVAILABLE` or `STATE_INVALID` → executor called 0 times, cell
+  reported as not started, claim `CONSUMED`;
+* a **real** SQLite `BEGIN EXCLUSIVE` taken by a second connection right after the claim commits →
+  the `RUNNING` write fails, the executor is never reached, and re-claiming after the lock is
+  released is still `PILOT_ALREADY_CLAIMED`;
+* `mark_completed` failing after a real run → the record and its raw path survive, the next cell is
+  not dispatched, and the database still shows `RUNNING` (no invented `COMPLETED` row);
+* `mark_failed` failing → the original `RuntimeError` survives alongside the ledger error;
+* a clean run writes `RUNNING, COMPLETED, RUNNING, COMPLETED` and reports `COMPLETE`.

@@ -38,6 +38,7 @@ import argparse
 import asyncio
 import json
 import math
+import sys
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -1041,26 +1042,58 @@ def _mark(
     *,
     result_path: str | None = None,
     failure_reason: str | None = None,
-) -> list[str]:
-    """Write one cell state. A ledger write failure is recorded, never treated as a release."""
+) -> None:
+    """Write one cell state and let a failure propagate.
 
-    try:
-        if status == "RUNNING":
-            lease.mark_running(cell_id, repetition_id)
-        elif status == "COMPLETED":
-            lease.mark_completed(cell_id, repetition_id, result_path=result_path)
-        elif status == "FAILED":
-            lease.mark_failed(
-                cell_id,
-                repetition_id,
-                failure_reason=failure_reason or "unspecified",
-                result_path=result_path,
-            )
-        else:
-            lease.mark(cell_id, repetition_id, status)
-    except PilotLedgerError as error:
-        return [f"{cell_id}@{repetition_id}: {status}: {error}"]
-    return []
+    Returning the error as a string would let the caller keep going, which is exactly the defect
+    this function used to have: a cell whose ``RUNNING`` row could not be written still reached the
+    engine. Durability of the state transition is a precondition for the side effect, not a note
+    taken afterwards, so a failure stops the dispatch instead of being recorded next to it.
+    """
+
+    if status == "RUNNING":
+        lease.mark_running(cell_id, repetition_id)
+    elif status == "COMPLETED":
+        lease.mark_completed(cell_id, repetition_id, result_path=result_path)
+    elif status == "FAILED":
+        lease.mark_failed(
+            cell_id,
+            repetition_id,
+            failure_reason=failure_reason or "unspecified",
+            result_path=result_path,
+        )
+    else:
+        lease.mark(cell_id, repetition_id, status)
+
+
+def _ledger_integrity_record(
+    cell: Cell,
+    repetition_id: int,
+    attempted_status: str,
+    error: PilotLedgerError,
+    *,
+    executed: bool,
+) -> dict[str, Any]:
+    """What failed, in which phase, and what is still true about the execution.
+
+    ``executed`` is the difference between "the cell never started" and "the cell ran and its
+    outcome exists but cannot be confirmed in the ledger". Both stop the pilot; only one of them has
+    an agent result to preserve.
+    """
+
+    return {
+        "status": "BLOCKED_LEDGER_POST_EXECUTION" if executed else "BLOCKED_LEDGER_PRE_EXECUTION",
+        "phase": "POST_EXECUTION" if executed else "PRE_EXECUTION",
+        "cell_id": cell.cell_id,
+        "repetition_id": repetition_id,
+        "attempted_status": attempted_status,
+        "error_code": getattr(error, "reason_code", type(error).__name__),
+        "error_class": type(error).__name__,
+        "message": str(error),
+        "executed_before_failure": executed,
+        "claim_status": "CONSUMED",
+        "auto_retry": False,
+    }
 
 
 def _git_commit() -> str | None:
@@ -1133,6 +1166,8 @@ async def run_live_pilot(
     model = effective_model()
     records: list[dict[str, Any]] = []
     ledger_write_failures: list[str] = []
+    ledger_integrity: dict[str, Any] | None = None
+    integrity_status = "COMPLETE"
     stopped_reason: str | None = None
     not_started: list[str] = []
     for index, cell in enumerate(cells):
@@ -1146,7 +1181,22 @@ async def run_live_pilot(
                 break
         settings = settings_for(cell, runs_root=runs_root, model=model)
         task = cell.benchmark_task()
-        ledger_write_failures.extend(_mark(lease, cell.cell_id, repetition_id, "RUNNING"))
+
+        # Phase A — durability before the side effect. If the RUNNING row cannot be written, the
+        # cell never starts: no provider request, no sandbox, no tool call. The plan claim stays
+        # CONSUMED, so this is a stop, not a retry.
+        try:
+            _mark(lease, cell.cell_id, repetition_id, "RUNNING")
+        except PilotLedgerError as error:
+            integrity_status = "BLOCKED_LEDGER_PRE_EXECUTION"
+            ledger_integrity = _ledger_integrity_record(
+                cell, repetition_id, "RUNNING", error, executed=False
+            )
+            ledger_write_failures.append(str(error))
+            stopped_reason = error.reason_code
+            not_started = [pending.cell_id for pending in cells[index:]]
+            break
+
         try:
             result = await runner(
                 cell,
@@ -1158,7 +1208,9 @@ async def run_live_pilot(
         except Exception as error:  # noqa: BLE001 - a failed cell is data, not a crash
             record = _execution_error_record(cell, error, repetition_id=repetition_id)
             records.append(record)
-            ledger_write_failures.extend(
+            # Phase B — the agent already failed. A ledger failure here is recorded next to the
+            # real outcome, never converted into one and never allowed to continue dispatching.
+            try:
                 _mark(
                     lease,
                     cell.cell_id,
@@ -1166,11 +1218,19 @@ async def run_live_pilot(
                     "FAILED",
                     failure_reason=record["failure_reason"],
                 )
-            )
+            except PilotLedgerError as ledger_error:
+                integrity_status = "BLOCKED_LEDGER_POST_EXECUTION"
+                ledger_integrity = _ledger_integrity_record(
+                    cell, repetition_id, "FAILED", ledger_error, executed=True
+                )
+                ledger_write_failures.append(str(ledger_error))
+                stopped_reason = ledger_error.reason_code
+                not_started = [pending.cell_id for pending in cells[index + 1 :]]
+                break
             continue
         record = normalize_result(cell, result, settings=settings)
         records.append(record)
-        ledger_write_failures.extend(
+        try:
             _mark(
                 lease,
                 cell.cell_id,
@@ -1178,7 +1238,17 @@ async def run_live_pilot(
                 "COMPLETED",
                 result_path=record.get("raw_result_path"),
             )
-        )
+        except PilotLedgerError as ledger_error:
+            # The result is real and stays in ``records``; the ledger simply cannot confirm it, so
+            # the pilot must not continue and must not be reported as complete.
+            integrity_status = "BLOCKED_LEDGER_POST_EXECUTION"
+            ledger_integrity = _ledger_integrity_record(
+                cell, repetition_id, "COMPLETED", ledger_error, executed=True
+            )
+            ledger_write_failures.append(str(ledger_error))
+            stopped_reason = ledger_error.reason_code
+            not_started = [pending.cell_id for pending in cells[index + 1 :]]
+            break
     # The last cell never gets a "next dispatch" check, so its own overrun must be recorded here.
     final_cost_state = _cost_dispatch_state(records, PILOT_PLAN)
     statuses = [record.get("sandbox_creation_status") for record in records]
@@ -1230,6 +1300,11 @@ async def run_live_pilot(
             "ledger_path": str(lease.path),
             "ledger_scope": "local_user_state",
         },
+        # A ledger write failure is not a slow path: it means the durable record no longer matches
+        # what happened, so the pilot cannot claim completeness even when the cells ran fine.
+        "execution_integrity_status": integrity_status,
+        "execution_integrity_ok": integrity_status == "COMPLETE",
+        "ledger_integrity": ledger_integrity,
         "ledger_write_failures": ledger_write_failures,
         # Agent sandboxes only: the oracle has its own, which the runner does not count here.
         "sandbox_count_scope": "agent_sandbox_only",
@@ -1608,21 +1683,39 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 3
     out = Path(args.out).with_name("pilot-live-summary.json")
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+    except OSError as error:
+        # Do not pretend the evidence was saved: say so and fail.
+        print(
+            json.dumps(
+                {
+                    "status": "SUMMARY_NOT_SAVED",
+                    "detail": f"{type(error).__name__}: {error}",
+                    "execution_integrity_status": summary["execution_integrity_status"],
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        return 5
     print(
         json.dumps(
             {
                 "mode": "LIVE",
                 "cells": summary["cell_count"],
                 "execution_claim": summary["execution_claim"],
+                "execution_integrity_status": summary["execution_integrity_status"],
                 "cost_ceiling_state": summary["cost_ceiling_state"],
                 "out": str(out),
             },
             indent=2,
         )
     )
-    return 0
+    # A broken durable record is not a successful pilot, even when every cell ran.
+    return 0 if summary["execution_integrity_status"] == "COMPLETE" else 4
 
 
 if __name__ == "__main__":

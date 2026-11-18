@@ -26,7 +26,9 @@ from experiments.evaluation.closure2.catalog import (
 from experiments.evaluation.closure2.pilot_ledger import (
     PilotAlreadyClaimed,
     PilotLedger,
+    PilotLedgerLocked,
     PilotLedgerStateInvalid,
+    PilotLedgerUnavailable,
 )
 from experiments.evaluation.closure2.pilot_runner import (
     ARM_ORDER,
@@ -1185,38 +1187,276 @@ def test_a_rejected_claim_leaves_the_executor_untouched(
     assert calls == []
 
 
-def test_a_ledger_write_failure_is_recorded_not_hidden(
+# --------------------------------------------------- R3: ledger state writes fail closed
+
+
+class _LeaseStub:
+    """A lease whose state writes either succeed or raise the error it was given."""
+
+    attempt_id = "stub-attempt"
+    path = Path("stub.sqlite")
+
+    def __init__(
+        self,
+        *,
+        running: Exception | None = None,
+        completed: Exception | None = None,
+        failed: Exception | None = None,
+    ) -> None:
+        self.written: list[str] = []
+        self._errors = {"RUNNING": running, "COMPLETED": completed, "FAILED": failed}
+
+    def _write(self, status: str) -> None:
+        error = self._errors.get(status)
+        if error is not None:
+            raise error
+        self.written.append(status)
+
+    def mark_running(self, *args: Any, **kwargs: Any) -> None:
+        self._write("RUNNING")
+
+    def mark_completed(self, *args: Any, **kwargs: Any) -> None:
+        self._write("COMPLETED")
+
+    def mark_failed(self, *args: Any, **kwargs: Any) -> None:
+        self._write("FAILED")
+
+    def mark(self, cell_id: str, repetition_id: int, status: str, **kwargs: Any) -> None:
+        self._write(status)
+
+
+def _use_lease(monkeypatch: pytest.MonkeyPatch, lease: _LeaseStub) -> _LeaseStub:
+    class _Ledger:
+        def claim_plan(self, **kwargs: Any) -> Any:
+            return lease
+
+    monkeypatch.setattr(pilot_runner, "_ledger_factory", _Ledger)
+    return lease
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        (PilotLedgerLocked("PILOT_LEDGER_LOCKED: simulated"), "PILOT_LEDGER_LOCKED"),
+        (
+            PilotLedgerUnavailable("PILOT_LEDGER_UNAVAILABLE: simulated"),
+            "PILOT_LEDGER_UNAVAILABLE",
+        ),
+        (
+            PilotLedgerStateInvalid("PILOT_LEDGER_STATE_INVALID: simulated"),
+            "PILOT_LEDGER_STATE_INVALID",
+        ),
+    ],
+    ids=["locked", "unavailable", "state-invalid"],
+)
+def test_a_running_write_failure_stops_the_cell_before_it_starts(
+    error: Exception, code: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No durable RUNNING row means no provider request, no sandbox, no tool call."""
+
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"), Cell(P1, "A1-P")))
+    lease = _use_lease(monkeypatch, _LeaseStub(running=error))
+    calls: list[Any] = []
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"), Cell(P1, "A1-P")),
+            runs_root=tmp_path,
+            executor=_recording_executor(calls),
+            live_intent=True,
+        )
+    )
+
+    assert calls == [], "the executor must not be reached without a durable RUNNING row"
+    assert lease.written == []
+    assert summary["execution_integrity_status"] == "BLOCKED_LEDGER_PRE_EXECUTION"
+    assert summary["execution_integrity_ok"] is False
+    assert summary["ledger_integrity"]["error_code"] == code
+    assert summary["ledger_integrity"]["phase"] == "PRE_EXECUTION"
+    assert summary["ledger_integrity"]["executed_before_failure"] is False
+    assert summary["ledger_integrity"]["auto_retry"] is False
+    assert summary["stopped_reason"] == code
+    assert summary["not_started_cells"] == [Cell(P1, "A0").cell_id, Cell(P1, "A1-P").cell_id]
+    assert summary["cells"] == [], "a cell that never started has no agent record"
+    assert summary["model_calls"] is None
+    # The claim is spent: this is a stop, not a retry.
+    assert summary["execution_claim"]["claim_status"] == "CONSUMED"
+
+
+def test_a_completion_write_failure_keeps_the_result_and_stops_dispatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     approve_benchmark(monkeypatch)
-    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"),))
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"), Cell(P1, "A1-P")))
+    _use_lease(monkeypatch, _LeaseStub(completed=PilotLedgerUnavailable("ledger went away")))
+    calls: list[Any] = []
 
-    class _BrokenLease:
-        attempt_id = "broken"
-        path = Path("broken.sqlite")
-
-        def mark_running(self, *args: Any, **kwargs: Any) -> None:
-            raise PilotLedgerStateInvalid("PILOT_LEDGER_STATE_INVALID: simulated")
-
-        mark_completed = mark_running
-        mark_failed = mark_running
-
-    class _BrokenLedger:
-        def claim_plan(self, **kwargs: Any) -> Any:
-            return _BrokenLease()
-
-    monkeypatch.setattr(pilot_runner, "_ledger_factory", _BrokenLedger)
     summary = asyncio.run(
         run_live_pilot(
-            (Cell(P1, "A0"),),
+            (Cell(P1, "A0"), Cell(P1, "A1-P")),
+            runs_root=tmp_path,
+            executor=_recording_executor(calls),
+            live_intent=True,
+        )
+    )
+
+    assert len(calls) == 1, "the second cell must not be dispatched"
+    assert [record["arm_id"] for record in summary["cells"]] == ["A0"]
+    record = summary["cells"][0]
+    assert record["status"] == "COMPLETED"
+    assert record["raw_result_path"].endswith("result.json")
+    assert summary["execution_integrity_status"] == "BLOCKED_LEDGER_POST_EXECUTION"
+    assert summary["ledger_integrity"]["phase"] == "POST_EXECUTION"
+    assert summary["ledger_integrity"]["executed_before_failure"] is True
+    assert summary["ledger_integrity"]["attempted_status"] == "COMPLETED"
+    assert summary["not_started_cells"] == [Cell(P1, "A1-P").cell_id]
+    assert summary["execution_claim"]["claim_status"] == "CONSUMED"
+
+
+def test_a_failed_write_failure_keeps_the_agent_error_and_stops_dispatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"), Cell(P1, "A1-P")))
+    _use_lease(monkeypatch, _LeaseStub(failed=PilotLedgerLocked("locked during FAILED")))
+    calls: list[Any] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell)
+        raise RuntimeError("sandbox never came up")
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"), Cell(P1, "A1-P")),
+            runs_root=tmp_path,
+            executor=executor,
+            live_intent=True,
+        )
+    )
+
+    assert len(calls) == 1
+    record = summary["cells"][0]
+    # The real agent outcome survives; the ledger problem is recorded next to it, not instead.
+    assert record["status"] == "EXECUTION_ERROR"
+    assert "sandbox never came up" in record["failure_reason"]
+    assert summary["execution_integrity_status"] == "BLOCKED_LEDGER_POST_EXECUTION"
+    assert summary["ledger_integrity"]["attempted_status"] == "FAILED"
+    assert summary["ledger_integrity"]["error_code"] == "PILOT_LEDGER_LOCKED"
+    assert summary["not_started_cells"] == [Cell(P1, "A1-P").cell_id]
+
+
+def test_a_clean_run_reports_complete_integrity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approve_benchmark(monkeypatch)
+    approve_pilot(monkeypatch, cells=(Cell(P1, "A0"), Cell(P1, "A1-P")))
+    lease = _use_lease(monkeypatch, _LeaseStub())
+
+    summary = asyncio.run(
+        run_live_pilot(
+            (Cell(P1, "A0"), Cell(P1, "A1-P")),
             runs_root=tmp_path,
             executor=_recording_executor([]),
             live_intent=True,
         )
     )
-    assert summary["cells"][0]["status"] == "COMPLETED"
-    assert len(summary["ledger_write_failures"]) >= 2
-    assert all("simulated" in failure for failure in summary["ledger_write_failures"])
+
+    assert lease.written == ["RUNNING", "COMPLETED", "RUNNING", "COMPLETED"]
+    assert summary["execution_integrity_status"] == "COMPLETE"
+    assert summary["execution_integrity_ok"] is True
+    assert summary["ledger_integrity"] is None
+    assert summary["ledger_write_failures"] == []
+    assert summary["not_started_cells"] == []
+    assert summary["cell_count"] == 2
+
+
+def test_the_cli_returns_non_zero_when_the_ledger_broke(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A pilot whose durable record is incomplete is not a successful pilot."""
+
+    async def fake_run(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "mode": "LIVE",
+            "cell_count": 1,
+            "execution_claim": {"claimed": True, "claim_status": "CONSUMED"},
+            "execution_integrity_status": "BLOCKED_LEDGER_PRE_EXECUTION",
+            "cost_ceiling_state": "WITHIN_CEILING",
+            "cells": [],
+        }
+
+    monkeypatch.setattr(pilot_runner, "run_live_pilot", fake_run)
+    exit_code = pilot_runner.main(
+        [
+            "--live",
+            "--confirm-live",
+            "--out",
+            str(tmp_path / "out.json"),
+            "--runs-root",
+            str(tmp_path),
+        ]
+    )
+    assert exit_code == 4
+    assert (tmp_path / "pilot-live-summary.json").is_file(), "partial evidence is still written"
+
+
+def test_the_cli_returns_zero_only_for_a_complete_pilot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def fake_run(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "mode": "LIVE",
+            "cell_count": 0,
+            "execution_claim": {"claimed": True, "claim_status": "CONSUMED"},
+            "execution_integrity_status": "COMPLETE",
+            "cost_ceiling_state": "WITHIN_CEILING",
+            "cells": [],
+        }
+
+    monkeypatch.setattr(pilot_runner, "run_live_pilot", fake_run)
+    assert (
+        pilot_runner.main(
+            [
+                "--live",
+                "--confirm-live",
+                "--out",
+                str(tmp_path / "out.json"),
+                "--runs-root",
+                str(tmp_path),
+            ]
+        )
+        == 0
+    )
+
+
+def test_the_cli_never_pretends_a_summary_was_saved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def fake_run(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "mode": "LIVE",
+            "cell_count": 0,
+            "execution_claim": {"claimed": True, "claim_status": "CONSUMED"},
+            "execution_integrity_status": "COMPLETE",
+            "cost_ceiling_state": "WITHIN_CEILING",
+            "cells": [],
+        }
+
+    monkeypatch.setattr(pilot_runner, "run_live_pilot", fake_run)
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("x", encoding="utf-8")
+    exit_code = pilot_runner.main(
+        [
+            "--live",
+            "--confirm-live",
+            "--out",
+            str(blocker / "out.json"),
+            "--runs-root",
+            str(tmp_path),
+        ]
+    )
+    assert exit_code == 5
 
 
 # --------------------------------------------------- R2-02: finite cost integrity

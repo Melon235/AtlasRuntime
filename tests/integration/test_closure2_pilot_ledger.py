@@ -1,21 +1,26 @@
-"""Closure-2B-0-R2: the durable execution lease, against a real SQLite file.
+"""Closure-2B-0-R2/R3: the durable execution lease, against a real SQLite file.
 
 These tests do not mock the database. They write files, hold real locks, and (for the race) start
 real Python processes, because "two processes cannot both claim the plan" is exactly the property a
-mock would hide.
+mock would hide. R3 adds the other half: a lock that arrives while the pilot is running must
+stop the dispatch, and it is a real lock contending with a real state write.
 
 No model call, no sandbox: the ledger is the only thing under test.
 """
 
 from __future__ import annotations
 
+import asyncio
+import dataclasses
 import json
 import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
+from experiments.evaluation.closure2 import pilot_runner, protocol
 from experiments.evaluation.closure2.pilot_ledger import (
     PilotAlreadyClaimed,
     PilotLedger,
@@ -27,7 +32,9 @@ from experiments.evaluation.closure2.pilot_ledger import (
 from experiments.evaluation.closure2.pilot_runner import (
     PILOT_PLAN,
     REPO_ROOT,
+    Cell,
     build_dry_run_manifest,
+    run_live_pilot,
 )
 
 PLAN_DIGEST = PILOT_PLAN.digest()
@@ -331,3 +338,203 @@ def test_a_process_that_dies_after_claiming_keeps_the_claim(tmp_path: Path) -> N
             cells=[("cell-a", 0)],
             runner_revision="restart-again",
         )
+
+
+# ------------------------------------------------- R3: a lock during the run stops the dispatch
+
+_APPROVED = {
+    "status": "APPROVED",
+    "approved_digest": protocol.C2A_R1_PREREGISTRATION_DIGEST,
+    "approved_by": "integration-test",
+    "approval_commit": "0" * 40,
+    "approved_at": "2026-11-17T00:00:00+00:00",
+}
+
+
+def _authorize(monkeypatch: pytest.MonkeyPatch, cells: tuple[Cell, ...]) -> str:
+    """Approve both layers for exactly ``cells`` and return the plan digest."""
+
+    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(_APPROVED))
+    plan = dataclasses.replace(
+        PILOT_PLAN,
+        cells=tuple(cell.cell_id for cell in cells),
+        repetitions=(0,),
+        max_cell_executions=len(cells),
+        estimated_cost_ceiling_usd=5.0,
+    )
+    monkeypatch.setattr(pilot_runner, "PILOT_PLAN", plan)
+    monkeypatch.setattr(
+        pilot_runner,
+        "PILOT_APPROVAL",
+        {
+            "status": "APPROVED",
+            "approved_plan_digest": plan.digest(),
+            "approved_by": "integration-test",
+            "approval_commit": "0" * 40,
+            "approved_at": "2026-11-17T00:00:00+00:00",
+        },
+    )
+    return plan.digest()
+
+
+class _LockAfterClaimLedger(PilotLedger):
+    """A real ledger that loses the write lock the moment the claim commits."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(path, busy_timeout_ms=120)
+        self._holder: sqlite3.Connection | None = None
+
+    def claim_plan(self, **kwargs: Any) -> Any:
+        lease = super().claim_plan(**kwargs)
+        self._holder = sqlite3.connect(str(self.path), isolation_level=None)
+        self._holder.execute("BEGIN EXCLUSIVE")
+        return lease
+
+    def release(self) -> None:
+        if self._holder is not None:
+            self._holder.execute("ROLLBACK")
+            self._holder.close()
+            self._holder = None
+
+
+class _LockOnSecondWriteLedger(PilotLedger):
+    """A real ledger that locks itself once the first cell's RUNNING row has been committed."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(path, busy_timeout_ms=120)
+        self.writes = 0
+        self._holder: sqlite3.Connection | None = None
+
+    def set_cell_state(
+        self, plan_digest: str, cell_id: str, repetition_id: int, status: str, **fields: Any
+    ) -> None:
+        self.writes += 1
+        if self.writes == 2 and self._holder is None:
+            self._holder = sqlite3.connect(str(self.path), isolation_level=None)
+            self._holder.execute("BEGIN EXCLUSIVE")
+        super().set_cell_state(plan_digest, cell_id, repetition_id, status, **fields)
+
+    def release(self) -> None:
+        if self._holder is not None:
+            self._holder.execute("ROLLBACK")
+            self._holder.close()
+            self._holder = None
+
+
+def test_a_real_lock_before_the_cell_stops_it_reaching_the_executor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Contention on the RUNNING write, with a real lock on a real database."""
+
+    cells = (Cell("closure2-pipeline-migration", "A0"), Cell("closure2-pipeline-migration", "A1-P"))
+    digest = _authorize(monkeypatch, cells)
+    ledger = _LockAfterClaimLedger(tmp_path / "ledger.sqlite")
+    monkeypatch.setattr(pilot_runner, "_ledger_factory", lambda: ledger)
+    calls: list[Any] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell)
+        raise AssertionError("the executor must not run without a durable RUNNING row")
+
+    try:
+        summary = asyncio.run(
+            run_live_pilot(cells, runs_root=tmp_path, executor=executor, live_intent=True)
+        )
+    finally:
+        ledger.release()
+
+    assert calls == []
+    assert summary["execution_integrity_status"] == "BLOCKED_LEDGER_PRE_EXECUTION"
+    assert summary["ledger_integrity"]["error_code"] == "PILOT_LEDGER_LOCKED"
+    assert summary["ledger_integrity"]["executed_before_failure"] is False
+    assert summary["not_started_cells"] == [cell.cell_id for cell in cells]
+
+    # The claim was already committed and stays consumed; the lock did not turn into a retry.
+    stored = PilotLedger(ledger.path).get_claim(digest)
+    assert stored is not None and stored["claim_status"] == "CONSUMED"
+    with pytest.raises(PilotAlreadyClaimed):
+        PilotLedger(ledger.path).claim_plan(
+            plan_digest=digest,
+            plan_id="closure2-pilot-1",
+            cells=[(cell.cell_id, 0) for cell in cells],
+            runner_revision="after-lock",
+        )
+    assert [row["status"] for row in PilotLedger(ledger.path).cell_rows(digest)] == [
+        "CLAIMED",
+        "CLAIMED",
+    ]
+
+
+def test_a_real_lock_after_the_cell_ran_keeps_the_result_and_stops_dispatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cells = (Cell("closure2-pipeline-migration", "A0"), Cell("closure2-pipeline-migration", "A1-P"))
+    digest = _authorize(monkeypatch, cells)
+    ledger = _LockOnSecondWriteLedger(tmp_path / "ledger.sqlite")
+    monkeypatch.setattr(pilot_runner, "_ledger_factory", lambda: ledger)
+    calls: list[Any] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell)
+        return _stub_result()
+
+    try:
+        summary = asyncio.run(
+            run_live_pilot(cells, runs_root=tmp_path, executor=executor, live_intent=True)
+        )
+    finally:
+        ledger.release()
+
+    assert len(calls) == 1, "the second cell must not be dispatched after a persistence failure"
+    assert [record["arm_id"] for record in summary["cells"]] == ["A0"]
+    assert summary["cells"][0]["status"] == "COMPLETED"
+    assert summary["execution_integrity_status"] == "BLOCKED_LEDGER_POST_EXECUTION"
+    assert summary["ledger_integrity"]["attempted_status"] == "COMPLETED"
+    assert summary["ledger_integrity"]["error_code"] == "PILOT_LEDGER_LOCKED"
+    assert summary["not_started_cells"] == [cells[1].cell_id]
+    # The cell really ran, and the database really still says RUNNING: no invented COMPLETED row.
+    assert [row["status"] for row in PilotLedger(ledger.path).cell_rows(digest)] == [
+        "RUNNING",
+        "CLAIMED",
+    ]
+
+
+def _stub_result() -> Any:
+    """The minimum a runner result needs to be normalised."""
+
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        identity=SimpleNamespace(
+            run_id="eval-stub",
+            repetition_id=0,
+            model="deepseek-chat",
+            git_commit="deadbeef",
+            git_dirty=False,
+        ),
+        metrics=SimpleNamespace(
+            prompt_tokens=1000,
+            completion_tokens=200,
+            cache_hit_tokens=None,
+            cache_miss_tokens=None,
+            estimated_cost_usd=0.01,
+            model_turns=2,
+            tool_calls=3,
+            latency_ms=1000.0,
+            sandbox_created=True,
+            sandbox_destroyed=True,
+            worker_selection=["w1"],
+            extra={},
+        ),
+        oracle=SimpleNamespace(passed=True, environment_failure=False, failure_kind=None),
+        environment={
+            "sandbox_image": "atlas-uat-python:3.12",
+            "workspace_isolation": "remote_opensandbox_container",
+            "agent_latency_ms": 900.0,
+        },
+        run_dir="experiments/runs/closure2/stub",
+        agent_success=True,
+        success=True,
+        failure_class="TASK_SUCCESS",
+        failure_reason=None,
+    )
