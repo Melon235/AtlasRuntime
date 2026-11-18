@@ -82,8 +82,10 @@ def test_the_dry_run_manifest_is_complete(manifest: dict[str, Any]) -> None:
     assert manifest["evidence_schema_version"] == pilot_runner.EVIDENCE_SCHEMA_VERSION
     assert manifest["cell_count"] == 18
     assert manifest["contract_ok"] is True
-    assert manifest["execution_ready"] is False
-    assert manifest["approval"]["status"] == "PENDING_OWNER_APPROVAL"
+    # The approval is an owner decision, so it is compared with the live record rather than a
+    # constant: what must hold is that the manifest reports the gate it was built under.
+    assert manifest["execution_ready"] == protocol.approval_gate()["execution_ready"]
+    assert manifest["approval"]["status"] == protocol.APPROVAL_RECORD["status"]
     assert {cell["arm_id"] for cell in manifest["cells"]} == set(pilot_runner.ARM_ORDER)
     assert len({cell["task_id"] for cell in manifest["cells"]}) == 3
 
@@ -179,7 +181,8 @@ def test_the_module_entry_point_runs(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["cell_count"] == 18
-    assert payload["execution_ready"] is False
+    # A separate process must reproduce the same gate verdict, whatever it currently is.
+    assert payload["execution_ready"] == protocol.approval_gate()["execution_ready"]
 
 
 def test_the_cli_refuses_live_without_the_second_confirmation(tmp_path: Path) -> None:

@@ -77,6 +77,24 @@ APPROVED = {
     "approved_at": "2026-11-17T00:00:00+00:00",
 }
 
+#: Layer A, pending. Installed per test where "not yet approved" is the behaviour under test.
+PENDING_APPROVAL = {
+    "status": "PENDING_OWNER_APPROVAL",
+    "approved_digest": None,
+    "approved_by": None,
+    "approval_commit": None,
+    "approved_at": None,
+}
+
+#: Layer B, pending. A separate shape: it names a plan digest, not a definition digest.
+PENDING_PILOT_APPROVAL = {
+    "status": "PENDING_OWNER_APPROVAL",
+    "approved_plan_digest": None,
+    "approved_by": None,
+    "approval_commit": None,
+    "approved_at": None,
+}
+
 
 def describe(task_id: str, arm_id: str) -> dict[str, Any]:
     return cell_descriptor(Cell(task_id, arm_id), runs_root=Path("experiments/runs/closure2"))
@@ -190,13 +208,16 @@ def test_the_dry_run_manifest_claims_no_execution() -> None:
 def test_every_cell_carries_its_frozen_identity() -> None:
     manifest = build_dry_run_manifest()
     assert manifest["preregistration_digest"] == C2A_R1_PREREGISTRATION_DIGEST
+    # The approval status is an owner decision, so the descriptor is compared with the live record
+    # rather than a constant: what must not drift is that a descriptor reflects the gate.
+    assert manifest["approval"]["status"] == protocol.APPROVAL_RECORD["status"]
     for cell in manifest["cells"]:
         assert cell["preregistration_digest"] == C2A_R1_PREREGISTRATION_DIGEST
         assert cell["benchmark_id"] == BENCHMARK_ID
         assert cell["arm_config_digest"] == protocol.arm_config_digest(cell["arm_id"])
         assert cell["config_semantic_digest"] == protocol.config_semantic_digest(cell["config"])
         assert cell["execution_allowed"] is False
-        assert cell["approval_status"] == "PENDING_OWNER_APPROVAL"
+        assert cell["approval_status"] == protocol.APPROVAL_RECORD["status"]
 
 
 def test_the_effective_task_digest_matches_the_topology() -> None:
@@ -350,7 +371,12 @@ def test_live_without_explicit_intent_is_refused(tmp_path: Path) -> None:
     assert calls == []
 
 
-def test_live_with_a_pending_approval_is_refused_before_any_executor(tmp_path: Path) -> None:
+def test_live_with_a_pending_approval_is_refused_before_any_executor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pending is installed explicitly: the live default is an owner decision, not a fixture."""
+
+    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(PENDING_APPROVAL))
     calls: list[Any] = []
     with pytest.raises(PermissionError):
         asyncio.run(
@@ -513,10 +539,18 @@ def test_an_unknown_arm_is_refused() -> None:
         Cell("closure2-not-a-task", "A0").source_task()
 
 
-def test_the_default_approval_is_still_pending() -> None:
+def test_the_default_benchmark_approval_names_the_frozen_definition() -> None:
+    """The definition approval is a standing record; what must hold is that it names the digest.
+
+    The pilot *execution* approval is a different object and was consumed by the one authorized run,
+    so asserting a pending default here would test a state this repository no longer has.
+    """
+
     gate = approval_gate()
-    assert gate["execution_ready"] is False
-    assert gate["status"] == "PENDING_OWNER_APPROVAL"
+    assert protocol.APPROVAL_RECORD["status"] == "APPROVED"
+    assert gate["approved_digest"] == C2A_R1_PREREGISTRATION_DIGEST
+    assert gate["problems"] == []
+    assert gate["execution_ready"] is True
 
 
 # --------------------------------------------------- R1-01: the pilot scope authorization
@@ -558,9 +592,13 @@ def test_the_plan_digest_is_reproducible_and_path_free() -> None:
     assert "generated_at" not in payload
 
 
-def test_the_benchmark_gate_is_evaluated_before_the_pilot_gate(tmp_path: Path) -> None:
+def test_the_benchmark_gate_is_evaluated_before_the_pilot_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """With both layers pending, the benchmark refusal is the one reported."""
 
+    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(PENDING_APPROVAL))
+    monkeypatch.setattr(pilot_runner, "PILOT_APPROVAL", dict(PENDING_PILOT_APPROVAL))
     calls: list[Any] = []
     with pytest.raises(PermissionError):
         asyncio.run(
@@ -598,6 +636,7 @@ def test_the_pilot_approval_alone_does_not_authorize_the_run(
 ) -> None:
     """Layer B approved, layer A pending: refused by the benchmark gate first."""
 
+    monkeypatch.setattr(protocol, "APPROVAL_RECORD", dict(PENDING_APPROVAL))
     approve_pilot(monkeypatch, cells=pilot_cells())
     calls: list[Any] = []
     with pytest.raises(PermissionError):

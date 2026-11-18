@@ -31,7 +31,6 @@ from experiments.evaluation.closure2.catalog import (
     task_digests,
 )
 from experiments.evaluation.closure2.protocol import (
-    APPROVAL_RECORD,
     ARMS,
     BUDGET,
     C2A_FROZEN_TASK_DIGESTS,
@@ -231,10 +230,16 @@ def test_the_budget_carries_parameters_only() -> None:
 
 
 def test_the_approval_state_is_not_in_the_frozen_payload() -> None:
+    """The record is owner state outside the preregistration: neither its status nor its digest.
+
+    Asserting what the record currently *says* would make this test a status report; asserting what
+    the payload can never contain keeps it an invariant.
+    """
+
     payload = preregistration_payload()
     assert "approval" not in payload
-    assert APPROVAL_RECORD["status"] == "PENDING_OWNER_APPROVAL"
-    assert APPROVAL_RECORD["approved_digest"] is None
+    assert "status" not in payload
+    assert "approved_digest" not in payload
 
 
 def test_the_frozen_digest_does_not_depend_on_the_approval_record(monkeypatch) -> None:
@@ -371,15 +376,39 @@ def test_r2_01_the_gate_accepts_no_digest_override() -> None:
         )
 
 
-def test_r2_01_the_live_record_is_still_pending() -> None:
-    """TEST F — this stage does not approve anything, and the gate says so."""
+def test_r2_01_a_pending_record_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TEST F — the refusal is a property of the record, so a pending one is installed explicitly.
 
+    The live record is an owner decision and no longer pending; the behaviour under test is that a
+    pending record cannot authorize, whatever the checkout's current decision happens to be.
+    """
+
+    monkeypatch.setattr(
+        protocol,
+        "APPROVAL_RECORD",
+        {
+            "status": "PENDING_OWNER_APPROVAL",
+            "approved_digest": None,
+            "approved_by": None,
+            "approval_commit": None,
+            "approved_at": None,
+        },
+    )
     gate = approval_gate()
     assert gate["execution_ready"] is False
     assert gate["status"] == "PENDING_OWNER_APPROVAL"
     assert gate["approved_digest"] is None
     with pytest.raises(PermissionError):
         require_execution_approval()
+
+
+def test_r2_01_the_live_gate_reports_the_live_record() -> None:
+    """Whatever the owner decided, the gate reports it and nothing else."""
+
+    gate = approval_gate()
+    assert gate["status"] == protocol.APPROVAL_RECORD["status"]
+    assert gate["approved_digest"] == protocol.APPROVAL_RECORD["approved_digest"]
+    assert gate["execution_ready"] is (protocol.APPROVAL_RECORD["status"] == "APPROVED")
 
 
 # ------------------------------------------------------------------ R1-02: no checkout path

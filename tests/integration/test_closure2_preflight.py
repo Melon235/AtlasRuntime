@@ -88,12 +88,17 @@ def test_the_preflight_passes_every_check(preflight_payload: dict) -> None:
 
 
 def test_an_offline_pass_does_not_unlock_a_live_run(preflight_payload: dict) -> None:
-    """R1-01: ``status`` and ``execution_ready`` are two different facts."""
+    """R1-01: ``status`` and ``execution_ready`` are two different facts.
+
+    The record is an owner decision, so the invariant is the *relation*: a PASSED preflight reports
+    readiness only when the approval record says so, and it always proves that a not-approved record
+    would be refused.
+    """
 
     assert preflight_payload["status"] == "PASSED"
-    assert preflight_payload["execution_ready"] is False
-    assert preflight_payload["approval"]["status"] == "PENDING_OWNER_APPROVAL"
-    assert preflight_payload["approval"]["problems"]
+    assert preflight_payload["execution_ready"] is (
+        preflight_payload["approval"]["status"] == "APPROVED"
+    )
     assert preflight_payload["checks"]["execution_blocked_while_not_approved"] is True
 
 
@@ -637,7 +642,8 @@ def test_the_r1_artifact_is_written_with_its_own_identity(
     assert reloaded["repair_revision"] == "closure-2a-r2"
     assert reloaded["preregistration_digest"] == C2A_R1_PREREGISTRATION_DIGEST
     assert reloaded["status"] == "PASSED"
-    assert reloaded["execution_ready"] is False
+    # Readiness follows the record, not the artifact: the file keeps whatever the gate reported.
+    assert reloaded["execution_ready"] is (reloaded["approval"]["status"] == "APPROVED")
     assert reloaded["model_calls"] == 0
     assert reloaded["sandbox_runs"] == 0
     assert reloaded["approval_binding"]["passed"] is True
