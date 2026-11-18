@@ -234,11 +234,13 @@ BUDGET: dict[str, Any] = {
 #: PENDING to APPROVED changes nothing about the frozen identity. An approval is only usable when it
 #: names the exact digest currently frozen.
 APPROVAL_RECORD: dict[str, Any] = {
-    "status": "PENDING_OWNER_APPROVAL",
-    "approved_digest": None,
-    "approved_by": None,
-    "approval_commit": None,
-    "approved_at": None,
+    "status": "APPROVED",
+    "approved_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+    "approved_by": "repository_owner",
+    # The commit that froze the approved scope, not the commit carrying this record: a record can
+    # never name the commit that contains itself.
+    "approval_commit": "de2acbc4fad395e29364aa6900e388afb492f962",
+    "approved_at": "2026-11-18T08:43:30+00:00",
 }
 
 

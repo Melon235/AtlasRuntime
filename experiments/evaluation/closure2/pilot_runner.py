@@ -304,11 +304,12 @@ PILOT_PLAN = PilotPlan(
 #: approves the *definition*. Deliberately not a parameter of ``run_live_pilot``: a caller must not
 #: be able to hand in its own approval.
 PILOT_APPROVAL: dict[str, Any] = {
-    "status": "PENDING_OWNER_APPROVAL",
-    "approved_plan_digest": None,
-    "approved_by": None,
-    "approval_commit": None,
-    "approved_at": None,
+    "status": "APPROVED",
+    "approved_plan_digest": "0f61f84ad195fbfb2e27f4c80f7906530066f7128da84595b0293dfd0b2e32bb",
+    "approved_by": "repository_owner",
+    # The scope commit: it already exists, so approving it is not a self-reference.
+    "approval_commit": "de2acbc4fad395e29364aa6900e388afb492f962",
+    "approved_at": "2026-11-18T08:43:30+00:00",
 }
 
 
