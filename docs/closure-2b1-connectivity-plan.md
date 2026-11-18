@@ -196,7 +196,8 @@ attempts                      1
 * credentials: key variable present? (value never read into the report), `.env` present?
 * dependencies: `opensandbox` importable, `git` present (blocking); `opensandbox-server` CLI (advisory —
   the server may run in WSL or on another host, so its absence is not proof of a broken endpoint);
-* paths: both output roots writable; both outside the formal benchmark trees;
+* paths: both output roots writable; both outside the formal benchmark trees. An operator-supplied
+  `--out` gets the same guard, so a typo cannot overwrite `pilot-dry-run.json`;
 * resources: every limit positive and within the hard ceilings;
 * approval: reported, never granted. `live_authorized` is always `false` in a precheck.
 
@@ -260,9 +261,9 @@ executor, a timeout and a normalisation failure each produce their own status an
 `NOT_CREATED_CONFIRMED` only when provisioning failed before creation, `NOT_APPLICABLE` when the task
 has no hidden files, and `UNKNOWN` otherwise.
 
-A canary **passes** only when every leg is confirmed: oracle passed, no environment failure,
-`task_success`, agent sandbox created **and** destroyed, and ledger integrity `COMPLETE`. A leaked
-sandbox is a canary failure, not a footnote.
+A canary **passes** only when every leg is confirmed: oracle passed, no environment failure, no oracle
+cleanup failure, `task_success`, agent sandbox created **and** destroyed, and ledger integrity
+`COMPLETE`. A leaked sandbox — either side — is a canary failure, not a footnote.
 
 ### 4.6 Stage 5 — evidence
 
@@ -470,15 +471,15 @@ normalisation failure (nothing invented); unwritable evidence path (`CANARY_EVID
 
 | Check | Result |
 |---|---|
-| `pytest tests/unit/test_closure2_connectivity_canary.py` | 55 passed |
+| `pytest tests/unit/test_closure2_connectivity_canary.py` | 58 passed |
 | `pytest tests/integration/test_closure2_connectivity_canary_entrypoint.py` | 13 passed |
-| `pytest` (whole suite, `--basetemp` outside the repo) | **1396 passed, 6 skipped, 1 deselected**, exit 0 |
+| `pytest` (whole suite, `--basetemp` outside the repo) | **1399 passed, 6 skipped, 1 deselected**, exit 0 |
 | Closure-2A preflight | `PASSED`, **62 checks**, 0 failed, `execution_ready: false`, digest `3080f313…` |
 | `pilot_runner --dry-run` | 18 cells, `contract_ok: true`, `model_calls: 0`, `agent_sandbox_runs_total: 0`, `execution_ready: false` |
 | `ruff check .` / `ruff format --check .` | clean |
 | `pyright` | 0 errors |
 
-Baseline for comparison: `1328 passed, 6 skipped, 1 deselected`. The 68 new tests account for the
+Baseline for comparison: `1328 passed, 6 skipped, 1 deselected`. The 71 new tests account for the
 difference exactly.
 
 ---

@@ -878,8 +878,16 @@ def build_precheck(
 def write_precheck(
     path: Path, *, runs_root: Path | None = None, results_root: Path | None = None
 ) -> dict:
+    """Write the precheck artifact, refusing any path inside the formal benchmark trees.
+
+    ``--out`` is operator-supplied, so it needs the same guard as the output roots: a typo must not
+    be able to overwrite the frozen dry-run manifest.
+    """
+
+    target = Path(path)
+    _assert_isolated_output(target, "--out")
     payload = build_precheck(runs_root=runs_root, results_root=results_root)
-    _write_json_atomic(path, payload)
+    _write_json_atomic(target, payload)
     return payload
 
 
@@ -1133,11 +1141,16 @@ def normalize_canary_result(result: Any, *, plan: CanaryPlan | None = None) -> d
 
 
 def _canary_passed(record: dict[str, Any]) -> bool:
-    """A canary passes only when every leg of the chain is *confirmed*, not merely not-failed."""
+    """A canary passes only when every leg of the chain is *confirmed*, not merely not-failed.
+
+    That includes cleanup on both sides: an oracle sandbox that could not be destroyed is a leaked
+    resource, so an otherwise correct answer must not be reported as a pass.
+    """
 
     return bool(
         record.get("oracle_passed") is True
         and record.get("oracle_environment_failure") is False
+        and record.get("oracle_cleanup_failure") is None
         and record.get("task_success") is True
         and record.get("agent_sandbox_created") is True
         and record.get("agent_sandbox_destroyed") is True

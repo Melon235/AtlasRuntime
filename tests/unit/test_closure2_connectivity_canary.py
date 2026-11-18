@@ -96,6 +96,7 @@ def make_result(
     cost: float | None = 0.0012,
     failure_class: str = "TASK_SUCCESS",
     cleanup_error: str | None = None,
+    oracle_cleanup_error: str | None = None,
     extra: Any = None,
 ) -> Any:
     oracle = SimpleNamespace(
@@ -103,7 +104,7 @@ def make_result(
         environment_failure=environment_failure,
         failure_kind=failure_kind,
         execution_mode="sandbox",
-        cleanup_failure=cleanup_error,
+        cleanup_failure=oracle_cleanup_error,
         details={"hidden_tests": {"sandbox_id": oracle_sandbox_id, "failure_kind": failure_kind}},
     )
     metrics = SimpleNamespace(
@@ -578,6 +579,23 @@ def test_a_cleanup_failure_is_recorded(tmp_path: Path, monkeypatch: pytest.Monke
     assert summary["record"]["cleanup_error"] == "provider refused destroy"
 
 
+def test_a_leaked_oracle_sandbox_is_not_a_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A correct answer with an oracle sandbox that could not be destroyed is a failed canary."""
+
+    approve(monkeypatch)
+
+    async def executor(*args: Any, **kwargs: Any) -> Any:
+        return make_result(oracle_cleanup_error="oracle sandbox destroy refused")
+
+    summary = run_canary(tmp_path, executor)
+    assert summary["record"]["oracle_passed"] is True
+    assert summary["record"]["oracle_cleanup_failure"] == "oracle sandbox destroy refused"
+    assert summary["status"] == "CANARY_FAILED"
+    assert summary["passed"] is False
+
+
 def test_an_oracle_deliverable_failure_is_not_an_environment_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -974,6 +992,43 @@ def test_the_cli_precheck_writes_an_offline_artifact(
     assert payload["sandbox_runs"] == 0
     assert payload["live_authorized"] is False
     assert str(canary.REPO_ROOT) not in out.read_text(encoding="utf-8")
+
+
+def test_the_precheck_out_path_cannot_overwrite_the_frozen_manifest(
+    tmp_path: Path,
+) -> None:
+    """``--out`` is operator input, so it gets the same isolation guard as the output roots."""
+
+    frozen = canary.FORMAL_DRY_RUN_ARTIFACT
+    before = frozen.read_bytes() if frozen.is_file() else None
+    with pytest.raises(CanaryIsolationError):
+        canary.write_precheck(
+            frozen,
+            runs_root=tmp_path / "runs",
+            results_root=tmp_path / "results",
+        )
+    if before is not None:
+        assert frozen.read_bytes() == before
+
+
+def test_the_cli_refuses_a_precheck_out_inside_the_formal_tree(tmp_path: Path) -> None:
+    frozen = canary.FORMAL_DRY_RUN_ARTIFACT
+    before = frozen.read_bytes() if frozen.is_file() else None
+    exit_code = canary.main(
+        [
+            "--precheck",
+            "--out",
+            str(frozen),
+            "--runs-root",
+            str(tmp_path / "runs"),
+            "--results-root",
+            str(tmp_path / "results"),
+        ]
+    )
+    assert exit_code == 3
+    if before is not None:
+        assert frozen.read_bytes() == before
+    assert not (tmp_path / "results" / "canary-precheck.json").exists()
 
 
 def test_the_cli_refuses_live_without_the_second_confirmation(tmp_path: Path) -> None:
