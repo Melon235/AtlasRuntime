@@ -42,6 +42,7 @@ environment variables, historical run ids and Git history keep `atlasos` / `atla
 | C2-B-0-R1 | pilot authorization and evidence integrity — the same doc, §R1: a pilot plan digest + approval record (Layer B) alongside the benchmark approval (Layer A), exact cell/repetition scope, between-cell cost ceiling (`COST_CEILING_NOT_HARD_ENFORCED`), unknown-safe sandbox accounting, three-state budget/usage semantics, frozen native config digest. Preflight still PASSED (62 checks), digest `3080f313…`, both approvals pending, still 0 model calls and 0 sandbox runs |
 | C2-B-0-R2 | durable execution lease and finite cost — `experiments/evaluation/closure2/pilot_ledger.py`: one local SQLite claim per plan digest, taken under `BEGIN IMMEDIATE` before any provider or sandbox work and never released (crash included); NaN/infinite ceilings and cell costs refused, `spent >= ceiling` stops the next dispatch and the last cell's overrun is recorded. Single-machine scope only, no automatic retry, approvals still pending, 0 model calls, 0 sandbox runs |
 | C2-B-0-R3 | ledger state writes fail closed — a `RUNNING` row that cannot be persisted now stops the cell **before** the executor, and a failed `COMPLETED`/`FAILED` write stops the next dispatch while keeping the real agent result; `execution_integrity_status` / `ledger_integrity` record the phase, and the CLI exits `4` instead of reporting success. Verified against a real SQLite `BEGIN EXCLUSIVE`. Approvals still pending, 0 model calls, 0 sandbox runs |
+| C2-B-1 | controlled connectivity canary — `docs/closure-2b1-connectivity-plan.md` and `experiments/evaluation/closure2/connectivity_canary.py`: an offline precheck, a separately approved single-task canary (`canary-add-function`) and its own SQLite claim file (`canary-ledger.sqlite`), reusing `runner.run_sample` unchanged. Canary id, plan digest, approval record and evidence path are disjoint from `closure2-pilot-1`; 68 new offline tests, preflight still 62/62, dry run still 18 cells. Canary cost ceiling unset, **canary approval `PENDING_OWNER_APPROVAL`**, 0 model calls, 0 sandbox runs |
 | Paused research branch | `feat/placement-coding-integration` = `0252bdb` (G1) — retained, never merged |
 | Final-1.5 baseline (`BASE_SHA` of that stage) | `16251d05c34cff41d280396a1647214914e51a31` |
 | Final-1.6 ported fix | `1b4f6be` = cherry-pick of `18e523c` (coding-session outcome attribution, 2 files) |
@@ -250,10 +251,11 @@ was re-measured after the Final-1.6 port: 891 passed / 6 skipped / 1 deselected
 8. **Closure stage** — `docs/final-closure-roadmap.md`. C1-0 (roadmap frozen), C1-A (effective
    prompt layout), C1-B (native neutral baseline, real-container acceptance) and C1-C (metric
    semantics, request evidence, historical consolidation) are done, so **Closure-1 is complete**.
-   C2-A (frozen benchmark, fairness protocol, preregistration) is also done. Remaining: Closure-2B
-   (live pilot, blocked on budget approval), 2C (formal repetitions and attribution), 2D (evidence
-   freeze), Closure-3 (Web Workbench over the existing backend) and Closure-4 (regression,
-   documentation, packaging, version freeze).
+   C2-A (frozen benchmark, fairness protocol, preregistration) is also done. C2-B-1 adds the
+   connectivity canary and the cost preparation, so the remaining blocker for Closure-2B is an owner
+   decision (benchmark, pilot and canary approvals), not missing code. After that: 2C (formal
+   repetitions and attribution), 2D (evidence freeze), Closure-3 (Web Workbench over the existing
+   backend) and Closure-4 (regression, documentation, packaging, version freeze).
 
 Decisions owed by the project owner before Final-3 (from
 `docs/final-2-evaluation-design-report.md` §11): R-4/R-5 the minimal Context-Plane wiring plus

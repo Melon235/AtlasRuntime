@@ -20,6 +20,8 @@ _debug_run/
 
 # Experiment outputs
 experiments/runs/
+# Closure-2B-1 connectivity canary: local precheck/evidence output, machine-specific by nature.
+experiments/results/closure2-canary/
 # Raw per-run material stays local; only sanitized aggregates are published under evidence/.
 experiments/evidence/**/runs/
 experiments/results/evaluation/rounds/
