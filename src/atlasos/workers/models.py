@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 from typing import Literal
 
@@ -12,7 +12,12 @@ from anycode.types import AgentConfig, AgentInfo, ToolSecurityPolicy, ToolUseCon
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 COARSE_SCOPES = frozenset({"research", "coding", "data", "diagnostics", "communication", "general"})
-_DELEGATE_TOOLS = frozenset({"delegate", "delegate_capability", "delegate_worker"})
+#: Tools that hand work to another agent. A worker profile may never carry one: stage M makes the
+#: Main the only delegation authority, so "child cannot recurse" is also a configuration refusal
+#: and not only a runtime check.
+_DELEGATE_TOOLS = frozenset(
+    {"delegate", "delegate_capability", "delegate_worker", "delegate_tasks"}
+)
 _PROFILE_ID = r"^[a-z][a-z0-9_]*$"
 
 
@@ -179,7 +184,7 @@ def canonical_worker_context_hash(rendered: str) -> str:
     return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
 
-def safe_parent_attributes(attributes: dict[str, object]) -> dict[str, object]:
+def safe_parent_attributes(attributes: Mapping[str, object]) -> dict[str, object]:
     """Copy only JSON-safe parent metadata; worker/task/capability keys are replaced."""
 
     reserved = {
@@ -195,6 +200,12 @@ def safe_parent_attributes(attributes: dict[str, object]) -> dict[str, object]:
         "task",
         "objective",
         "background",
+        # Delegation identity is rewritten by the factory, never inherited from the parent.
+        # Inheriting it would let a child present itself as the delegation authority.
+        "atlas_role",
+        "delegation_depth",
+        "delegation_root",
+        "parent_task_id",
     }
     safe: dict[str, object] = {}
     for key, value in attributes.items():

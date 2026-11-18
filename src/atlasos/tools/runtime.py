@@ -128,6 +128,7 @@ class AtlasToolRuntime:
         state_path: str | Path | None = None,
         conversation_path: str | Path | None = None,
         external_tools: Sequence[ToolDefinition] = (),
+        core_tools: Sequence[ToolDefinition] = (),
         search_index: ToolSearchIndex | None = None,
         search_backend: str = "keyword",
         embedding_model: str | None = None,
@@ -202,6 +203,13 @@ class AtlasToolRuntime:
             self._tool_sources.update({tool.name: "atlas:sandbox" for tool in sandbox_defs})
         core_defs.update({tool.name: tool for tool in atlas_tools})
         self._tool_sources.update({tool.name: "atlas:control" for tool in atlas_tools})
+        # Host-supplied core tools (stage M delegation entry). Empty by default, so the M1 native
+        # surface is byte-identical unless a composition explicitly widens it.
+        for tool in core_tools:
+            if tool.name in core_defs:
+                raise ValueError(f"core tool {tool.name!r} is already registered as a core tool")
+            core_defs[tool.name] = tool
+            self._tool_sources[tool.name] = "atlas:host"
         self.catalog = ToolCatalog(core_tool_names=frozenset(core_defs))
         for name in sorted(core_defs):
             self.registry.register(core_defs[name])

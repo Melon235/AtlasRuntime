@@ -226,3 +226,44 @@ concept. `NOT_VALIDATED` — present, no live evidence.
   checkpoint.
 - Evaluation-only mechanisms (router, ownership, compaction, offload, verification, oracle) must not
   be described as product defaults.
+
+## 8. Main-driven goal path (stage M)
+
+A fourth composition, added in stage M and **not** represented in the table above: it runs a
+natural-language goal with no pre-authored DAG.
+
+Entry: `atlasos.app.main_driven.run_goal(GoalRunOptions)` (also
+`python -m atlasos.app.main_driven "<goal>" --workspace-root <dir>`).
+
+```text
+run_goal
+  ├─ config: tools.mode must be "progressive"; context.policy must be "upstream_default"
+  ├─ delegation limits: DelegationConfig          (own `delegation:` YAML section, not AtlasConfig)
+  ├─ DelegatedOwnershipPolicy + PolicyEnforcer    (R1-1 semantics, one manifest per worker)
+  ├─ AtlasToolRuntime(core_tools=(delegate_tasks, delegate.read), action policy, ledger, idempotency)
+  ├─ DelegationService                            (route → create workers → run → project)
+  ├─ AtlasContextEngine(OrchestratorConfig(max_concurrency=1), tool_runtime, budget_state)
+  └─ engine.run_tasks(team=[main], [one task])    → the Main's own AgentRunner loop
+        └─ delegate_tasks tool call → children → bounded tool result → loop continues
+```
+
+| Question | Answer |
+|---|---|
+| Main is a real agent loop | yes — `AtlasContextEngine` → `AnyCode` wave → `AgentRunner`; delegation happens inside a tool call |
+| Children | `ScopedWorkerFactory` per child, own `ExecutionContext` (`atlas_role="worker"`, `delegation_depth=1`), own conversation record, own budget hook |
+| Child concurrency | own semaphore, `max_parallel_children` (default 2); the AnyCode pool is untouched, so `max_concurrency=1` cannot deadlock |
+| Admission | `DelegationRouter` → frozen `atlasos.workers.routing.route_delegation` (`r0.1.0` unchanged); stage-M policy version `m.1.0` |
+| Child write scope | `DelegatedOwnershipPolicy` (R1-1 `WorkspaceOwnershipPolicy` per worker). No grant ⇒ owns nothing ⇒ every write denied |
+| Child recursion | not in any profile (`WorkerProfile` rejects it), not in `AgentConfig.tools`, and the tool refuses non-main callers |
+| Result boundary | bounded JSON (≤ 8 000 chars) with a per-child summary (≤ 900 chars default) and an `ho-` reference; full output in `run_dir/handoffs` |
+| Handoff reads | `delegate.read` only, authorized by the runtime-written index for that parent task; the DAG-only `handoff.read` is not registered |
+| Token attribution | `UsageAttributionHook` per agent (AnyCode's `merge_usage` drops cache counters); a shared `RunBudgetState` for the Main and every child |
+| Checkpoint / resume | none — a goal run cannot be resumed (same limitation as the coding paths) |
+| Ablation | `delegation.enabled=false` removes both tools and runs the Main alone |
+| Evidence | `run_dir/session.json` (main usage, per-batch decisions, child outcomes with monotonic offsets, ownership denials), `workers.json`, `ledger.db`, `delegation/handoffs.json`, `tool_conversations.json`, `trajectory/` |
+
+Frozen-router note: `r0.1.0` refuses *any* single write-capable task (`GATE_1_DELEGATION_NECESSITY`,
+`TRIVIAL_DIRECT_TASK`), and stage M may not change it. `DELEGATE_ONE` is therefore reachable for a
+single read-only, well-contextualized subtask; a single write subtask is refused and the Main does
+the work itself. Two or more independent subtasks take the parallel path, where shared-write
+conflicts are refused by `GATE_2_DEPENDENCY_COUPLING`.

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -228,8 +228,21 @@ class ScopedWorkerFactory:
             operating_scope=profile.operating_scope,
             can_delegate=profile.can_delegate,
         )
-        attributes = safe_parent_attributes(dict(parent_context.attributes))
+        # Read the delegation identity from the raw parent before filtering strips it: a worker is
+        # always one level below its parent, whatever the parent claimed to be.
+        parent_attributes = dict(parent_context.attributes)
+        parent_depth = _int_attribute(parent_attributes, "delegation_depth")
+        parent_root = parent_attributes.get("delegation_root")
+        parent_task_id = parent_attributes.get("task_id")
+        attributes = safe_parent_attributes(parent_attributes)
         attributes["atlas_worker"] = metadata.nested_attributes()
+        attributes["atlas_role"] = "worker"
+        attributes["delegation_depth"] = parent_depth + 1
+        attributes["delegation_root"] = (
+            str(parent_root) if parent_root is not None and str(parent_root).strip() else worker_id
+        )
+        if parent_task_id is not None and str(parent_task_id).strip():
+            attributes["parent_task_id"] = str(parent_task_id)
         # Flat trusted mirrors let the frozen M3 action context consume worker metadata.
         attributes["worker_id"] = worker_id
         attributes["profile_id"] = profile.profile_id
@@ -244,3 +257,16 @@ class ScopedWorkerFactory:
                 "attributes": attributes,
             }
         )
+
+
+def _int_attribute(attributes: Mapping[str, object], key: str) -> int:
+    """Read a non-negative integer attribute, defaulting to 0 for absent or malformed values."""
+
+    value = attributes.get(key)
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return max(0, value)
+    if isinstance(value, str) and value.strip().isdigit():
+        return max(0, int(value.strip()))
+    return 0

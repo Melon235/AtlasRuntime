@@ -189,6 +189,33 @@ Cross-worker data transfer is either upstream task-result injection or the opt-i
 handoff (`handoff.py`, `handoff_mode="dual"`). Multi-worker is **not** the default: the
 benchmarks did not show a quality benefit (see `docs/evaluation-summary.md`).
 
+### Main-driven delegation (stage M, natural-language goal only)
+
+The static DAG above stays the workflow mode. A goal, which has no pre-authored DAG, runs through a
+different composition: `atlasos.app.main_driven.run_goal`.
+
+```text
+Main Agent  (AgentRunner, one task, one pool slot: max_concurrency=1)
+  └─ delegate_tasks  ← ordinary core tool, called from the model loop
+      ├─ identity check    atlas_role="main", depth 0, same task/run as the delegation root
+      ├─ DelegationRouter  → frozen R0.1.0 gates over runtime-authored evidence
+      ├─ child Agents      → own semaphore, own conversation, own budget hook, own worker_id
+      └─ bounded summary + ho-<id> reference   (delegate.read pages the full output)
+  └─ tool result appended → the same loop continues (integrate, verify, answer)
+```
+
+Three properties are structural, not prompt-level:
+
+* **No pool deadlock.** Children never acquire an AnyCode pool slot; the Main already holds the
+  only one. Child concurrency is bounded by `DelegationLimits.max_parallel_children`.
+* **No context leakage.** A child is built from its assignment text only, and the Main receives a
+  summary capped at `result_preview_chars` plus a reference. Full child output lives in the
+  run-scoped `HandoffStore`.
+* **No widening by asking.** Write scope comes from Host grants
+  (`DelegatedOwnershipPolicy`, R1-1 semantics per worker); a profile without a grant owns nothing
+  and is read-only. A child cannot delegate (`delegate_tasks` is not in any profile and the tool
+  refuses non-main callers).
+
 ---
 
 ## 5. Budget termination path
@@ -347,6 +374,12 @@ construct their tool runtime directly, so `tools.mode` does not apply to them.
 Opt-in mechanisms (not in the default config): durable suspension/approvals (M6), dual handoff,
 selective delegation, ownership enforcement, history compaction, ingress offload, worker task
 contracts. Each is documented with its measured result in `docs/design-decisions.md`.
+
+Main-driven delegation is configured in its own `delegation:` section
+(`atlasos/delegation/config.py::DelegationConfig`), deliberately **not** in `AtlasConfig`: that
+model's dump is hashed into every recorded experiment and dry-run identity, so adding a field there
+would move historical digests. A configuration file without the section keeps the defaults;
+`delegation.enabled=false` removes both delegation tools and yields a single-agent baseline.
 
 ---
 
