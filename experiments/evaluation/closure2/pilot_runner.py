@@ -354,12 +354,19 @@ ROUTING_PAIR_PLAN = PilotPlan(
 #: Owner authorization for the one routing execution. It names the scope commit that already
 #: exists, so approving it is not a self-reference, and it names the plan digest that carries the
 #: USD 0.10 estimate — approving either one separately is not possible.
+#:
+#: The authorized execution happened on 2026-11-18 (attempt ``f51f374a…``), so the status is no
+#: longer ``APPROVED``. Who approved what, against which digest, from which commit stays recorded,
+#: and the attempt that spent it is added. A further routing run needs a new owner authorization,
+#: not a status edit.
 ROUTING_PAIR_APPROVAL: dict[str, Any] = {
-    "status": "APPROVED",
+    "status": "CONSUMED_BY_EXECUTION",
     "approved_plan_digest": "41551523488b6a4ae8e02fa9e195a1728fe061935beac856621c05c2457a6b99",
     "approved_by": "repository_owner",
     "approval_commit": "609da3d921492c9ce06a668e1821427a8848466e",
     "approved_at": "2026-11-18T11:17:54+00:00",
+    "consumed_at": "2026-11-18T11:19:06.504706+00:00",
+    "consumed_attempt_id": "f51f374ac0274d66837e5df76c67b48e",
 }
 
 
