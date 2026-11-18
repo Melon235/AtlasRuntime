@@ -322,6 +322,124 @@ PILOT_APPROVAL: dict[str, Any] = {
 }
 
 
+PILOT_PLAN_ID = "closure2-pilot-1"
+ROUTING_PAIR_PLAN_ID = "closure2-routing-pair-1"
+
+#: Closure-2C-1: one task, two arms, one variable. ``A1-P`` runs with ``route=off`` and executes
+#: the two-worker DAG; ``A2-P`` runs the frozen router and is expected to resolve ``direct``, i.e.
+#: one worker. Task, fixture, oracle, model, layout, budget and sandbox are shared by construction:
+#: only the recorded routing policy may change the execution path. The shared prefix does **not**
+#: make rendered prompts byte-identical — direct hands one worker the union assignment while multi
+#: gives each worker its own region, so prompts differ even though the pre-route digest is equal.
+ROUTING_PAIR_CELLS: tuple[str, ...] = (
+    "closure2-state-machine-refactor::A1-P",
+    "closure2-state-machine-refactor::A2-P",
+)
+
+#: No owner authorization exists for a routing run, so the ceiling is deliberately unset: with
+#: ``None`` the cost policy is invalid and the gate refuses live execution on its own.
+ROUTING_PAIR_PLAN = PilotPlan(
+    plan_id=ROUTING_PAIR_PLAN_ID,
+    benchmark_id=BENCHMARK_ID,
+    preregistration_digest=C2A_R1_PREREGISTRATION_DIGEST,
+    runner_revision="closure-2c1-r1",
+    cells=ROUTING_PAIR_CELLS,
+    repetitions=(0,),
+    max_cell_executions=2,
+    estimated_cost_ceiling_usd=None,
+)
+
+ROUTING_PAIR_APPROVAL: dict[str, Any] = {
+    "status": "PENDING_OWNER_APPROVAL",
+    "approved_plan_digest": None,
+    "approved_by": None,
+    "approval_commit": None,
+    "approved_at": None,
+}
+
+
+def pilot_scope(plan_id: str = PILOT_PLAN_ID) -> tuple[PilotPlan, dict[str, Any]]:
+    """The fixed (plan, approval) pair a plan id names.
+
+    A closed set of two plans, dispatched by id: no registration hook, no caller-supplied scope,
+    no way to reach a third plan from the CLI. The globals are read **at call time** on purpose:
+    tests substitute ``PILOT_PLAN`` / ``PILOT_APPROVAL`` per test and must stay effective.
+    """
+
+    if plan_id == ROUTING_PAIR_PLAN_ID:
+        return ROUTING_PAIR_PLAN, ROUTING_PAIR_APPROVAL
+    if plan_id == PILOT_PLAN_ID:
+        return PILOT_PLAN, PILOT_APPROVAL
+    raise PilotContractError(
+        f"unknown plan_id {plan_id!r}: known plans are {PILOT_PLAN_ID!r} and "
+        f"{ROUTING_PAIR_PLAN_ID!r}"
+    )
+
+
+def plan_scope_ids() -> tuple[str, ...]:
+    """The plan ids the CLI may name. Frozen order, so ``--help`` is deterministic."""
+
+    return (PILOT_PLAN_ID, ROUTING_PAIR_PLAN_ID)
+
+
+def routing_pair_cells() -> tuple[Cell, ...]:
+    """The Closure-2C-1 pair as ``Cell`` objects, in the plan's frozen order."""
+
+    cells: list[Cell] = []
+    for cell_id in ROUTING_PAIR_CELLS:
+        task_id, _, arm_id = cell_id.partition("::")
+        cells.append(Cell(task_id, arm_id))
+    return tuple(cells)
+
+
+def plan_cells_for(plan_id: str = PILOT_PLAN_ID) -> tuple[Cell, ...]:
+    """The cells a plan id authorizes. Deliberately not derived from ``plan.cells``.
+
+    ``pilot_cells()`` is the stage's proposal constant and tests substitute ``PILOT_PLAN`` without
+    redefining it; deriving the live selection from the (substitutable) plan would silently change
+    which cells the CLI asks for.
+    """
+
+    if plan_id == ROUTING_PAIR_PLAN_ID:
+        return routing_pair_cells()
+    if plan_id == PILOT_PLAN_ID:
+        return pilot_cells()
+    raise PilotContractError(f"unknown plan_id {plan_id!r}")
+
+
+#: One summary per plan: the pilot keeps the filename its 2026-11-18 artifact already has, and a
+#: routing run can never overwrite it even when both are pointed at the same ``--out`` directory.
+LIVE_SUMMARY_FILENAMES: dict[str, str] = {
+    PILOT_PLAN_ID: "pilot-live-summary.json",
+    ROUTING_PAIR_PLAN_ID: "routing-pair-live-summary.json",
+}
+
+#: Run roots are plan-scoped for the same reason: two plans never share a results tree.
+DEFAULT_RUNS_ROOTS: dict[str, Path] = {
+    PILOT_PLAN_ID: DEFAULT_RUNS_ROOT,
+    ROUTING_PAIR_PLAN_ID: REPO_ROOT / "experiments" / "runs" / "closure2-routing-pair",
+}
+
+
+def live_summary_path(out: Path, plan_id: str = PILOT_PLAN_ID) -> Path:
+    """Where a live summary for ``plan_id`` is written, given the ``--out`` path."""
+
+    try:
+        name = LIVE_SUMMARY_FILENAMES[plan_id]
+    except KeyError:
+        raise PilotContractError(f"unknown plan_id {plan_id!r}") from None
+    return out.with_name(name)
+
+
+def default_runs_root(plan_id: str = PILOT_PLAN_ID) -> Path:
+    """The plan-scoped default run root."""
+
+    try:
+        return DEFAULT_RUNS_ROOTS[plan_id]
+    except KeyError:
+        raise PilotContractError(f"unknown plan_id {plan_id!r}") from None
+
+
 def _finite_number(value: Any) -> float | None:
     """A usable finite number, or ``None``.
 
@@ -475,10 +593,22 @@ def pilot_authorization_gate(
     }
 
 
-def require_pilot_authorization(*, cells: tuple[Cell, ...], repetition_id: int) -> dict[str, Any]:
-    """Raise unless the requested scope is the approved scope. Called by the live entry point."""
+def require_pilot_authorization(
+    *,
+    cells: tuple[Cell, ...],
+    repetition_id: int,
+    plan: PilotPlan | None = None,
+    record: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Raise unless the requested scope is the approved scope. Called by the live entry point.
 
-    gate = pilot_authorization_gate(cells=cells, repetition_id=repetition_id)
+    ``plan``/``record`` default to the pilot scope, which keeps every existing caller unchanged; the
+    live entry point passes the pair selected by ``pilot_scope``.
+    """
+
+    gate = pilot_authorization_gate(
+        cells=cells, repetition_id=repetition_id, plan=plan, record=record
+    )
     if not gate["execution_ready"]:
         raise PilotNotAuthorized("PILOT_NOT_AUTHORIZED: " + "; ".join(gate["problems"]))
     return gate
@@ -1134,6 +1264,7 @@ async def run_live_pilot(
     repetition_id: int = 0,
     executor: Executor | None = None,
     live_intent: bool = False,
+    plan_id: str = PILOT_PLAN_ID,
 ) -> dict[str, Any]:
     """Execute the given cells for real.
 
@@ -1141,7 +1272,7 @@ async def run_live_pilot(
 
     1. ``live_intent`` must be explicit — no environment variable, no default, no inference.
     2. ``require_execution_approval()`` — raises before *any* executor exists.
-    3. ``require_pilot_authorization()`` — the scope must be the approved scope.
+    3. ``require_pilot_authorization()`` — the scope must be the approved scope of ``plan_id``.
     4. The frozen contract is re-checked; a drift aborts the whole pilot instead of running part.
     5. The plan is claimed in the durable ledger. One claim per plan digest, taken in a single
        transaction, before any provider request or sandbox provisioning. A plan that was already
@@ -1158,18 +1289,22 @@ async def run_live_pilot(
             "LIVE_INTENT_NOT_CONFIRMED: pass --live --confirm-live; no environment variable can "
             "enable a live run"
         )
+    plan, approval_record = pilot_scope(plan_id)
     gate = require_execution_approval()
-    pilot_gate = require_pilot_authorization(cells=cells, repetition_id=repetition_id)
+    pilot_gate = require_pilot_authorization(
+        cells=cells, repetition_id=repetition_id, plan=plan, record=approval_record
+    )
     require_frozen_contract()
 
     # The lease is taken after every approval and before any provider or sandbox work. If the plan
     # was ever claimed, this raises and nothing downstream runs — a crashed process does not give
-    # its claim back.
+    # its claim back. The claim is keyed by *this* plan's digest, so the pilot's spent claim can
+    # neither block nor authorize the routing pair.
     lease = _ledger_factory().claim_plan(
         plan_digest=pilot_gate["plan_digest"],
         plan_id=pilot_gate["plan_id"],
         cells=[(cell.cell_id, repetition_id) for cell in cells],
-        runner_revision=PILOT_PLAN.runner_revision,
+        runner_revision=plan.runner_revision,
         git_commit=_git_commit(),
     )
 
@@ -1185,7 +1320,7 @@ async def run_live_pilot(
         if index:
             # The ceiling is advisory and evaluated between cells: a cell already running can
             # overspend before this check sees it. Unknown, invalid or exhausted cost stops too.
-            state = _cost_dispatch_state(records, PILOT_PLAN)
+            state = _cost_dispatch_state(records, plan)
             if not state["can_dispatch"]:
                 stopped_reason = state["reason"]
                 not_started = [pending.cell_id for pending in cells[index:]]
@@ -1261,7 +1396,7 @@ async def run_live_pilot(
             not_started = [pending.cell_id for pending in cells[index + 1 :]]
             break
     # The last cell never gets a "next dispatch" check, so its own overrun must be recorded here.
-    final_cost_state = _cost_dispatch_state(records, PILOT_PLAN)
+    final_cost_state = _cost_dispatch_state(records, plan)
     statuses = [record.get("sandbox_creation_status") for record in records]
     confirmed = sum(1 for status in statuses if status == "SANDBOX_CREATED_CONFIRMED")
     confirmed_absent = sum(1 for status in statuses if status == "SANDBOX_NOT_CREATED_CONFIRMED")
@@ -1613,18 +1748,31 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--dry-run", action="store_true", help="plan only (the default)")
     parser.add_argument("--out", default=str(DEFAULT_DRY_RUN_OUT))
-    parser.add_argument("--runs-root", default=str(DEFAULT_RUNS_ROOT))
+    parser.add_argument(
+        "--plan",
+        default=PILOT_PLAN_ID,
+        choices=plan_scope_ids(),
+        help=(
+            "which fixed plan a run selects; only the two registered plans exist. The dry-run "
+            "manifest always describes the frozen 18-cell contract, never the selected plan"
+        ),
+    )
+    parser.add_argument(
+        "--runs-root",
+        default=None,
+        help="run tree; defaults to the tree owned by the selected plan",
+    )
     parser.add_argument("--live", action="store_true", help="request a real run")
     parser.add_argument(
         "--confirm-live",
         action="store_true",
         help="second, explicit confirmation required together with --live",
     )
-    parser.add_argument("--cells", help="comma separated <task_id>::<arm_id>, default the proposal")
+    parser.add_argument("--cells", help="comma separated <task_id>::<arm_id>, default the plan's")
     parser.add_argument("--repetition", type=int, default=0)
     args = parser.parse_args(argv)
 
-    runs_root = Path(args.runs_root)
+    runs_root = Path(args.runs_root) if args.runs_root else default_runs_root(args.plan)
 
     if not args.live:
         manifest = write_dry_run(Path(args.out), runs_root=runs_root)
@@ -1665,13 +1813,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        cells = _parse_cells(args.cells) if args.cells else pilot_cells()
+        cells = _parse_cells(args.cells) if args.cells else plan_cells_for(args.plan)
         summary = asyncio.run(
             run_live_pilot(
                 cells,
                 runs_root=runs_root,
                 repetition_id=args.repetition,
                 live_intent=True,
+                plan_id=args.plan,
             )
         )
     except (
@@ -1693,7 +1842,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 3
-    out = Path(args.out).with_name("pilot-live-summary.json")
+    out = live_summary_path(Path(args.out), args.plan)
     try:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
