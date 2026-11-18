@@ -4,6 +4,11 @@ Status: `READY_FOR_INDEPENDENT_REVIEW` (offline only).
 Live execution: **not approved, not run**. Benchmark, pilot and canary approvals are all
 `PENDING_OWNER_APPROVAL`; this stage performed 0 model calls and 0 sandbox runs.
 
+Execution readiness on 2026-11-18: **`ENVIRONMENT_BLOCKED`** — one precondition fails, the
+OpenSandbox server is not running (`localhost:8080` refuses, no `opensandbox-server` process in WSL).
+Docker, the `atlas-uat-python:3.12` image, the egress/execd sidecars, the provider endpoint and every
+frozen digest are verified. See §14.1 A0 for the one command that clears it.
+
 | Item | Value |
 |---|---|
 | Stage | `closure-2b-1` |
@@ -550,3 +555,299 @@ No other file outside the allowed set changed.
    be run, once.
 
 Nothing in this stage performed any of steps 1–4, and no command in it can approve itself.
+
+---
+
+## 14. Operator runbooks
+
+Both runbooks are checklists, not automation. Nothing below was executed. Every command assumes
+`cd D:\Work\AtlasRuntime` and the repository virtualenv.
+
+### 14.1 Runbook A — one-shot live canary
+
+**A0. Environment precondition (currently the single blocker).**
+
+```bash
+# WSL2 terminal 1 — keep it open for the whole run
+OPENSANDBOX_INSECURE_SERVER=YES opensandbox-server
+
+# WSL2 terminal 2
+curl -s http://127.0.0.1:8080/health          # expect {"status":"healthy"}
+```
+
+```powershell
+# Windows
+Test-NetConnection 127.0.0.1 -Port 8080 -InformationLevel Quiet   # expect True
+```
+
+Optional image-content check (a throwaway Docker container, **not** an Atlas sandbox):
+
+```bash
+docker run --rm atlas-uat-python:3.12 sh -lc 'git --version && python3 -m pytest --version'
+```
+
+**A1. What the owner approves — exact values.**
+
+1. Edit `CANARY_PLAN.estimated_cost_ceiling_usd` in
+   `experiments/evaluation/closure2/connectivity_canary.py` from `None` to the approved number.
+   Proposed: `0.05`.
+2. Print the digest that the edit produced:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from experiments.evaluation.closure2 import connectivity_canary as c; print(c.CANARY_PLAN.digest())"
+```
+
+   With `0.05` it is `95f9acf161c591ef9dac5031acc380ae61255a90d8f7b8b7788b24d6ef6a7f69`.
+   Any other number produces a different digest; the approval must name the printed value, never a
+   remembered one.
+3. Set `CANARY_APPROVAL` to `status="APPROVED"`, `approved_plan_digest=<that digest>`,
+   `approved_by=<name>`, `approval_commit=<sha>`, `approved_at=<UTC ISO 8601>` — commit steps 1–3
+   together and use that commit's sha.
+4. Note what this does **not** move: the preregistration digest `3080f313…`, the router, the tasks and
+   the benchmark approval. The canary plan digest is scope-bound by design: approving a ceiling is
+   what creates the digest, so it cannot pre-exist the number.
+
+**A2. Pre-flight, immediately before the run.**
+
+```powershell
+.\.venv\Scripts\python.exe -m experiments.evaluation.closure2.connectivity_canary --precheck
+```
+
+Require: `precheck_ready: true`, `blocking_problems: []`, and the printed `plan_digest` equal to
+`approved_plan_digest`. Then confirm no claim exists yet:
+
+```powershell
+Test-Path "$env:LOCALAPPDATA\AtlasRuntime\closure2\canary-ledger.sqlite"   # expect False
+```
+
+**A3. The command — run once.**
+
+```powershell
+.\.venv\Scripts\python.exe -m experiments.evaluation.closure2.connectivity_canary --live --confirm-live
+```
+
+| Exit | Meaning | Claim |
+|---|---|---|
+| 0 | `status = CANARY_PASSED` and ledger integrity `COMPLETE` | consumed |
+| 4 | executed, not passed (oracle, cleanup, timeout, integrity) | consumed |
+| 3 | refused before any work (no approval / digest / isolation) | **not** consumed |
+| 5 | evidence could not be saved | consumed |
+| 2 | `--confirm-live` missing | not consumed |
+
+A failure at `provider.health()` happens *after* the claim, so it burns the single attempt: this is why
+A0 precedes A1.
+
+**A4. Where the evidence lands.**
+
+```text
+experiments/results/closure2-canary/canary-summary.json          canary record (git-ignored)
+experiments/runs/closure2-canary/canary-add-function/r0-<run_id>/
+    result.json  run.json  stage_e_evidence.json  context.json
+    provider_calls.jsonl  tool_conversations.json  workers.json
+    workspace/  workspace.patch  oracle.log  oracle_sandbox.json  trajectory/
+```
+
+**A5. PASS is a JSON assertion, not an exit code.** In `canary-summary.json`:
+
+```text
+status                        == "CANARY_PASSED"
+passed                        == true
+execution_integrity_status    == "COMPLETE"
+counts_toward_formal_results  == false
+record.oracle_passed               == true
+record.oracle_environment_failure  == false
+record.oracle_cleanup_failure      == null
+record.oracle_sandbox_status       == "CREATED_CONFIRMED"
+record.agent_sandbox_created       == true
+record.agent_sandbox_destroyed     == true
+record.provider_prompt_tokens      != null        (a real request happened)
+record.model_calls                 >= 1
+record.cost_vs_ceiling             == "WITHIN_CEILING"  (when pricing is complete)
+```
+
+**A6. Independent cross-checks (five success conditions).**
+
+1. **Provider request really happened** — `record.model_calls >= 1` *and* the run directory has
+   `provider_calls.jsonl` with that many lines; `context.json.request_evidence.requests_observed`
+   agrees.
+2. **Agent sandbox created and executed** — `agent_sandbox_created: true` and
+   `run.json.environment.sandbox_provider` names OpenSandbox (not `fake`).
+3. **Code was actually modified** — `workspace/calculator.py` no longer raises, and the oracle passed
+   (the oracle only passes if all three assertions hold).
+4. **Independent oracle sandbox verified** — `oracle.log` contains a real pytest run,
+   `oracle_sandbox.json` names the oracle sandbox, `oracle_sandbox_status` is
+   `CREATED_CONFIRMED`.
+5. **Cleanup done and evidence saved** — `agent_sandbox_destroyed: true`, `oracle_cleanup_failure`
+   null, and in WSL `docker ps` shows no leftover sandbox container.
+
+**A7. After the claim is consumed.** The claim is permanent: a second `--live` on the same digest is
+refused with `PILOT_ALREADY_CLAIMED`. Do **not** delete `canary-ledger.sqlite`. A retry needs a new
+scope: bump `CANARY_RUNNER_REVISION` (or the ceiling), producing a new digest, and obtain a new
+approval — or stop and treat the canary as failed.
+
+**A8. If it fails, collect.**
+
+`canary-summary.json`, the whole `experiments/runs/closure2-canary/...` run directory, the
+`opensandbox-server` terminal log, `docker ps -a` and `docker logs` of any leftover container, and
+the exact `status` / `error` / `ledger_integrity` fields. Do not re-run before those are read: the
+next attempt is a new approved scope, not a retry.
+
+### 14.2 Runbook B — official 8-cell pilot
+
+**B0. Preconditions.**
+
+1. Runbook A passed, with the `canary-summary.json` fields of A5.
+2. `curl http://127.0.0.1:8080/health` healthy; `Test-NetConnection` true.
+3. `DEEPSEEK_API_KEY` resolvable by the runner (`.env` or environment) and `api.deepseek.com:443`
+   reachable.
+4. No prior pilot claim: `Test-Path "$env:LOCALAPPDATA\AtlasRuntime\closure2\pilot-ledger.sqlite"`
+   must be `False`; `experiments/runs/closure2` should not already contain results for this plan.
+5. Disk space for 8 run directories (each holds `workspace/`, trajectory and oracle artifacts).
+
+**B1. Two approvals, two different questions.**
+
+| Layer | Object | Requirement |
+|---|---|---|
+| A — benchmark definition | `protocol.APPROVAL_RECORD` | `status="APPROVED"`, `approved_digest=3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765`, `approved_by`, `approval_commit`, `approved_at` |
+| B — execution scope | `pilot_runner.PILOT_APPROVAL` | `status="APPROVED"`, `approved_plan_digest=<digest of PILOT_PLAN **after** the ceiling is set>`, `approved_by`, `approval_commit`, `approved_at` |
+
+Set `PILOT_PLAN.estimated_cost_ceiling_usd`, then print the digest:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from experiments.evaluation.closure2 import pilot_runner as p; print(p.PILOT_PLAN.digest())"
+```
+
+Illustrative digests (only the value printed after the edit is authoritative):
+
+| Ceiling | Plan digest |
+|---|---|
+| unset (`a99342dd…`, current, unapproved) | `a99342dd55adab0fa14a0f69797f42462e38e2f70fba238e28cde7167427bcf8` |
+| `$0.50` | `bf5c9c0d55aa775e8571afb61df17e8b475190915b7eb81f3fa34554e1f3203a` |
+| `$1.00` | `ce404d73856cdf9cde4a40057e416ca7d9532e7a1bf0e1dfba96b9590f0b5141` |
+| `$2.00` | `0f61f84ad195fbfb2e27f4c80f7906530066f7128da84595b0293dfd0b2e32bb` |
+| `$5.00` | `3078c3f86ec30d7d89689949bed29f7103672d5e337c3685c8926ea7f3557484` |
+
+The ceiling is between cells only (`ADVISORY_POST_CELL`), is never enforced before send, and the last
+cell's overrun is recorded rather than prevented.
+
+**B2. The authorized cells, in the authorized order (all eight, exactly).**
+
+```text
+closure2-pipeline-migration::N0
+closure2-pipeline-migration::N1
+closure2-pipeline-migration::A0
+closure2-pipeline-migration::A1-L
+closure2-pipeline-migration::A1-P
+closure2-pipeline-migration::A2-P
+closure2-plugin-migration::A1-P
+closure2-state-machine-refactor::A2-P
+```
+
+Repetition `0` only; `max_cell_executions = 8`. A subset, an extra cell, a different order or a
+different repetition is refused — a partial retry needs its own authorization, which does not exist.
+
+Frozen per-cell budget (identical for every arm):
+
+```text
+single  36 turns, 260 000 tokens, 90 tool calls, 1800 s
+multi   12 turns/worker x 3 workers = 36 theoretical, 260 000 tokens, 90 tool calls, 1800 s
+shared  temperature 0.0, max_tokens 8000/request, atlas-uat-python:3.12, network none,
+        workspace /workspace/project, isolated oracle sandbox with the hidden tests
+```
+
+**B3. The command — run once.**
+
+```powershell
+.\.venv\Scripts\python.exe -m experiments.evaluation.closure2.pilot_runner --live --confirm-live
+```
+
+Do not pass `--cells` unless you are reproducing the exact approved tuple; the default *is* the
+approved scope.
+
+**B4. Outputs.**
+
+```text
+experiments/results/closure2/pilot-live-summary.json     run summary (new file; commit it as evidence)
+experiments/runs/closure2/<task_id>/r0-<run_id>/         one directory per cell, same layout as A4
+%LOCALAPPDATA%\AtlasRuntime\closure2\pilot-ledger.sqlite claim + per-cell states
+```
+
+**B5. Exit code is not the verdict.** The CLI returns `0` when the durable record is intact, `4` when
+it is not, `3` when refused, `5` when the summary could not be written. Success must be read from the
+summary:
+
+```text
+cell_count                    == 8
+not_started_cells             == []
+stopped_reason                is null
+execution_integrity_status    == "COMPLETE"
+execution_integrity_ok        == true
+cost_ceiling_breached         == false
+cell_count                    == len(cells) with every cell having a raw_result_path
+agent_sandbox_runs_complete   == true
+agent_sandbox_runs_total      == 8
+```
+
+`pilot-live-summary.json` is the only place these are recorded; a `0` exit with
+`not_started_cells: [...]` means the pilot stopped early and the run is **not** complete.
+
+**B6. Per-cell completeness check.** For each of the 8 entries in `cells[]`:
+
+```text
+oracle_passed            true | false        the effectiveness measurement
+oracle_environment_failure                    must be false for a usable measurement
+failure_class                                 TASK_SUCCESS or a named failure
+raw_result_path                              exists on disk
+raw_evidence_preserved   true
+provider_*_tokens / cache_*_tokens / estimated_cost_usd
+                                              null means "not reported", never 0
+model_calls_source       request_evidence.requests_observed | metrics.model_turns | not_exposed_by_runner
+sandbox_creation_status  SANDBOX_CREATED_CONFIRMED | SANDBOX_NOT_CREATED_CONFIRMED | UNKNOWN
+```
+
+**B7. Metrics to extract for analysis** (see §15).
+
+**B8. Mid-run failure and claim consumption.**
+
+* `stopped_reason` explains why the loop stopped: `COST_CEILING_REACHED`, `COST_CEILING_EXCEEDED`,
+  a ledger failure code, or an execution error. `not_started_cells` lists what never ran.
+* The claim is consumed permanently; the pilot cannot be resumed or partially re-run under the same
+  approval. A second attempt needs a new plan revision + digest + approval, and new run directories.
+* Never delete `pilot-ledger.sqlite`, and never edit a cell row by hand: the ledger is the durable
+  record of what happened.
+* Collect before deciding: the summary, every run directory listed in `cells[].raw_result_path`, the
+  server log, and `docker ps -a`.
+
+---
+
+## 15. Analysis plan for the real pilot
+
+Eight cells at one repetition is a **diagnostic**, not a sample. No p-value, no confidence interval,
+no "significant" claim, and no P50/P95 reported as if they were estimated from a distribution.
+
+**Effectiveness** — per cell: `oracle_passed`, `task_success`, `failure_class`,
+`oracle_failure_kind`, and (Atlas only) `budget_admission_rejected`. Report
+"deliverable passed but the budget failed" separately from "the deliverable failed".
+
+**Efficiency** — per cell: `prompt_tokens`, `completion_tokens`, `cache_hit_tokens`,
+`cache_miss_tokens`, `cache_hit_ratio` (only when the split is known), `estimated_cost_usd`,
+`model_calls`, `tool_calls`, `latency_ms`. Latency is reported as two raw numbers plus a cell median,
+labelled `n=1 per cell`.
+
+**Multi-worker behaviour** — actual worker count, `route_decision` / `delegate` vs `direct`,
+overlap (from trajectory timestamps), handoff payload size, per-worker failures, and for A2-P whether
+the router ran at all. A2-P on `N1` is expected to route `direct`; if it does, that cell is not an
+independent sample of routing.
+
+**Comparisons, in this order:**
+
+| Pair | What it can support |
+|---|---|
+| N0 vs A0 | whole-system single-worker difference |
+| N1 vs A1-L | whole-system multi-worker difference |
+| A1-L vs A1-P | the prompt-layout mechanism (one config key) |
+| A1-P vs A2-P | routing, **only** if the router actually selected a different DAG |
+
+Attribution rule: only `A1-L` vs `A1-P` supports a layout claim; only the router audit supports a
+routing claim; native-vs-Atlas supports "the system" and nothing narrower.
+
