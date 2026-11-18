@@ -341,12 +341,17 @@ CANARY_PLAN = CanaryPlan(
 
 #: Mutable approval record for the canary scope. A caller cannot pass its own: the entry point reads
 #: this module-level object, and only a test can substitute it.
+#:
+#: Owner authorization: one live connectivity canary, one attempt, model ``deepseek-chat``, Atlas
+#: single worker, estimated ceiling USD 0.05 (advisory, not a provider hard limit). The scope commit
+#: below is the commit that froze that ceiling, so approving it cannot be a self-reference. This
+#: authorizes the canary only; the formal benchmark and pilot approvals remain untouched.
 CANARY_APPROVAL: dict[str, Any] = {
-    "status": "PENDING_OWNER_APPROVAL",
-    "approved_plan_digest": None,
-    "approved_by": None,
-    "approval_commit": None,
-    "approved_at": None,
+    "status": "APPROVED",
+    "approved_plan_digest": "95f9acf161c591ef9dac5031acc380ae61255a90d8f7b8b7788b24d6ef6a7f69",
+    "approved_by": "repository_owner",
+    "approval_commit": "93e2cf24bd7a5b6c4137b85c40f6489d93f4bb23",
+    "approved_at": "2026-11-18T08:07:40+00:00",
 }
 
 
