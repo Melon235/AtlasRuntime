@@ -346,12 +346,20 @@ CANARY_PLAN = CanaryPlan(
 #: single worker, estimated ceiling USD 0.05 (advisory, not a provider hard limit). The scope commit
 #: below is the commit that froze that ceiling, so approving it cannot be a self-reference. This
 #: authorizes the canary only; the formal benchmark and pilot approvals remain untouched.
+#:
+#: The single authorized attempt was executed on 2026-11-18 (attempt ``a30bce99…``, evidence in
+#: ``experiments/results/closure2-canary/canary-summary.json``). The record is kept — who approved
+#: what, against which digest, from which commit — but the status is no longer ``APPROVED``, so this
+#: authorization cannot start a second run and a stray test run cannot reach a provider either. A
+#: further attempt needs a new owner authorization, not a status edit.
 CANARY_APPROVAL: dict[str, Any] = {
-    "status": "APPROVED",
+    "status": "CONSUMED_BY_EXECUTION",
     "approved_plan_digest": "95f9acf161c591ef9dac5031acc380ae61255a90d8f7b8b7788b24d6ef6a7f69",
     "approved_by": "repository_owner",
     "approval_commit": "93e2cf24bd7a5b6c4137b85c40f6489d93f4bb23",
     "approved_at": "2026-11-18T08:07:40+00:00",
+    "consumed_at": "2026-11-18T08:09:03+00:00",
+    "consumed_attempt_id": "a30bce9900a74bb8a09048fd33e9cced",
 }
 
 
