@@ -238,17 +238,28 @@ def deliverable_correctness(result: Mapping[str, Any]) -> dict[str, Any]:
         environment_failure = None
 
     states = list(values.values())
-    if any(state is False for state in states):
+    if environment_failure is True:
+        # The oracle reported that its own environment broke. Whatever the artifact checks say,
+        # they were taken somewhere unreliable, so they are not evidence that the deliverable is
+        # correct — and calling it FAILED would blame the agent for the harness. The verdict is
+        # unknown; the raw checks and the runner's own ``passed`` stay visible so nothing is hidden.
+        verdict = UNKNOWN
+        verdict_reason = "ORACLE_ENVIRONMENT_FAILURE"
+    elif any(state is False for state in states):
         verdict = "FAILED"
+        verdict_reason = "DELIVERABLE_CHECK_FAILED"
     elif any(state is UNKNOWN for state in states):
         verdict = UNKNOWN
+        verdict_reason = "DELIVERABLE_CHECK_UNKNOWN"
     else:
         verdict = "PASSED"
+        verdict_reason = "DELIVERABLE_CHECKS_PASSED"
 
     return {
         "checks": values,
         "oracle_environment_failure": environment_failure,
         "verdict": verdict,
+        "verdict_reason": verdict_reason,
         "oracle_passed_observed": _oracle(result).get("passed"),
         "oracle_failure_kind_observed": _oracle(result).get("failure_kind"),
         "source": "oracle.checks",
@@ -324,17 +335,25 @@ def efficiency(result: Mapping[str, Any]) -> dict[str, Any]:
     """Requests, tokens, cache split, cost and latency. No output-token penalty, no ratio score."""
 
     metrics = _metrics(result)
-    provider_calls = metrics.get("provider_calls")
+    # Same preference, same fallback and same source labels as ``pilot_runner.normalize_result``:
+    # a count of observed outgoing requests outranks a count of completed turns. The
+    # ``metrics.provider_calls`` field is deliberately not read — the runner never reads it, so
+    # using it would report a different number than the pilot summary for the same file.
+    evidence = metrics.get("request_evidence")
+    observed = evidence.get("requests_observed") if isinstance(evidence, Mapping) else None
     model_turns = metrics.get("model_turns")
-    if isinstance(provider_calls, int):
-        requests = provider_calls
-        requests_source = "metrics.provider_calls"
-    elif isinstance(model_turns, int):
+    if isinstance(observed, int) and not isinstance(observed, bool):
+        requests = observed
+        requests_source = "request_evidence.requests_observed"
+        requests_semantics: str | None = "requests_observed"
+    elif model_turns:  # truthy, as in normalize_result: zero turns fall through
         requests = model_turns
         requests_source = "metrics.model_turns"
+        requests_semantics = "completed_model_turns"
     else:
         requests = None
-        requests_source = UNKNOWN
+        requests_source = "not_exposed_by_runner"
+        requests_semantics = None
 
     routing = metrics.get("routing")
     decision = routing.get("decision") if isinstance(routing, Mapping) else None
@@ -368,6 +387,7 @@ def efficiency(result: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "model_requests": requests,
         "model_requests_source": requests_source,
+        "model_requests_semantics": requests_semantics,
         "actual_route": route,
         "route_applicable": isinstance(routing, Mapping),
         "executed_worker_count_reported": executed,
@@ -401,10 +421,36 @@ def summarize_cell(result_path: Path, *, cell_id: str) -> dict[str, Any]:
 def compare_pair(*, multi: Mapping[str, Any], direct: Mapping[str, Any]) -> dict[str, Any]:
     """Pair two ``summarize_cell`` outputs.
 
-    Deltas are ``direct - multi`` and are only emitted for fields both sides actually reported.
-    There is no composite score, no weighting and no significance claim: one observation per arm
+    A paired delta answers "is this cheaper or faster", which only means something when both arms
+    delivered a judgeable result and were measured the same way. While either side is ``UNKNOWN``
+    the deltas are withheld entirely (``None``) rather than published next to a caveat: a number in
+    a report outlives the sentence explaining why it should not be read. Nothing is lost — each
+    cell's own resource readings remain in its ``summarize_cell`` output.
+
+    When the pair is comparable, deltas are ``direct - multi`` for fields both sides reported. There
+    is still no composite score, no weighting and no significance claim: one observation per arm
     cannot support any of those.
     """
+
+    multi_verdict = (multi.get("deliverable") or {}).get("verdict")
+    direct_verdict = (direct.get("deliverable") or {}).get("verdict")
+    comparable = multi_verdict in {"PASSED", "FAILED"} and direct_verdict in {
+        "PASSED",
+        "FAILED",
+    }
+
+    if not comparable:
+        return {
+            "correctness": {"multi": multi_verdict, "direct": direct_verdict},
+            "correctness_comparable": False,
+            # No number, not a zero and not a partial sum: the pair was not measured on equal terms.
+            "efficiency_delta_direct_minus_multi": None,
+            "efficiency_comparable": False,
+            "notes": [
+                "correctness is not comparable while either side is UNKNOWN: deltas are withheld",
+                "per-cell resource readings are still available from each summarize_cell output",
+            ],
+        }
 
     multi_eff = multi.get("efficiency") or {}
     direct_eff = direct.get("efficiency") or {}
@@ -418,25 +464,16 @@ def compare_pair(*, multi: Mapping[str, Any], direct: Mapping[str, Any]) -> dict
         else:
             deltas[key] = None
 
-    multi_verdict = (multi.get("deliverable") or {}).get("verdict")
-    direct_verdict = (direct.get("deliverable") or {}).get("verdict")
-    comparable = multi_verdict in {"PASSED", "FAILED"} and direct_verdict in {
-        "PASSED",
-        "FAILED",
-    }
-
     return {
         "correctness": {"multi": multi_verdict, "direct": direct_verdict},
-        "correctness_comparable": comparable,
+        "correctness_comparable": True,
         "efficiency_delta_direct_minus_multi": deltas,
-        "efficiency_comparable": comparable,
+        "efficiency_comparable": True,
         "notes": [
             "one observation per arm: no significance test, no confidence interval, no score",
             "the direct arm executes one worker, so multi-worker checks are NOT_APPLICABLE there",
             "output tokens are part of the cost and are not themselves evidence of lower quality",
-        ]
-        if comparable
-        else ["correctness is not comparable while either side is UNKNOWN: deltas are withheld"],
+        ],
     }
 
 

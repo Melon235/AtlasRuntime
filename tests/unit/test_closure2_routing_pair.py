@@ -37,6 +37,7 @@ from experiments.evaluation.closure2.routing_pair_analysis import (
     summarize_cell,
     worker_contract_compliance,
 )
+from experiments.evaluation.models import RuntimeMetrics
 
 TASK = "closure2-state-machine-refactor"
 PIPELINE = "closure2-pipeline-migration"
@@ -157,7 +158,11 @@ def _oracle_payload(checks: dict[str, Any], *, passed: bool, workers: int) -> di
             "environment_failure": False,
         },
         "metrics": {
+            # Both counters are present, as a real Atlas result has them, so the preference under
+            # test is a real one rather than a fixture artifact.
             "provider_calls": 4,
+            "request_evidence": {"requests_observed": 4},
+            "model_turns": 99,
             "prompt_tokens": 1000,
             "completion_tokens": 100,
             "cache_hit_tokens": 800,
@@ -500,6 +505,42 @@ def test_a_missing_fanout_check_on_a_fanout_run_is_unknown() -> None:
     assert contract["actual_worker_count"] == 3
 
 
+def test_an_oracle_environment_failure_is_not_evidence_of_correctness() -> None:
+    """A broken oracle environment cannot certify a deliverable, and cannot condemn one either."""
+
+    payload = _oracle_payload(
+        {
+            "hidden_tests_passed": True,
+            "required_artifacts_present": True,
+            "forbidden_paths_unchanged": True,
+            "only_allowed_paths_changed": True,
+            "host_fixture_unchanged": True,
+        },
+        passed=True,
+        workers=1,
+    )
+    payload["oracle"]["environment_failure"] = True
+
+    deliverable = deliverable_correctness(payload)
+    assert deliverable["verdict"] == UNKNOWN
+    assert deliverable["verdict_reason"] == "ORACLE_ENVIRONMENT_FAILURE"
+    assert deliverable["oracle_environment_failure"] is True
+    # Nothing is rewritten: the raw checks and the runner's own verdict stay readable.
+    assert deliverable["checks"]["hidden_tests_passed"] is True
+    assert deliverable["oracle_passed_observed"] is True
+
+    # Environment failure outranks a failing check: a failure taken in a broken harness is not a
+    # statement about the agent, so it is not reported as a deliverable failure.
+    broken = _oracle_payload(
+        {"hidden_tests_passed": False, "required_artifacts_present": True},
+        passed=False,
+        workers=1,
+    )
+    broken["oracle"]["environment_failure"] = True
+    assert deliverable_correctness(broken)["verdict"] == UNKNOWN
+    assert deliverable_correctness(broken)["oracle_passed_observed"] is False
+
+
 def test_the_readers_never_rewrite_the_oracle_verdict() -> None:
     payload = _oracle_payload(
         {
@@ -537,7 +578,34 @@ def test_deltas_are_withheld_while_correctness_is_unknown() -> None:
     result = compare_pair(multi=multi_side, direct=direct_side)
     assert result["correctness_comparable"] is False
     assert result["efficiency_comparable"] is False
-    assert result["efficiency_delta_direct_minus_multi"]["model_requests"] == -6
+    # No number at all: a -6 written next to a caveat is still read as a 60% saving.
+    assert result["efficiency_delta_direct_minus_multi"] is None
+    # The per-cell readings themselves are untouched and still available from each cell.
+    assert multi_side["efficiency"]["model_requests"] == 10
+    assert direct_side["efficiency"]["model_requests"] == 4
+
+
+def test_deltas_are_reported_once_both_sides_are_judgeable() -> None:
+    multi_side = {
+        "deliverable": {"verdict": "PASSED"},
+        "efficiency": {"model_requests": 10, "prompt_tokens": 1000},
+    }
+    direct_side = {
+        "deliverable": {"verdict": "FAILED"},
+        "efficiency": {"model_requests": 4, "prompt_tokens": 400},
+    }
+    result = compare_pair(multi=multi_side, direct=direct_side)
+    assert result["correctness_comparable"] is True
+    assert result["efficiency_comparable"] is True
+    assert result["efficiency_delta_direct_minus_multi"] == {
+        "model_requests": -6,
+        "prompt_tokens": -600,
+        "completion_tokens": None,
+        "cache_hit_tokens": None,
+        "cache_miss_tokens": None,
+        "estimated_cost_usd": None,
+        "tool_calls": None,
+    }
 
 
 def test_the_analysis_reads_a_real_result_shape(tmp_path: Path) -> None:
@@ -624,25 +692,86 @@ def test_the_pairing_report_is_deterministic() -> None:
 
 
 def test_efficiency_prefers_request_evidence_over_turns() -> None:
+    """The same preference and the same source labels the pilot summary records."""
+
     payload = _oracle_payload({"hidden_tests_passed": True}, passed=True, workers=1)
-    payload["metrics"]["model_turns"] = 99
     reading = efficiency(payload)
+    # Both counters are present (4 observed requests, 99 turns): the observed count wins.
     assert reading["model_requests"] == 4
-    assert reading["model_requests_source"] == "metrics.provider_calls"
+    assert reading["model_requests_source"] == "request_evidence.requests_observed"
+    assert reading["model_requests_semantics"] == "requests_observed"
 
     native = _oracle_payload({"hidden_tests_passed": True}, passed=True, workers=1)
-    native["metrics"]["provider_calls"] = None
+    native["metrics"].pop("request_evidence")
     native["metrics"]["model_turns"] = 7
     assert efficiency(native)["model_requests"] == 7
     assert efficiency(native)["model_requests_source"] == "metrics.model_turns"
+    assert efficiency(native)["model_requests_semantics"] == "completed_model_turns"
     assert efficiency(native)["actual_route"] is None
     assert efficiency(native)["route_applicable"] is False
 
-    # Neither counter present is UNKNOWN, never zero.
+    # Neither counter present: unknown, never zero, and never estimated from provider_calls alone.
     silent = _oracle_payload({"hidden_tests_passed": True}, passed=True, workers=1)
-    silent["metrics"]["provider_calls"] = None
+    silent["metrics"].pop("request_evidence")
+    silent["metrics"]["model_turns"] = 0
     assert efficiency(silent)["model_requests"] is None
-    assert efficiency(silent)["model_requests_source"] == UNKNOWN
+    assert efficiency(silent)["model_requests_source"] == "not_exposed_by_runner"
+    assert efficiency(silent)["model_requests_semantics"] is None
+
+
+def test_efficiency_reads_a_real_runtime_metrics_payload(tmp_path: Path) -> None:
+    """Built from ``RuntimeMetrics.as_dict()`` so a renamed field breaks this test, not a report."""
+
+    metrics = RuntimeMetrics(
+        model_turns=7,
+        tool_calls=3,
+        prompt_tokens=1000,
+        completion_tokens=100,
+        cache_hit_tokens=800,
+        cache_miss_tokens=200,
+        latency_ms=5000.0,
+        estimated_cost_usd=0.02,
+    )
+    metrics.extra["request_evidence"] = {"requests_observed": 9}
+    metrics.extra["cache_split_status"] = "COMPLETE"
+    metrics.extra["cache_hit_ratio"] = 0.8
+    metrics.extra["routing"] = {
+        "mode": "selective",
+        "decision": {"route": "direct"},
+        "executed_worker_count": 1,
+    }
+    payload = {
+        "metrics": metrics.as_dict(),
+        "environment": {"agent_latency_ms": 3000.0},
+        "oracle": {
+            "checks": {
+                "hidden_tests_passed": True,
+                "required_artifacts_present": True,
+                "forbidden_paths_unchanged": True,
+                "only_allowed_paths_changed": True,
+                "host_fixture_unchanged": True,
+            },
+            "passed": True,
+            "environment_failure": False,
+        },
+    }
+
+    reading = efficiency(payload)
+    assert reading["model_requests"] == 9
+    assert reading["model_requests_source"] == "request_evidence.requests_observed"
+    assert reading["actual_route"] == "direct"
+    assert reading["executed_worker_count_reported"] == 1
+    assert reading["prompt_tokens"] == 1000
+    assert reading["cache_split_status"] == "COMPLETE"
+    assert reading["agent_latency_ms"] == 3000.0
+    assert reading["end_to_end_latency_ms"] == 5000.0
+
+    # The same payload through a real file, so the reader is exercised on what the runner writes.
+    path = tmp_path / "result.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    summarised = summarize_cell(path, cell_id=f"{TASK}::A2-P")
+    assert summarised["efficiency"]["model_requests"] == 9
+    assert summarised["deliverable"]["verdict"] == "PASSED"
 
 
 def test_the_analysis_module_exports_are_complete() -> None:
