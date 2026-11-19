@@ -27,7 +27,7 @@
     },
     "fixture_digest": "sha256:7de2bcd33c414779b20ae98305b0dd517323ec6e26e28484e760ee5bf5bd3a57"
   },
-  "generated_at": "2026-11-19T07:25:47.908649+00:00",
+  "generated_at": "2026-11-19T07:26:08.084366+00:00",
   "identity": {
     "controlled_instruction": "HOST-AUTHORED EXPERIMENT INSTRUCTION (this run is a runtime validation, not a product request):\nThis run validates AtlasRuntime's delegation plane. Before you edit any file, call delegate_tasks exactly once, with two independent read-only research tasks -- one per plugin package -- each with its own objective and enough background for a worker that cannot see this conversation. Then use what they report, do the integration yourself, and run the public test suite. This instruction is scaffolding: the run is recorded as CONTROLLED_DELEGATION, not as evidence that an unconstrained agent chose to delegate.",
     "controlled_instruction_digest": "sha256:890f410d4c570c719af17dbbce9fb8527c10c25367d6a98d1b9c9c11ecc4afa6",
@@ -72,9 +72,9 @@
   },
   "p1b_fixture_manifest_digest": "sha256:eace84446b48fc0f68e18d1e8b03bfaf1491fc8bdd214bb6592c5f47d2f34e90",
   "runtime": {
-    "git_branch": "exp/stage-p1b-real-delegation",
-    "git_head": "527295075e030c7c3405ba7e0dc1863ed546bfcc",
-    "git_status": "?? experiments/stage_b0_controlled/freeze.json",
+    "git_branch": "fix/reliability-closure-b0",
+    "git_head": "c4bce715316cd798b04d4062e69cfa88eb57783e",
+    "git_status": "",
     "main_system_prompt_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a"
   }
 }
