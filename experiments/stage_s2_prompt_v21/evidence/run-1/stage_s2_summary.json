@@ -1,0 +1,480 @@
+{
+  "acceptance": "PASS",
+  "analysis_revision": {
+    "reason": "the first pass read Main turns from session.json and reported an unexplained 14 vs 13; counters now come from the stored conversation with the delta explained, and the trace can be recomputed from the collected evidence",
+    "revised_after_run": true
+  },
+  "budget": {
+    "admission_rejections": 0,
+    "budget_overrun_tokens": 0,
+    "estimate_abs_error_tokens": 13306,
+    "estimate_samples": 14,
+    "in_flight": 0,
+    "last_rejection": null,
+    "last_release_reason": null,
+    "last_write_off_reason": null,
+    "learned_ratio": 1.0703,
+    "limit_tokens": 500000,
+    "mode": "guarded",
+    "peak_reserved_tokens": 27106,
+    "remaining_tokens": 299256,
+    "requests_completed": 14,
+    "requests_released": 0,
+    "requests_started": 14,
+    "requests_written_off": 0,
+    "reserved_tokens": 0,
+    "samples": [
+      {
+        "actual_completion_tokens": 75,
+        "actual_prompt_tokens": 4259,
+        "actual_tokens": 4334,
+        "estimated_tokens": 8652,
+        "request_id": 1,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 126,
+        "actual_prompt_tokens": 4706,
+        "actual_tokens": 4832,
+        "estimated_tokens": 9311,
+        "request_id": 2,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 91,
+        "actual_prompt_tokens": 7169,
+        "actual_tokens": 7260,
+        "estimated_tokens": 12194,
+        "request_id": 3,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 128,
+        "actual_prompt_tokens": 8721,
+        "actual_tokens": 8849,
+        "estimated_tokens": 14034,
+        "request_id": 4,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 137,
+        "actual_prompt_tokens": 10086,
+        "actual_tokens": 10223,
+        "estimated_tokens": 15624,
+        "request_id": 5,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 124,
+        "actual_prompt_tokens": 13254,
+        "actual_tokens": 13378,
+        "estimated_tokens": 19301,
+        "request_id": 6,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 100,
+        "actual_prompt_tokens": 16084,
+        "actual_tokens": 16184,
+        "estimated_tokens": 22610,
+        "request_id": 7,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 89,
+        "actual_prompt_tokens": 17162,
+        "actual_tokens": 17251,
+        "estimated_tokens": 23846,
+        "request_id": 8,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 1111,
+        "actual_prompt_tokens": 17958,
+        "actual_tokens": 19069,
+        "estimated_tokens": 24776,
+        "request_id": 9,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 290,
+        "actual_prompt_tokens": 19100,
+        "actual_tokens": 19390,
+        "estimated_tokens": 26225,
+        "request_id": 10,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 52,
+        "actual_prompt_tokens": 19421,
+        "actual_tokens": 19473,
+        "estimated_tokens": 26522,
+        "request_id": 11,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 236,
+        "actual_prompt_tokens": 19586,
+        "actual_tokens": 19822,
+        "estimated_tokens": 26656,
+        "request_id": 12,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 51,
+        "actual_prompt_tokens": 19880,
+        "actual_tokens": 19931,
+        "estimated_tokens": 26895,
+        "request_id": 13,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 704,
+        "actual_prompt_tokens": 20044,
+        "actual_tokens": 20748,
+        "estimated_tokens": 27106,
+        "request_id": 14,
+        "worker": "atlas-main"
+      }
+    ],
+    "stop_reason": null,
+    "used_completion_tokens": 3314,
+    "used_prompt_tokens": 197430,
+    "used_tokens": 200744,
+    "workers": {
+      "atlas-main": {
+        "actual_tokens": 200744,
+        "completed": 14,
+        "rejected": 0,
+        "started": 14,
+        "written_off": 0
+      }
+    },
+    "written_off_tokens": 0
+  },
+  "capability": {
+    "child_dispatch_action_calls": {},
+    "child_profile_ids": [],
+    "child_read_targets": {},
+    "child_tool_calls_by_name": {},
+    "child_tool_search_calls": {},
+    "child_tool_search_empty": {},
+    "child_undisclosed_tool_refusals": {},
+    "child_used_repository_tools": {},
+    "objective_execution_markers": [],
+    "objective_requires_execution": false
+  },
+  "delegation": {
+    "blocked_gates": [],
+    "children": [],
+    "enabled": true,
+    "max_observed_concurrency": 0,
+    "max_wave_width": 0,
+    "policy_versions": [],
+    "proposals": [],
+    "reason_codes": [],
+    "result_chars": 0,
+    "rounds": 0,
+    "routes": []
+  },
+  "delegation_mode": "AUTONOMOUS_MAIN_DELEGATION",
+  "early_delegation": {
+    "delegate_turns": [],
+    "first_delegate_turn": null,
+    "late": false,
+    "main_context_tokens_at_delegation_request": null,
+    "main_context_tokens_by_request": [
+      4259,
+      4706,
+      7169,
+      8721,
+      10086,
+      13254,
+      16084,
+      17162,
+      17958,
+      19100,
+      19421,
+      19586,
+      19880,
+      20044
+    ],
+    "read_target_count_before_first_delegation": 14,
+    "read_targets_before_first_delegation": [
+      ".",
+      "workgrid",
+      "/workspace/project/workgrid/scheduler/contracts.py",
+      "/workspace/project/workgrid/scheduler/engine.py",
+      "/workspace/project/workgrid/scheduler/report.py",
+      "/workspace/project/workgrid/scheduler/__init__.py",
+      "/workspace/project/workgrid/dependencies/graph.py",
+      "/workspace/project/workgrid/resources/constraints.py",
+      "/workspace/project/workgrid/resources/calendar.py",
+      "/workspace/project/workgrid/resources/capacity.py",
+      "/workspace/project/workgrid/dependencies/ordering.py",
+      "/workspace/project/workgrid/resources/errors.py",
+      "/workspace/project/samples/plan.json",
+      "/workspace/project/README.md"
+    ],
+    "tool_call_count_before_first_delegation": 24,
+    "total_turns": 13
+  },
+  "execution_integrity": {
+    "authority": "evidence_only",
+    "last_error": null,
+    "mode": "record",
+    "payload_file": "private/tool_payloads.jsonl",
+    "records": 24,
+    "write_failures": 0
+  },
+  "git": {
+    "baseline_commit": "1d03a2f6efb1e4ae45ccf8130d57917fe08eae3a",
+    "git_branch": "exp/main-prompt-v21-final-pilot",
+    "git_head": "3590348f20322276d1548400aec05f4431ace7ee",
+    "git_status": "",
+    "git_status_excluded_files": [],
+    "main_system_prompt_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a"
+  },
+  "goal_digest": "sha256:83c724018149acef442b5e1c2cb3c97a5ce23b004740a67b4d51a51f2af5560f",
+  "handoff_utilisation": {
+    "child_read_targets": {},
+    "delegate_read_calls": [],
+    "handoff_payload_chars": 0,
+    "handoff_reads_metrics": {
+      "read_calls": 0,
+      "read_denied": 0,
+      "read_success": 0
+    },
+    "main_write_targets": [
+      "/workspace/project/workgrid/scheduler/engine.py",
+      "/workspace/project/workgrid/scheduler/report.py",
+      "/workspace/project/workgrid/scheduler/engine.py",
+      "/workspace/project/workgrid/scheduler/engine.py"
+    ],
+    "public_test_calls": [
+      {
+        "error_kind": null,
+        "input": {
+          "reason": "Verify the newly implemented engine and renderer against the public acceptance suite."
+        },
+        "is_error": false,
+        "name": "run_public_tests",
+        "result_preview": "{\"call_index\": 1, \"calls_remaining\": 3, \"command\": \"python3 -B -m pytest -q tests\", \"duration_ms\": 1623.434, \"exit_code\"",
+        "target": "run_public_tests"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "reason": "Re-verify after tightening the type annotation in the engine helper."
+        },
+        "is_error": false,
+        "name": "run_public_tests",
+        "result_preview": "{\"call_index\": 2, \"calls_remaining\": 2, \"command\": \"python3 -B -m pytest -q tests\", \"duration_ms\": 1507.921, \"exit_code\"",
+        "target": "run_public_tests"
+      }
+    ],
+    "read_targets_after_handoff": [],
+    "reread_after_handoff_of_child_work": []
+  },
+  "implementation": {
+    "bash_calls": 4,
+    "bash_denials": 1,
+    "files_changed": 2,
+    "first_write_turn": 9,
+    "investigation_turns": 7,
+    "last_read_turn": 8,
+    "public_test_calls": 2,
+    "public_test_statuses": [
+      "PASS",
+      "PASS"
+    ],
+    "stop_reason": "success",
+    "turns_before_first_write": 8,
+    "write_turns": 3
+  },
+  "main": {
+    "counters": {
+      "assistant_turns": 13,
+      "model_requests": 14,
+      "session_fields_agree": false,
+      "session_reported_tool_calls": [
+        "bash",
+        "list_files",
+        "bash",
+        "bash",
+        "list_files",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "bash",
+        "file_read",
+        "file_edit",
+        "file_edit",
+        "run_public_tests",
+        "file_edit",
+        "file_edit",
+        "run_public_tests"
+      ],
+      "session_reported_turns": 14,
+      "source": "tool_conversations.json + transcript.jsonl",
+      "tool_calls": 24,
+      "tool_calls_agree": true,
+      "tool_calls_by_name": {
+        "bash": 4,
+        "file_edit": 4,
+        "file_read": 12,
+        "list_files": 2,
+        "run_public_tests": 2
+      },
+      "tool_denials": 1,
+      "tool_errors": 1,
+      "transcript_action_proposed": 24,
+      "transcript_tool_observations": 24,
+      "turns_delta": 1,
+      "turns_delta_reason": "the final assistant message carried no tool call and is not persisted in tool_conversations.json; its text survives as session.main.output"
+    },
+    "output": "Done. The scheduling engine is implemented and the full public suite passes.\n\n## What was implemented\n\nChanges were confined to `workgrid/scheduler/` (`engine.py` and `report.py`). The dependency and resource packages, `contracts.py`, and the package `__init__` surface were left untouched.\n\n**`workgrid/scheduler/engine.py` \u2014 `build_schedule`**\n\nFollows the documented per-task contract in a single pass over `topological_order(graph)`:\n\n1. **Order / graph integrity** \u2014 `topological_order` is called first, so `UnknownDependencyError` and `CycleDetectedError` propagate unchanged before any placement work happens.\n2. **Blocked dependencies** \u2014 if any dependency id is already unschedulable, the task is reported as `DEPENDENCY_UNSCHEDULABLE` with the sorted blocking ids in `detail`; its demand and window are not examined.\n3. **Impossible demand** \u2014 `constraints.validate_demand` is called and `DemandExceedsCapacityError` / `UnknownResourceError` are caught and mapped to `DEMAND_EXCEEDS_CAPACITY` / `UNKNOWN_RESOURCE`. These are classified, never propagated, so one impossible task does not invalidate the plan.\n4. **Placement** \u2014 `ready = max(end of scheduled deps, 0)`; from `earliest_start(ready, duration)` it takes the first candidate where `fits_at(...)` holds, otherwise advances via `earliest_start(candidate + 1, duration)`. Exhaustion yields `NO_AVAILABLE_WINDOW`. A small `_place` helper isolates this scan loop.\n5. **Report** \u2014 assembled through the existing `build_plan` so status, ordering, makespan and summary are derived canonically, with `peak_usage` from `constraints.peak_usage(placed)` and `summary[\"usable_slots\"]` from the calendar.\n\n**`workgrid/scheduler/report.py` \u2014 `render_plan`**\n\nRenders the plan only (no recomputation): header `plan <status> makespan=<n>`, one `%04d-%04d <id> <resources>` line per planned task in plan order (resources `-` when empty, otherwise `name=units` sorted and comma-joined), an optional `unschedulable a,b` line with sorted ids, and a single trailing newline.\n\n## Design decisions\n\n- No rules were re-implemented: ordering, capacity checks, window math and peak usage all come from the existing APIs.\n- The engine writes only to local accumulated placements, leaving both rule packages and the immutable contracts unchanged.\n- Determinism comes for free from the topological order, sorted resource names and `build_plan`'s fixed `(start, task_id)` sort.\n\n## Verification\n\n`run_public_tests` (`python3 -B -m pytest -q tests`): **62 passed**, exit 0 \u2014 this covers the scheduler acceptance suite plus the pre-existing dependency and resource suites, including the shipped `samples/plan.json` end-to-end case (makespan 8, peak `{\"gpu\": 1, \"workers\": 2}`, `usable_slots` 8). Nothing was left unverified or outstanding; the hidden acceptance oracle was not available to me and is not claimed.",
+    "output_chars": 2850,
+    "stop_message": "Run completed successfully.",
+    "stop_reason": "success"
+  },
+  "main_prompt": {
+    "chars": 10377,
+    "digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
+    "source": "override",
+    "version": "main-v2.1-rc1"
+  },
+  "metrics": {
+    "child_completion_tokens": 0,
+    "child_total_prompt_tokens": 0,
+    "delegation_rounds": 0,
+    "handoff_payload_chars": 0,
+    "main_cache_hit_tokens": 178688,
+    "main_cache_miss_tokens": 18742,
+    "main_completion_tokens": 3314,
+    "main_context_tokens_by_request": [
+      4259,
+      4706,
+      7169,
+      8721,
+      10086,
+      13254,
+      16084,
+      17162,
+      17958,
+      19100,
+      19421,
+      19586,
+      19880,
+      20044
+    ],
+    "main_cumulative_input_tokens": 197430,
+    "main_peak_context_tokens": 20044,
+    "main_requests": 14,
+    "max_observed_child_concurrency": 0,
+    "system_total_tokens": 200744,
+    "unavailable_fields": []
+  },
+  "ownership": {
+    "allowed_calls": 23,
+    "checked_calls": 24,
+    "denied_calls": 1,
+    "mode": "enforce"
+  },
+  "preflight_status": "READY",
+  "public_tests": {
+    "calls": 2,
+    "command_digest": "ec17b2e8247b02e2d9d06dbbea763aa97fe9eb03ff74d49b8fed12cc111c0048",
+    "last_exit_code": 0,
+    "statuses": [
+      "PASS",
+      "PASS"
+    ]
+  },
+  "sandbox": {
+    "binding_id": "d10c94ceb08aca227f0710141f551dae710ff07c036d861b07866709c4c0cd35",
+    "binding_state": "READY",
+    "capabilities": {
+      "cancellation": true,
+      "command_streaming": false,
+      "contract_version": "1.0",
+      "evidence": true,
+      "file_transfer": true,
+      "isolation": "container",
+      "limitations": [
+        "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+        "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+        "Point-in-time snapshots are not exposed through this adapter.",
+        "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+      ],
+      "networking": "allowlist",
+      "persistent_filesystem": true,
+      "provider": "opensandbox",
+      "snapshots": false
+    },
+    "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+    "check_runs": 3,
+    "created": true,
+    "destroyed": true,
+    "error": null,
+    "export_digest": "sha256:c518583cce4999aa700d1c3be72aa8f57116ad7711b7c63f387b73a701ef3865",
+    "export_files": 21,
+    "export_size_bytes": 112640,
+    "host_separation": {
+      "host_only_visible": false,
+      "sandbox_only_read_back": true,
+      "sandbox_only_visible_on_host": false
+    },
+    "network_probe": "PASS",
+    "patch_changed_files": 2,
+    "patch_digest": "sha256:c242878480b6df271f362164e407e08c8ccae770e1d1d631ff31578391b831a4",
+    "provider": "opensandbox",
+    "provider_is_real": true,
+    "provision_commands": 4,
+    "provision_uploads": 1,
+    "retained": false,
+    "sandbox_id": "5945e7b1-45d8-46e0-9449-ed5c1eb0cbb7",
+    "tool_error_mode": "corrected",
+    "workspace_root": "/workspace/project"
+  },
+  "source_tree_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
+  "stage": "S2",
+  "status": "succeeded",
+  "tool_error_mode": "corrected",
+  "verdict": {
+    "delegation_behavior": "DIRECT_EXECUTION",
+    "delegation_labels_applicable": [
+      "DIRECT_EXECUTION"
+    ],
+    "failure": null,
+    "files_changed": 2,
+    "goal": "GOAL_PASS",
+    "oracle": "PASS",
+    "public_tests_passed": true,
+    "run_status": "succeeded"
+  },
+  "verification": {
+    "dynamic": {
+      "command": "python3 -m pytest -q && python3 -c \"import base64;exec(base64.b64decode('IiIiSGlkZGVuIGFjY2VwdGFuY2UgcHJvZ3JhbSBmb3IgdGhlIFdvcmtHcmlkIGZpeHR1cmUuCgpSdW5zIGluc2lkZSB0aGUgc2FuZGJveCwgYWZ0ZXIgdGhlIGFnZW50IGhhcyBzdG9wcGVkLCBmcm9tIHRoZSByZXBvc2l0b3J5IHJvb3QuIEl0IGltcG9ydHMgb25seSB0aGUKZml4dHVyZSdzIHB1YmxpYyBzdXJmYWNlIGFuZCBhc3NlcnRzIGJlaGF2aW91ciB0aGUgcHVibGljIHN1aXRlIGRvZXMgbm90IHNwZWxsIG91dDogcHJlY2VkZW5jZSwKcHJvcGFnYXRpb24sIGRldGVybWluaXNtIGFjcm9zcyBidWlsZCBvcmRlcnMsIGlucHV0IGltbXV0YWJpbGl0eSBhbmQgdGhlIGNhbm9uaWNhbCBmb3Jtcy4KCkl0IHByaW50cyBgYEhJRERFTl9PS2BgIGFuZCBleGl0cyAwIHdoZW4gZXZlcnkgY2hlY2sgcGFzc2VzLCBvdGhlcndpc2Ugb25lIGBgRkFJTCA8bWVzc2FnZT5gYCBsaW5lCnBlciBmYWlsZWQgY2hlY2sgcGx1cyBgYEhJRERFTl9GQUlMYGAgYW5kIGV4aXQgMS4KIiIiCgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQganNvbgppbXBvcnQgcGF0aGxpYgppbXBvcnQgdHJhY2ViYWNrCgpGQUlMVVJFUzogbGlzdFtzdHJdID0gW10KCgpkZWYgY2hlY2soY29uZGl0aW9uOiBvYmplY3QsIG1lc3NhZ2U6IHN0cikgLT4gTm9uZToKICAgIGlmIG5vdCBjb25kaXRpb246CiAgICAgICAgRkFJTFVSRVMuYXBwZW5kKG1lc3NhZ2UpCgoKZGVmIHRhc2sodGFza19pZDogc3RyLCBkdXJhdGlvbjogaW50ID0gMSwgZGVwZW5kc19vbj0oKSwgZGVtYW5kPU5vbmUpOgogICAgZnJvbSB3b3JrZ3JpZC5kZXBlbmRlbmNpZXMuZ3JhcGggaW1wb3J0IFRhc2tOb2RlCgogICAgcmV0dXJuIFRhc2tOb2RlKAogICAgICAgIHRhc2tfaWQ9dGFza19pZCwKICAgICAgICBkdXJhdGlvbj1kdXJhdGlvbiwKICAgICAgICBkZXBlbmRzX29uPXR1cGxlKGRlcGVuZHNfb24pLAogICAgICAgIGRlbWFuZD1kZW1hbmQgb3Ige30sCiAgICApCgoKZGVmIGNvbnN0cmFpbnRzKHdvcmtlcnM6IGludCA9IDEsIGdwdT1Ob25lLCB3aW5kb3dzPSgoMCwgMTApLCkpOgogICAgZnJvbSB3b3JrZ3JpZC5yZXNvdXJjZXMgaW1wb3J0ICgKICAgICAgICBBdmFpbGFiaWxpdHlXaW5kb3csCiAgICAgICAgQ2FsZW5kYXIsCiAgICAgICAgUG9vbFNldCwKICAgICAgICBSZXNvdXJjZUNvbnN0cmFpbnRzLAogICAgICAgIFJlc291cmNlUG9vbCwKICAgICkKCiAgICBwb29scyA9IFtSZXNvdXJjZVBvb2woIndvcmtlcnMiLCB3b3JrZXJzKV0KICAgIGlmIGdwdSBpcyBub3QgTm9uZToKICAgICAgICBwb29scy5hcHBlbmQoUmVzb3VyY2VQb29sKCJncHUiLCBncHUpKQogICAgY2FsZW5kYXIgPSBDYWxlbmRhcih0dXBsZShBdmFpbGFiaWxpdHlXaW5kb3coc3RhcnQsIGVuZCkgZm9yIHN0YXJ0LCBlbmQgaW4gd2luZG93cykpCiAgICByZXR1cm4gUmVzb3VyY2VDb25zdHJhaW50cyhwb29scz1Qb29sU2V0KHR1cGxlKHBvb2xzKSksIGNhbGVuZGFyPWNhbGVuZGFyKQoKCmRlZiBydW4odGFza3MsICoqa3dhcmdzKToKICAgIGZyb20gd29ya2dyaWQuZGVwZW5kZW5jaWVzIGltcG9ydCBidWlsZF9ncmFwaAogICAgZnJvbSB3b3JrZ3JpZC5zY2hlZHVsZXIgaW1wb3J0IGJ1aWxkX3NjaGVkdWxlCgogICAgcmV0dXJuIGJ1aWxkX3NjaGVkdWxlKGJ1aWxkX2dyYXBoKHRhc2tzKSwgY29uc3RyYWludHMoKiprd2FyZ3MpKQoKCmRlZiBwbGFjZWQocGxhbik6CiAgICByZXR1cm4gWyhpdGVtLnRhc2tfaWQsIGl0ZW0uc3RhcnQsIGl0ZW0uZW5kKSBmb3IgaXRlbSBpbiBwbGFuLnRhc2tzXQoKCmRlZiByZWFzb25zKHBsYW4pOgogICAgcmV0dXJuIFtzdHIoaXRlbS5yZWFzb24pIGZvciBpdGVtIGluIHBsYW4udW5zY2hlZHVsYWJsZV0KCgpkZWYgbWFpbigpIC0+IGludDoKICAgIGZyb20gd29ya2dyaWQuZGVwZW5kZW5jaWVzIGltcG9ydCBDeWNsZURldGVjdGVkRXJyb3IsIFVua25vd25EZXBlbmRlbmN5RXJyb3IKICAgIGZyb20gd29ya2dyaWQuc2NoZWR1bGVyIGltcG9ydCBQbGFuU3RhdHVzLCBidWlsZF9zY2hlZHVsZSwgcmVuZGVyX3BsYW4KCiAgICAjIC0tIDEuIHRoZSBlbXB0eSBwbGFuIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgZW1wdHkgPSBydW4oW10pCiAgICBjaGVjayhlbXB0eS5zdGF0dXMgaXMgUGxhblN0YXR1cy5FTVBUWSwgImFuIGVtcHR5IHBsYW4gbXVzdCBiZSBFTVBUWSIpCiAgICBjaGVjayhlbXB0eS5tYWtlc3BhbiA9PSAwLCAiYW4gZW1wdHkgcGxhbiBoYXMgbWFrZXNwYW4gMCIpCiAgICBjaGVjayhlbXB0eS50YXNrcyA9PSAoKSBhbmQgZW1wdHkudW5zY2hlZHVsYWJsZSA9PSAoKSwgImFuIGVtcHR5IHBsYW4gaGFzIG5vIGVudHJpZXMiKQogICAgY2hlY2socmVuZGVyX3BsYW4oZW1wdHkpID09ICJwbGFuIGVtcHR5IG1ha2VzcGFuPTBcbiIsICJlbXB0eSB0ZXh0IGZvcm0iKQoKICAgICMgLS0gMi4gYSBjaGFpbiwgYW5kIHRoZSBzdW1tYXJ5IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIGNoYWluID0gcnVuKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygiYSIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSksCiAgICAgICAgICAgIHRhc2soImIiLCAzLCBkZXBlbmRzX29uPSgiYSIsKSwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwKICAgICAgICBdLAogICAgICAgIHdvcmtlcnM9MSwKICAgICkKICAgIGNoZWNrKHBsYWNlZChjaGFpbikgPT0gWygiYSIsIDAsIDIpLCAoImIiLCAyLCA1KV0sIGYiY2hhaW4gcGxhY2VtZW50IHtwbGFjZWQoY2hhaW4pfSIpCiAgICBjaGVjayhjaGFpbi5tYWtlc3BhbiA9PSA1LCAiY2hhaW4gbWFrZXNwYW4iKQogICAgY2hlY2soCiAgICAgICAgZGljdChjaGFpbi5zdW1tYXJ5KQogICAgICAgID09IHsibWFrZXNwYW4iOiA1LCAic2NoZWR1bGVkIjogMiwgInRhc2tzIjogMiwgInVuc2NoZWR1bGFibGUiOiAwLCAidXNhYmxlX3Nsb3RzIjogMTB9LAogICAgICAgIGYiY2hhaW4gc3VtbWFyeSB7ZGljdChjaGFpbi5zdW1tYXJ5KX0iLAogICAgKQoKICAgICMgLS0gMmIuIGEgZGVwZW5kZW5jeSBkZWxheXMgd29yayBldmVuIHdoZW4gY2FwYWNpdHkgaXMgZnJlZSAtLS0tLS0tLS0tLQogICAgZm9yY2VkID0gcnVuKFt0YXNrKCJhIiwgMiksIHRhc2soImIiLCAxLCBkZXBlbmRzX29uPSgiYSIsKSldLCB3b3JrZXJzPTIpCiAgICBjaGVjayhwbGFjZWQoZm9yY2VkKSA9PSBbKCJhIiwgMCwgMiksICgiYiIsIDIsIDMpXSwgZiJkZXBlbmRlbmN5IGRlbGF5IHtwbGFjZWQoZm9yY2VkKX0iKQoKICAgICMgLS0gMy4gY2FwYWNpdHkgZGVjaWRlcyB3aGV0aGVyIHR3byB0YXNrcyBvdmVybGFwIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIHBhcmFsbGVsID0gcnVuKAogICAgICAgIFt0YXNrKCJhIiwgMiwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwgdGFzaygiYiIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSldLCB3b3JrZXJzPTIKICAgICkKICAgIGNoZWNrKHBsYWNlZChwYXJhbGxlbCkgPT0gWygiYSIsIDAsIDIpLCAoImIiLCAwLCAyKV0sIGYicGFyYWxsZWwgcGxhY2VtZW50IHtwbGFjZWQocGFyYWxsZWwpfSIpCiAgICBjaGVjayhkaWN0KHBhcmFsbGVsLnBlYWtfdXNhZ2UpID09IHsid29ya2VycyI6IDJ9LCAicGFyYWxsZWwgcGVhayB1c2FnZSIpCgogICAgc2VxdWVudGlhbCA9IHJ1bigKICAgICAgICBbdGFzaygiYSIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSksIHRhc2soImIiLCAyLCBkZW1hbmQ9eyJ3b3JrZXJzIjogMX0pXSwgd29ya2Vycz0xCiAgICApCiAgICBjaGVjaygKICAgICAgICBwbGFjZWQoc2VxdWVudGlhbCkgPT0gWygiYSIsIDAsIDIpLCAoImIiLCAyLCA0KV0sCiAgICAgICAgZiJzZXF1ZW50aWFsIHBsYWNlbWVudCB7cGxhY2VkKHNlcXVlbnRpYWwpfSIsCiAgICApCiAgICBjaGVjayhkaWN0KHNlcXVlbnRpYWwucGVha191c2FnZSkgPT0geyJ3b3JrZXJzIjogMX0sICJzZXF1ZW50aWFsIHBlYWsgdXNhZ2UiKQoKICAgICMgLS0gNC4gYSBzY2FyY2UgcmVzb3VyY2Ugc2VyaWFsaXplcyBvbmx5IGl0c2VsZiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIHNjYXJjZSA9IHJ1bigKICAgICAgICBbCiAgICAgICAgICAgIHRhc2soImEiLCAxLCBkZW1hbmQ9eyJ3b3JrZXJzIjogMSwgImdwdSI6IDF9KSwKICAgICAgICAgICAgdGFzaygiYiIsIDEsIGRlbWFuZD17IndvcmtlcnMiOiAxLCAiZ3B1IjogMX0pLAogICAgICAgICAgICB0YXNrKCJjIiwgMSwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwKICAgICAgICBdLAogICAgICAgIHdvcmtlcnM9MiwKICAgICAgICBncHU9MSwKICAgICkKICAgIGNoZWNrKAogICAgICAgIHBsYWNlZChzY2FyY2UpID09IFsoImEiLCAwLCAxKSwgKCJjIiwgMCwgMSksICgiYiIsIDEsIDIpXSwKICAgICAgICBmInNjYXJjZSByZXNvdXJjZSBwbGFjZW1lbnQge3BsYWNlZChzY2FyY2UpfSIsCiAgICApCiAgICBjaGVjayhkaWN0KHNjYXJjZS5wZWFrX3VzYWdlKSA9PSB7ImdwdSI6IDEsICJ3b3JrZXJzIjogMn0sICJzY2FyY2UgcGVhayB1c2FnZSIpCgogICAgIyAtLSA1LiBhIGNyb3dkZWQgcGxhbiB1c2VzIHRoZSBsYXN0IHNsb3QgdGhlIHdpbmRvdyBhbGxvd3MgLS0tLS0tLS0tLS0tLQogICAgcGFja2VkID0gcnVuKAogICAgICAgIFt0YXNrKCJhIiwgNiwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwgdGFzaygiYiIsIDQsIGRlbWFuZD17IndvcmtlcnMiOiAxfSldLAogICAgICAgIHdvcmtlcnM9MSwKICAgICAgICB3aW5kb3dzPSgoMCwgMTApLCksCiAgICApCiAgICBjaGVjayhwbGFjZWQocGFja2VkKSA9PSBbKCJhIiwgMCwgNiksICgiYiIsIDYsIDEwKV0sIGYicGFja2VkIHBsYWNlbWVudCB7cGxhY2VkKHBhY2tlZCl9IikKICAgIGNoZWNrKHBhY2tlZC5tYWtlc3BhbiA9PSAxMCwgInBhY2tlZCBtYWtlc3BhbiIpCgogICAgIyAtLSA2LiB3aW5kb3dzIGFyZSByZXNwZWN0ZWQsIGdhcHMgaW5jbHVkZWQgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgZ2FwcGVkID0gcnVuKFt0YXNrKCJhIiwgMyldLCB3b3JrZXJzPTEsIHdpbmRvd3M9KCgwLCAyKSwgKDQsIDEwKSkpCiAgICBjaGVjayhwbGFjZWQoZ2FwcGVkKSA9PSBbKCJhIiwgNCwgNyldLCBmImdhcHBlZCBwbGFjZW1lbnQge3BsYWNlZChnYXBwZWQpfSIpCgogICAgdG9vX2xvbmcgPSBydW4oW3Rhc2soImEiLCA1KV0sIHdvcmtlcnM9MSwgd2luZG93cz0oKDAsIDQpLCkpCiAgICBjaGVjayh0b29fbG9uZy5zdGF0dXMgaXMgUGxhblN0YXR1cy5QQVJUSUFMLCAiYSB0YXNrIHRoYXQgbmV2ZXIgZml0cyBtYWtlcyB0aGUgcGxhbiBwYXJ0aWFsIikKICAgIGNoZWNrKHJlYXNvbnModG9vX2xvbmcpID09IFsibm9fYXZhaWxhYmxlX3dpbmRvdyJdLCBmInRvbyBsb25nIHJlYXNvbiB7cmVhc29ucyh0b29fbG9uZyl9IikKICAgIGNoZWNrKAogICAgICAgIHJlbmRlcl9wbGFuKHRvb19sb25nKSA9PSAicGxhbiBwYXJ0aWFsIG1ha2VzcGFuPTBcbnVuc2NoZWR1bGFibGUgYVxuIiwKICAgICAgICAidW5zY2hlZHVsYWJsZSB0ZXh0IGZvcm0iLAogICAgKQoKICAgICMgLS0gNy4gY2xhc3NpZmljYXRpb24gYW5kIHByZWNlZGVuY2UgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIG92ZXIgPSBydW4oW3Rhc2soImEiLCAxLCBkZW1hbmQ9eyJ3b3JrZXJzIjogM30pLCB0YXNrKCJiIiwgMSwgZGVwZW5kc19vbj0oImEiLCkpXSwgd29ya2Vycz0yKQogICAgY2hlY2sob3Zlci51bnNjaGVkdWxhYmxlX2lkcygpID09ICgiYSIsICJiIiksIGYib3ZlciBjYXBhY2l0eSBpZHMge292ZXIudW5zY2hlZHVsYWJsZV9pZHMoKX0iKQogICAgY2hlY2soCiAgICAgICAgcmVhc29ucyhvdmVyKSA9PSBbImRlbWFuZF9leGNlZWRzX2NhcGFjaXR5IiwgImRlcGVuZGVuY3lfdW5zY2hlZHVsYWJsZSJdLAogICAgICAgIGYib3ZlciBjYXBhY2l0eSByZWFzb25zIHtyZWFzb25zKG92ZXIpfSIsCiAgICApCiAgICBjaGVjayhvdmVyLnNjaGVkdWxlZF9pZHMoKSA9PSAoKSwgIm5vdGhpbmcgaXMgc2NoZWR1bGVkIHdoZW4gZXZlcnl0aGluZyBpcyBibG9ja2VkIikKCiAgICB1bmtub3duID0gcnVuKFt0YXNrKCJhIiwgMSwgZGVtYW5kPXsibWVtb3J5IjogMX0pXSwgd29ya2Vycz0xKQogICAgY2hlY2socmVhc29ucyh1bmtub3duKSA9PSBbInVua25vd25fcmVzb3VyY2UiXSwgZiJ1bmtub3duIHJlc291cmNlIHJlYXNvbiB7cmVhc29ucyh1bmtub3duKX0iKQoKICAgICMgcHJlY2VkZW5jZTogYSBibG9ja2VkIGRlcGVuZGVuY3kgd2lucyBvdmVyIHRoZSB0YXNrJ3Mgb3duIGltcG9zc2libGUgZGVtYW5kCiAgICBwcmVjZWRlbmNlID0gcnVuKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygiYSIsIDEsIGRlbWFuZD17IndvcmtlcnMiOiA5fSksCiAgICAgICAgICAgIHRhc2soImIiLCAxLCBkZXBlbmRzX29uPSgiYSIsKSwgZGVtYW5kPXsid29ya2VycyI6IDl9KSwKICAgICAgICBdLAogICAgICAgIHdvcmtlcnM9MSwKICAgICkKICAgIGNoZWNrKAogICAgICAgIHJlYXNvbnMocHJlY2VkZW5jZSkgPT0gWyJkZW1hbmRfZXhjZWVkc19jYXBhY2l0eSIsICJkZXBlbmRlbmN5X3Vuc2NoZWR1bGFibGUiXSwKICAgICAgICBmInByZWNlZGVuY2UgcmVhc29ucyB7cmVhc29ucyhwcmVjZWRlbmNlKX0iLAogICAgKQoKICAgICMgYSBibG9ja2VkIHRhc2sgYmxvY2tzIGl0cyB3aG9sZSBjaGFpbiwgbm90IG9ubHkgaXRzIGRpcmVjdCBkZXBlbmRlbnRzCiAgICBjYXNjYWRlID0gcnVuKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygiYSIsIDEsIGRlbWFuZD17IndvcmtlcnMiOiA5fSksCiAgICAgICAgICAgIHRhc2soImIiLCAxLCBkZXBlbmRzX29uPSgiYSIsKSksCiAgICAgICAgICAgIHRhc2soImMiLCAxLCBkZXBlbmRzX29uPSgiYiIsKSksCiAgICAgICAgXSwKICAgICAgICB3b3JrZXJzPTEsCiAgICApCiAgICBjaGVjaygKICAgICAgICBjYXNjYWRlLnVuc2NoZWR1bGFibGVfaWRzKCkgPT0gKCJhIiwgImIiLCAiYyIpLCBmImNhc2NhZGUgaWRzIHtjYXNjYWRlLnVuc2NoZWR1bGFibGVfaWRzKCl9IgogICAgKQogICAgY2hlY2soCiAgICAgICAgcmVhc29ucyhjYXNjYWRlKQogICAgICAgID09IFsiZGVtYW5kX2V4Y2VlZHNfY2FwYWNpdHkiLCAiZGVwZW5kZW5jeV91bnNjaGVkdWxhYmxlIiwgImRlcGVuZGVuY3lfdW5zY2hlZHVsYWJsZSJdLAogICAgICAgIGYiY2FzY2FkZSByZWFzb25zIHtyZWFzb25zKGNhc2NhZGUpfSIsCiAgICApCgogICAgIyAtLSA4LiBicm9rZW4gZ3JhcGhzIHN0YXkgZXhjZXB0aW9ucyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgY3ljbGljID0gWwogICAgICAgIHRhc2soImEiLCAxLCBkZXBlbmRzX29uPSgiYyIsKSksCiAgICAgICAgdGFzaygiYiIsIDEsIGRlcGVuZHNfb249KCJhIiwpKSwKICAgICAgICB0YXNrKCJjIiwgMSwgZGVwZW5kc19vbj0oImIiLCkpLAogICAgXQogICAgdHJ5OgogICAgICAgIHJ1bihjeWNsaWMpCiAgICAgICAgY2hlY2soRmFsc2UsICJhIGN5Y2xlIHdhcyB0dXJuZWQgaW50byBhIHBsYW4gaW5zdGVhZCBvZiBhbiBleGNlcHRpb24iKQogICAgZXhjZXB0IEN5Y2xlRGV0ZWN0ZWRFcnJvcjoKICAgICAgICBwYXNzCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGVycm9yOiAgIyBub3FhOiBCTEUwMDEgLSB0aGUgcG9pbnQgaXMgdGhlIHR5cGUKICAgICAgICBjaGVjayhGYWxzZSwgZiJhIGN5Y2xlIHJhaXNlZCB7dHlwZShlcnJvcikuX19uYW1lX199IikKCiAgICBkYW5nbGluZyA9IFt0YXNrKCJhIiwgMSwgZGVwZW5kc19vbj0oImdob3N0IiwpKV0KICAgIHRyeToKICAgICAgICBydW4oZGFuZ2xpbmcpCiAgICAgICAgY2hlY2soRmFsc2UsICJhbiB1bmtub3duIGRlcGVuZGVuY3kgd2FzIHR1cm5lZCBpbnRvIGEgcGxhbiIpCiAgICBleGNlcHQgVW5rbm93bkRlcGVuZGVuY3lFcnJvcjoKICAgICAgICBwYXNzCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGVycm9yOiAgIyBub3FhOiBCTEUwMDEKICAgICAgICBjaGVjayhGYWxzZSwgZiJhbiB1bmtub3duIGRlcGVuZGVuY3kgcmFpc2VkIHt0eXBlKGVycm9yKS5fX25hbWVfX30iKQoKICAgICMgLS0gOS4gZGV0ZXJtaW5pc20sIGNhbm9uaWNhbCBmb3JtLCBpbW11dGFiaWxpdHkgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAgICB0YXNrcyA9IFsKICAgICAgICB0YXNrKCJiIiwgMSwgZGVwZW5kc19vbj0oImEiLCksIGRlbWFuZD17IndvcmtlcnMiOiAxfSksCiAgICAgICAgdGFzaygiYSIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSksCiAgICAgICAgdGFzaygiYyIsIDEpLAogICAgXQogICAgZnJvbSB3b3JrZ3JpZC5kZXBlbmRlbmNpZXMgaW1wb3J0IGJ1aWxkX2dyYXBoCgogICAgZmlyc3RfZ3JhcGggPSBidWlsZF9ncmFwaCh0YXNrcykKICAgIGJlZm9yZV9ub2RlcyA9IGRpY3QoZmlyc3RfZ3JhcGgubm9kZXMpCiAgICBmaXJzdCA9IGJ1aWxkX3NjaGVkdWxlKGZpcnN0X2dyYXBoLCBjb25zdHJhaW50cyh3b3JrZXJzPTEpKQogICAgc2Vjb25kID0gYnVpbGRfc2NoZWR1bGUoYnVpbGRfZ3JhcGgobGlzdChyZXZlcnNlZCh0YXNrcykpKSwgY29uc3RyYWludHMod29ya2Vycz0xKSkKICAgIGNoZWNrKGZpcnN0LnRvX2RpY3QoKSA9PSBzZWNvbmQudG9fZGljdCgpLCAidGhlIHBsYW4gZGVwZW5kcyBvbiB0YXNrIGRlY2xhcmF0aW9uIG9yZGVyIikKICAgIGNoZWNrKGRpY3QoZmlyc3RfZ3JhcGgubm9kZXMpID09IGJlZm9yZV9ub2RlcywgInRoZSBncmFwaCB3YXMgbXV0YXRlZCBieSBzY2hlZHVsaW5nIikKICAgIGNoZWNrKAogICAgICAgIGJ1aWxkX3NjaGVkdWxlKGZpcnN0X2dyYXBoLCBjb25zdHJhaW50cyh3b3JrZXJzPTEpKS50b19kaWN0KCkgPT0gZmlyc3QudG9fZGljdCgpLAogICAgICAgICJ0d28gcnVucyBvZiBvbmUgZ3JhcGggZGlzYWdyZWUiLAogICAgKQoKICAgIGRvY3VtZW50ID0gZmlyc3QudG9fZGljdCgpCiAgICBjaGVjaygKICAgICAgICBsaXN0KGRvY3VtZW50KSA9PSBbInN0YXR1cyIsICJtYWtlc3BhbiIsICJzdW1tYXJ5IiwgInBlYWtfdXNhZ2UiLCAidGFza3MiLCAidW5zY2hlZHVsYWJsZSJdLAogICAgICAgIGYiY2Fub25pY2FsIGtleSBvcmRlciB7bGlzdChkb2N1bWVudCl9IiwKICAgICkKICAgIGNoZWNrKAogICAgICAgIGpzb24uZHVtcHMoZG9jdW1lbnQsIHNvcnRfa2V5cz1UcnVlKSA9PSBqc29uLmR1bXBzKGZpcnN0LnRvX2RpY3QoKSwgc29ydF9rZXlzPVRydWUpLAogICAgICAgICJ0aGUgZGljdCBmb3JtIGlzIG5vdCBzdGFibGUiLAogICAgKQogICAgY2hlY2soCiAgICAgICAgW2l0ZW1bInRhc2tfaWQiXSBmb3IgaXRlbSBpbiBkb2N1bWVudFsidGFza3MiXV0gPT0gWyJhIiwgImMiLCAiYiJdLAogICAgICAgIGYiY2Fub25pY2FsIHRhc2sgb3JkZXIge1tpdGVtWyd0YXNrX2lkJ10gZm9yIGl0ZW0gaW4gZG9jdW1lbnRbJ3Rhc2tzJ11dfSIsCiAgICApCiAgICBjaGVjaygKICAgICAgICBhbGwobGlzdChpdGVtWyJ1bml0cyJdKSA9PSBzb3J0ZWQoaXRlbVsidW5pdHMiXSkgZm9yIGl0ZW0gaW4gZG9jdW1lbnRbInRhc2tzIl0pLAogICAgICAgICJ1bml0cyBhcmUgbm90IHNvcnRlZCBpbiB0aGUgZGljdCBmb3JtIiwKICAgICkKCiAgICB0ZXh0ID0gcmVuZGVyX3BsYW4oZmlyc3QpCiAgICBjaGVjayh0ZXh0LmVuZHN3aXRoKCJcbiIpIGFuZCBub3QgdGV4dC5lbmRzd2l0aCgiXG5cbiIpLCAidGV4dCBmb3JtIG11c3QgZW5kIHdpdGggb25lIG5ld2xpbmUiKQogICAgY2hlY2sodGV4dC5zcGxpdGxpbmVzKClbMF0gPT0gZiJwbGFuIHNjaGVkdWxlZCBtYWtlc3Bhbj17Zmlyc3QubWFrZXNwYW59IiwgInRleHQgaGVhZGVyIikKCiAgICAjIC0tIDEwLiB0aGUgc2hpcHBlZCBzYW1wbGUgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAgICBzYW1wbGUgPSBwYXRobGliLlBhdGgoInNhbXBsZXMvcGxhbi5qc29uIikKICAgIGRvY3VtZW50ID0ganNvbi5sb2FkcyhzYW1wbGUucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpKQogICAgZnJvbSB3b3JrZ3JpZC5yZXNvdXJjZXMgaW1wb3J0ICgKICAgICAgICBBdmFpbGFiaWxpdHlXaW5kb3csCiAgICAgICAgQ2FsZW5kYXIsCiAgICAgICAgUG9vbFNldCwKICAgICAgICBSZXNvdXJjZUNvbnN0cmFpbnRzLAogICAgICAgIFJlc291cmNlUG9vbCwKICAgICkKCiAgICBncmFwaCA9IGJ1aWxkX2dyYXBoKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygKICAgICAgICAgICAgICAgIHJhd1siaWQiXSwKICAgICAgICAgICAgICAgIHJhd1siZHVyYXRpb24iXSwKICAgICAgICAgICAgICAgIHJhdy5nZXQoImRlcGVuZHNfb24iKSBvciAoKSwKICAgICAgICAgICAgICAgIHJhdy5nZXQoImRlbWFuZCIpIG9yIHt9LAogICAgICAgICAgICApCiAgICAgICAgICAgIGZvciByYXcgaW4gZG9jdW1lbnRbInRhc2tzIl0KICAgICAgICBdCiAgICApCiAgICBwb29scyA9IFBvb2xTZXQodHVwbGUoUmVzb3VyY2VQb29sKHJhd1sibmFtZSJdLCByYXdbImNhcGFjaXR5Il0pIGZvciByYXcgaW4gZG9jdW1lbnRbInBvb2xzIl0pKQogICAgY2FsZW5kYXIgPSBDYWxlbmRhcigKICAgICAgICB0dXBsZShBdmFpbGFiaWxpdHlXaW5kb3cocmF3WyJzdGFydCJdLCByYXdbImVuZCJdKSBmb3IgcmF3IGluIGRvY3VtZW50WyJ3aW5kb3dzIl0pCiAgICApCiAgICBzYW1wbGVfcGxhbiA9IGJ1aWxkX3NjaGVkdWxlKGdyYXBoLCBSZXNvdXJjZUNvbnN0cmFpbnRzKHBvb2xzPXBvb2xzLCBjYWxlbmRhcj1jYWxlbmRhcikpCiAgICBjaGVjayhzYW1wbGVfcGxhbi5zdGF0dXMgaXMgUGxhblN0YXR1cy5TQ0hFRFVMRUQsIGYic2FtcGxlIHN0YXR1cyB7c3RyKHNhbXBsZV9wbGFuLnN0YXR1cyl9IikKICAgIGNoZWNrKAogICAgICAgIHBsYWNlZChzYW1wbGVfcGxhbikKICAgICAgICA9PSBbCiAgICAgICAgICAgICgiYnVpbGQtYSIsIDAsIDIpLAogICAgICAgICAgICAoImJ1aWxkLWIiLCAwLCAyKSwKICAgICAgICAgICAgKCJ0ZXN0LWEiLCAyLCA0KSwKICAgICAgICAgICAgKCJ0ZXN0LWIiLCAyLCAzKSwKICAgICAgICAgICAgKCJwYWNrYWdlIiwgNiwgOCksCiAgICAgICAgXSwKICAgICAgICBmInNhbXBsZSBwbGFjZW1lbnQge3BsYWNlZChzYW1wbGVfcGxhbil9IiwKICAgICkKICAgIGNoZWNrKHNhbXBsZV9wbGFuLm1ha2VzcGFuID09IDgsICJzYW1wbGUgbWFrZXNwYW4iKQogICAgY2hlY2soZGljdChzYW1wbGVfcGxhbi5wZWFrX3VzYWdlKSA9PSB7ImdwdSI6IDEsICJ3b3JrZXJzIjogMn0sICJzYW1wbGUgcGVhayB1c2FnZSIpCiAgICBjaGVjaygKICAgICAgICBkaWN0KHNhbXBsZV9wbGFuLnN1bW1hcnkpCiAgICAgICAgPT0gewogICAgICAgICAgICAibWFrZXNwYW4iOiA4LAogICAgICAgICAgICAic2NoZWR1bGVkIjogNSwKICAgICAgICAgICAgInRhc2tzIjogNSwKICAgICAgICAgICAgInVuc2NoZWR1bGFibGUiOiAwLAogICAgICAgICAgICAidXNhYmxlX3Nsb3RzIjogOCwKICAgICAgICB9LAogICAgICAgIGYic2FtcGxlIHN1bW1hcnkge2RpY3Qoc2FtcGxlX3BsYW4uc3VtbWFyeSl9IiwKICAgICkKCiAgICBpZiBGQUlMVVJFUzoKICAgICAgICBmb3IgZmFpbHVyZSBpbiBGQUlMVVJFUzoKICAgICAgICAgICAgcHJpbnQoZiJGQUlMIHtmYWlsdXJlfSIpCiAgICAgICAgcHJpbnQoIkhJRERFTl9GQUlMIikKICAgICAgICByZXR1cm4gMQogICAgcHJpbnQoIkhJRERFTl9PSyIpCiAgICByZXR1cm4gMAoKCmlmIF9fbmFtZV9fID09ICJfX21haW5fXyI6CiAgICB0cnk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdChtYWluKCkpCiAgICBleGNlcHQgU3lzdGVtRXhpdDoKICAgICAgICByYWlzZQogICAgZXhjZXB0IEJhc2VFeGNlcHRpb246ICAjIG5vcWE6IEJMRTAwMSAtIGFueSBjcmFzaCBpcyBhIGZhaWxlZCBhY2NlcHRhbmNlCiAgICAgICAgdHJhY2ViYWNrLnByaW50X2V4YygpCiAgICAgICAgcHJpbnQoIkhJRERFTl9GQUlMIikKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KDEpIGZyb20gTm9uZQo=').decode())\"",
+      "cwd": "/workspace/project",
+      "elapsed_ms": 1451.803,
+      "exit_code": 0,
+      "ok": true,
+      "status": "PASS",
+      "stderr_chars": 0,
+      "stdout_chars": 108,
+      "stdout_digest": "sha256:b41581ee13266836bfc05d6c3f820931798c7fb681acdd807e8b53110bfc3669"
+    },
+    "static_status": "PASS",
+    "verdict": "PASS"
+  },
+  "wall_clock_seconds": 54.387
+}

@@ -34,7 +34,11 @@ def tool_result(text: str, *, is_error: bool = False) -> dict[str, Any]:
     return {"type": "tool_result", "content": text, "is_error": is_error}
 
 
-def conversation(turns: list[tuple[list[dict[str, Any]], list[dict[str, Any]]]]) -> dict[str, Any]:
+def conversation(
+    turns: list[tuple[list[dict[str, Any]], list[dict[str, Any]]]],
+    *,
+    final_text: str | None = None,
+) -> dict[str, Any]:
     """``turns`` is a list of (assistant blocks, results for those blocks)."""
 
     messages: list[dict[str, Any]] = [
@@ -44,11 +48,16 @@ def conversation(turns: list[tuple[list[dict[str, Any]], list[dict[str, Any]]]])
         messages.append({"role": "assistant", "content": blocks})
         if results:
             messages.append({"role": "user", "content": results})
+    if final_text is not None:
+        messages.append({"role": "assistant", "content": [{"type": "text", "text": final_text}]})
     return {"tasks": {MAIN: {"messages": messages}}}
 
 
-def session(turns: int, calls: list[Any]) -> dict[str, Any]:
-    return {"main": {"task_id": MAIN, "turns": turns, "tool_calls": calls}}
+def session(turns: int, calls: list[Any], *, output: str | None = None) -> dict[str, Any]:
+    return {
+        "main": {"task_id": MAIN, "turns": turns, "tool_calls": calls, "output": output},
+        "metrics": {"main_requests": turns},
+    }
 
 
 # --------------------------------------------------------------------------- success
@@ -65,19 +74,41 @@ def test_a_clean_run_counts_what_the_conversation_holds() -> None:
                 [tool_result("a"), tool_result("b")],
             ),
             ([tool_use("file_write", {"path": "a.py"}, "c3")], [tool_result("written")]),
-        ]
+        ],
+        final_text="done",
     )
     stats = analysis.reconstruct_main_stats(
-        data, [], MAIN, session(2, ["file_read", "file_read", "file_write"])
+        data, [], MAIN, session(3, ["file_read", "file_read", "file_write"], output="done")
     )
 
-    assert stats["assistant_turns"] == 2
+    assert stats["assistant_turns"] == 3
     assert stats["tool_calls"] == 3
     assert stats["tool_calls_by_name"] == {"file_read": 2, "file_write": 1}
     assert stats["tool_errors"] == 0
-    assert stats["session_reported_turns"] == 2
+    assert stats["session_reported_turns"] == 3
+    assert stats["turns_delta"] == 0
     assert stats["session_fields_agree"] is True
     assert stats["source"] == "tool_conversations.json + transcript.jsonl"
+
+
+def test_a_final_text_only_message_that_was_not_persisted_is_explained() -> None:
+    # The exact shape of the S2 run: 14 requests, 13 stored assistant messages, 24 tool calls. The
+    # last turn carried only text, and the conversation store kept tool-bearing turns only.
+    data = conversation(
+        [([tool_use("file_read", {"path": "a.py"}, "c1")], [tool_result("a")])],
+        final_text=None,
+    )
+    stats = analysis.reconstruct_main_stats(
+        data, [], MAIN, session(2, ["file_read"], output="Done. The engine is implemented.")
+    )
+
+    assert stats["assistant_turns"] == 1
+    assert stats["session_reported_turns"] == 2
+    assert stats["turns_delta"] == 1
+    assert stats["turns_delta_reason"] is not None
+    # Tool calls still agree exactly, which is what the counters are for.
+    assert stats["tool_calls_agree"] is True
+    assert stats["session_fields_agree"] is False
 
 
 # --------------------------------------------------------------------------- budget rejection

@@ -1,0 +1,20 @@
+{
+  "created_at": "2026-11-19T10:36:41.846660+00:00",
+  "delegation_mode": "AUTONOMOUS_MAIN_DELEGATION",
+  "fixture_commit": "709c9742d538c23303f52157f15de04e8ba53f87",
+  "git": {
+    "baseline_commit": "1d03a2f6efb1e4ae45ccf8130d57917fe08eae3a",
+    "git_branch": "exp/main-prompt-v21-final-pilot",
+    "git_head": "14b118ecaff2f50a779d17665539be07ac3ee8ca",
+    "git_status": "",
+    "git_status_excluded_files": [],
+    "main_system_prompt_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a"
+  },
+  "goal_digest": "sha256:83c724018149acef442b5e1c2cb3c97a5ce23b004740a67b4d51a51f2af5560f",
+  "prompt_digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
+  "prompt_version": "main-v2.1-rc1",
+  "run_id": "stage-s2-20261119T103641Z",
+  "source_tree_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
+  "stage": "S2",
+  "tool_error_mode": "corrected"
+}

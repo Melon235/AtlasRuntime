@@ -191,13 +191,22 @@ def reconstruct_main_stats(
     proposed = [event for event in events if event.get("event_type") == "action_proposed"]
     observations = [event for event in events if event.get("event_type") == "tool_observation"]
     reported = (session or {}).get("main") or {}
-    # ``session.main.tool_calls`` is a list of tool names, ``session.main.turns`` a count of
-    # assistant messages. Comparing them to the reconstruction is the whole point of this function.
-    agree = reported.get("turns") == len(turns) and list(reported.get("tool_calls") or []) == [
-        call["name"] for call in calls
-    ]
+    names = [call["name"] for call in calls]
+    metrics = (session or {}).get("metrics") or {}
+    turns_delta = int(reported.get("turns") or 0) - len(turns)
+    note = None
+    if turns_delta == 1 and reported.get("output"):
+        # Observed in stage S2: the final assistant message carried no tool call, so the
+        # conversation store did not persist it, while the session counted it and kept its text as
+        # ``output``.
+        note = (
+            "the final assistant message carried no tool call and is not persisted in "
+            "tool_conversations.json; its text survives as session.main.output"
+        )
+    calls_agree = list(reported.get("tool_calls") or []) == names
     return {
         "assistant_turns": len(turns),
+        "model_requests": int(metrics.get("main_requests") or 0) or None,
         "tool_calls": len(calls),
         "tool_calls_by_name": dict(sorted(by_name.items())),
         "tool_errors": len(errors),
@@ -205,8 +214,11 @@ def reconstruct_main_stats(
         "transcript_action_proposed": len(proposed),
         "transcript_tool_observations": len(observations),
         "session_reported_turns": reported.get("turns"),
-        "session_reported_tool_calls": reported.get("tool_calls"),
-        "session_fields_agree": agree,
+        "session_reported_tool_calls": list(reported.get("tool_calls") or []),
+        "turns_delta": turns_delta,
+        "turns_delta_reason": note,
+        "tool_calls_agree": calls_agree,
+        "session_fields_agree": calls_agree and turns_delta == 0,
         "source": "tool_conversations.json + transcript.jsonl",
     }
 
@@ -276,7 +288,11 @@ def analyze_run(run_dir: str | Path) -> dict[str, Any]:
     root = Path(run_dir)
     session = _load(root / "session.json")
     conversations = _load(root / "tool_conversations.json")
+    # A collected evidence bundle keeps the transcript next to the session; a live run directory
+    # keeps it under ``trajectory/<id>/``. Both are analysable, which is the point of this module.
     transcript_path = next(iter(sorted(root.glob("trajectory/*/transcript.jsonl"))), None)
+    if transcript_path is None and (root / "transcript.jsonl").is_file():
+        transcript_path = root / "transcript.jsonl"
     events = transcript_events(transcript_path) if transcript_path else []
 
     main_task_id = session["main"]["task_id"]

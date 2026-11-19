@@ -1,0 +1,653 @@
+{
+  "run_id": "stage-s2-20261119T103641Z",
+  "mode": "main_driven",
+  "goal": "The WorkGrid project already provides dependency graph validation and resource availability rules, but its shared scheduling engine is incomplete. Implement a deterministic scheduling workflow that respects task dependencies and resource capacity constraints, reports unschedulable tasks clearly, and preserves the existing dependency and resource APIs. Make changes only in the authorized scheduler package and use the available public tests to verify the result.",
+  "run_dir": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s2-live\\runs\\stage-s2-20261119T103641Z",
+  "workspace_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s2-live\\runs\\host-workspace",
+  "workspace_tool_root": "/workspace/project",
+  "isolation": "sandbox",
+  "provider": "deepseek",
+  "model": "deepseek-chat",
+  "main_prompt": {
+    "version": "main-v2.1-rc1",
+    "digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
+    "chars": 10377,
+    "source": "override"
+  },
+  "status": "succeeded",
+  "execution_succeeded": true,
+  "failure": null,
+  "main": {
+    "agent": "atlas-main",
+    "worker_id": "stage-s2-20261119T103641Z-main-worker",
+    "task_id": "stage-s2-20261119T103641Z-main",
+    "success": true,
+    "stop_reason": "success",
+    "stop_message": "Run completed successfully.",
+    "turns": 14,
+    "tool_calls": [
+      "bash",
+      "list_files",
+      "bash",
+      "bash",
+      "list_files",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "bash",
+      "file_read",
+      "file_edit",
+      "file_edit",
+      "run_public_tests",
+      "file_edit",
+      "file_edit",
+      "run_public_tests"
+    ],
+    "output": "Done. The scheduling engine is implemented and the full public suite passes.\n\n## What was implemented\n\nChanges were confined to `workgrid/scheduler/` (`engine.py` and `report.py`). The dependency and resource packages, `contracts.py`, and the package `__init__` surface were left untouched.\n\n**`workgrid/scheduler/engine.py` \u2014 `build_schedule`**\n\nFollows the documented per-task contract in a single pass over `topological_order(graph)`:\n\n1. **Order / graph integrity** \u2014 `topological_order` is called first, so `UnknownDependencyError` and `CycleDetectedError` propagate unchanged before any placement work happens.\n2. **Blocked dependencies** \u2014 if any dependency id is already unschedulable, the task is reported as `DEPENDENCY_UNSCHEDULABLE` with the sorted blocking ids in `detail`; its demand and window are not examined.\n3. **Impossible demand** \u2014 `constraints.validate_demand` is called and `DemandExceedsCapacityError` / `UnknownResourceError` are caught and mapped to `DEMAND_EXCEEDS_CAPACITY` / `UNKNOWN_RESOURCE`. These are classified, never propagated, so one impossible task does not invalidate the plan.\n4. **Placement** \u2014 `ready = max(end of scheduled deps, 0)`; from `earliest_start(ready, duration)` it takes the first candidate where `fits_at(...)` holds, otherwise advances via `earliest_start(candidate + 1, duration)`. Exhaustion yields `NO_AVAILABLE_WINDOW`. A small `_place` helper isolates this scan loop.\n5. **Report** \u2014 assembled through the existing `build_plan` so status, ordering, makespan and summary are derived canonically, with `peak_usage` from `constraints.peak_usage(placed)` and `summary[\"usable_slots\"]` from the calendar.\n\n**`workgrid/scheduler/report.py` \u2014 `render_plan`**\n\nRenders the plan only (no recomputation): header `plan <status> makespan=<n>`, one `%04d-%04d <id> <resources>` line per planned task in plan order (resources `-` when empty, otherwise `name=units` sorted and comma-joined), an optional `unschedulable a,b` line with sorted ids, and a single trailing newline.\n\n## Design decisions\n\n- No rules were re-implemented: ordering, capacity checks, window math and peak usage all come from the existing APIs.\n- The engine writes only to local accumulated placements, leaving both rule packages and the immutable contracts unchanged.\n- Determinism comes for free from the topological order, sorted resource names and `build_plan`'s fixed `(start, task_id)` sort.\n\n## Verification\n\n`run_public_tests` (`python3 -B -m pytest -q tests`): **62 passed**, exit 0 \u2014 this covers the scheduler acceptance suite plus the pre-existing dependency and resource suites, including the shipped `samples/plan.json` end-to-end case (makespan 8, peak `{\"gpu\": 1, \"workers\": 2}`, `usable_slots` 8). Nothing was left unverified or outstanding; the hidden acceptance oracle was not available to me and is not claimed.",
+    "requests": 14,
+    "prompt_tokens": 18742,
+    "total_prompt_tokens": 197430,
+    "cache_hit_tokens": 178688,
+    "cache_miss_tokens": 18742,
+    "completion_tokens": 3314,
+    "peak_context_tokens": 20044,
+    "context_tokens_by_request": [
+      4259,
+      4706,
+      7169,
+      8721,
+      10086,
+      13254,
+      16084,
+      17162,
+      17958,
+      19100,
+      19421,
+      19586,
+      19880,
+      20044
+    ]
+  },
+  "delegation": {
+    "run_id": "stage-s2-20261119T103641Z",
+    "enabled": true,
+    "limits": {
+      "max_parallel_children": 2,
+      "max_children_per_call": 2,
+      "max_delegation_rounds": 3,
+      "child_timeout_seconds": 300.0,
+      "child_max_turns": 6,
+      "result_preview_chars": 900
+    },
+    "batches": [],
+    "totals": {
+      "children_started": 0,
+      "children_completed": 0,
+      "children_failed": 0,
+      "children_timed_out": 0,
+      "children_cancelled": 0,
+      "prompt_tokens": 0,
+      "total_prompt_tokens": 0,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 0,
+      "completion_tokens": 0
+    },
+    "started_at": null,
+    "finished_at": "2026-11-19T10:37:35.556329Z"
+  },
+  "delegation_enabled": true,
+  "child_tokens": {
+    "children_started": 0,
+    "children_completed": 0,
+    "children_failed": 0,
+    "children_timed_out": 0,
+    "children_cancelled": 0,
+    "prompt_tokens": 0,
+    "total_prompt_tokens": 0,
+    "cache_hit_tokens": 0,
+    "cache_miss_tokens": 0,
+    "completion_tokens": 0
+  },
+  "metrics": {
+    "main_requests": 14,
+    "main_peak_context_tokens": 20044,
+    "main_cumulative_input_tokens": 197430,
+    "main_context_tokens_by_request": [
+      4259,
+      4706,
+      7169,
+      8721,
+      10086,
+      13254,
+      16084,
+      17162,
+      17958,
+      19100,
+      19421,
+      19586,
+      19880,
+      20044
+    ],
+    "main_cache_hit_tokens": 178688,
+    "main_cache_miss_tokens": 18742,
+    "main_completion_tokens": 3314,
+    "child_total_prompt_tokens": 0,
+    "child_completion_tokens": 0,
+    "system_total_tokens": 200744,
+    "handoff_payload_chars": 0,
+    "delegation_rounds": 0,
+    "max_observed_child_concurrency": 0,
+    "unavailable_fields": []
+  },
+  "sandbox": {
+    "provider": "opensandbox",
+    "provider_is_real": true,
+    "capabilities": {
+      "provider": "opensandbox",
+      "contract_version": "1.0",
+      "isolation": "container",
+      "networking": "allowlist",
+      "persistent_filesystem": true,
+      "snapshots": false,
+      "command_streaming": false,
+      "cancellation": true,
+      "file_transfer": true,
+      "evidence": true,
+      "limitations": [
+        "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+        "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+        "Point-in-time snapshots are not exposed through this adapter.",
+        "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+      ]
+    },
+    "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+    "binding_id": "d10c94ceb08aca227f0710141f551dae710ff07c036d861b07866709c4c0cd35",
+    "sandbox_id": "5945e7b1-45d8-46e0-9449-ed5c1eb0cbb7",
+    "binding_state": "READY",
+    "workspace_root": "/workspace/project",
+    "network_probe": "PASS",
+    "host_separation": {
+      "host_only_visible": false,
+      "sandbox_only_visible_on_host": false,
+      "sandbox_only_read_back": true
+    },
+    "provision_commands": 4,
+    "provision_uploads": 1,
+    "created": true,
+    "destroyed": true,
+    "retained": false,
+    "patch_digest": "sha256:c242878480b6df271f362164e407e08c8ccae770e1d1d631ff31578391b831a4",
+    "patch_changed_files": 2,
+    "export_digest": "sha256:c518583cce4999aa700d1c3be72aa8f57116ad7711b7c63f387b73a701ef3865",
+    "export_files": 21,
+    "export_size_bytes": 112640,
+    "check_runs": 3,
+    "tool_error_mode": "corrected",
+    "error": null
+  },
+  "artifacts": {
+    "patch_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s2-live\\runs\\stage-s2-20261119T103641Z\\workspace.patch",
+    "patch_digest": "sha256:c242878480b6df271f362164e407e08c8ccae770e1d1d631ff31578391b831a4",
+    "patch_changed_files": 2,
+    "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s2-live\\runs\\stage-s2-20261119T103641Z\\workspace",
+    "workspace_digest": "sha256:c518583cce4999aa700d1c3be72aa8f57116ad7711b7c63f387b73a701ef3865",
+    "workspace_files": 21,
+    "workspace_size_bytes": 112640
+  },
+  "verification": {
+    "verdict": "PASS",
+    "spec_id": "stage-s2-workgrid",
+    "spec_digest": "sha256:7eb900d1dfb05f87e219d1bd227befdbaa798a63e6743bb3b77f0c8f0e12a9e2",
+    "static_status": "PASS",
+    "static": {
+      "spec_id": "stage-s2-workgrid",
+      "spec_version": "1.0.0",
+      "spec_digest": "sha256:7eb900d1dfb05f87e219d1bd227befdbaa798a63e6743bb3b77f0c8f0e12a9e2",
+      "deliverable_type": "python-package",
+      "artifact_digest": "sha256:9b2d65f1507db19ad8a1f592b79a1c859a981fd5af619add93b76e00a09c5489",
+      "dynamic_mode": "unavailable",
+      "verification_wall_ms": 7.621,
+      "verification_cpu_ms": 0.0,
+      "sandbox_cost_usd": null,
+      "error": null,
+      "deliverable_presence": "PASS",
+      "structural_validity": "NOT_APPLICABLE",
+      "public_contract_status": "NOT_APPLICABLE",
+      "integration_status": "NOT_APPLICABLE",
+      "verification_overall": "PASS",
+      "findings": [
+        {
+          "check_id": "engine-present",
+          "category": "PRESENCE",
+          "status": "PASS",
+          "reason_code": "OK",
+          "artifact": "workgrid/scheduler/engine.py",
+          "detail": "",
+          "evidence_digest": "sha256:e624cc3f2f227fb01999fe13227f2f46160ba1b1b9f79e4a8f44961dc379e566"
+        },
+        {
+          "check_id": "report-present",
+          "category": "PRESENCE",
+          "status": "PASS",
+          "reason_code": "OK",
+          "artifact": "workgrid/scheduler/report.py",
+          "detail": "",
+          "evidence_digest": "sha256:81fbbdafa663014b649ffdf9d98119c44750421e1f1a4507aa2b48fc3399d67f"
+        },
+        {
+          "check_id": "engine-parses",
+          "category": "STRUCTURE",
+          "status": "PASS",
+          "reason_code": "OK",
+          "artifact": "workgrid/scheduler/engine.py",
+          "detail": "",
+          "evidence_digest": "sha256:acac9d1f41592757392ee24c5641292f183e7de7c9217d0c2e912d8460a59fef"
+        },
+        {
+          "check_id": "report-parses",
+          "category": "STRUCTURE",
+          "status": "PASS",
+          "reason_code": "OK",
+          "artifact": "workgrid/scheduler/report.py",
+          "detail": "",
+          "evidence_digest": "sha256:71f53c0611680635c9be96379875b3be404193128538e5865e42fd89d143ea80"
+        }
+      ]
+    },
+    "dynamic": {
+      "status": "PASS",
+      "command": "python3 -m pytest -q && python3 -c \"import base64;exec(base64.b64decode('IiIiSGlkZGVuIGFjY2VwdGFuY2UgcHJvZ3JhbSBmb3IgdGhlIFdvcmtHcmlkIGZpeHR1cmUuCgpSdW5zIGluc2lkZSB0aGUgc2FuZGJveCwgYWZ0ZXIgdGhlIGFnZW50IGhhcyBzdG9wcGVkLCBmcm9tIHRoZSByZXBvc2l0b3J5IHJvb3QuIEl0IGltcG9ydHMgb25seSB0aGUKZml4dHVyZSdzIHB1YmxpYyBzdXJmYWNlIGFuZCBhc3NlcnRzIGJlaGF2aW91ciB0aGUgcHVibGljIHN1aXRlIGRvZXMgbm90IHNwZWxsIG91dDogcHJlY2VkZW5jZSwKcHJvcGFnYXRpb24sIGRldGVybWluaXNtIGFjcm9zcyBidWlsZCBvcmRlcnMsIGlucHV0IGltbXV0YWJpbGl0eSBhbmQgdGhlIGNhbm9uaWNhbCBmb3Jtcy4KCkl0IHByaW50cyBgYEhJRERFTl9PS2BgIGFuZCBleGl0cyAwIHdoZW4gZXZlcnkgY2hlY2sgcGFzc2VzLCBvdGhlcndpc2Ugb25lIGBgRkFJTCA8bWVzc2FnZT5gYCBsaW5lCnBlciBmYWlsZWQgY2hlY2sgcGx1cyBgYEhJRERFTl9GQUlMYGAgYW5kIGV4aXQgMS4KIiIiCgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQganNvbgppbXBvcnQgcGF0aGxpYgppbXBvcnQgdHJhY2ViYWNrCgpGQUlMVVJFUzogbGlzdFtzdHJdID0gW10KCgpkZWYgY2hlY2soY29uZGl0aW9uOiBvYmplY3QsIG1lc3NhZ2U6IHN0cikgLT4gTm9uZToKICAgIGlmIG5vdCBjb25kaXRpb246CiAgICAgICAgRkFJTFVSRVMuYXBwZW5kKG1lc3NhZ2UpCgoKZGVmIHRhc2sodGFza19pZDogc3RyLCBkdXJhdGlvbjogaW50ID0gMSwgZGVwZW5kc19vbj0oKSwgZGVtYW5kPU5vbmUpOgogICAgZnJvbSB3b3JrZ3JpZC5kZXBlbmRlbmNpZXMuZ3JhcGggaW1wb3J0IFRhc2tOb2RlCgogICAgcmV0dXJuIFRhc2tOb2RlKAogICAgICAgIHRhc2tfaWQ9dGFza19pZCwKICAgICAgICBkdXJhdGlvbj1kdXJhdGlvbiwKICAgICAgICBkZXBlbmRzX29uPXR1cGxlKGRlcGVuZHNfb24pLAogICAgICAgIGRlbWFuZD1kZW1hbmQgb3Ige30sCiAgICApCgoKZGVmIGNvbnN0cmFpbnRzKHdvcmtlcnM6IGludCA9IDEsIGdwdT1Ob25lLCB3aW5kb3dzPSgoMCwgMTApLCkpOgogICAgZnJvbSB3b3JrZ3JpZC5yZXNvdXJjZXMgaW1wb3J0ICgKICAgICAgICBBdmFpbGFiaWxpdHlXaW5kb3csCiAgICAgICAgQ2FsZW5kYXIsCiAgICAgICAgUG9vbFNldCwKICAgICAgICBSZXNvdXJjZUNvbnN0cmFpbnRzLAogICAgICAgIFJlc291cmNlUG9vbCwKICAgICkKCiAgICBwb29scyA9IFtSZXNvdXJjZVBvb2woIndvcmtlcnMiLCB3b3JrZXJzKV0KICAgIGlmIGdwdSBpcyBub3QgTm9uZToKICAgICAgICBwb29scy5hcHBlbmQoUmVzb3VyY2VQb29sKCJncHUiLCBncHUpKQogICAgY2FsZW5kYXIgPSBDYWxlbmRhcih0dXBsZShBdmFpbGFiaWxpdHlXaW5kb3coc3RhcnQsIGVuZCkgZm9yIHN0YXJ0LCBlbmQgaW4gd2luZG93cykpCiAgICByZXR1cm4gUmVzb3VyY2VDb25zdHJhaW50cyhwb29scz1Qb29sU2V0KHR1cGxlKHBvb2xzKSksIGNhbGVuZGFyPWNhbGVuZGFyKQoKCmRlZiBydW4odGFza3MsICoqa3dhcmdzKToKICAgIGZyb20gd29ya2dyaWQuZGVwZW5kZW5jaWVzIGltcG9ydCBidWlsZF9ncmFwaAogICAgZnJvbSB3b3JrZ3JpZC5zY2hlZHVsZXIgaW1wb3J0IGJ1aWxkX3NjaGVkdWxlCgogICAgcmV0dXJuIGJ1aWxkX3NjaGVkdWxlKGJ1aWxkX2dyYXBoKHRhc2tzKSwgY29uc3RyYWludHMoKiprd2FyZ3MpKQoKCmRlZiBwbGFjZWQocGxhbik6CiAgICByZXR1cm4gWyhpdGVtLnRhc2tfaWQsIGl0ZW0uc3RhcnQsIGl0ZW0uZW5kKSBmb3IgaXRlbSBpbiBwbGFuLnRhc2tzXQoKCmRlZiByZWFzb25zKHBsYW4pOgogICAgcmV0dXJuIFtzdHIoaXRlbS5yZWFzb24pIGZvciBpdGVtIGluIHBsYW4udW5zY2hlZHVsYWJsZV0KCgpkZWYgbWFpbigpIC0+IGludDoKICAgIGZyb20gd29ya2dyaWQuZGVwZW5kZW5jaWVzIGltcG9ydCBDeWNsZURldGVjdGVkRXJyb3IsIFVua25vd25EZXBlbmRlbmN5RXJyb3IKICAgIGZyb20gd29ya2dyaWQuc2NoZWR1bGVyIGltcG9ydCBQbGFuU3RhdHVzLCBidWlsZF9zY2hlZHVsZSwgcmVuZGVyX3BsYW4KCiAgICAjIC0tIDEuIHRoZSBlbXB0eSBwbGFuIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgZW1wdHkgPSBydW4oW10pCiAgICBjaGVjayhlbXB0eS5zdGF0dXMgaXMgUGxhblN0YXR1cy5FTVBUWSwgImFuIGVtcHR5IHBsYW4gbXVzdCBiZSBFTVBUWSIpCiAgICBjaGVjayhlbXB0eS5tYWtlc3BhbiA9PSAwLCAiYW4gZW1wdHkgcGxhbiBoYXMgbWFrZXNwYW4gMCIpCiAgICBjaGVjayhlbXB0eS50YXNrcyA9PSAoKSBhbmQgZW1wdHkudW5zY2hlZHVsYWJsZSA9PSAoKSwgImFuIGVtcHR5IHBsYW4gaGFzIG5vIGVudHJpZXMiKQogICAgY2hlY2socmVuZGVyX3BsYW4oZW1wdHkpID09ICJwbGFuIGVtcHR5IG1ha2VzcGFuPTBcbiIsICJlbXB0eSB0ZXh0IGZvcm0iKQoKICAgICMgLS0gMi4gYSBjaGFpbiwgYW5kIHRoZSBzdW1tYXJ5IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIGNoYWluID0gcnVuKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygiYSIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSksCiAgICAgICAgICAgIHRhc2soImIiLCAzLCBkZXBlbmRzX29uPSgiYSIsKSwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwKICAgICAgICBdLAogICAgICAgIHdvcmtlcnM9MSwKICAgICkKICAgIGNoZWNrKHBsYWNlZChjaGFpbikgPT0gWygiYSIsIDAsIDIpLCAoImIiLCAyLCA1KV0sIGYiY2hhaW4gcGxhY2VtZW50IHtwbGFjZWQoY2hhaW4pfSIpCiAgICBjaGVjayhjaGFpbi5tYWtlc3BhbiA9PSA1LCAiY2hhaW4gbWFrZXNwYW4iKQogICAgY2hlY2soCiAgICAgICAgZGljdChjaGFpbi5zdW1tYXJ5KQogICAgICAgID09IHsibWFrZXNwYW4iOiA1LCAic2NoZWR1bGVkIjogMiwgInRhc2tzIjogMiwgInVuc2NoZWR1bGFibGUiOiAwLCAidXNhYmxlX3Nsb3RzIjogMTB9LAogICAgICAgIGYiY2hhaW4gc3VtbWFyeSB7ZGljdChjaGFpbi5zdW1tYXJ5KX0iLAogICAgKQoKICAgICMgLS0gMmIuIGEgZGVwZW5kZW5jeSBkZWxheXMgd29yayBldmVuIHdoZW4gY2FwYWNpdHkgaXMgZnJlZSAtLS0tLS0tLS0tLQogICAgZm9yY2VkID0gcnVuKFt0YXNrKCJhIiwgMiksIHRhc2soImIiLCAxLCBkZXBlbmRzX29uPSgiYSIsKSldLCB3b3JrZXJzPTIpCiAgICBjaGVjayhwbGFjZWQoZm9yY2VkKSA9PSBbKCJhIiwgMCwgMiksICgiYiIsIDIsIDMpXSwgZiJkZXBlbmRlbmN5IGRlbGF5IHtwbGFjZWQoZm9yY2VkKX0iKQoKICAgICMgLS0gMy4gY2FwYWNpdHkgZGVjaWRlcyB3aGV0aGVyIHR3byB0YXNrcyBvdmVybGFwIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIHBhcmFsbGVsID0gcnVuKAogICAgICAgIFt0YXNrKCJhIiwgMiwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwgdGFzaygiYiIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSldLCB3b3JrZXJzPTIKICAgICkKICAgIGNoZWNrKHBsYWNlZChwYXJhbGxlbCkgPT0gWygiYSIsIDAsIDIpLCAoImIiLCAwLCAyKV0sIGYicGFyYWxsZWwgcGxhY2VtZW50IHtwbGFjZWQocGFyYWxsZWwpfSIpCiAgICBjaGVjayhkaWN0KHBhcmFsbGVsLnBlYWtfdXNhZ2UpID09IHsid29ya2VycyI6IDJ9LCAicGFyYWxsZWwgcGVhayB1c2FnZSIpCgogICAgc2VxdWVudGlhbCA9IHJ1bigKICAgICAgICBbdGFzaygiYSIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSksIHRhc2soImIiLCAyLCBkZW1hbmQ9eyJ3b3JrZXJzIjogMX0pXSwgd29ya2Vycz0xCiAgICApCiAgICBjaGVjaygKICAgICAgICBwbGFjZWQoc2VxdWVudGlhbCkgPT0gWygiYSIsIDAsIDIpLCAoImIiLCAyLCA0KV0sCiAgICAgICAgZiJzZXF1ZW50aWFsIHBsYWNlbWVudCB7cGxhY2VkKHNlcXVlbnRpYWwpfSIsCiAgICApCiAgICBjaGVjayhkaWN0KHNlcXVlbnRpYWwucGVha191c2FnZSkgPT0geyJ3b3JrZXJzIjogMX0sICJzZXF1ZW50aWFsIHBlYWsgdXNhZ2UiKQoKICAgICMgLS0gNC4gYSBzY2FyY2UgcmVzb3VyY2Ugc2VyaWFsaXplcyBvbmx5IGl0c2VsZiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIHNjYXJjZSA9IHJ1bigKICAgICAgICBbCiAgICAgICAgICAgIHRhc2soImEiLCAxLCBkZW1hbmQ9eyJ3b3JrZXJzIjogMSwgImdwdSI6IDF9KSwKICAgICAgICAgICAgdGFzaygiYiIsIDEsIGRlbWFuZD17IndvcmtlcnMiOiAxLCAiZ3B1IjogMX0pLAogICAgICAgICAgICB0YXNrKCJjIiwgMSwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwKICAgICAgICBdLAogICAgICAgIHdvcmtlcnM9MiwKICAgICAgICBncHU9MSwKICAgICkKICAgIGNoZWNrKAogICAgICAgIHBsYWNlZChzY2FyY2UpID09IFsoImEiLCAwLCAxKSwgKCJjIiwgMCwgMSksICgiYiIsIDEsIDIpXSwKICAgICAgICBmInNjYXJjZSByZXNvdXJjZSBwbGFjZW1lbnQge3BsYWNlZChzY2FyY2UpfSIsCiAgICApCiAgICBjaGVjayhkaWN0KHNjYXJjZS5wZWFrX3VzYWdlKSA9PSB7ImdwdSI6IDEsICJ3b3JrZXJzIjogMn0sICJzY2FyY2UgcGVhayB1c2FnZSIpCgogICAgIyAtLSA1LiBhIGNyb3dkZWQgcGxhbiB1c2VzIHRoZSBsYXN0IHNsb3QgdGhlIHdpbmRvdyBhbGxvd3MgLS0tLS0tLS0tLS0tLQogICAgcGFja2VkID0gcnVuKAogICAgICAgIFt0YXNrKCJhIiwgNiwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwgdGFzaygiYiIsIDQsIGRlbWFuZD17IndvcmtlcnMiOiAxfSldLAogICAgICAgIHdvcmtlcnM9MSwKICAgICAgICB3aW5kb3dzPSgoMCwgMTApLCksCiAgICApCiAgICBjaGVjayhwbGFjZWQocGFja2VkKSA9PSBbKCJhIiwgMCwgNiksICgiYiIsIDYsIDEwKV0sIGYicGFja2VkIHBsYWNlbWVudCB7cGxhY2VkKHBhY2tlZCl9IikKICAgIGNoZWNrKHBhY2tlZC5tYWtlc3BhbiA9PSAxMCwgInBhY2tlZCBtYWtlc3BhbiIpCgogICAgIyAtLSA2LiB3aW5kb3dzIGFyZSByZXNwZWN0ZWQsIGdhcHMgaW5jbHVkZWQgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgZ2FwcGVkID0gcnVuKFt0YXNrKCJhIiwgMyldLCB3b3JrZXJzPTEsIHdpbmRvd3M9KCgwLCAyKSwgKDQsIDEwKSkpCiAgICBjaGVjayhwbGFjZWQoZ2FwcGVkKSA9PSBbKCJhIiwgNCwgNyldLCBmImdhcHBlZCBwbGFjZW1lbnQge3BsYWNlZChnYXBwZWQpfSIpCgogICAgdG9vX2xvbmcgPSBydW4oW3Rhc2soImEiLCA1KV0sIHdvcmtlcnM9MSwgd2luZG93cz0oKDAsIDQpLCkpCiAgICBjaGVjayh0b29fbG9uZy5zdGF0dXMgaXMgUGxhblN0YXR1cy5QQVJUSUFMLCAiYSB0YXNrIHRoYXQgbmV2ZXIgZml0cyBtYWtlcyB0aGUgcGxhbiBwYXJ0aWFsIikKICAgIGNoZWNrKHJlYXNvbnModG9vX2xvbmcpID09IFsibm9fYXZhaWxhYmxlX3dpbmRvdyJdLCBmInRvbyBsb25nIHJlYXNvbiB7cmVhc29ucyh0b29fbG9uZyl9IikKICAgIGNoZWNrKAogICAgICAgIHJlbmRlcl9wbGFuKHRvb19sb25nKSA9PSAicGxhbiBwYXJ0aWFsIG1ha2VzcGFuPTBcbnVuc2NoZWR1bGFibGUgYVxuIiwKICAgICAgICAidW5zY2hlZHVsYWJsZSB0ZXh0IGZvcm0iLAogICAgKQoKICAgICMgLS0gNy4gY2xhc3NpZmljYXRpb24gYW5kIHByZWNlZGVuY2UgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIG92ZXIgPSBydW4oW3Rhc2soImEiLCAxLCBkZW1hbmQ9eyJ3b3JrZXJzIjogM30pLCB0YXNrKCJiIiwgMSwgZGVwZW5kc19vbj0oImEiLCkpXSwgd29ya2Vycz0yKQogICAgY2hlY2sob3Zlci51bnNjaGVkdWxhYmxlX2lkcygpID09ICgiYSIsICJiIiksIGYib3ZlciBjYXBhY2l0eSBpZHMge292ZXIudW5zY2hlZHVsYWJsZV9pZHMoKX0iKQogICAgY2hlY2soCiAgICAgICAgcmVhc29ucyhvdmVyKSA9PSBbImRlbWFuZF9leGNlZWRzX2NhcGFjaXR5IiwgImRlcGVuZGVuY3lfdW5zY2hlZHVsYWJsZSJdLAogICAgICAgIGYib3ZlciBjYXBhY2l0eSByZWFzb25zIHtyZWFzb25zKG92ZXIpfSIsCiAgICApCiAgICBjaGVjayhvdmVyLnNjaGVkdWxlZF9pZHMoKSA9PSAoKSwgIm5vdGhpbmcgaXMgc2NoZWR1bGVkIHdoZW4gZXZlcnl0aGluZyBpcyBibG9ja2VkIikKCiAgICB1bmtub3duID0gcnVuKFt0YXNrKCJhIiwgMSwgZGVtYW5kPXsibWVtb3J5IjogMX0pXSwgd29ya2Vycz0xKQogICAgY2hlY2socmVhc29ucyh1bmtub3duKSA9PSBbInVua25vd25fcmVzb3VyY2UiXSwgZiJ1bmtub3duIHJlc291cmNlIHJlYXNvbiB7cmVhc29ucyh1bmtub3duKX0iKQoKICAgICMgcHJlY2VkZW5jZTogYSBibG9ja2VkIGRlcGVuZGVuY3kgd2lucyBvdmVyIHRoZSB0YXNrJ3Mgb3duIGltcG9zc2libGUgZGVtYW5kCiAgICBwcmVjZWRlbmNlID0gcnVuKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygiYSIsIDEsIGRlbWFuZD17IndvcmtlcnMiOiA5fSksCiAgICAgICAgICAgIHRhc2soImIiLCAxLCBkZXBlbmRzX29uPSgiYSIsKSwgZGVtYW5kPXsid29ya2VycyI6IDl9KSwKICAgICAgICBdLAogICAgICAgIHdvcmtlcnM9MSwKICAgICkKICAgIGNoZWNrKAogICAgICAgIHJlYXNvbnMocHJlY2VkZW5jZSkgPT0gWyJkZW1hbmRfZXhjZWVkc19jYXBhY2l0eSIsICJkZXBlbmRlbmN5X3Vuc2NoZWR1bGFibGUiXSwKICAgICAgICBmInByZWNlZGVuY2UgcmVhc29ucyB7cmVhc29ucyhwcmVjZWRlbmNlKX0iLAogICAgKQoKICAgICMgYSBibG9ja2VkIHRhc2sgYmxvY2tzIGl0cyB3aG9sZSBjaGFpbiwgbm90IG9ubHkgaXRzIGRpcmVjdCBkZXBlbmRlbnRzCiAgICBjYXNjYWRlID0gcnVuKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygiYSIsIDEsIGRlbWFuZD17IndvcmtlcnMiOiA5fSksCiAgICAgICAgICAgIHRhc2soImIiLCAxLCBkZXBlbmRzX29uPSgiYSIsKSksCiAgICAgICAgICAgIHRhc2soImMiLCAxLCBkZXBlbmRzX29uPSgiYiIsKSksCiAgICAgICAgXSwKICAgICAgICB3b3JrZXJzPTEsCiAgICApCiAgICBjaGVjaygKICAgICAgICBjYXNjYWRlLnVuc2NoZWR1bGFibGVfaWRzKCkgPT0gKCJhIiwgImIiLCAiYyIpLCBmImNhc2NhZGUgaWRzIHtjYXNjYWRlLnVuc2NoZWR1bGFibGVfaWRzKCl9IgogICAgKQogICAgY2hlY2soCiAgICAgICAgcmVhc29ucyhjYXNjYWRlKQogICAgICAgID09IFsiZGVtYW5kX2V4Y2VlZHNfY2FwYWNpdHkiLCAiZGVwZW5kZW5jeV91bnNjaGVkdWxhYmxlIiwgImRlcGVuZGVuY3lfdW5zY2hlZHVsYWJsZSJdLAogICAgICAgIGYiY2FzY2FkZSByZWFzb25zIHtyZWFzb25zKGNhc2NhZGUpfSIsCiAgICApCgogICAgIyAtLSA4LiBicm9rZW4gZ3JhcGhzIHN0YXkgZXhjZXB0aW9ucyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgY3ljbGljID0gWwogICAgICAgIHRhc2soImEiLCAxLCBkZXBlbmRzX29uPSgiYyIsKSksCiAgICAgICAgdGFzaygiYiIsIDEsIGRlcGVuZHNfb249KCJhIiwpKSwKICAgICAgICB0YXNrKCJjIiwgMSwgZGVwZW5kc19vbj0oImIiLCkpLAogICAgXQogICAgdHJ5OgogICAgICAgIHJ1bihjeWNsaWMpCiAgICAgICAgY2hlY2soRmFsc2UsICJhIGN5Y2xlIHdhcyB0dXJuZWQgaW50byBhIHBsYW4gaW5zdGVhZCBvZiBhbiBleGNlcHRpb24iKQogICAgZXhjZXB0IEN5Y2xlRGV0ZWN0ZWRFcnJvcjoKICAgICAgICBwYXNzCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGVycm9yOiAgIyBub3FhOiBCTEUwMDEgLSB0aGUgcG9pbnQgaXMgdGhlIHR5cGUKICAgICAgICBjaGVjayhGYWxzZSwgZiJhIGN5Y2xlIHJhaXNlZCB7dHlwZShlcnJvcikuX19uYW1lX199IikKCiAgICBkYW5nbGluZyA9IFt0YXNrKCJhIiwgMSwgZGVwZW5kc19vbj0oImdob3N0IiwpKV0KICAgIHRyeToKICAgICAgICBydW4oZGFuZ2xpbmcpCiAgICAgICAgY2hlY2soRmFsc2UsICJhbiB1bmtub3duIGRlcGVuZGVuY3kgd2FzIHR1cm5lZCBpbnRvIGEgcGxhbiIpCiAgICBleGNlcHQgVW5rbm93bkRlcGVuZGVuY3lFcnJvcjoKICAgICAgICBwYXNzCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGVycm9yOiAgIyBub3FhOiBCTEUwMDEKICAgICAgICBjaGVjayhGYWxzZSwgZiJhbiB1bmtub3duIGRlcGVuZGVuY3kgcmFpc2VkIHt0eXBlKGVycm9yKS5fX25hbWVfX30iKQoKICAgICMgLS0gOS4gZGV0ZXJtaW5pc20sIGNhbm9uaWNhbCBmb3JtLCBpbW11dGFiaWxpdHkgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAgICB0YXNrcyA9IFsKICAgICAgICB0YXNrKCJiIiwgMSwgZGVwZW5kc19vbj0oImEiLCksIGRlbWFuZD17IndvcmtlcnMiOiAxfSksCiAgICAgICAgdGFzaygiYSIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSksCiAgICAgICAgdGFzaygiYyIsIDEpLAogICAgXQogICAgZnJvbSB3b3JrZ3JpZC5kZXBlbmRlbmNpZXMgaW1wb3J0IGJ1aWxkX2dyYXBoCgogICAgZmlyc3RfZ3JhcGggPSBidWlsZF9ncmFwaCh0YXNrcykKICAgIGJlZm9yZV9ub2RlcyA9IGRpY3QoZmlyc3RfZ3JhcGgubm9kZXMpCiAgICBmaXJzdCA9IGJ1aWxkX3NjaGVkdWxlKGZpcnN0X2dyYXBoLCBjb25zdHJhaW50cyh3b3JrZXJzPTEpKQogICAgc2Vjb25kID0gYnVpbGRfc2NoZWR1bGUoYnVpbGRfZ3JhcGgobGlzdChyZXZlcnNlZCh0YXNrcykpKSwgY29uc3RyYWludHMod29ya2Vycz0xKSkKICAgIGNoZWNrKGZpcnN0LnRvX2RpY3QoKSA9PSBzZWNvbmQudG9fZGljdCgpLCAidGhlIHBsYW4gZGVwZW5kcyBvbiB0YXNrIGRlY2xhcmF0aW9uIG9yZGVyIikKICAgIGNoZWNrKGRpY3QoZmlyc3RfZ3JhcGgubm9kZXMpID09IGJlZm9yZV9ub2RlcywgInRoZSBncmFwaCB3YXMgbXV0YXRlZCBieSBzY2hlZHVsaW5nIikKICAgIGNoZWNrKAogICAgICAgIGJ1aWxkX3NjaGVkdWxlKGZpcnN0X2dyYXBoLCBjb25zdHJhaW50cyh3b3JrZXJzPTEpKS50b19kaWN0KCkgPT0gZmlyc3QudG9fZGljdCgpLAogICAgICAgICJ0d28gcnVucyBvZiBvbmUgZ3JhcGggZGlzYWdyZWUiLAogICAgKQoKICAgIGRvY3VtZW50ID0gZmlyc3QudG9fZGljdCgpCiAgICBjaGVjaygKICAgICAgICBsaXN0KGRvY3VtZW50KSA9PSBbInN0YXR1cyIsICJtYWtlc3BhbiIsICJzdW1tYXJ5IiwgInBlYWtfdXNhZ2UiLCAidGFza3MiLCAidW5zY2hlZHVsYWJsZSJdLAogICAgICAgIGYiY2Fub25pY2FsIGtleSBvcmRlciB7bGlzdChkb2N1bWVudCl9IiwKICAgICkKICAgIGNoZWNrKAogICAgICAgIGpzb24uZHVtcHMoZG9jdW1lbnQsIHNvcnRfa2V5cz1UcnVlKSA9PSBqc29uLmR1bXBzKGZpcnN0LnRvX2RpY3QoKSwgc29ydF9rZXlzPVRydWUpLAogICAgICAgICJ0aGUgZGljdCBmb3JtIGlzIG5vdCBzdGFibGUiLAogICAgKQogICAgY2hlY2soCiAgICAgICAgW2l0ZW1bInRhc2tfaWQiXSBmb3IgaXRlbSBpbiBkb2N1bWVudFsidGFza3MiXV0gPT0gWyJhIiwgImMiLCAiYiJdLAogICAgICAgIGYiY2Fub25pY2FsIHRhc2sgb3JkZXIge1tpdGVtWyd0YXNrX2lkJ10gZm9yIGl0ZW0gaW4gZG9jdW1lbnRbJ3Rhc2tzJ11dfSIsCiAgICApCiAgICBjaGVjaygKICAgICAgICBhbGwobGlzdChpdGVtWyJ1bml0cyJdKSA9PSBzb3J0ZWQoaXRlbVsidW5pdHMiXSkgZm9yIGl0ZW0gaW4gZG9jdW1lbnRbInRhc2tzIl0pLAogICAgICAgICJ1bml0cyBhcmUgbm90IHNvcnRlZCBpbiB0aGUgZGljdCBmb3JtIiwKICAgICkKCiAgICB0ZXh0ID0gcmVuZGVyX3BsYW4oZmlyc3QpCiAgICBjaGVjayh0ZXh0LmVuZHN3aXRoKCJcbiIpIGFuZCBub3QgdGV4dC5lbmRzd2l0aCgiXG5cbiIpLCAidGV4dCBmb3JtIG11c3QgZW5kIHdpdGggb25lIG5ld2xpbmUiKQogICAgY2hlY2sodGV4dC5zcGxpdGxpbmVzKClbMF0gPT0gZiJwbGFuIHNjaGVkdWxlZCBtYWtlc3Bhbj17Zmlyc3QubWFrZXNwYW59IiwgInRleHQgaGVhZGVyIikKCiAgICAjIC0tIDEwLiB0aGUgc2hpcHBlZCBzYW1wbGUgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAgICBzYW1wbGUgPSBwYXRobGliLlBhdGgoInNhbXBsZXMvcGxhbi5qc29uIikKICAgIGRvY3VtZW50ID0ganNvbi5sb2FkcyhzYW1wbGUucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpKQogICAgZnJvbSB3b3JrZ3JpZC5yZXNvdXJjZXMgaW1wb3J0ICgKICAgICAgICBBdmFpbGFiaWxpdHlXaW5kb3csCiAgICAgICAgQ2FsZW5kYXIsCiAgICAgICAgUG9vbFNldCwKICAgICAgICBSZXNvdXJjZUNvbnN0cmFpbnRzLAogICAgICAgIFJlc291cmNlUG9vbCwKICAgICkKCiAgICBncmFwaCA9IGJ1aWxkX2dyYXBoKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygKICAgICAgICAgICAgICAgIHJhd1siaWQiXSwKICAgICAgICAgICAgICAgIHJhd1siZHVyYXRpb24iXSwKICAgICAgICAgICAgICAgIHJhdy5nZXQoImRlcGVuZHNfb24iKSBvciAoKSwKICAgICAgICAgICAgICAgIHJhdy5nZXQoImRlbWFuZCIpIG9yIHt9LAogICAgICAgICAgICApCiAgICAgICAgICAgIGZvciByYXcgaW4gZG9jdW1lbnRbInRhc2tzIl0KICAgICAgICBdCiAgICApCiAgICBwb29scyA9IFBvb2xTZXQodHVwbGUoUmVzb3VyY2VQb29sKHJhd1sibmFtZSJdLCByYXdbImNhcGFjaXR5Il0pIGZvciByYXcgaW4gZG9jdW1lbnRbInBvb2xzIl0pKQogICAgY2FsZW5kYXIgPSBDYWxlbmRhcigKICAgICAgICB0dXBsZShBdmFpbGFiaWxpdHlXaW5kb3cocmF3WyJzdGFydCJdLCByYXdbImVuZCJdKSBmb3IgcmF3IGluIGRvY3VtZW50WyJ3aW5kb3dzIl0pCiAgICApCiAgICBzYW1wbGVfcGxhbiA9IGJ1aWxkX3NjaGVkdWxlKGdyYXBoLCBSZXNvdXJjZUNvbnN0cmFpbnRzKHBvb2xzPXBvb2xzLCBjYWxlbmRhcj1jYWxlbmRhcikpCiAgICBjaGVjayhzYW1wbGVfcGxhbi5zdGF0dXMgaXMgUGxhblN0YXR1cy5TQ0hFRFVMRUQsIGYic2FtcGxlIHN0YXR1cyB7c3RyKHNhbXBsZV9wbGFuLnN0YXR1cyl9IikKICAgIGNoZWNrKAogICAgICAgIHBsYWNlZChzYW1wbGVfcGxhbikKICAgICAgICA9PSBbCiAgICAgICAgICAgICgiYnVpbGQtYSIsIDAsIDIpLAogICAgICAgICAgICAoImJ1aWxkLWIiLCAwLCAyKSwKICAgICAgICAgICAgKCJ0ZXN0LWEiLCAyLCA0KSwKICAgICAgICAgICAgKCJ0ZXN0LWIiLCAyLCAzKSwKICAgICAgICAgICAgKCJwYWNrYWdlIiwgNiwgOCksCiAgICAgICAgXSwKICAgICAgICBmInNhbXBsZSBwbGFjZW1lbnQge3BsYWNlZChzYW1wbGVfcGxhbil9IiwKICAgICkKICAgIGNoZWNrKHNhbXBsZV9wbGFuLm1ha2VzcGFuID09IDgsICJzYW1wbGUgbWFrZXNwYW4iKQogICAgY2hlY2soZGljdChzYW1wbGVfcGxhbi5wZWFrX3VzYWdlKSA9PSB7ImdwdSI6IDEsICJ3b3JrZXJzIjogMn0sICJzYW1wbGUgcGVhayB1c2FnZSIpCiAgICBjaGVjaygKICAgICAgICBkaWN0KHNhbXBsZV9wbGFuLnN1bW1hcnkpCiAgICAgICAgPT0gewogICAgICAgICAgICAibWFrZXNwYW4iOiA4LAogICAgICAgICAgICAic2NoZWR1bGVkIjogNSwKICAgICAgICAgICAgInRhc2tzIjogNSwKICAgICAgICAgICAgInVuc2NoZWR1bGFibGUiOiAwLAogICAgICAgICAgICAidXNhYmxlX3Nsb3RzIjogOCwKICAgICAgICB9LAogICAgICAgIGYic2FtcGxlIHN1bW1hcnkge2RpY3Qoc2FtcGxlX3BsYW4uc3VtbWFyeSl9IiwKICAgICkKCiAgICBpZiBGQUlMVVJFUzoKICAgICAgICBmb3IgZmFpbHVyZSBpbiBGQUlMVVJFUzoKICAgICAgICAgICAgcHJpbnQoZiJGQUlMIHtmYWlsdXJlfSIpCiAgICAgICAgcHJpbnQoIkhJRERFTl9GQUlMIikKICAgICAgICByZXR1cm4gMQogICAgcHJpbnQoIkhJRERFTl9PSyIpCiAgICByZXR1cm4gMAoKCmlmIF9fbmFtZV9fID09ICJfX21haW5fXyI6CiAgICB0cnk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdChtYWluKCkpCiAgICBleGNlcHQgU3lzdGVtRXhpdDoKICAgICAgICByYWlzZQogICAgZXhjZXB0IEJhc2VFeGNlcHRpb246ICAjIG5vcWE6IEJMRTAwMSAtIGFueSBjcmFzaCBpcyBhIGZhaWxlZCBhY2NlcHRhbmNlCiAgICAgICAgdHJhY2ViYWNrLnByaW50X2V4YygpCiAgICAgICAgcHJpbnQoIkhJRERFTl9GQUlMIikKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KDEpIGZyb20gTm9uZQo=').decode())\"",
+      "cwd": "/workspace/project",
+      "ok": true,
+      "exit_code": 0,
+      "stdout_digest": "sha256:b41581ee13266836bfc05d6c3f820931798c7fb681acdd807e8b53110bfc3669",
+      "stdout_chars": 108,
+      "stderr_chars": 0,
+      "elapsed_ms": 1451.803
+    },
+    "snapshot": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s2-live\\runs\\stage-s2-20261119T103641Z\\workspace"
+  },
+  "acceptance": "PASS",
+  "public_tests": {
+    "contract": {
+      "test_id": "public",
+      "command": "python3 -B -m pytest -q tests",
+      "timeout_seconds": 240,
+      "max_output_chars": 6000,
+      "max_calls": 4
+    },
+    "command_digest": "ec17b2e8247b02e2d9d06dbbea763aa97fe9eb03ff74d49b8fed12cc111c0048",
+    "calls": 2,
+    "runs": [
+      {
+        "test_id": "public",
+        "command_digest": "ec17b2e8247b02e2d9d06dbbea763aa97fe9eb03ff74d49b8fed12cc111c0048",
+        "call_index": 1,
+        "status": "PASS",
+        "exit_code": 0,
+        "duration_ms": 1623.434,
+        "output_digest": "sha256:673efe7fa18f34bccb91608bbf56b472a0d6e61b66bd27a7ea00b176d254ffbc",
+        "output_chars": 98,
+        "output_truncated": false,
+        "reason": "Verify the newly implemented engine and renderer against the public acceptance suite."
+      },
+      {
+        "test_id": "public",
+        "command_digest": "ec17b2e8247b02e2d9d06dbbea763aa97fe9eb03ff74d49b8fed12cc111c0048",
+        "call_index": 2,
+        "status": "PASS",
+        "exit_code": 0,
+        "duration_ms": 1507.921,
+        "output_digest": "sha256:673efe7fa18f34bccb91608bbf56b472a0d6e61b66bd27a7ea00b176d254ffbc",
+        "output_chars": 98,
+        "output_truncated": false,
+        "reason": "Re-verify after tightening the type annotation in the engine helper."
+      }
+    ],
+    "oracle_is_separate": true
+  },
+  "preflight": {
+    "status": "READY",
+    "generated_at": "2026-11-19T10:36:42.155800+00:00",
+    "checks": [
+      {
+        "check_id": "sandbox_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "sandbox configured"
+      },
+      {
+        "check_id": "sandbox_provider_real",
+        "ok": true,
+        "blocking": true,
+        "detail": "sandbox.provider='opensandbox'; expected one of ['daytona', 'opensandbox']"
+      },
+      {
+        "check_id": "sandbox_isolation_required",
+        "ok": true,
+        "blocking": true,
+        "detail": "require_real must stay True: the fake provider runs on the host"
+      },
+      {
+        "check_id": "sandbox_workspace_root",
+        "ok": true,
+        "blocking": true,
+        "detail": "sandbox workspace root '/workspace/project' must be an absolute in-container path"
+      },
+      {
+        "check_id": "source_repo_clean",
+        "ok": true,
+        "blocking": true,
+        "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s2-live\\fixture-2 is clean at 709c9742d538"
+      },
+      {
+        "check_id": "main_write_scope",
+        "ok": true,
+        "blocking": true,
+        "detail": "the Main needs an explicit host-declared write scope; got ['workgrid/scheduler/']"
+      },
+      {
+        "check_id": "main_write_scope_relative",
+        "ok": true,
+        "blocking": true,
+        "detail": "all write paths are workspace-relative"
+      },
+      {
+        "check_id": "public_tests_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "public suite 'public'"
+      },
+      {
+        "check_id": "public_tests_separate_from_oracle",
+        "ok": true,
+        "blocking": true,
+        "detail": "public and oracle commands must differ, otherwise the Main observes the oracle"
+      },
+      {
+        "check_id": "acceptance_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "an acceptance contract with a dynamic command is required; 'NOT_CONFIGURED' can never be a pipeline PASS"
+      },
+      {
+        "check_id": "acceptance_digest_declared",
+        "ok": true,
+        "blocking": true,
+        "detail": "the verification spec must carry a declared digest (it is signed by the host)"
+      },
+      {
+        "check_id": "budget_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "token_budget=500000 (admission is estimate-based; this is not a hard monetary cap)"
+      },
+      {
+        "check_id": "delegation_bounds",
+        "ok": true,
+        "blocking": true,
+        "detail": "delegation must be enabled with max_parallel_children >= 1"
+      },
+      {
+        "check_id": "context_metrics",
+        "ok": true,
+        "blocking": false,
+        "detail": "UsageAttributionHook records per-request main context unconditionally"
+      },
+      {
+        "check_id": "provider_deepseek",
+        "ok": true,
+        "blocking": true,
+        "detail": "provider='deepseek'; stage P1 is authorized for the DeepSeek adapter only"
+      },
+      {
+        "check_id": "model_fixed",
+        "ok": true,
+        "blocking": true,
+        "detail": "model='deepseek-chat' must equal config.provider.model='deepseek-chat' so the arm identity is the configuration, not a runtime override"
+      },
+      {
+        "check_id": "api_key_present",
+        "ok": true,
+        "blocking": true,
+        "detail": "DEEPSEEK_API_KEY is set (the preflight reads it, it never sends it)"
+      },
+      {
+        "check_id": "live_provider_factory",
+        "ok": true,
+        "blocking": true,
+        "detail": "a live run must build the real adapter; an injected factory is a deterministic test"
+      },
+      {
+        "check_id": "scratch_run_directory",
+        "ok": true,
+        "blocking": true,
+        "detail": "runs_root=C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s2-live\\runs must stay outside experiments/results and experiments/runs"
+      }
+    ],
+    "blocking_failures": [],
+    "notes": {
+      "budget": "admission is a conservative estimate; the run stops admitting when the budget is exhausted and does not guarantee a zero-overrun bill",
+      "metrics": "main_context_tokens_by_request is provider-observed; unobserved fields are UNAVAILABLE rather than estimated",
+      "oracle": "the harness runs the acceptance contract after the Main stops; a public PASS is never used as the oracle verdict"
+    }
+  },
+  "budget": {
+    "mode": "guarded",
+    "limit_tokens": 500000,
+    "used_prompt_tokens": 197430,
+    "used_completion_tokens": 3314,
+    "used_tokens": 200744,
+    "written_off_tokens": 0,
+    "reserved_tokens": 0,
+    "remaining_tokens": 299256,
+    "peak_reserved_tokens": 27106,
+    "requests_started": 14,
+    "requests_completed": 14,
+    "requests_written_off": 0,
+    "requests_released": 0,
+    "in_flight": 0,
+    "admission_rejections": 0,
+    "budget_overrun_tokens": 0,
+    "estimate_abs_error_tokens": 13306,
+    "estimate_samples": 14,
+    "learned_ratio": 1.0703,
+    "stop_reason": null,
+    "last_rejection": null,
+    "last_write_off_reason": null,
+    "last_release_reason": null,
+    "workers": {
+      "atlas-main": {
+        "started": 14,
+        "completed": 14,
+        "rejected": 0,
+        "written_off": 0,
+        "actual_tokens": 200744
+      }
+    },
+    "samples": [
+      {
+        "request_id": 1,
+        "worker": "atlas-main",
+        "estimated_tokens": 8652,
+        "actual_tokens": 4334,
+        "actual_prompt_tokens": 4259,
+        "actual_completion_tokens": 75
+      },
+      {
+        "request_id": 2,
+        "worker": "atlas-main",
+        "estimated_tokens": 9311,
+        "actual_tokens": 4832,
+        "actual_prompt_tokens": 4706,
+        "actual_completion_tokens": 126
+      },
+      {
+        "request_id": 3,
+        "worker": "atlas-main",
+        "estimated_tokens": 12194,
+        "actual_tokens": 7260,
+        "actual_prompt_tokens": 7169,
+        "actual_completion_tokens": 91
+      },
+      {
+        "request_id": 4,
+        "worker": "atlas-main",
+        "estimated_tokens": 14034,
+        "actual_tokens": 8849,
+        "actual_prompt_tokens": 8721,
+        "actual_completion_tokens": 128
+      },
+      {
+        "request_id": 5,
+        "worker": "atlas-main",
+        "estimated_tokens": 15624,
+        "actual_tokens": 10223,
+        "actual_prompt_tokens": 10086,
+        "actual_completion_tokens": 137
+      },
+      {
+        "request_id": 6,
+        "worker": "atlas-main",
+        "estimated_tokens": 19301,
+        "actual_tokens": 13378,
+        "actual_prompt_tokens": 13254,
+        "actual_completion_tokens": 124
+      },
+      {
+        "request_id": 7,
+        "worker": "atlas-main",
+        "estimated_tokens": 22610,
+        "actual_tokens": 16184,
+        "actual_prompt_tokens": 16084,
+        "actual_completion_tokens": 100
+      },
+      {
+        "request_id": 8,
+        "worker": "atlas-main",
+        "estimated_tokens": 23846,
+        "actual_tokens": 17251,
+        "actual_prompt_tokens": 17162,
+        "actual_completion_tokens": 89
+      },
+      {
+        "request_id": 9,
+        "worker": "atlas-main",
+        "estimated_tokens": 24776,
+        "actual_tokens": 19069,
+        "actual_prompt_tokens": 17958,
+        "actual_completion_tokens": 1111
+      },
+      {
+        "request_id": 10,
+        "worker": "atlas-main",
+        "estimated_tokens": 26225,
+        "actual_tokens": 19390,
+        "actual_prompt_tokens": 19100,
+        "actual_completion_tokens": 290
+      },
+      {
+        "request_id": 11,
+        "worker": "atlas-main",
+        "estimated_tokens": 26522,
+        "actual_tokens": 19473,
+        "actual_prompt_tokens": 19421,
+        "actual_completion_tokens": 52
+      },
+      {
+        "request_id": 12,
+        "worker": "atlas-main",
+        "estimated_tokens": 26656,
+        "actual_tokens": 19822,
+        "actual_prompt_tokens": 19586,
+        "actual_completion_tokens": 236
+      },
+      {
+        "request_id": 13,
+        "worker": "atlas-main",
+        "estimated_tokens": 26895,
+        "actual_tokens": 19931,
+        "actual_prompt_tokens": 19880,
+        "actual_completion_tokens": 51
+      },
+      {
+        "request_id": 14,
+        "worker": "atlas-main",
+        "estimated_tokens": 27106,
+        "actual_tokens": 20748,
+        "actual_prompt_tokens": 20044,
+        "actual_completion_tokens": 704
+      }
+    ]
+  },
+  "ownership": {
+    "mode": "enforce",
+    "coverage": "PARTIAL",
+    "policy_version": "r1.1.0",
+    "run_id": "stage-s2-20261119T103641Z",
+    "workspace_root": "/workspace/project",
+    "workers": {
+      "stage-s2-20261119T103641Z-main-worker": {
+        "task_id": "stage-s2-20261119T103641Z-main",
+        "paths": [
+          "workgrid/scheduler/"
+        ],
+        "excluded": [],
+        "manifest_digest": "72c56dcb71cc081d0b7aaed624dbb4da5918f5ee82c442f2530e3eba08374e88",
+        "provenance": "trusted_host_declaration"
+      }
+    },
+    "checked_calls": 24,
+    "allowed_calls": 23,
+    "denied_calls": 1,
+    "unknown_worker_denials": 0,
+    "unknown_workers": [],
+    "denials": [
+      {
+        "worker_id": "stage-s2-20261119T103641Z-main-worker",
+        "task_id": "stage-s2-20261119T103641Z-main",
+        "tool_name": "bash",
+        "target": "cd /workspace/project && cat README.md pytest.ini samples/plan.json && echo \"=== scheduler ===\" && for f in workgrid/scheduler/*.py; do echo \"--- $f ---\"; cat \"$f\"; done",
+        "reason_code": "OWNERSHIP_UNCLASSIFIABLE_SHELL",
+        "decision": "DENY",
+        "detail": "cd; read-only program; read-only program; program \"for\" has no analyzable write set; program \"do\" has no analyzable write set; read-only program; program \"done\" has no analyzable write set"
+      }
+    ],
+    "audit_findings": []
+  },
+  "handoff_reads": {
+    "read_calls": 0,
+    "read_success": 0,
+    "read_denied": 0
+  },
+  "tool_surface": [
+    "bash",
+    "delegate.read",
+    "delegate_tasks",
+    "dispatch_action",
+    "file_edit",
+    "file_read",
+    "file_write",
+    "grep",
+    "list_files",
+    "run_public_tests",
+    "tool.search"
+  ],
+  "tool_error_mode": "corrected",
+  "execution_integrity": {
+    "mode": "record",
+    "payload_file": "private/tool_payloads.jsonl",
+    "records": 24,
+    "write_failures": 0,
+    "last_error": null,
+    "authority": "evidence_only"
+  }
+}

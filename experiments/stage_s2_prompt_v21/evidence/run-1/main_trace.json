@@ -1,0 +1,1055 @@
+{
+  "budget": {
+    "admission_rejections": 0,
+    "budget_overrun_tokens": 0,
+    "estimate_abs_error_tokens": 13306,
+    "estimate_samples": 14,
+    "in_flight": 0,
+    "last_rejection": null,
+    "last_release_reason": null,
+    "last_write_off_reason": null,
+    "learned_ratio": 1.0703,
+    "limit_tokens": 500000,
+    "mode": "guarded",
+    "peak_reserved_tokens": 27106,
+    "remaining_tokens": 299256,
+    "requests_completed": 14,
+    "requests_released": 0,
+    "requests_started": 14,
+    "requests_written_off": 0,
+    "reserved_tokens": 0,
+    "samples": [
+      {
+        "actual_completion_tokens": 75,
+        "actual_prompt_tokens": 4259,
+        "actual_tokens": 4334,
+        "estimated_tokens": 8652,
+        "request_id": 1,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 126,
+        "actual_prompt_tokens": 4706,
+        "actual_tokens": 4832,
+        "estimated_tokens": 9311,
+        "request_id": 2,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 91,
+        "actual_prompt_tokens": 7169,
+        "actual_tokens": 7260,
+        "estimated_tokens": 12194,
+        "request_id": 3,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 128,
+        "actual_prompt_tokens": 8721,
+        "actual_tokens": 8849,
+        "estimated_tokens": 14034,
+        "request_id": 4,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 137,
+        "actual_prompt_tokens": 10086,
+        "actual_tokens": 10223,
+        "estimated_tokens": 15624,
+        "request_id": 5,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 124,
+        "actual_prompt_tokens": 13254,
+        "actual_tokens": 13378,
+        "estimated_tokens": 19301,
+        "request_id": 6,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 100,
+        "actual_prompt_tokens": 16084,
+        "actual_tokens": 16184,
+        "estimated_tokens": 22610,
+        "request_id": 7,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 89,
+        "actual_prompt_tokens": 17162,
+        "actual_tokens": 17251,
+        "estimated_tokens": 23846,
+        "request_id": 8,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 1111,
+        "actual_prompt_tokens": 17958,
+        "actual_tokens": 19069,
+        "estimated_tokens": 24776,
+        "request_id": 9,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 290,
+        "actual_prompt_tokens": 19100,
+        "actual_tokens": 19390,
+        "estimated_tokens": 26225,
+        "request_id": 10,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 52,
+        "actual_prompt_tokens": 19421,
+        "actual_tokens": 19473,
+        "estimated_tokens": 26522,
+        "request_id": 11,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 236,
+        "actual_prompt_tokens": 19586,
+        "actual_tokens": 19822,
+        "estimated_tokens": 26656,
+        "request_id": 12,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 51,
+        "actual_prompt_tokens": 19880,
+        "actual_tokens": 19931,
+        "estimated_tokens": 26895,
+        "request_id": 13,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 704,
+        "actual_prompt_tokens": 20044,
+        "actual_tokens": 20748,
+        "estimated_tokens": 27106,
+        "request_id": 14,
+        "worker": "atlas-main"
+      }
+    ],
+    "stop_reason": null,
+    "used_completion_tokens": 3314,
+    "used_prompt_tokens": 197430,
+    "used_tokens": 200744,
+    "workers": {
+      "atlas-main": {
+        "actual_tokens": 200744,
+        "completed": 14,
+        "rejected": 0,
+        "started": 14,
+        "written_off": 0
+      }
+    },
+    "written_off_tokens": 0
+  },
+  "capability": {
+    "child_dispatch_action_calls": {},
+    "child_profile_ids": [],
+    "child_read_targets": {},
+    "child_tool_calls_by_name": {},
+    "child_tool_search_calls": {},
+    "child_tool_search_empty": {},
+    "child_undisclosed_tool_refusals": {},
+    "child_used_repository_tools": {},
+    "objective_execution_markers": [],
+    "objective_requires_execution": false
+  },
+  "delegation": {
+    "blocked_gates": [],
+    "children": [],
+    "enabled": true,
+    "max_observed_concurrency": 0,
+    "max_wave_width": 0,
+    "policy_versions": [],
+    "proposals": [],
+    "reason_codes": [],
+    "result_chars": 0,
+    "rounds": 0,
+    "routes": []
+  },
+  "early_delegation": {
+    "delegate_turns": [],
+    "first_delegate_turn": null,
+    "late": false,
+    "late_rule": {
+      "read_targets_threshold": 8,
+      "turn_fraction": 0.5
+    },
+    "main_context_tokens_at_delegation_request": null,
+    "main_context_tokens_by_request": [
+      4259,
+      4706,
+      7169,
+      8721,
+      10086,
+      13254,
+      16084,
+      17162,
+      17958,
+      19100,
+      19421,
+      19586,
+      19880,
+      20044
+    ],
+    "read_target_count_before_first_delegation": 14,
+    "read_targets_before_first_delegation": [
+      ".",
+      "workgrid",
+      "/workspace/project/workgrid/scheduler/contracts.py",
+      "/workspace/project/workgrid/scheduler/engine.py",
+      "/workspace/project/workgrid/scheduler/report.py",
+      "/workspace/project/workgrid/scheduler/__init__.py",
+      "/workspace/project/workgrid/dependencies/graph.py",
+      "/workspace/project/workgrid/resources/constraints.py",
+      "/workspace/project/workgrid/resources/calendar.py",
+      "/workspace/project/workgrid/resources/capacity.py",
+      "/workspace/project/workgrid/dependencies/ordering.py",
+      "/workspace/project/workgrid/resources/errors.py",
+      "/workspace/project/samples/plan.json",
+      "/workspace/project/README.md"
+    ],
+    "tool_call_count_before_first_delegation": 24,
+    "tool_calls_before_first_delegation": [
+      {
+        "error_kind": null,
+        "input": {
+          "command": "pwd && ls -la"
+        },
+        "is_error": false,
+        "name": "bash",
+        "result_preview": "/workspace/project\ntotal 32\ndrwxr-xr-x 6 root root 4096 Nov 19 10:36 .\ndrwxr-xr-x 3 root root 4096 Nov 19 10:36 ..\ndrwxr",
+        "target": "bash: pwd && ls -la"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "."
+        },
+        "is_error": false,
+        "name": "list_files",
+        "result_preview": "README.md\npytest.ini\nsamples/plan.json\ntests/test_dependencies.py\ntests/test_public_scheduler.py\ntests/test_resources.py",
+        "target": "."
+      },
+      {
+        "error_kind": "denied",
+        "input": {
+          "command": "cd /workspace/project && cat README.md pytest.ini samples/plan.json && echo \"=== scheduler ===\" && for f in workgrid/scheduler/*.py; do echo \"--- $f ---\"; cat \"$f\"; done"
+        },
+        "is_error": true,
+        "name": "bash",
+        "result_preview": "action_denied: rule:allow-shell.execute, OWNERSHIP_UNCLASSIFIABLE_SHELL",
+        "target": "bash: cd /workspace/project && cat README.md pytest.ini samples/plan.json && echo \"=== scheduler ===\" && for f in workgrid/scheduler/*.py; do echo \"--- $f ---\"; cat \""
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "command": "cd /workspace/project && cat tests/test_public_scheduler.py"
+        },
+        "is_error": false,
+        "name": "bash",
+        "result_preview": "\"\"\"Acceptance suite for the shared scheduling layer.\nThis file is the public statement of what \"a schedule\" means: statu",
+        "target": "bash: cd /workspace/project && cat tests/test_public_scheduler.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "workgrid"
+        },
+        "is_error": false,
+        "name": "list_files",
+        "result_preview": "__init__.py\ndependencies/__init__.py\ndependencies/errors.py\ndependencies/graph.py\ndependencies/ordering.py\ndependencies/",
+        "target": "workgrid"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/scheduler/contracts.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"The published shape of a schedule.\n2\t\n3\tA plan is read by tools, diffed between runs and stored next to a build, so",
+        "target": "/workspace/project/workgrid/scheduler/contracts.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/scheduler/engine.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"The shared scheduling engine.\n2\t\n3\tThis is the only module that knows a dependency graph and a resource calendar ex",
+        "target": "/workspace/project/workgrid/scheduler/engine.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/scheduler/report.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"Rendering a schedule as text.\n2\t\n3\tThe text form exists so a plan can be pasted into a build log and diffed between",
+        "target": "/workspace/project/workgrid/scheduler/report.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/scheduler/__init__.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"The shared scheduling layer.\n2\t\n3\tIt composes the dependency and resource packages into one deterministic plan. Con",
+        "target": "/workspace/project/workgrid/scheduler/__init__.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/dependencies/graph.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"The dependency graph: task nodes and the edges between them.\n2\t\n3\tThis module owns *structure* only. Whether every ",
+        "target": "/workspace/project/workgrid/dependencies/graph.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/resources/constraints.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"Putting capacity and the calendar together.\n2\t\n3\tA placement is a triple ``(start, end, units)``. Nothing here sche",
+        "target": "/workspace/project/workgrid/resources/constraints.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/resources/calendar.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"Availability windows.\n2\t\n3\tTime is a line of integer slots. A window ``[start, end)`` is open; a slot outside every",
+        "target": "/workspace/project/workgrid/resources/calendar.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/resources/capacity.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"Worker capacity and task demand.\n2\t\n3\tCapacity is per resource and constant over time; *when* a resource is availab",
+        "target": "/workspace/project/workgrid/resources/capacity.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/dependencies/ordering.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"Stable ordering over a dependency graph.\n2\t\n3\t\"Stable\" here has a precise meaning: for a fixed graph the order is a",
+        "target": "/workspace/project/workgrid/dependencies/ordering.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/workgrid/resources/errors.py"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t\"\"\"Failure vocabulary for the resource package.\n2\t\n3\tThe split matters for the scheduler: a *malformed* resource rule ",
+        "target": "/workspace/project/workgrid/resources/errors.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/samples/plan.json"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t{\n2\t  \"plan\": {\n3\t    \"name\": \"workgrid-release\",\n4\t    \"revision\": 3\n5\t  },\n6\t  \"pools\": [\n7\t    {\n8\t      \"name\": \"w",
+        "target": "/workspace/project/samples/plan.json"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "command": "cd /workspace/project && ls tests && cat workgrid/dependencies/__init__.py workgrid/resources/__init__.py"
+        },
+        "is_error": false,
+        "name": "bash",
+        "result_preview": "test_dependencies.py\ntest_public_scheduler.py\ntest_resources.py\n\"\"\"Task dependencies: structure, validation, and a stabl",
+        "target": "bash: cd /workspace/project && ls tests && cat workgrid/dependencies/__init__.py workgrid/resources/__init__.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "path": "/workspace/project/README.md"
+        },
+        "is_error": false,
+        "name": "file_read",
+        "result_preview": "1\t# WorkGrid\n2\t\n3\tDeterministic offline scheduling for a batch of tasks that have dependencies and resource demands.\n4\t\n",
+        "target": "/workspace/project/README.md"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "new_string": "from __future__ import annotations\n\nfrom workgrid.dependencies.graph import TaskGraph\nfrom workgrid.dependencies.ordering import topological_order\nfrom workgrid.resources.capacity import build_demand\nfrom workgrid.resources.constraints import Placement, ResourceConstraints\nfrom workgrid.resources.errors import DemandExceedsCapacityError, UnknownResourceError\nfrom workgrid.scheduler.contracts import (\n    ReasonCode,\n    ScheduledTask,\n    SchedulePlan,\n    UnschedulableTask,\n    build_plan,\n)\n\n#: Reason code for each demand error the resource package can raise.\n_DEMAND_REASONS: dict[type[Exception], ReasonCode] = {\n    DemandExceedsCapacityError: ReasonCode.DEMAND_EXCEEDS_CAPACITY,\n    UnknownResourceError: ReasonCode.UNKNOWN_RESOURCE,\n}\n\n\ndef build_schedule(graph: TaskGraph, constraints: ResourceConstraints) -> SchedulePlan:\n    \"\"\"Place every task that can be placed, or report why it cannot be.\"\"\"\n\n    # Resolving the order validates references and acyclicity first, so a broken graph raises\n    # before anything is placed and the error propagates unchanged.\n    order = topological_order(graph)\n\n    placed: list[Placement] = []\n    scheduled: list[ScheduledTask] = []\n    blocked: list[UnschedulableTask] = []\n    blocked_ids: set[str] = set()\n    finished: dict[str, int] = {}\n\n    for task_id in order:\n        node = graph.node(task_id)\n        demand = build_demand(task_id, node.demand)\n\n        # 2. A dependency that could not be placed blocks this task outright.\n        missing = sorted(parent for parent in node.depends_on if parent in blocked_ids)\n        if missing:\n            blocked.append(\n                UnschedulableTask(\n                    task_id=task_id,\n                    reason=ReasonCode.DEPENDENCY_UNSCHEDULABLE,\n                    detail=\"depends on unschedulable task(s): \" + \", \".join(missing),\n                )\n            )\n            blocked_ids.add(task_id)\n            continue\n\n        # 3. Demand that can never be satisfied is reported, not raised.\n        try:\n            constraints.validate_demand(demand)\n        except (DemandExceedsCapacityError, UnknownResourceError) as exc:\n            blocked.append(\n                UnschedulableTask(\n                    task_id=task_id,\n                    reason=_DEMAND_REASONS[type(exc)],\n                    detail=exc.message,\n                )\n            )\n            blocked_ids.add(task_id)\n            continue\n\n        # 4. Place at the first open, uncrowded candidate at or after the dependencies end.\n        ready = max((finished[parent] for parent in node.depends_on), default=0)\n        start = _place(constraints, ready, node.duration, demand, placed)\n        if start is None:\n            blocked.append(\n                UnschedulableTask(\n                    task_id=task_id,\n                    reason=ReasonCode.NO_AVAILABLE_WINDOW,\n                    detail=(\n                        f\"no {node.duration}-slot window at or after slot {ready} \"\n                        \"has enough free capacity\"\n                    ),\n                )\n            )\n            blocked_ids.add(task_id)\n            continue\n\n        end = start + node.duration\n        units = {name: int(demand.units[name]) for name in demand.units}\n        placed.append((start, end, units))\n        scheduled.append(ScheduledTask(task_id=task_id, start=start, end=end, units=units))\n        finished[task_id] = end\n\n    # 5. Report through the published builder so status, order and summary stay canonical.\n    return build_plan(\n        scheduled,\n        blocked,\n        peak_usage=constraints.peak_usage(placed),\n        summary={\"usable_slots\": constraints.calendar.usable_slots()},\n    )\n\n\ndef _place(\n    constraints: ResourceConstraints,\n    ready: int,\n    duration: int,\n    demand: object,\n    placed: list[Placement],\n) -> int | None:\n    \"\"\"The first candidate start at or after ``ready`` where ``demand`` fits, or ``None``.\"\"\"\n\n    candidate = constraints.earliest_start(ready, duration)\n    while candidate is not None:\n        if constraints.fits_at(candidate, duration, demand, placed):\n            return candidate\n        candidate = constraints.earliest_start(candidate + 1, duration)\n    return None",
+          "old_string": "from __future__ import annotations\n\nfrom workgrid.dependencies.graph import TaskGraph\nfrom workgrid.resources.constraints import ResourceConstraints\nfrom workgrid.scheduler.contracts import SchedulePlan\n\n\ndef build_schedule(graph: TaskGraph, constraints: ResourceConstraints) -> SchedulePlan:\n    \"\"\"Place every task that can be placed, or report why it cannot be.\"\"\"\n\n    raise NotImplementedError(\"the scheduling engine is not implemented yet\")",
+          "path": "/workspace/project/workgrid/scheduler/engine.py"
+        },
+        "is_error": false,
+        "name": "file_edit",
+        "result_preview": "Replaced 1 occurrence in \"/workspace/project/workgrid/scheduler/engine.py\".",
+        "target": "/workspace/project/workgrid/scheduler/engine.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "new_string": "def render_plan(plan: SchedulePlan) -> str:\n    \"\"\"Return the deterministic text form described in the module docstring.\"\"\"\n\n    lines = [f\"plan {plan.status} makespan={plan.makespan}\"]\n    for task in plan.tasks:\n        resources = \",\".join(\n            f\"{name}={int(task.units[name])}\" for name in sorted(task.units)\n        )\n        lines.append(f\"{task.start:04d}-{task.end:04d} {task.task_id} {resources or '-'}\")\n    blocked_ids = sorted(item.task_id for item in plan.unschedulable)\n    if blocked_ids:\n        lines.append(\"unschedulable \" + \",\".join(blocked_ids))\n    return \"\\n\".join(lines) + \"\\n\"",
+          "old_string": "def render_plan(plan: SchedulePlan) -> str:\n    \"\"\"Return the deterministic text form described in the module docstring.\"\"\"\n\n    raise NotImplementedError(\"render_plan is not implemented yet\")",
+          "path": "/workspace/project/workgrid/scheduler/report.py"
+        },
+        "is_error": false,
+        "name": "file_edit",
+        "result_preview": "Replaced 1 occurrence in \"/workspace/project/workgrid/scheduler/report.py\".",
+        "target": "/workspace/project/workgrid/scheduler/report.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "reason": "Verify the newly implemented engine and renderer against the public acceptance suite."
+        },
+        "is_error": false,
+        "name": "run_public_tests",
+        "result_preview": "{\"call_index\": 1, \"calls_remaining\": 3, \"command\": \"python3 -B -m pytest -q tests\", \"duration_ms\": 1623.434, \"exit_code\"",
+        "target": "run_public_tests"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "new_string": "from workgrid.resources.capacity import TaskDemand, build_demand",
+          "old_string": "from workgrid.resources.capacity import build_demand",
+          "path": "/workspace/project/workgrid/scheduler/engine.py"
+        },
+        "is_error": false,
+        "name": "file_edit",
+        "result_preview": "Replaced 1 occurrence in \"/workspace/project/workgrid/scheduler/engine.py\".",
+        "target": "/workspace/project/workgrid/scheduler/engine.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "new_string": "    demand: TaskDemand,",
+          "old_string": "    demand: object,",
+          "path": "/workspace/project/workgrid/scheduler/engine.py"
+        },
+        "is_error": false,
+        "name": "file_edit",
+        "result_preview": "Replaced 1 occurrence in \"/workspace/project/workgrid/scheduler/engine.py\".",
+        "target": "/workspace/project/workgrid/scheduler/engine.py"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "reason": "Re-verify after tightening the type annotation in the engine helper."
+        },
+        "is_error": false,
+        "name": "run_public_tests",
+        "result_preview": "{\"call_index\": 2, \"calls_remaining\": 2, \"command\": \"python3 -B -m pytest -q tests\", \"duration_ms\": 1507.921, \"exit_code\"",
+        "target": "run_public_tests"
+      }
+    ],
+    "total_turns": 13,
+    "turns": [
+      {
+        "text": "I'll start with lightweight repository discovery.",
+        "text_chars": 49,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "command": "pwd && ls -la"
+            },
+            "is_error": false,
+            "name": "bash",
+            "result_preview": "/workspace/project\ntotal 32\ndrwxr-xr-x 6 root root 4096 Nov 19 10:36 .\ndrwxr-xr-x 3 root root 4096 Nov 19 10:36 ..\ndrwxr",
+            "target": "bash: pwd && ls -la"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "path": "."
+            },
+            "is_error": false,
+            "name": "list_files",
+            "result_preview": "README.md\npytest.ini\nsamples/plan.json\ntests/test_dependencies.py\ntests/test_public_scheduler.py\ntests/test_resources.py",
+            "target": "."
+          }
+        ],
+        "turn": 1
+      },
+      {
+        "text": "",
+        "text_chars": 0,
+        "tool_calls": [
+          {
+            "error_kind": "denied",
+            "input": {
+              "command": "cd /workspace/project && cat README.md pytest.ini samples/plan.json && echo \"=== scheduler ===\" && for f in workgrid/scheduler/*.py; do echo \"--- $f ---\"; cat \"$f\"; done"
+            },
+            "is_error": true,
+            "name": "bash",
+            "result_preview": "action_denied: rule:allow-shell.execute, OWNERSHIP_UNCLASSIFIABLE_SHELL",
+            "target": "bash: cd /workspace/project && cat README.md pytest.ini samples/plan.json && echo \"=== scheduler ===\" && for f in workgrid/scheduler/*.py; do echo \"--- $f ---\"; cat \""
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "command": "cd /workspace/project && cat tests/test_public_scheduler.py"
+            },
+            "is_error": false,
+            "name": "bash",
+            "result_preview": "\"\"\"Acceptance suite for the shared scheduling layer.\nThis file is the public statement of what \"a schedule\" means: statu",
+            "target": "bash: cd /workspace/project && cat tests/test_public_scheduler.py"
+          }
+        ],
+        "turn": 2
+      },
+      {
+        "text": "Shell access to files is denied; I'll use dedicated file tools.",
+        "text_chars": 63,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "path": "workgrid"
+            },
+            "is_error": false,
+            "name": "list_files",
+            "result_preview": "__init__.py\ndependencies/__init__.py\ndependencies/errors.py\ndependencies/graph.py\ndependencies/ordering.py\ndependencies/",
+            "target": "workgrid"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/scheduler/contracts.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"The published shape of a schedule.\n2\t\n3\tA plan is read by tools, diffed between runs and stored next to a build, so",
+            "target": "/workspace/project/workgrid/scheduler/contracts.py"
+          }
+        ],
+        "turn": 3
+      },
+      {
+        "text": "",
+        "text_chars": 0,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/scheduler/engine.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"The shared scheduling engine.\n2\t\n3\tThis is the only module that knows a dependency graph and a resource calendar ex",
+            "target": "/workspace/project/workgrid/scheduler/engine.py"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/scheduler/report.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"Rendering a schedule as text.\n2\t\n3\tThe text form exists so a plan can be pasted into a build log and diffed between",
+            "target": "/workspace/project/workgrid/scheduler/report.py"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/scheduler/__init__.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"The shared scheduling layer.\n2\t\n3\tIt composes the dependency and resource packages into one deterministic plan. Con",
+            "target": "/workspace/project/workgrid/scheduler/__init__.py"
+          }
+        ],
+        "turn": 4
+      },
+      {
+        "text": "Now the dependency and resource APIs (needed for exact signatures).",
+        "text_chars": 67,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/dependencies/graph.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"The dependency graph: task nodes and the edges between them.\n2\t\n3\tThis module owns *structure* only. Whether every ",
+            "target": "/workspace/project/workgrid/dependencies/graph.py"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/resources/constraints.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"Putting capacity and the calendar together.\n2\t\n3\tA placement is a triple ``(start, end, units)``. Nothing here sche",
+            "target": "/workspace/project/workgrid/resources/constraints.py"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/resources/calendar.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"Availability windows.\n2\t\n3\tTime is a line of integer slots. A window ``[start, end)`` is open; a slot outside every",
+            "target": "/workspace/project/workgrid/resources/calendar.py"
+          }
+        ],
+        "turn": 5
+      },
+      {
+        "text": "",
+        "text_chars": 0,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/resources/capacity.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"Worker capacity and task demand.\n2\t\n3\tCapacity is per resource and constant over time; *when* a resource is availab",
+            "target": "/workspace/project/workgrid/resources/capacity.py"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/dependencies/ordering.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"Stable ordering over a dependency graph.\n2\t\n3\t\"Stable\" here has a precise meaning: for a fixed graph the order is a",
+            "target": "/workspace/project/workgrid/dependencies/ordering.py"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/workgrid/resources/errors.py"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t\"\"\"Failure vocabulary for the resource package.\n2\t\n3\tThe split matters for the scheduler: a *malformed* resource rule ",
+            "target": "/workspace/project/workgrid/resources/errors.py"
+          }
+        ],
+        "turn": 6
+      },
+      {
+        "text": "",
+        "text_chars": 0,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/samples/plan.json"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t{\n2\t  \"plan\": {\n3\t    \"name\": \"workgrid-release\",\n4\t    \"revision\": 3\n5\t  },\n6\t  \"pools\": [\n7\t    {\n8\t      \"name\": \"w",
+            "target": "/workspace/project/samples/plan.json"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "command": "cd /workspace/project && ls tests && cat workgrid/dependencies/__init__.py workgrid/resources/__init__.py"
+            },
+            "is_error": false,
+            "name": "bash",
+            "result_preview": "test_dependencies.py\ntest_public_scheduler.py\ntest_resources.py\n\"\"\"Task dependencies: structure, validation, and a stabl",
+            "target": "bash: cd /workspace/project && ls tests && cat workgrid/dependencies/__init__.py workgrid/resources/__init__.py"
+          }
+        ],
+        "turn": 7
+      },
+      {
+        "text": "Clear picture: only `workgrid/scheduler/engine.py` and `report.py` need implementing (small, tightly coupled work \u2014 Direct execution, no delegation warranted). Let me check the README for any extra contract details.",
+        "text_chars": 215,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "path": "/workspace/project/README.md"
+            },
+            "is_error": false,
+            "name": "file_read",
+            "result_preview": "1\t# WorkGrid\n2\t\n3\tDeterministic offline scheduling for a batch of tasks that have dependencies and resource demands.\n4\t\n",
+            "target": "/workspace/project/README.md"
+          }
+        ],
+        "turn": 8
+      },
+      {
+        "text": "Implementing the engine exactly per its documented contract.",
+        "text_chars": 60,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "new_string": "from __future__ import annotations\n\nfrom workgrid.dependencies.graph import TaskGraph\nfrom workgrid.dependencies.ordering import topological_order\nfrom workgrid.resources.capacity import build_demand\nfrom workgrid.resources.constraints import Placement, ResourceConstraints\nfrom workgrid.resources.errors import DemandExceedsCapacityError, UnknownResourceError\nfrom workgrid.scheduler.contracts import (\n    ReasonCode,\n    ScheduledTask,\n    SchedulePlan,\n    UnschedulableTask,\n    build_plan,\n)\n\n#: Reason code for each demand error the resource package can raise.\n_DEMAND_REASONS: dict[type[Exception], ReasonCode] = {\n    DemandExceedsCapacityError: ReasonCode.DEMAND_EXCEEDS_CAPACITY,\n    UnknownResourceError: ReasonCode.UNKNOWN_RESOURCE,\n}\n\n\ndef build_schedule(graph: TaskGraph, constraints: ResourceConstraints) -> SchedulePlan:\n    \"\"\"Place every task that can be placed, or report why it cannot be.\"\"\"\n\n    # Resolving the order validates references and acyclicity first, so a broken graph raises\n    # before anything is placed and the error propagates unchanged.\n    order = topological_order(graph)\n\n    placed: list[Placement] = []\n    scheduled: list[ScheduledTask] = []\n    blocked: list[UnschedulableTask] = []\n    blocked_ids: set[str] = set()\n    finished: dict[str, int] = {}\n\n    for task_id in order:\n        node = graph.node(task_id)\n        demand = build_demand(task_id, node.demand)\n\n        # 2. A dependency that could not be placed blocks this task outright.\n        missing = sorted(parent for parent in node.depends_on if parent in blocked_ids)\n        if missing:\n            blocked.append(\n                UnschedulableTask(\n                    task_id=task_id,\n                    reason=ReasonCode.DEPENDENCY_UNSCHEDULABLE,\n                    detail=\"depends on unschedulable task(s): \" + \", \".join(missing),\n                )\n            )\n            blocked_ids.add(task_id)\n            continue\n\n        # 3. Demand that can never be satisfied is reported, not raised.\n        try:\n            constraints.validate_demand(demand)\n        except (DemandExceedsCapacityError, UnknownResourceError) as exc:\n            blocked.append(\n                UnschedulableTask(\n                    task_id=task_id,\n                    reason=_DEMAND_REASONS[type(exc)],\n                    detail=exc.message,\n                )\n            )\n            blocked_ids.add(task_id)\n            continue\n\n        # 4. Place at the first open, uncrowded candidate at or after the dependencies end.\n        ready = max((finished[parent] for parent in node.depends_on), default=0)\n        start = _place(constraints, ready, node.duration, demand, placed)\n        if start is None:\n            blocked.append(\n                UnschedulableTask(\n                    task_id=task_id,\n                    reason=ReasonCode.NO_AVAILABLE_WINDOW,\n                    detail=(\n                        f\"no {node.duration}-slot window at or after slot {ready} \"\n                        \"has enough free capacity\"\n                    ),\n                )\n            )\n            blocked_ids.add(task_id)\n            continue\n\n        end = start + node.duration\n        units = {name: int(demand.units[name]) for name in demand.units}\n        placed.append((start, end, units))\n        scheduled.append(ScheduledTask(task_id=task_id, start=start, end=end, units=units))\n        finished[task_id] = end\n\n    # 5. Report through the published builder so status, order and summary stay canonical.\n    return build_plan(\n        scheduled,\n        blocked,\n        peak_usage=constraints.peak_usage(placed),\n        summary={\"usable_slots\": constraints.calendar.usable_slots()},\n    )\n\n\ndef _place(\n    constraints: ResourceConstraints,\n    ready: int,\n    duration: int,\n    demand: object,\n    placed: list[Placement],\n) -> int | None:\n    \"\"\"The first candidate start at or after ``ready`` where ``demand`` fits, or ``None``.\"\"\"\n\n    candidate = constraints.earliest_start(ready, duration)\n    while candidate is not None:\n        if constraints.fits_at(candidate, duration, demand, placed):\n            return candidate\n        candidate = constraints.earliest_start(candidate + 1, duration)\n    return None",
+              "old_string": "from __future__ import annotations\n\nfrom workgrid.dependencies.graph import TaskGraph\nfrom workgrid.resources.constraints import ResourceConstraints\nfrom workgrid.scheduler.contracts import SchedulePlan\n\n\ndef build_schedule(graph: TaskGraph, constraints: ResourceConstraints) -> SchedulePlan:\n    \"\"\"Place every task that can be placed, or report why it cannot be.\"\"\"\n\n    raise NotImplementedError(\"the scheduling engine is not implemented yet\")",
+              "path": "/workspace/project/workgrid/scheduler/engine.py"
+            },
+            "is_error": false,
+            "name": "file_edit",
+            "result_preview": "Replaced 1 occurrence in \"/workspace/project/workgrid/scheduler/engine.py\".",
+            "target": "/workspace/project/workgrid/scheduler/engine.py"
+          }
+        ],
+        "turn": 9
+      },
+      {
+        "text": "Now the renderer:",
+        "text_chars": 17,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "new_string": "def render_plan(plan: SchedulePlan) -> str:\n    \"\"\"Return the deterministic text form described in the module docstring.\"\"\"\n\n    lines = [f\"plan {plan.status} makespan={plan.makespan}\"]\n    for task in plan.tasks:\n        resources = \",\".join(\n            f\"{name}={int(task.units[name])}\" for name in sorted(task.units)\n        )\n        lines.append(f\"{task.start:04d}-{task.end:04d} {task.task_id} {resources or '-'}\")\n    blocked_ids = sorted(item.task_id for item in plan.unschedulable)\n    if blocked_ids:\n        lines.append(\"unschedulable \" + \",\".join(blocked_ids))\n    return \"\\n\".join(lines) + \"\\n\"",
+              "old_string": "def render_plan(plan: SchedulePlan) -> str:\n    \"\"\"Return the deterministic text form described in the module docstring.\"\"\"\n\n    raise NotImplementedError(\"render_plan is not implemented yet\")",
+              "path": "/workspace/project/workgrid/scheduler/report.py"
+            },
+            "is_error": false,
+            "name": "file_edit",
+            "result_preview": "Replaced 1 occurrence in \"/workspace/project/workgrid/scheduler/report.py\".",
+            "target": "/workspace/project/workgrid/scheduler/report.py"
+          }
+        ],
+        "turn": 10
+      },
+      {
+        "text": "",
+        "text_chars": 0,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "reason": "Verify the newly implemented engine and renderer against the public acceptance suite."
+            },
+            "is_error": false,
+            "name": "run_public_tests",
+            "result_preview": "{\"call_index\": 1, \"calls_remaining\": 3, \"command\": \"python3 -B -m pytest -q tests\", \"duration_ms\": 1623.434, \"exit_code\"",
+            "target": "run_public_tests"
+          }
+        ],
+        "turn": 11
+      },
+      {
+        "text": "All 62 public tests pass. Let me do a final review of the engine file for the `_place` typing (I passed `demand: object` \u2014 better to use the real `TaskDemand` type).",
+        "text_chars": 165,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "new_string": "from workgrid.resources.capacity import TaskDemand, build_demand",
+              "old_string": "from workgrid.resources.capacity import build_demand",
+              "path": "/workspace/project/workgrid/scheduler/engine.py"
+            },
+            "is_error": false,
+            "name": "file_edit",
+            "result_preview": "Replaced 1 occurrence in \"/workspace/project/workgrid/scheduler/engine.py\".",
+            "target": "/workspace/project/workgrid/scheduler/engine.py"
+          },
+          {
+            "error_kind": null,
+            "input": {
+              "new_string": "    demand: TaskDemand,",
+              "old_string": "    demand: object,",
+              "path": "/workspace/project/workgrid/scheduler/engine.py"
+            },
+            "is_error": false,
+            "name": "file_edit",
+            "result_preview": "Replaced 1 occurrence in \"/workspace/project/workgrid/scheduler/engine.py\".",
+            "target": "/workspace/project/workgrid/scheduler/engine.py"
+          }
+        ],
+        "turn": 12
+      },
+      {
+        "text": "",
+        "text_chars": 0,
+        "tool_calls": [
+          {
+            "error_kind": null,
+            "input": {
+              "reason": "Re-verify after tightening the type annotation in the engine helper."
+            },
+            "is_error": false,
+            "name": "run_public_tests",
+            "result_preview": "{\"call_index\": 2, \"calls_remaining\": 2, \"command\": \"python3 -B -m pytest -q tests\", \"duration_ms\": 1507.921, \"exit_code\"",
+            "target": "run_public_tests"
+          }
+        ],
+        "turn": 13
+      }
+    ]
+  },
+  "handoff_utilisation": {
+    "child_read_targets": {},
+    "delegate_read_calls": [],
+    "handoff_payload_chars": 0,
+    "handoff_reads_metrics": {
+      "read_calls": 0,
+      "read_denied": 0,
+      "read_success": 0
+    },
+    "main_write_targets": [
+      "/workspace/project/workgrid/scheduler/engine.py",
+      "/workspace/project/workgrid/scheduler/report.py",
+      "/workspace/project/workgrid/scheduler/engine.py",
+      "/workspace/project/workgrid/scheduler/engine.py"
+    ],
+    "public_test_calls": [
+      {
+        "error_kind": null,
+        "input": {
+          "reason": "Verify the newly implemented engine and renderer against the public acceptance suite."
+        },
+        "is_error": false,
+        "name": "run_public_tests",
+        "result_preview": "{\"call_index\": 1, \"calls_remaining\": 3, \"command\": \"python3 -B -m pytest -q tests\", \"duration_ms\": 1623.434, \"exit_code\"",
+        "target": "run_public_tests"
+      },
+      {
+        "error_kind": null,
+        "input": {
+          "reason": "Re-verify after tightening the type annotation in the engine helper."
+        },
+        "is_error": false,
+        "name": "run_public_tests",
+        "result_preview": "{\"call_index\": 2, \"calls_remaining\": 2, \"command\": \"python3 -B -m pytest -q tests\", \"duration_ms\": 1507.921, \"exit_code\"",
+        "target": "run_public_tests"
+      }
+    ],
+    "read_targets_after_handoff": [],
+    "reread_after_handoff_of_child_work": [],
+    "tool_calls_after_first_delegation": []
+  },
+  "implementation": {
+    "bash_calls": 4,
+    "bash_denials": 1,
+    "files_changed": 2,
+    "first_write_turn": 9,
+    "investigation_turns": 7,
+    "last_read_turn": 8,
+    "public_test_calls": 2,
+    "public_test_statuses": [
+      "PASS",
+      "PASS"
+    ],
+    "stop_reason": "success",
+    "turns_before_first_write": 8,
+    "write_turns": 3
+  },
+  "main": {
+    "counters": {
+      "assistant_turns": 13,
+      "model_requests": 14,
+      "session_fields_agree": false,
+      "session_reported_tool_calls": [
+        "bash",
+        "list_files",
+        "bash",
+        "bash",
+        "list_files",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "file_read",
+        "bash",
+        "file_read",
+        "file_edit",
+        "file_edit",
+        "run_public_tests",
+        "file_edit",
+        "file_edit",
+        "run_public_tests"
+      ],
+      "session_reported_turns": 14,
+      "source": "tool_conversations.json + transcript.jsonl",
+      "tool_calls": 24,
+      "tool_calls_agree": true,
+      "tool_calls_by_name": {
+        "bash": 4,
+        "file_edit": 4,
+        "file_read": 12,
+        "list_files": 2,
+        "run_public_tests": 2
+      },
+      "tool_denials": 1,
+      "tool_errors": 1,
+      "transcript_action_proposed": 24,
+      "transcript_tool_observations": 24,
+      "turns_delta": 1,
+      "turns_delta_reason": "the final assistant message carried no tool call and is not persisted in tool_conversations.json; its text survives as session.main.output"
+    },
+    "output": "Done. The scheduling engine is implemented and the full public suite passes.\n\n## What was implemented\n\nChanges were confined to `workgrid/scheduler/` (`engine.py` and `report.py`). The dependency and resource packages, `contracts.py`, and the package `__init__` surface were left untouched.\n\n**`workgrid/scheduler/engine.py` \u2014 `build_schedule`**\n\nFollows the documented per-task contract in a single pass over `topological_order(graph)`:\n\n1. **Order / graph integrity** \u2014 `topological_order` is called first, so `UnknownDependencyError` and `CycleDetectedError` propagate unchanged before any placement work happens.\n2. **Blocked dependencies** \u2014 if any dependency id is already unschedulable, the task is reported as `DEPENDENCY_UNSCHEDULABLE` with the sorted blocking ids in `detail`; its demand and window are not examined.\n3. **Impossible demand** \u2014 `constraints.validate_demand` is called and `DemandExceedsCapacityError` / `UnknownResourceError` are caught and mapped to `DEMAND_EXCEEDS_CAPACITY` / `UNKNOWN_RESOURCE`. These are classified, never propagated, so one impossible task does not invalidate the plan.\n4. **Placement** \u2014 `ready = max(end of scheduled deps, 0)`; from `earliest_start(ready, duration)` it takes the first candidate where `fits_at(...)` holds, otherwise advances via `earliest_start(candidate + 1, duration)`. Exhaustion yields `NO_AVAILABLE_WINDOW`. A small `_place` helper isolates this scan loop.\n5. **Report** \u2014 assembled through the existing `build_plan` so status, ordering, makespan and summary are derived canonically, with `peak_usage` from `constraints.peak_usage(placed)` and `summary[\"usable_slots\"]` from the calendar.\n\n**`workgrid/scheduler/report.py` \u2014 `render_plan`**\n\nRenders the plan only (no recomputation): header `plan <status> makespan=<n>`, one `%04d-%04d <id> <resources>` line per planned task in plan order (resources `-` when empty, otherwise `name=units` sorted and comma-joined), an optional `unschedulable a,b` line with sorted ids, and a single trailing newline.\n\n## Design decisions\n\n- No rules were re-implemented: ordering, capacity checks, window math and peak usage all come from the existing APIs.\n- The engine writes only to local accumulated placements, leaving both rule packages and the immutable contracts unchanged.\n- Determinism comes for free from the topological order, sorted resource names and `build_plan`'s fixed `(start, task_id)` sort.\n\n## Verification\n\n`run_public_tests` (`python3 -B -m pytest -q tests`): **62 passed**, exit 0 \u2014 this covers the scheduler acceptance suite plus the pre-existing dependency and resource suites, including the shipped `samples/plan.json` end-to-end case (makespan 8, peak `{\"gpu\": 1, \"workers\": 2}`, `usable_slots` 8). Nothing was left unverified or outstanding; the hidden acceptance oracle was not available to me and is not claimed.",
+    "output_chars": 2850,
+    "stop_message": "Run completed successfully.",
+    "stop_reason": "success"
+  },
+  "metrics": {
+    "child_completion_tokens": 0,
+    "child_total_prompt_tokens": 0,
+    "delegation_rounds": 0,
+    "handoff_payload_chars": 0,
+    "main_cache_hit_tokens": 178688,
+    "main_cache_miss_tokens": 18742,
+    "main_completion_tokens": 3314,
+    "main_context_tokens_by_request": [
+      4259,
+      4706,
+      7169,
+      8721,
+      10086,
+      13254,
+      16084,
+      17162,
+      17958,
+      19100,
+      19421,
+      19586,
+      19880,
+      20044
+    ],
+    "main_cumulative_input_tokens": 197430,
+    "main_peak_context_tokens": 20044,
+    "main_requests": 14,
+    "max_observed_child_concurrency": 0,
+    "system_total_tokens": 200744,
+    "unavailable_fields": []
+  },
+  "prompt": {
+    "chars": 10377,
+    "digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
+    "source": "override",
+    "version": "main-v2.1-rc1"
+  },
+  "public_tests": {
+    "calls": 2,
+    "command_digest": "ec17b2e8247b02e2d9d06dbbea763aa97fe9eb03ff74d49b8fed12cc111c0048",
+    "last_exit_code": 0,
+    "statuses": [
+      "PASS",
+      "PASS"
+    ]
+  },
+  "run_id": "stage-s2-20261119T103641Z",
+  "stage": "S2",
+  "verdict": {
+    "delegation_behavior": "DIRECT_EXECUTION",
+    "delegation_labels_applicable": [
+      "DIRECT_EXECUTION"
+    ],
+    "failure": null,
+    "files_changed": 2,
+    "goal": "GOAL_PASS",
+    "oracle": "PASS",
+    "public_tests_passed": true,
+    "run_status": "succeeded"
+  },
+  "verification": {
+    "dynamic": {
+      "command": "python3 -m pytest -q && python3 -c \"import base64;exec(base64.b64decode('IiIiSGlkZGVuIGFjY2VwdGFuY2UgcHJvZ3JhbSBmb3IgdGhlIFdvcmtHcmlkIGZpeHR1cmUuCgpSdW5zIGluc2lkZSB0aGUgc2FuZGJveCwgYWZ0ZXIgdGhlIGFnZW50IGhhcyBzdG9wcGVkLCBmcm9tIHRoZSByZXBvc2l0b3J5IHJvb3QuIEl0IGltcG9ydHMgb25seSB0aGUKZml4dHVyZSdzIHB1YmxpYyBzdXJmYWNlIGFuZCBhc3NlcnRzIGJlaGF2aW91ciB0aGUgcHVibGljIHN1aXRlIGRvZXMgbm90IHNwZWxsIG91dDogcHJlY2VkZW5jZSwKcHJvcGFnYXRpb24sIGRldGVybWluaXNtIGFjcm9zcyBidWlsZCBvcmRlcnMsIGlucHV0IGltbXV0YWJpbGl0eSBhbmQgdGhlIGNhbm9uaWNhbCBmb3Jtcy4KCkl0IHByaW50cyBgYEhJRERFTl9PS2BgIGFuZCBleGl0cyAwIHdoZW4gZXZlcnkgY2hlY2sgcGFzc2VzLCBvdGhlcndpc2Ugb25lIGBgRkFJTCA8bWVzc2FnZT5gYCBsaW5lCnBlciBmYWlsZWQgY2hlY2sgcGx1cyBgYEhJRERFTl9GQUlMYGAgYW5kIGV4aXQgMS4KIiIiCgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQganNvbgppbXBvcnQgcGF0aGxpYgppbXBvcnQgdHJhY2ViYWNrCgpGQUlMVVJFUzogbGlzdFtzdHJdID0gW10KCgpkZWYgY2hlY2soY29uZGl0aW9uOiBvYmplY3QsIG1lc3NhZ2U6IHN0cikgLT4gTm9uZToKICAgIGlmIG5vdCBjb25kaXRpb246CiAgICAgICAgRkFJTFVSRVMuYXBwZW5kKG1lc3NhZ2UpCgoKZGVmIHRhc2sodGFza19pZDogc3RyLCBkdXJhdGlvbjogaW50ID0gMSwgZGVwZW5kc19vbj0oKSwgZGVtYW5kPU5vbmUpOgogICAgZnJvbSB3b3JrZ3JpZC5kZXBlbmRlbmNpZXMuZ3JhcGggaW1wb3J0IFRhc2tOb2RlCgogICAgcmV0dXJuIFRhc2tOb2RlKAogICAgICAgIHRhc2tfaWQ9dGFza19pZCwKICAgICAgICBkdXJhdGlvbj1kdXJhdGlvbiwKICAgICAgICBkZXBlbmRzX29uPXR1cGxlKGRlcGVuZHNfb24pLAogICAgICAgIGRlbWFuZD1kZW1hbmQgb3Ige30sCiAgICApCgoKZGVmIGNvbnN0cmFpbnRzKHdvcmtlcnM6IGludCA9IDEsIGdwdT1Ob25lLCB3aW5kb3dzPSgoMCwgMTApLCkpOgogICAgZnJvbSB3b3JrZ3JpZC5yZXNvdXJjZXMgaW1wb3J0ICgKICAgICAgICBBdmFpbGFiaWxpdHlXaW5kb3csCiAgICAgICAgQ2FsZW5kYXIsCiAgICAgICAgUG9vbFNldCwKICAgICAgICBSZXNvdXJjZUNvbnN0cmFpbnRzLAogICAgICAgIFJlc291cmNlUG9vbCwKICAgICkKCiAgICBwb29scyA9IFtSZXNvdXJjZVBvb2woIndvcmtlcnMiLCB3b3JrZXJzKV0KICAgIGlmIGdwdSBpcyBub3QgTm9uZToKICAgICAgICBwb29scy5hcHBlbmQoUmVzb3VyY2VQb29sKCJncHUiLCBncHUpKQogICAgY2FsZW5kYXIgPSBDYWxlbmRhcih0dXBsZShBdmFpbGFiaWxpdHlXaW5kb3coc3RhcnQsIGVuZCkgZm9yIHN0YXJ0LCBlbmQgaW4gd2luZG93cykpCiAgICByZXR1cm4gUmVzb3VyY2VDb25zdHJhaW50cyhwb29scz1Qb29sU2V0KHR1cGxlKHBvb2xzKSksIGNhbGVuZGFyPWNhbGVuZGFyKQoKCmRlZiBydW4odGFza3MsICoqa3dhcmdzKToKICAgIGZyb20gd29ya2dyaWQuZGVwZW5kZW5jaWVzIGltcG9ydCBidWlsZF9ncmFwaAogICAgZnJvbSB3b3JrZ3JpZC5zY2hlZHVsZXIgaW1wb3J0IGJ1aWxkX3NjaGVkdWxlCgogICAgcmV0dXJuIGJ1aWxkX3NjaGVkdWxlKGJ1aWxkX2dyYXBoKHRhc2tzKSwgY29uc3RyYWludHMoKiprd2FyZ3MpKQoKCmRlZiBwbGFjZWQocGxhbik6CiAgICByZXR1cm4gWyhpdGVtLnRhc2tfaWQsIGl0ZW0uc3RhcnQsIGl0ZW0uZW5kKSBmb3IgaXRlbSBpbiBwbGFuLnRhc2tzXQoKCmRlZiByZWFzb25zKHBsYW4pOgogICAgcmV0dXJuIFtzdHIoaXRlbS5yZWFzb24pIGZvciBpdGVtIGluIHBsYW4udW5zY2hlZHVsYWJsZV0KCgpkZWYgbWFpbigpIC0+IGludDoKICAgIGZyb20gd29ya2dyaWQuZGVwZW5kZW5jaWVzIGltcG9ydCBDeWNsZURldGVjdGVkRXJyb3IsIFVua25vd25EZXBlbmRlbmN5RXJyb3IKICAgIGZyb20gd29ya2dyaWQuc2NoZWR1bGVyIGltcG9ydCBQbGFuU3RhdHVzLCBidWlsZF9zY2hlZHVsZSwgcmVuZGVyX3BsYW4KCiAgICAjIC0tIDEuIHRoZSBlbXB0eSBwbGFuIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgZW1wdHkgPSBydW4oW10pCiAgICBjaGVjayhlbXB0eS5zdGF0dXMgaXMgUGxhblN0YXR1cy5FTVBUWSwgImFuIGVtcHR5IHBsYW4gbXVzdCBiZSBFTVBUWSIpCiAgICBjaGVjayhlbXB0eS5tYWtlc3BhbiA9PSAwLCAiYW4gZW1wdHkgcGxhbiBoYXMgbWFrZXNwYW4gMCIpCiAgICBjaGVjayhlbXB0eS50YXNrcyA9PSAoKSBhbmQgZW1wdHkudW5zY2hlZHVsYWJsZSA9PSAoKSwgImFuIGVtcHR5IHBsYW4gaGFzIG5vIGVudHJpZXMiKQogICAgY2hlY2socmVuZGVyX3BsYW4oZW1wdHkpID09ICJwbGFuIGVtcHR5IG1ha2VzcGFuPTBcbiIsICJlbXB0eSB0ZXh0IGZvcm0iKQoKICAgICMgLS0gMi4gYSBjaGFpbiwgYW5kIHRoZSBzdW1tYXJ5IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIGNoYWluID0gcnVuKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygiYSIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSksCiAgICAgICAgICAgIHRhc2soImIiLCAzLCBkZXBlbmRzX29uPSgiYSIsKSwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwKICAgICAgICBdLAogICAgICAgIHdvcmtlcnM9MSwKICAgICkKICAgIGNoZWNrKHBsYWNlZChjaGFpbikgPT0gWygiYSIsIDAsIDIpLCAoImIiLCAyLCA1KV0sIGYiY2hhaW4gcGxhY2VtZW50IHtwbGFjZWQoY2hhaW4pfSIpCiAgICBjaGVjayhjaGFpbi5tYWtlc3BhbiA9PSA1LCAiY2hhaW4gbWFrZXNwYW4iKQogICAgY2hlY2soCiAgICAgICAgZGljdChjaGFpbi5zdW1tYXJ5KQogICAgICAgID09IHsibWFrZXNwYW4iOiA1LCAic2NoZWR1bGVkIjogMiwgInRhc2tzIjogMiwgInVuc2NoZWR1bGFibGUiOiAwLCAidXNhYmxlX3Nsb3RzIjogMTB9LAogICAgICAgIGYiY2hhaW4gc3VtbWFyeSB7ZGljdChjaGFpbi5zdW1tYXJ5KX0iLAogICAgKQoKICAgICMgLS0gMmIuIGEgZGVwZW5kZW5jeSBkZWxheXMgd29yayBldmVuIHdoZW4gY2FwYWNpdHkgaXMgZnJlZSAtLS0tLS0tLS0tLQogICAgZm9yY2VkID0gcnVuKFt0YXNrKCJhIiwgMiksIHRhc2soImIiLCAxLCBkZXBlbmRzX29uPSgiYSIsKSldLCB3b3JrZXJzPTIpCiAgICBjaGVjayhwbGFjZWQoZm9yY2VkKSA9PSBbKCJhIiwgMCwgMiksICgiYiIsIDIsIDMpXSwgZiJkZXBlbmRlbmN5IGRlbGF5IHtwbGFjZWQoZm9yY2VkKX0iKQoKICAgICMgLS0gMy4gY2FwYWNpdHkgZGVjaWRlcyB3aGV0aGVyIHR3byB0YXNrcyBvdmVybGFwIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIHBhcmFsbGVsID0gcnVuKAogICAgICAgIFt0YXNrKCJhIiwgMiwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwgdGFzaygiYiIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSldLCB3b3JrZXJzPTIKICAgICkKICAgIGNoZWNrKHBsYWNlZChwYXJhbGxlbCkgPT0gWygiYSIsIDAsIDIpLCAoImIiLCAwLCAyKV0sIGYicGFyYWxsZWwgcGxhY2VtZW50IHtwbGFjZWQocGFyYWxsZWwpfSIpCiAgICBjaGVjayhkaWN0KHBhcmFsbGVsLnBlYWtfdXNhZ2UpID09IHsid29ya2VycyI6IDJ9LCAicGFyYWxsZWwgcGVhayB1c2FnZSIpCgogICAgc2VxdWVudGlhbCA9IHJ1bigKICAgICAgICBbdGFzaygiYSIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSksIHRhc2soImIiLCAyLCBkZW1hbmQ9eyJ3b3JrZXJzIjogMX0pXSwgd29ya2Vycz0xCiAgICApCiAgICBjaGVjaygKICAgICAgICBwbGFjZWQoc2VxdWVudGlhbCkgPT0gWygiYSIsIDAsIDIpLCAoImIiLCAyLCA0KV0sCiAgICAgICAgZiJzZXF1ZW50aWFsIHBsYWNlbWVudCB7cGxhY2VkKHNlcXVlbnRpYWwpfSIsCiAgICApCiAgICBjaGVjayhkaWN0KHNlcXVlbnRpYWwucGVha191c2FnZSkgPT0geyJ3b3JrZXJzIjogMX0sICJzZXF1ZW50aWFsIHBlYWsgdXNhZ2UiKQoKICAgICMgLS0gNC4gYSBzY2FyY2UgcmVzb3VyY2Ugc2VyaWFsaXplcyBvbmx5IGl0c2VsZiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIHNjYXJjZSA9IHJ1bigKICAgICAgICBbCiAgICAgICAgICAgIHRhc2soImEiLCAxLCBkZW1hbmQ9eyJ3b3JrZXJzIjogMSwgImdwdSI6IDF9KSwKICAgICAgICAgICAgdGFzaygiYiIsIDEsIGRlbWFuZD17IndvcmtlcnMiOiAxLCAiZ3B1IjogMX0pLAogICAgICAgICAgICB0YXNrKCJjIiwgMSwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwKICAgICAgICBdLAogICAgICAgIHdvcmtlcnM9MiwKICAgICAgICBncHU9MSwKICAgICkKICAgIGNoZWNrKAogICAgICAgIHBsYWNlZChzY2FyY2UpID09IFsoImEiLCAwLCAxKSwgKCJjIiwgMCwgMSksICgiYiIsIDEsIDIpXSwKICAgICAgICBmInNjYXJjZSByZXNvdXJjZSBwbGFjZW1lbnQge3BsYWNlZChzY2FyY2UpfSIsCiAgICApCiAgICBjaGVjayhkaWN0KHNjYXJjZS5wZWFrX3VzYWdlKSA9PSB7ImdwdSI6IDEsICJ3b3JrZXJzIjogMn0sICJzY2FyY2UgcGVhayB1c2FnZSIpCgogICAgIyAtLSA1LiBhIGNyb3dkZWQgcGxhbiB1c2VzIHRoZSBsYXN0IHNsb3QgdGhlIHdpbmRvdyBhbGxvd3MgLS0tLS0tLS0tLS0tLQogICAgcGFja2VkID0gcnVuKAogICAgICAgIFt0YXNrKCJhIiwgNiwgZGVtYW5kPXsid29ya2VycyI6IDF9KSwgdGFzaygiYiIsIDQsIGRlbWFuZD17IndvcmtlcnMiOiAxfSldLAogICAgICAgIHdvcmtlcnM9MSwKICAgICAgICB3aW5kb3dzPSgoMCwgMTApLCksCiAgICApCiAgICBjaGVjayhwbGFjZWQocGFja2VkKSA9PSBbKCJhIiwgMCwgNiksICgiYiIsIDYsIDEwKV0sIGYicGFja2VkIHBsYWNlbWVudCB7cGxhY2VkKHBhY2tlZCl9IikKICAgIGNoZWNrKHBhY2tlZC5tYWtlc3BhbiA9PSAxMCwgInBhY2tlZCBtYWtlc3BhbiIpCgogICAgIyAtLSA2LiB3aW5kb3dzIGFyZSByZXNwZWN0ZWQsIGdhcHMgaW5jbHVkZWQgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgZ2FwcGVkID0gcnVuKFt0YXNrKCJhIiwgMyldLCB3b3JrZXJzPTEsIHdpbmRvd3M9KCgwLCAyKSwgKDQsIDEwKSkpCiAgICBjaGVjayhwbGFjZWQoZ2FwcGVkKSA9PSBbKCJhIiwgNCwgNyldLCBmImdhcHBlZCBwbGFjZW1lbnQge3BsYWNlZChnYXBwZWQpfSIpCgogICAgdG9vX2xvbmcgPSBydW4oW3Rhc2soImEiLCA1KV0sIHdvcmtlcnM9MSwgd2luZG93cz0oKDAsIDQpLCkpCiAgICBjaGVjayh0b29fbG9uZy5zdGF0dXMgaXMgUGxhblN0YXR1cy5QQVJUSUFMLCAiYSB0YXNrIHRoYXQgbmV2ZXIgZml0cyBtYWtlcyB0aGUgcGxhbiBwYXJ0aWFsIikKICAgIGNoZWNrKHJlYXNvbnModG9vX2xvbmcpID09IFsibm9fYXZhaWxhYmxlX3dpbmRvdyJdLCBmInRvbyBsb25nIHJlYXNvbiB7cmVhc29ucyh0b29fbG9uZyl9IikKICAgIGNoZWNrKAogICAgICAgIHJlbmRlcl9wbGFuKHRvb19sb25nKSA9PSAicGxhbiBwYXJ0aWFsIG1ha2VzcGFuPTBcbnVuc2NoZWR1bGFibGUgYVxuIiwKICAgICAgICAidW5zY2hlZHVsYWJsZSB0ZXh0IGZvcm0iLAogICAgKQoKICAgICMgLS0gNy4gY2xhc3NpZmljYXRpb24gYW5kIHByZWNlZGVuY2UgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KICAgIG92ZXIgPSBydW4oW3Rhc2soImEiLCAxLCBkZW1hbmQ9eyJ3b3JrZXJzIjogM30pLCB0YXNrKCJiIiwgMSwgZGVwZW5kc19vbj0oImEiLCkpXSwgd29ya2Vycz0yKQogICAgY2hlY2sob3Zlci51bnNjaGVkdWxhYmxlX2lkcygpID09ICgiYSIsICJiIiksIGYib3ZlciBjYXBhY2l0eSBpZHMge292ZXIudW5zY2hlZHVsYWJsZV9pZHMoKX0iKQogICAgY2hlY2soCiAgICAgICAgcmVhc29ucyhvdmVyKSA9PSBbImRlbWFuZF9leGNlZWRzX2NhcGFjaXR5IiwgImRlcGVuZGVuY3lfdW5zY2hlZHVsYWJsZSJdLAogICAgICAgIGYib3ZlciBjYXBhY2l0eSByZWFzb25zIHtyZWFzb25zKG92ZXIpfSIsCiAgICApCiAgICBjaGVjayhvdmVyLnNjaGVkdWxlZF9pZHMoKSA9PSAoKSwgIm5vdGhpbmcgaXMgc2NoZWR1bGVkIHdoZW4gZXZlcnl0aGluZyBpcyBibG9ja2VkIikKCiAgICB1bmtub3duID0gcnVuKFt0YXNrKCJhIiwgMSwgZGVtYW5kPXsibWVtb3J5IjogMX0pXSwgd29ya2Vycz0xKQogICAgY2hlY2socmVhc29ucyh1bmtub3duKSA9PSBbInVua25vd25fcmVzb3VyY2UiXSwgZiJ1bmtub3duIHJlc291cmNlIHJlYXNvbiB7cmVhc29ucyh1bmtub3duKX0iKQoKICAgICMgcHJlY2VkZW5jZTogYSBibG9ja2VkIGRlcGVuZGVuY3kgd2lucyBvdmVyIHRoZSB0YXNrJ3Mgb3duIGltcG9zc2libGUgZGVtYW5kCiAgICBwcmVjZWRlbmNlID0gcnVuKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygiYSIsIDEsIGRlbWFuZD17IndvcmtlcnMiOiA5fSksCiAgICAgICAgICAgIHRhc2soImIiLCAxLCBkZXBlbmRzX29uPSgiYSIsKSwgZGVtYW5kPXsid29ya2VycyI6IDl9KSwKICAgICAgICBdLAogICAgICAgIHdvcmtlcnM9MSwKICAgICkKICAgIGNoZWNrKAogICAgICAgIHJlYXNvbnMocHJlY2VkZW5jZSkgPT0gWyJkZW1hbmRfZXhjZWVkc19jYXBhY2l0eSIsICJkZXBlbmRlbmN5X3Vuc2NoZWR1bGFibGUiXSwKICAgICAgICBmInByZWNlZGVuY2UgcmVhc29ucyB7cmVhc29ucyhwcmVjZWRlbmNlKX0iLAogICAgKQoKICAgICMgYSBibG9ja2VkIHRhc2sgYmxvY2tzIGl0cyB3aG9sZSBjaGFpbiwgbm90IG9ubHkgaXRzIGRpcmVjdCBkZXBlbmRlbnRzCiAgICBjYXNjYWRlID0gcnVuKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygiYSIsIDEsIGRlbWFuZD17IndvcmtlcnMiOiA5fSksCiAgICAgICAgICAgIHRhc2soImIiLCAxLCBkZXBlbmRzX29uPSgiYSIsKSksCiAgICAgICAgICAgIHRhc2soImMiLCAxLCBkZXBlbmRzX29uPSgiYiIsKSksCiAgICAgICAgXSwKICAgICAgICB3b3JrZXJzPTEsCiAgICApCiAgICBjaGVjaygKICAgICAgICBjYXNjYWRlLnVuc2NoZWR1bGFibGVfaWRzKCkgPT0gKCJhIiwgImIiLCAiYyIpLCBmImNhc2NhZGUgaWRzIHtjYXNjYWRlLnVuc2NoZWR1bGFibGVfaWRzKCl9IgogICAgKQogICAgY2hlY2soCiAgICAgICAgcmVhc29ucyhjYXNjYWRlKQogICAgICAgID09IFsiZGVtYW5kX2V4Y2VlZHNfY2FwYWNpdHkiLCAiZGVwZW5kZW5jeV91bnNjaGVkdWxhYmxlIiwgImRlcGVuZGVuY3lfdW5zY2hlZHVsYWJsZSJdLAogICAgICAgIGYiY2FzY2FkZSByZWFzb25zIHtyZWFzb25zKGNhc2NhZGUpfSIsCiAgICApCgogICAgIyAtLSA4LiBicm9rZW4gZ3JhcGhzIHN0YXkgZXhjZXB0aW9ucyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgY3ljbGljID0gWwogICAgICAgIHRhc2soImEiLCAxLCBkZXBlbmRzX29uPSgiYyIsKSksCiAgICAgICAgdGFzaygiYiIsIDEsIGRlcGVuZHNfb249KCJhIiwpKSwKICAgICAgICB0YXNrKCJjIiwgMSwgZGVwZW5kc19vbj0oImIiLCkpLAogICAgXQogICAgdHJ5OgogICAgICAgIHJ1bihjeWNsaWMpCiAgICAgICAgY2hlY2soRmFsc2UsICJhIGN5Y2xlIHdhcyB0dXJuZWQgaW50byBhIHBsYW4gaW5zdGVhZCBvZiBhbiBleGNlcHRpb24iKQogICAgZXhjZXB0IEN5Y2xlRGV0ZWN0ZWRFcnJvcjoKICAgICAgICBwYXNzCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGVycm9yOiAgIyBub3FhOiBCTEUwMDEgLSB0aGUgcG9pbnQgaXMgdGhlIHR5cGUKICAgICAgICBjaGVjayhGYWxzZSwgZiJhIGN5Y2xlIHJhaXNlZCB7dHlwZShlcnJvcikuX19uYW1lX199IikKCiAgICBkYW5nbGluZyA9IFt0YXNrKCJhIiwgMSwgZGVwZW5kc19vbj0oImdob3N0IiwpKV0KICAgIHRyeToKICAgICAgICBydW4oZGFuZ2xpbmcpCiAgICAgICAgY2hlY2soRmFsc2UsICJhbiB1bmtub3duIGRlcGVuZGVuY3kgd2FzIHR1cm5lZCBpbnRvIGEgcGxhbiIpCiAgICBleGNlcHQgVW5rbm93bkRlcGVuZGVuY3lFcnJvcjoKICAgICAgICBwYXNzCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGVycm9yOiAgIyBub3FhOiBCTEUwMDEKICAgICAgICBjaGVjayhGYWxzZSwgZiJhbiB1bmtub3duIGRlcGVuZGVuY3kgcmFpc2VkIHt0eXBlKGVycm9yKS5fX25hbWVfX30iKQoKICAgICMgLS0gOS4gZGV0ZXJtaW5pc20sIGNhbm9uaWNhbCBmb3JtLCBpbW11dGFiaWxpdHkgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAgICB0YXNrcyA9IFsKICAgICAgICB0YXNrKCJiIiwgMSwgZGVwZW5kc19vbj0oImEiLCksIGRlbWFuZD17IndvcmtlcnMiOiAxfSksCiAgICAgICAgdGFzaygiYSIsIDIsIGRlbWFuZD17IndvcmtlcnMiOiAxfSksCiAgICAgICAgdGFzaygiYyIsIDEpLAogICAgXQogICAgZnJvbSB3b3JrZ3JpZC5kZXBlbmRlbmNpZXMgaW1wb3J0IGJ1aWxkX2dyYXBoCgogICAgZmlyc3RfZ3JhcGggPSBidWlsZF9ncmFwaCh0YXNrcykKICAgIGJlZm9yZV9ub2RlcyA9IGRpY3QoZmlyc3RfZ3JhcGgubm9kZXMpCiAgICBmaXJzdCA9IGJ1aWxkX3NjaGVkdWxlKGZpcnN0X2dyYXBoLCBjb25zdHJhaW50cyh3b3JrZXJzPTEpKQogICAgc2Vjb25kID0gYnVpbGRfc2NoZWR1bGUoYnVpbGRfZ3JhcGgobGlzdChyZXZlcnNlZCh0YXNrcykpKSwgY29uc3RyYWludHMod29ya2Vycz0xKSkKICAgIGNoZWNrKGZpcnN0LnRvX2RpY3QoKSA9PSBzZWNvbmQudG9fZGljdCgpLCAidGhlIHBsYW4gZGVwZW5kcyBvbiB0YXNrIGRlY2xhcmF0aW9uIG9yZGVyIikKICAgIGNoZWNrKGRpY3QoZmlyc3RfZ3JhcGgubm9kZXMpID09IGJlZm9yZV9ub2RlcywgInRoZSBncmFwaCB3YXMgbXV0YXRlZCBieSBzY2hlZHVsaW5nIikKICAgIGNoZWNrKAogICAgICAgIGJ1aWxkX3NjaGVkdWxlKGZpcnN0X2dyYXBoLCBjb25zdHJhaW50cyh3b3JrZXJzPTEpKS50b19kaWN0KCkgPT0gZmlyc3QudG9fZGljdCgpLAogICAgICAgICJ0d28gcnVucyBvZiBvbmUgZ3JhcGggZGlzYWdyZWUiLAogICAgKQoKICAgIGRvY3VtZW50ID0gZmlyc3QudG9fZGljdCgpCiAgICBjaGVjaygKICAgICAgICBsaXN0KGRvY3VtZW50KSA9PSBbInN0YXR1cyIsICJtYWtlc3BhbiIsICJzdW1tYXJ5IiwgInBlYWtfdXNhZ2UiLCAidGFza3MiLCAidW5zY2hlZHVsYWJsZSJdLAogICAgICAgIGYiY2Fub25pY2FsIGtleSBvcmRlciB7bGlzdChkb2N1bWVudCl9IiwKICAgICkKICAgIGNoZWNrKAogICAgICAgIGpzb24uZHVtcHMoZG9jdW1lbnQsIHNvcnRfa2V5cz1UcnVlKSA9PSBqc29uLmR1bXBzKGZpcnN0LnRvX2RpY3QoKSwgc29ydF9rZXlzPVRydWUpLAogICAgICAgICJ0aGUgZGljdCBmb3JtIGlzIG5vdCBzdGFibGUiLAogICAgKQogICAgY2hlY2soCiAgICAgICAgW2l0ZW1bInRhc2tfaWQiXSBmb3IgaXRlbSBpbiBkb2N1bWVudFsidGFza3MiXV0gPT0gWyJhIiwgImMiLCAiYiJdLAogICAgICAgIGYiY2Fub25pY2FsIHRhc2sgb3JkZXIge1tpdGVtWyd0YXNrX2lkJ10gZm9yIGl0ZW0gaW4gZG9jdW1lbnRbJ3Rhc2tzJ11dfSIsCiAgICApCiAgICBjaGVjaygKICAgICAgICBhbGwobGlzdChpdGVtWyJ1bml0cyJdKSA9PSBzb3J0ZWQoaXRlbVsidW5pdHMiXSkgZm9yIGl0ZW0gaW4gZG9jdW1lbnRbInRhc2tzIl0pLAogICAgICAgICJ1bml0cyBhcmUgbm90IHNvcnRlZCBpbiB0aGUgZGljdCBmb3JtIiwKICAgICkKCiAgICB0ZXh0ID0gcmVuZGVyX3BsYW4oZmlyc3QpCiAgICBjaGVjayh0ZXh0LmVuZHN3aXRoKCJcbiIpIGFuZCBub3QgdGV4dC5lbmRzd2l0aCgiXG5cbiIpLCAidGV4dCBmb3JtIG11c3QgZW5kIHdpdGggb25lIG5ld2xpbmUiKQogICAgY2hlY2sodGV4dC5zcGxpdGxpbmVzKClbMF0gPT0gZiJwbGFuIHNjaGVkdWxlZCBtYWtlc3Bhbj17Zmlyc3QubWFrZXNwYW59IiwgInRleHQgaGVhZGVyIikKCiAgICAjIC0tIDEwLiB0aGUgc2hpcHBlZCBzYW1wbGUgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAgICBzYW1wbGUgPSBwYXRobGliLlBhdGgoInNhbXBsZXMvcGxhbi5qc29uIikKICAgIGRvY3VtZW50ID0ganNvbi5sb2FkcyhzYW1wbGUucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpKQogICAgZnJvbSB3b3JrZ3JpZC5yZXNvdXJjZXMgaW1wb3J0ICgKICAgICAgICBBdmFpbGFiaWxpdHlXaW5kb3csCiAgICAgICAgQ2FsZW5kYXIsCiAgICAgICAgUG9vbFNldCwKICAgICAgICBSZXNvdXJjZUNvbnN0cmFpbnRzLAogICAgICAgIFJlc291cmNlUG9vbCwKICAgICkKCiAgICBncmFwaCA9IGJ1aWxkX2dyYXBoKAogICAgICAgIFsKICAgICAgICAgICAgdGFzaygKICAgICAgICAgICAgICAgIHJhd1siaWQiXSwKICAgICAgICAgICAgICAgIHJhd1siZHVyYXRpb24iXSwKICAgICAgICAgICAgICAgIHJhdy5nZXQoImRlcGVuZHNfb24iKSBvciAoKSwKICAgICAgICAgICAgICAgIHJhdy5nZXQoImRlbWFuZCIpIG9yIHt9LAogICAgICAgICAgICApCiAgICAgICAgICAgIGZvciByYXcgaW4gZG9jdW1lbnRbInRhc2tzIl0KICAgICAgICBdCiAgICApCiAgICBwb29scyA9IFBvb2xTZXQodHVwbGUoUmVzb3VyY2VQb29sKHJhd1sibmFtZSJdLCByYXdbImNhcGFjaXR5Il0pIGZvciByYXcgaW4gZG9jdW1lbnRbInBvb2xzIl0pKQogICAgY2FsZW5kYXIgPSBDYWxlbmRhcigKICAgICAgICB0dXBsZShBdmFpbGFiaWxpdHlXaW5kb3cocmF3WyJzdGFydCJdLCByYXdbImVuZCJdKSBmb3IgcmF3IGluIGRvY3VtZW50WyJ3aW5kb3dzIl0pCiAgICApCiAgICBzYW1wbGVfcGxhbiA9IGJ1aWxkX3NjaGVkdWxlKGdyYXBoLCBSZXNvdXJjZUNvbnN0cmFpbnRzKHBvb2xzPXBvb2xzLCBjYWxlbmRhcj1jYWxlbmRhcikpCiAgICBjaGVjayhzYW1wbGVfcGxhbi5zdGF0dXMgaXMgUGxhblN0YXR1cy5TQ0hFRFVMRUQsIGYic2FtcGxlIHN0YXR1cyB7c3RyKHNhbXBsZV9wbGFuLnN0YXR1cyl9IikKICAgIGNoZWNrKAogICAgICAgIHBsYWNlZChzYW1wbGVfcGxhbikKICAgICAgICA9PSBbCiAgICAgICAgICAgICgiYnVpbGQtYSIsIDAsIDIpLAogICAgICAgICAgICAoImJ1aWxkLWIiLCAwLCAyKSwKICAgICAgICAgICAgKCJ0ZXN0LWEiLCAyLCA0KSwKICAgICAgICAgICAgKCJ0ZXN0LWIiLCAyLCAzKSwKICAgICAgICAgICAgKCJwYWNrYWdlIiwgNiwgOCksCiAgICAgICAgXSwKICAgICAgICBmInNhbXBsZSBwbGFjZW1lbnQge3BsYWNlZChzYW1wbGVfcGxhbil9IiwKICAgICkKICAgIGNoZWNrKHNhbXBsZV9wbGFuLm1ha2VzcGFuID09IDgsICJzYW1wbGUgbWFrZXNwYW4iKQogICAgY2hlY2soZGljdChzYW1wbGVfcGxhbi5wZWFrX3VzYWdlKSA9PSB7ImdwdSI6IDEsICJ3b3JrZXJzIjogMn0sICJzYW1wbGUgcGVhayB1c2FnZSIpCiAgICBjaGVjaygKICAgICAgICBkaWN0KHNhbXBsZV9wbGFuLnN1bW1hcnkpCiAgICAgICAgPT0gewogICAgICAgICAgICAibWFrZXNwYW4iOiA4LAogICAgICAgICAgICAic2NoZWR1bGVkIjogNSwKICAgICAgICAgICAgInRhc2tzIjogNSwKICAgICAgICAgICAgInVuc2NoZWR1bGFibGUiOiAwLAogICAgICAgICAgICAidXNhYmxlX3Nsb3RzIjogOCwKICAgICAgICB9LAogICAgICAgIGYic2FtcGxlIHN1bW1hcnkge2RpY3Qoc2FtcGxlX3BsYW4uc3VtbWFyeSl9IiwKICAgICkKCiAgICBpZiBGQUlMVVJFUzoKICAgICAgICBmb3IgZmFpbHVyZSBpbiBGQUlMVVJFUzoKICAgICAgICAgICAgcHJpbnQoZiJGQUlMIHtmYWlsdXJlfSIpCiAgICAgICAgcHJpbnQoIkhJRERFTl9GQUlMIikKICAgICAgICByZXR1cm4gMQogICAgcHJpbnQoIkhJRERFTl9PSyIpCiAgICByZXR1cm4gMAoKCmlmIF9fbmFtZV9fID09ICJfX21haW5fXyI6CiAgICB0cnk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdChtYWluKCkpCiAgICBleGNlcHQgU3lzdGVtRXhpdDoKICAgICAgICByYWlzZQogICAgZXhjZXB0IEJhc2VFeGNlcHRpb246ICAjIG5vcWE6IEJMRTAwMSAtIGFueSBjcmFzaCBpcyBhIGZhaWxlZCBhY2NlcHRhbmNlCiAgICAgICAgdHJhY2ViYWNrLnByaW50X2V4YygpCiAgICAgICAgcHJpbnQoIkhJRERFTl9GQUlMIikKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KDEpIGZyb20gTm9uZQo=').decode())\"",
+      "cwd": "/workspace/project",
+      "elapsed_ms": 1451.803,
+      "exit_code": 0,
+      "ok": true,
+      "status": "PASS",
+      "stderr_chars": 0,
+      "stdout_chars": 108,
+      "stdout_digest": "sha256:b41581ee13266836bfc05d6c3f820931798c7fb681acdd807e8b53110bfc3669"
+    },
+    "snapshot": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s2-live\\runs\\stage-s2-20261119T103641Z\\workspace",
+    "spec_digest": "sha256:7eb900d1dfb05f87e219d1bd227befdbaa798a63e6743bb3b77f0c8f0e12a9e2",
+    "spec_id": "stage-s2-workgrid",
+    "static": {
+      "artifact_digest": "sha256:9b2d65f1507db19ad8a1f592b79a1c859a981fd5af619add93b76e00a09c5489",
+      "deliverable_presence": "PASS",
+      "deliverable_type": "python-package",
+      "dynamic_mode": "unavailable",
+      "error": null,
+      "findings": [
+        {
+          "artifact": "workgrid/scheduler/engine.py",
+          "category": "PRESENCE",
+          "check_id": "engine-present",
+          "detail": "",
+          "evidence_digest": "sha256:e624cc3f2f227fb01999fe13227f2f46160ba1b1b9f79e4a8f44961dc379e566",
+          "reason_code": "OK",
+          "status": "PASS"
+        },
+        {
+          "artifact": "workgrid/scheduler/report.py",
+          "category": "PRESENCE",
+          "check_id": "report-present",
+          "detail": "",
+          "evidence_digest": "sha256:81fbbdafa663014b649ffdf9d98119c44750421e1f1a4507aa2b48fc3399d67f",
+          "reason_code": "OK",
+          "status": "PASS"
+        },
+        {
+          "artifact": "workgrid/scheduler/engine.py",
+          "category": "STRUCTURE",
+          "check_id": "engine-parses",
+          "detail": "",
+          "evidence_digest": "sha256:acac9d1f41592757392ee24c5641292f183e7de7c9217d0c2e912d8460a59fef",
+          "reason_code": "OK",
+          "status": "PASS"
+        },
+        {
+          "artifact": "workgrid/scheduler/report.py",
+          "category": "STRUCTURE",
+          "check_id": "report-parses",
+          "detail": "",
+          "evidence_digest": "sha256:71f53c0611680635c9be96379875b3be404193128538e5865e42fd89d143ea80",
+          "reason_code": "OK",
+          "status": "PASS"
+        }
+      ],
+      "integration_status": "NOT_APPLICABLE",
+      "public_contract_status": "NOT_APPLICABLE",
+      "sandbox_cost_usd": null,
+      "spec_digest": "sha256:7eb900d1dfb05f87e219d1bd227befdbaa798a63e6743bb3b77f0c8f0e12a9e2",
+      "spec_id": "stage-s2-workgrid",
+      "spec_version": "1.0.0",
+      "structural_validity": "NOT_APPLICABLE",
+      "verification_cpu_ms": 0.0,
+      "verification_overall": "PASS",
+      "verification_wall_ms": 7.621
+    },
+    "static_status": "PASS",
+    "verdict": "PASS"
+  }
+}

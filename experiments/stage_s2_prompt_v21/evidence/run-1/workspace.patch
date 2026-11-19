@@ -1,0 +1,140 @@
+diff --git a/workgrid/scheduler/engine.py b/workgrid/scheduler/engine.py
+index 5e4a8d8..2938ff4 100644
+--- a/workgrid/scheduler/engine.py
++++ b/workgrid/scheduler/engine.py
+@@ -34,11 +34,113 @@ before any placement happens, and must propagate unchanged.
+ from __future__ import annotations
+ 
+ from workgrid.dependencies.graph import TaskGraph
+-from workgrid.resources.constraints import ResourceConstraints
+-from workgrid.scheduler.contracts import SchedulePlan
++from workgrid.dependencies.ordering import topological_order
++from workgrid.resources.capacity import TaskDemand, build_demand
++from workgrid.resources.constraints import Placement, ResourceConstraints
++from workgrid.resources.errors import DemandExceedsCapacityError, UnknownResourceError
++from workgrid.scheduler.contracts import (
++    ReasonCode,
++    ScheduledTask,
++    SchedulePlan,
++    UnschedulableTask,
++    build_plan,
++)
++
++#: Reason code for each demand error the resource package can raise.
++_DEMAND_REASONS: dict[type[Exception], ReasonCode] = {
++    DemandExceedsCapacityError: ReasonCode.DEMAND_EXCEEDS_CAPACITY,
++    UnknownResourceError: ReasonCode.UNKNOWN_RESOURCE,
++}
+ 
+ 
+ def build_schedule(graph: TaskGraph, constraints: ResourceConstraints) -> SchedulePlan:
+     """Place every task that can be placed, or report why it cannot be."""
+ 
+-    raise NotImplementedError("the scheduling engine is not implemented yet")
++    # Resolving the order validates references and acyclicity first, so a broken graph raises
++    # before anything is placed and the error propagates unchanged.
++    order = topological_order(graph)
++
++    placed: list[Placement] = []
++    scheduled: list[ScheduledTask] = []
++    blocked: list[UnschedulableTask] = []
++    blocked_ids: set[str] = set()
++    finished: dict[str, int] = {}
++
++    for task_id in order:
++        node = graph.node(task_id)
++        demand = build_demand(task_id, node.demand)
++
++        # 2. A dependency that could not be placed blocks this task outright.
++        missing = sorted(parent for parent in node.depends_on if parent in blocked_ids)
++        if missing:
++            blocked.append(
++                UnschedulableTask(
++                    task_id=task_id,
++                    reason=ReasonCode.DEPENDENCY_UNSCHEDULABLE,
++                    detail="depends on unschedulable task(s): " + ", ".join(missing),
++                )
++            )
++            blocked_ids.add(task_id)
++            continue
++
++        # 3. Demand that can never be satisfied is reported, not raised.
++        try:
++            constraints.validate_demand(demand)
++        except (DemandExceedsCapacityError, UnknownResourceError) as exc:
++            blocked.append(
++                UnschedulableTask(
++                    task_id=task_id,
++                    reason=_DEMAND_REASONS[type(exc)],
++                    detail=exc.message,
++                )
++            )
++            blocked_ids.add(task_id)
++            continue
++
++        # 4. Place at the first open, uncrowded candidate at or after the dependencies end.
++        ready = max((finished[parent] for parent in node.depends_on), default=0)
++        start = _place(constraints, ready, node.duration, demand, placed)
++        if start is None:
++            blocked.append(
++                UnschedulableTask(
++                    task_id=task_id,
++                    reason=ReasonCode.NO_AVAILABLE_WINDOW,
++                    detail=(
++                        f"no {node.duration}-slot window at or after slot {ready} "
++                        "has enough free capacity"
++                    ),
++                )
++            )
++            blocked_ids.add(task_id)
++            continue
++
++        end = start + node.duration
++        units = {name: int(demand.units[name]) for name in demand.units}
++        placed.append((start, end, units))
++        scheduled.append(ScheduledTask(task_id=task_id, start=start, end=end, units=units))
++        finished[task_id] = end
++
++    # 5. Report through the published builder so status, order and summary stay canonical.
++    return build_plan(
++        scheduled,
++        blocked,
++        peak_usage=constraints.peak_usage(placed),
++        summary={"usable_slots": constraints.calendar.usable_slots()},
++    )
++
++
++def _place(
++    constraints: ResourceConstraints,
++    ready: int,
++    duration: int,
++    demand: TaskDemand,
++    placed: list[Placement],
++) -> int | None:
++    """The first candidate start at or after ``ready`` where ``demand`` fits, or ``None``."""
++
++    candidate = constraints.earliest_start(ready, duration)
++    while candidate is not None:
++        if constraints.fits_at(candidate, duration, demand, placed):
++            return candidate
++        candidate = constraints.earliest_start(candidate + 1, duration)
++    return None
+diff --git a/workgrid/scheduler/report.py b/workgrid/scheduler/report.py
+index 99f8711..4401bab 100644
+--- a/workgrid/scheduler/report.py
++++ b/workgrid/scheduler/report.py
+@@ -28,4 +28,13 @@ from workgrid.scheduler.contracts import SchedulePlan
+ def render_plan(plan: SchedulePlan) -> str:
+     """Return the deterministic text form described in the module docstring."""
+ 
+-    raise NotImplementedError("render_plan is not implemented yet")
++    lines = [f"plan {plan.status} makespan={plan.makespan}"]
++    for task in plan.tasks:
++        resources = ",".join(
++            f"{name}={int(task.units[name])}" for name in sorted(task.units)
++        )
++        lines.append(f"{task.start:04d}-{task.end:04d} {task.task_id} {resources or '-'}")
++    blocked_ids = sorted(item.task_id for item in plan.unschedulable)
++    if blocked_ids:
++        lines.append("unschedulable " + ",".join(blocked_ids))
++    return "\n".join(lines) + "\n"
