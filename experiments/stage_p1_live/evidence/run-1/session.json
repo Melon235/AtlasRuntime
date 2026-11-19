@@ -1,0 +1,572 @@
+{
+  "run_id": "stage-p1-live-20261119T045534Z",
+  "mode": "main_driven",
+  "goal": "The calculator project under this workspace is missing subtract(a, b) in app/calc.py; the public test suite expects it and currently fails. Three modules take part (app/calc.py, app/text.py, app/units.py) and app/units.py builds on app/calc.py, so check what each module provides and what would break before you change anything. Implement subtract without changing the existing public behaviour, and use the public test suite to check the result.",
+  "run_dir": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs\\stage-p1-live-20261119T045534Z",
+  "workspace_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs\\host-workspace",
+  "workspace_tool_root": "/workspace/project",
+  "isolation": "sandbox",
+  "provider": "deepseek",
+  "model": "deepseek-chat",
+  "status": "succeeded",
+  "execution_succeeded": true,
+  "failure": null,
+  "main": {
+    "agent": "atlas-main",
+    "worker_id": "stage-p1-live-20261119T045534Z-main-worker",
+    "task_id": "stage-p1-live-20261119T045534Z-main",
+    "success": true,
+    "stop_reason": "success",
+    "stop_message": "Run completed successfully.",
+    "turns": 10,
+    "tool_calls": [
+      "list_files",
+      "bash",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "bash",
+      "bash",
+      "grep",
+      "bash",
+      "run_public_tests",
+      "file_edit",
+      "file_read",
+      "run_public_tests",
+      "bash"
+    ],
+    "output": "Done. The goal is met.\n\n## What I inspected first\n\n| Module | Provides | Impact of the change |\n|---|---|---|\n| `app/calc.py` | `add(a, b)` (only) | **Target of the change** \u2014 `subtract` was missing |\n| `app/text.py` | `normalize(value)` | Unrelated; no imports from `calc`, untouched |\n| `app/units.py` | `GRAMS_PER_KILOGRAM`, `to_grams`, `total_grams` | Builds on `calc` via `from app.calc import add` \u2014 it binds only `add` at import time |\n\nConclusion before editing: `app/units.py` only depends on `add`, so an **additive** change to `calc.py` (appending a new function, leaving `add` byte-identical) could not break it. Changing `add`'s signature/semantics or renaming anything would have broken `total_grams` \u2192 `add(*kilograms)`. So the change was kept purely additive.\n\n## The change (`app/calc.py`)\n\n```python\ndef subtract(a, b):\n    \"\"\"Return the difference of two numbers.\"\"\"\n    return a - b\n```\n\n`git diff` confirms this is the only modification in the repo: 5 added lines, zero deletions \u2014 `add`, `normalize`, `to_grams`, `total_grams` and `GRAMS_PER_KILOGRAM` are untouched.\n\n## Verification\n\n- **Baseline (before):** collection `ImportError: cannot import name 'subtract' from 'app.calc'` \u2014 suite failed with exit code 2.\n- **After:** public suite output was `.... 4 passed in 0.01s`, exit code 0. All four tests pass: `test_add`, `test_subtract` (`subtract(9, 4) == 5`, `subtract(0, 0) == 0`), `test_normalize`, and `test_units` (which transitively exercises `add` through `total_grams`).\n\nNo delegation was needed \u2014 the task was small and entirely dependent on reading three short files, so splitting it would have added coordination cost without parallelism.",
+    "requests": 10,
+    "prompt_tokens": 5428,
+    "total_prompt_tokens": 43316,
+    "cache_hit_tokens": 37888,
+    "cache_miss_tokens": 5428,
+    "completion_tokens": 1382,
+    "peak_context_tokens": 5582,
+    "context_tokens_by_request": [
+      2762,
+      2957,
+      3810,
+      3934,
+      4145,
+      4586,
+      4950,
+      5160,
+      5430,
+      5582
+    ]
+  },
+  "delegation": {
+    "run_id": "stage-p1-live-20261119T045534Z",
+    "enabled": true,
+    "limits": {
+      "max_parallel_children": 2,
+      "max_children_per_call": 2,
+      "max_delegation_rounds": 4,
+      "child_timeout_seconds": 300.0,
+      "child_max_turns": 6,
+      "result_preview_chars": 900
+    },
+    "batches": [],
+    "totals": {
+      "children_started": 0,
+      "children_completed": 0,
+      "children_failed": 0,
+      "children_timed_out": 0,
+      "children_cancelled": 0,
+      "prompt_tokens": 0,
+      "total_prompt_tokens": 0,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 0,
+      "completion_tokens": 0
+    },
+    "started_at": null,
+    "finished_at": "2026-11-19T04:56:17.007535Z"
+  },
+  "delegation_enabled": true,
+  "child_tokens": {
+    "children_started": 0,
+    "children_completed": 0,
+    "children_failed": 0,
+    "children_timed_out": 0,
+    "children_cancelled": 0,
+    "prompt_tokens": 0,
+    "total_prompt_tokens": 0,
+    "cache_hit_tokens": 0,
+    "cache_miss_tokens": 0,
+    "completion_tokens": 0
+  },
+  "metrics": {
+    "main_requests": 10,
+    "main_peak_context_tokens": 5582,
+    "main_cumulative_input_tokens": 43316,
+    "main_context_tokens_by_request": [
+      2762,
+      2957,
+      3810,
+      3934,
+      4145,
+      4586,
+      4950,
+      5160,
+      5430,
+      5582
+    ],
+    "main_cache_hit_tokens": 37888,
+    "main_cache_miss_tokens": 5428,
+    "main_completion_tokens": 1382,
+    "child_total_prompt_tokens": 0,
+    "child_completion_tokens": 0,
+    "system_total_tokens": 44698,
+    "handoff_payload_chars": 0,
+    "delegation_rounds": 0,
+    "max_observed_child_concurrency": 0,
+    "unavailable_fields": []
+  },
+  "sandbox": {
+    "provider": "opensandbox",
+    "provider_is_real": true,
+    "capabilities": {
+      "provider": "opensandbox",
+      "contract_version": "1.0",
+      "isolation": "container",
+      "networking": "allowlist",
+      "persistent_filesystem": true,
+      "snapshots": false,
+      "command_streaming": false,
+      "cancellation": true,
+      "file_transfer": true,
+      "evidence": true,
+      "limitations": [
+        "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+        "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+        "Point-in-time snapshots are not exposed through this adapter.",
+        "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+      ]
+    },
+    "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+    "binding_id": "348daaadbad7e2cc2dc06f9d9e640c2fece558b22818f3b6a567feddd00ef131",
+    "sandbox_id": "b5d0e9fb-33a8-454a-84e6-53eb3c64b1c8",
+    "binding_state": "READY",
+    "workspace_root": "/workspace/project",
+    "network_probe": "PASS",
+    "host_separation": {
+      "host_only_visible": false,
+      "sandbox_only_visible_on_host": false,
+      "sandbox_only_read_back": true
+    },
+    "provision_commands": 4,
+    "provision_uploads": 1,
+    "created": true,
+    "destroyed": true,
+    "retained": false,
+    "patch_digest": "sha256:efe63a9e944fba0b8e2ffbfbc2f524444cabc7d9582dcb52da5eaea9dd06b367",
+    "patch_changed_files": 1,
+    "export_digest": "sha256:d9d8c121993cc1a3286db9dc7b289125bad14436daf3bc00e1ba09a53845fe15",
+    "export_files": 7,
+    "export_size_bytes": 20480,
+    "check_runs": 3,
+    "error": null
+  },
+  "artifacts": {
+    "patch_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs\\stage-p1-live-20261119T045534Z\\workspace.patch",
+    "patch_digest": "sha256:efe63a9e944fba0b8e2ffbfbc2f524444cabc7d9582dcb52da5eaea9dd06b367",
+    "patch_changed_files": 1,
+    "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs\\stage-p1-live-20261119T045534Z\\workspace",
+    "workspace_digest": "sha256:d9d8c121993cc1a3286db9dc7b289125bad14436daf3bc00e1ba09a53845fe15",
+    "workspace_files": 7,
+    "workspace_size_bytes": 20480
+  },
+  "verification": {
+    "verdict": "PASS",
+    "spec_id": "stage-p1-calculator",
+    "spec_digest": "sha256:5327e9961bc5b029f7582049e40194924766b7374d7d3f6963fda27dc3c8ea2f",
+    "static_status": "PASS",
+    "static": {
+      "spec_id": "stage-p1-calculator",
+      "spec_version": "1.0.0",
+      "spec_digest": "sha256:5327e9961bc5b029f7582049e40194924766b7374d7d3f6963fda27dc3c8ea2f",
+      "deliverable_type": "python-package",
+      "artifact_digest": "sha256:48e8368e46ac45214bf6897e05c29d39764e89338bb71ffd28f7699a8e06d619",
+      "dynamic_mode": "unavailable",
+      "verification_wall_ms": 2.425,
+      "verification_cpu_ms": 0.0,
+      "sandbox_cost_usd": null,
+      "error": null,
+      "deliverable_presence": "PASS",
+      "structural_validity": "NOT_APPLICABLE",
+      "public_contract_status": "NOT_APPLICABLE",
+      "integration_status": "NOT_APPLICABLE",
+      "verification_overall": "PASS",
+      "findings": [
+        {
+          "check_id": "calc-present",
+          "category": "PRESENCE",
+          "status": "PASS",
+          "reason_code": "OK",
+          "artifact": "app/calc.py",
+          "detail": "",
+          "evidence_digest": "sha256:e4a123e2deeaae92760bd0810ddb84df0d8045dafb7d05e0e487614f48c5b0ae"
+        },
+        {
+          "check_id": "units-present",
+          "category": "PRESENCE",
+          "status": "PASS",
+          "reason_code": "OK",
+          "artifact": "app/units.py",
+          "detail": "",
+          "evidence_digest": "sha256:46a99921bb0a7aa7b6ee5c3a5ee04f56118d9a6444f156bb26efb47f38d31098"
+        }
+      ]
+    },
+    "dynamic": {
+      "status": "PASS",
+      "command": "python3 -m pytest -q && python3 -c \"from app.calc import add, subtract; from app.text import normalize; from app.units import GRAMS_PER_KILOGRAM, total_grams; assert add(2, 3) == 5; assert subtract(9, 4) == 5; assert subtract(0, 0) == 0; assert subtract(-3, -1) == -2; assert normalize('  a  ') == 'a'; assert GRAMS_PER_KILOGRAM == 1000; assert total_grams(1, 2) == 3000; print('HIDDEN_OK')\"",
+      "cwd": "/workspace/project",
+      "ok": true,
+      "exit_code": 0,
+      "stdout_digest": "sha256:ed84fdc01c5f88b136c86a9a509bb554b685317e47878ccb57c12f4dd98736af",
+      "stdout_chars": 105,
+      "stderr_chars": 0,
+      "elapsed_ms": 1315.889
+    },
+    "snapshot": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs\\stage-p1-live-20261119T045534Z\\workspace"
+  },
+  "acceptance": "PASS",
+  "public_tests": {
+    "contract": {
+      "test_id": "public",
+      "command": "python3 -B -m pytest -q tests/test_public.py",
+      "timeout_seconds": 180,
+      "max_output_chars": 4000,
+      "max_calls": 4
+    },
+    "command_digest": "973146498eddafc565c6384df51bebcab53d636f249c31be20be88ae4763c683",
+    "calls": 2,
+    "runs": [
+      {
+        "test_id": "public",
+        "command_digest": "973146498eddafc565c6384df51bebcab53d636f249c31be20be88ae4763c683",
+        "call_index": 1,
+        "status": "FAIL",
+        "exit_code": 2,
+        "duration_ms": 1369.964,
+        "output_digest": "sha256:82e79c5cd30f2cf9eb1cce088d7088f69182b3ebf3759545ca51feaba1e680f8",
+        "output_chars": 884,
+        "output_truncated": false,
+        "reason": "Baseline run before implementing subtract(a, b) in app/calc.py"
+      },
+      {
+        "test_id": "public",
+        "command_digest": "973146498eddafc565c6384df51bebcab53d636f249c31be20be88ae4763c683",
+        "call_index": 2,
+        "status": "PASS",
+        "exit_code": 0,
+        "duration_ms": 1334.505,
+        "output_digest": "sha256:7283f23195f47b25f50ab74d5e56616bf2245bda74412ce28507b54803494d20",
+        "output_chars": 96,
+        "output_truncated": false,
+        "reason": "Verify subtract(a, b) is implemented and existing public behaviour is preserved"
+      }
+    ],
+    "oracle_is_separate": true
+  },
+  "preflight": {
+    "status": "READY",
+    "generated_at": "2026-11-19T04:55:35.082219+00:00",
+    "checks": [
+      {
+        "check_id": "sandbox_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "sandbox configured"
+      },
+      {
+        "check_id": "sandbox_provider_real",
+        "ok": true,
+        "blocking": true,
+        "detail": "sandbox.provider='opensandbox'; expected one of ['daytona', 'opensandbox']"
+      },
+      {
+        "check_id": "sandbox_isolation_required",
+        "ok": true,
+        "blocking": true,
+        "detail": "require_real must stay True: the fake provider runs on the host"
+      },
+      {
+        "check_id": "sandbox_workspace_root",
+        "ok": true,
+        "blocking": true,
+        "detail": "sandbox workspace root '/workspace/project' must be an absolute in-container path"
+      },
+      {
+        "check_id": "source_repo_clean",
+        "ok": true,
+        "blocking": true,
+        "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\fixture is clean at 54aa9fbd70c1"
+      },
+      {
+        "check_id": "main_write_scope",
+        "ok": true,
+        "blocking": true,
+        "detail": "the Main needs an explicit host-declared write scope; got ['app/calc.py']"
+      },
+      {
+        "check_id": "main_write_scope_relative",
+        "ok": true,
+        "blocking": true,
+        "detail": "all write paths are workspace-relative"
+      },
+      {
+        "check_id": "public_tests_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "public suite 'public'"
+      },
+      {
+        "check_id": "public_tests_separate_from_oracle",
+        "ok": true,
+        "blocking": true,
+        "detail": "public and oracle commands must differ, otherwise the Main observes the oracle"
+      },
+      {
+        "check_id": "acceptance_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "an acceptance contract with a dynamic command is required; 'NOT_CONFIGURED' can never be a pipeline PASS"
+      },
+      {
+        "check_id": "acceptance_digest_declared",
+        "ok": true,
+        "blocking": true,
+        "detail": "the verification spec must carry a declared digest (it is signed by the host)"
+      },
+      {
+        "check_id": "budget_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "token_budget=240000 (admission is estimate-based; this is not a hard monetary cap)"
+      },
+      {
+        "check_id": "delegation_bounds",
+        "ok": true,
+        "blocking": true,
+        "detail": "delegation must be enabled with max_parallel_children >= 1"
+      },
+      {
+        "check_id": "context_metrics",
+        "ok": true,
+        "blocking": false,
+        "detail": "UsageAttributionHook records per-request main context unconditionally"
+      },
+      {
+        "check_id": "provider_deepseek",
+        "ok": true,
+        "blocking": true,
+        "detail": "provider='deepseek'; stage P1 is authorized for the DeepSeek adapter only"
+      },
+      {
+        "check_id": "model_fixed",
+        "ok": true,
+        "blocking": true,
+        "detail": "model='deepseek-chat' must equal config.provider.model='deepseek-chat' so the arm identity is the configuration, not a runtime override"
+      },
+      {
+        "check_id": "api_key_present",
+        "ok": true,
+        "blocking": true,
+        "detail": "DEEPSEEK_API_KEY is set (the preflight reads it, it never sends it)"
+      },
+      {
+        "check_id": "live_provider_factory",
+        "ok": true,
+        "blocking": true,
+        "detail": "a live run must build the real adapter; an injected factory is a deterministic test"
+      },
+      {
+        "check_id": "scratch_run_directory",
+        "ok": true,
+        "blocking": true,
+        "detail": "runs_root=C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs must stay outside experiments/results and experiments/runs"
+      }
+    ],
+    "blocking_failures": [],
+    "notes": {
+      "budget": "admission is a conservative estimate; the run stops admitting when the budget is exhausted and does not guarantee a zero-overrun bill",
+      "metrics": "main_context_tokens_by_request is provider-observed; unobserved fields are UNAVAILABLE rather than estimated",
+      "oracle": "the harness runs the acceptance contract after the Main stops; a public PASS is never used as the oracle verdict"
+    }
+  },
+  "budget": {
+    "mode": "guarded",
+    "limit_tokens": 240000,
+    "used_prompt_tokens": 43316,
+    "used_completion_tokens": 1382,
+    "used_tokens": 44698,
+    "written_off_tokens": 0,
+    "reserved_tokens": 0,
+    "remaining_tokens": 195302,
+    "peak_reserved_tokens": 10511,
+    "requests_started": 10,
+    "requests_completed": 10,
+    "requests_written_off": 0,
+    "requests_released": 0,
+    "in_flight": 0,
+    "admission_rejections": 0,
+    "budget_overrun_tokens": 0,
+    "estimate_abs_error_tokens": 3938,
+    "estimate_samples": 10,
+    "learned_ratio": 1.0988,
+    "stop_reason": null,
+    "last_rejection": null,
+    "last_write_off_reason": null,
+    "last_release_reason": null,
+    "workers": {
+      "atlas-main": {
+        "started": 10,
+        "completed": 10,
+        "rejected": 0,
+        "written_off": 0,
+        "actual_tokens": 44698
+      }
+    },
+    "samples": [
+      {
+        "request_id": 1,
+        "worker": "atlas-main",
+        "estimated_tokens": 6953,
+        "actual_tokens": 2871,
+        "actual_prompt_tokens": 2762,
+        "actual_completion_tokens": 109
+      },
+      {
+        "request_id": 2,
+        "worker": "atlas-main",
+        "estimated_tokens": 7341,
+        "actual_tokens": 3152,
+        "actual_prompt_tokens": 2957,
+        "actual_completion_tokens": 195
+      },
+      {
+        "request_id": 3,
+        "worker": "atlas-main",
+        "estimated_tokens": 8409,
+        "actual_tokens": 3901,
+        "actual_prompt_tokens": 3810,
+        "actual_completion_tokens": 91
+      },
+      {
+        "request_id": 4,
+        "worker": "atlas-main",
+        "estimated_tokens": 8581,
+        "actual_tokens": 3975,
+        "actual_prompt_tokens": 3934,
+        "actual_completion_tokens": 41
+      },
+      {
+        "request_id": 5,
+        "worker": "atlas-main",
+        "estimated_tokens": 8852,
+        "actual_tokens": 4234,
+        "actual_prompt_tokens": 4145,
+        "actual_completion_tokens": 89
+      },
+      {
+        "request_id": 6,
+        "worker": "atlas-main",
+        "estimated_tokens": 9360,
+        "actual_tokens": 4660,
+        "actual_prompt_tokens": 4586,
+        "actual_completion_tokens": 74
+      },
+      {
+        "request_id": 7,
+        "worker": "atlas-main",
+        "estimated_tokens": 9778,
+        "actual_tokens": 5136,
+        "actual_prompt_tokens": 4950,
+        "actual_completion_tokens": 186
+      },
+      {
+        "request_id": 8,
+        "worker": "atlas-main",
+        "estimated_tokens": 10032,
+        "actual_tokens": 5244,
+        "actual_prompt_tokens": 5160,
+        "actual_completion_tokens": 84
+      },
+      {
+        "request_id": 9,
+        "worker": "atlas-main",
+        "estimated_tokens": 10337,
+        "actual_tokens": 5474,
+        "actual_prompt_tokens": 5430,
+        "actual_completion_tokens": 44
+      },
+      {
+        "request_id": 10,
+        "worker": "atlas-main",
+        "estimated_tokens": 10511,
+        "actual_tokens": 6051,
+        "actual_prompt_tokens": 5582,
+        "actual_completion_tokens": 469
+      }
+    ]
+  },
+  "ownership": {
+    "mode": "enforce",
+    "coverage": "PARTIAL",
+    "policy_version": "r1.1.0",
+    "run_id": "stage-p1-live-20261119T045534Z",
+    "workspace_root": "/workspace/project",
+    "workers": {
+      "stage-p1-live-20261119T045534Z-main-worker": {
+        "task_id": "stage-p1-live-20261119T045534Z-main",
+        "paths": [
+          "app/calc.py"
+        ],
+        "excluded": [],
+        "manifest_digest": "357eed871bea42de54c3e047a02b7b5c76ee78be82725c9fa4f526a0f868b9a8",
+        "provenance": "trusted_host_declaration"
+      }
+    },
+    "checked_calls": 17,
+    "allowed_calls": 16,
+    "denied_calls": 1,
+    "unknown_worker_denials": 0,
+    "unknown_workers": [],
+    "denials": [
+      {
+        "worker_id": "stage-p1-live-20261119T045534Z-main-worker",
+        "task_id": "stage-p1-live-20261119T045534Z-main",
+        "tool_name": "bash",
+        "target": "cd /workspace 2>/dev/null || cd \"$(pwd)\"; pwd; python3 -V; ls -la; cat .gitignore; git status --short 2>&1 | head; git log --oneline 2>&1 | head",
+        "reason_code": "OWNERSHIP_UNCLASSIFIABLE_SHELL",
+        "decision": "DENY",
+        "detail": "shell metacharacter '$(' cannot be analysed statically"
+      }
+    ],
+    "audit_findings": []
+  },
+  "handoff_reads": {
+    "read_calls": 0,
+    "read_success": 0,
+    "read_denied": 0
+  },
+  "tool_surface": [
+    "bash",
+    "delegate.read",
+    "delegate_tasks",
+    "dispatch_action",
+    "file_edit",
+    "file_read",
+    "file_write",
+    "grep",
+    "list_files",
+    "run_public_tests",
+    "tool.search"
+  ]
+}

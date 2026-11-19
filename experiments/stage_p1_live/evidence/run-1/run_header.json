@@ -1,0 +1,46 @@
+{
+  "acceptance_spec_digest": "sha256:5327e9961bc5b029f7582049e40194924766b7374d7d3f6963fda27dc3c8ea2f",
+  "captured_at": "2026-11-19T04:55:34.934595+00:00",
+  "delegation": {
+    "child_max_turns": 6,
+    "child_timeout_seconds": 300.0,
+    "enabled": true,
+    "max_children_per_call": 2,
+    "max_delegation_rounds": 4,
+    "max_parallel_children": 2,
+    "result_preview_chars": 900
+  },
+  "fixture_commit": "54aa9fbd70c105c149d5d6f023d0018dcc6e2f5d",
+  "fixture_repo": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\fixture",
+  "git_branch": "feat/stage-p01-execution-semantics",
+  "git_head": "00b6f7aec7a7b83e7768f03a346a26abc797fcc0",
+  "main_max_turns": 12,
+  "main_write_paths": [
+    "app/calc.py"
+  ],
+  "model": "deepseek-chat",
+  "oracle_command_digest": "5597ae5b7970d312cb06efa00fe2d93c583c619e6da7295cd9a460acf0d2754f",
+  "provider": "deepseek",
+  "public_test_command": "python3 -B -m pytest -q tests/test_public.py",
+  "public_test_command_digest": "973146498eddafc565c6384df51bebcab53d636f249c31be20be88ae4763c683",
+  "routing_policy_version": "m.1.0",
+  "run_dir": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs\\stage-p1-live-20261119T045534Z",
+  "sandbox": {
+    "cpu": "1",
+    "enabled": true,
+    "endpoint": "localhost:8080",
+    "image": "atlas-uat-python:3.12",
+    "max_bundle_bytes": 67108864,
+    "memory": "1Gi",
+    "network": "none",
+    "protocol": "http",
+    "provider": "opensandbox",
+    "ready_timeout_seconds": 240,
+    "retain_on_failure": false,
+    "snapshot": null,
+    "timeout_minutes": 20,
+    "use_server_proxy": true,
+    "workspace_root": "/workspace/project"
+  },
+  "token_budget": 240000
+}

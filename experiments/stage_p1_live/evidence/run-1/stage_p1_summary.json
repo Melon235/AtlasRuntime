@@ -1,0 +1,380 @@
+{
+  "acceptance": "PASS",
+  "artifacts": {
+    "patch_changed_files": 1,
+    "patch_digest": "sha256:efe63a9e944fba0b8e2ffbfbc2f524444cabc7d9582dcb52da5eaea9dd06b367",
+    "patch_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs\\stage-p1-live-20261119T045534Z\\workspace.patch",
+    "workspace_digest": "sha256:d9d8c121993cc1a3286db9dc7b289125bad14436daf3bc00e1ba09a53845fe15",
+    "workspace_files": 7,
+    "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs\\stage-p1-live-20261119T045534Z\\workspace",
+    "workspace_size_bytes": 20480
+  },
+  "budget": {
+    "admission_rejections": 0,
+    "budget_overrun_tokens": 0,
+    "estimate_abs_error_tokens": 3938,
+    "estimate_samples": 10,
+    "in_flight": 0,
+    "last_rejection": null,
+    "last_release_reason": null,
+    "last_write_off_reason": null,
+    "learned_ratio": 1.0988,
+    "limit_tokens": 240000,
+    "mode": "guarded",
+    "peak_reserved_tokens": 10511,
+    "remaining_tokens": 195302,
+    "requests_completed": 10,
+    "requests_released": 0,
+    "requests_started": 10,
+    "requests_written_off": 0,
+    "reserved_tokens": 0,
+    "samples": [
+      {
+        "actual_completion_tokens": 109,
+        "actual_prompt_tokens": 2762,
+        "actual_tokens": 2871,
+        "estimated_tokens": 6953,
+        "request_id": 1,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 195,
+        "actual_prompt_tokens": 2957,
+        "actual_tokens": 3152,
+        "estimated_tokens": 7341,
+        "request_id": 2,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 91,
+        "actual_prompt_tokens": 3810,
+        "actual_tokens": 3901,
+        "estimated_tokens": 8409,
+        "request_id": 3,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 41,
+        "actual_prompt_tokens": 3934,
+        "actual_tokens": 3975,
+        "estimated_tokens": 8581,
+        "request_id": 4,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 89,
+        "actual_prompt_tokens": 4145,
+        "actual_tokens": 4234,
+        "estimated_tokens": 8852,
+        "request_id": 5,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 74,
+        "actual_prompt_tokens": 4586,
+        "actual_tokens": 4660,
+        "estimated_tokens": 9360,
+        "request_id": 6,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 186,
+        "actual_prompt_tokens": 4950,
+        "actual_tokens": 5136,
+        "estimated_tokens": 9778,
+        "request_id": 7,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 84,
+        "actual_prompt_tokens": 5160,
+        "actual_tokens": 5244,
+        "estimated_tokens": 10032,
+        "request_id": 8,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 44,
+        "actual_prompt_tokens": 5430,
+        "actual_tokens": 5474,
+        "estimated_tokens": 10337,
+        "request_id": 9,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 469,
+        "actual_prompt_tokens": 5582,
+        "actual_tokens": 6051,
+        "estimated_tokens": 10511,
+        "request_id": 10,
+        "worker": "atlas-main"
+      }
+    ],
+    "stop_reason": null,
+    "used_completion_tokens": 1382,
+    "used_prompt_tokens": 43316,
+    "used_tokens": 44698,
+    "workers": {
+      "atlas-main": {
+        "actual_tokens": 44698,
+        "completed": 10,
+        "rejected": 0,
+        "started": 10,
+        "written_off": 0
+      }
+    },
+    "written_off_tokens": 0
+  },
+  "delegation": {
+    "children": [],
+    "max_observed_concurrency": [],
+    "route": [],
+    "totals": {
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 0,
+      "children_cancelled": 0,
+      "children_completed": 0,
+      "children_failed": 0,
+      "children_started": 0,
+      "children_timed_out": 0,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "total_prompt_tokens": 0
+    }
+  },
+  "execution_succeeded": true,
+  "failure": null,
+  "isolation": "sandbox",
+  "main": {
+    "agent": "atlas-main",
+    "cache_hit_tokens": 37888,
+    "cache_miss_tokens": 5428,
+    "completion_tokens": 1382,
+    "context_tokens_by_request": [
+      2762,
+      2957,
+      3810,
+      3934,
+      4145,
+      4586,
+      4950,
+      5160,
+      5430,
+      5582
+    ],
+    "output": "Done. The goal is met.\n\n## What I inspected first\n\n| Module | Provides | Impact of the change |\n|---|---|---|\n| `app/calc.py` | `add(a, b)` (only) | **Target of the change** \u2014 `subtract` was missing |\n| `app/text.py` | `normalize(value)` | Unrelated; no imports from `calc`, untouched |\n| `app/units.py` | `GRAMS_PER_KILOGRAM`, `to_grams`, `total_grams` | Builds on `calc` via `from app.calc import add` \u2014 it binds only `add` at import time |\n\nConclusion before editing: `app/units.py` only depends on `add`, so an **additive** change to `calc.py` (appending a new function, leaving `add` byte-identical) could not break it. Changing `add`'s signature/semantics or renaming anything would have broken `total_grams` \u2192 `add(*kilograms)`. So the change was kept purely additive.\n\n## The change (`app/calc.py`)\n\n```python\ndef subtract(a, b):\n    \"\"\"Return the difference of two numbers.\"\"\"\n    return a - b\n```\n\n`git diff` confirms this is the only modification in the repo: 5 added lines, zero deletions \u2014 `add`, `normalize`, `to_grams`, `total_grams` and `GRAMS_PER_KILOGRAM` are untouched.\n\n## Verification\n\n- **Baseline (before):** collection `ImportError: cannot import name 'subtract' from 'app.calc'` \u2014 suite failed with exit code 2.\n- **After:** public suite output was `.... 4 passed in 0.01s`, exit code 0. All four tests pass: `test_add`, `test_subtract` (`subtract(9, 4) == 5`, `subtract(0, 0) == 0`), `test_normalize`, and `test_units` (which transitively exercises `add` through `total_grams`).\n\nNo delegation was needed \u2014 the task was small and entirely dependent on reading three short files, so splitting it would have added coordination cost without parallelism.",
+    "peak_context_tokens": 5582,
+    "prompt_tokens": 5428,
+    "requests": 10,
+    "stop_message": "Run completed successfully.",
+    "stop_reason": "success",
+    "success": true,
+    "task_id": "stage-p1-live-20261119T045534Z-main",
+    "tool_calls": [
+      "list_files",
+      "bash",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read",
+      "bash",
+      "bash",
+      "grep",
+      "bash",
+      "run_public_tests",
+      "file_edit",
+      "file_read",
+      "run_public_tests",
+      "bash"
+    ],
+    "total_prompt_tokens": 43316,
+    "turns": 10,
+    "worker_id": "stage-p1-live-20261119T045534Z-main-worker"
+  },
+  "metrics": {
+    "child_completion_tokens": 0,
+    "child_total_prompt_tokens": 0,
+    "delegation_rounds": 0,
+    "handoff_payload_chars": 0,
+    "main_cache_hit_tokens": 37888,
+    "main_cache_miss_tokens": 5428,
+    "main_completion_tokens": 1382,
+    "main_context_tokens_by_request": [
+      2762,
+      2957,
+      3810,
+      3934,
+      4145,
+      4586,
+      4950,
+      5160,
+      5430,
+      5582
+    ],
+    "main_cumulative_input_tokens": 43316,
+    "main_peak_context_tokens": 5582,
+    "main_requests": 10,
+    "max_observed_child_concurrency": 0,
+    "system_total_tokens": 44698,
+    "unavailable_fields": []
+  },
+  "ownership": {
+    "allowed_calls": 16,
+    "checked_calls": 17,
+    "coverage": "PARTIAL",
+    "denials": [
+      {
+        "decision": "DENY",
+        "detail": "shell metacharacter '$(' cannot be analysed statically",
+        "reason_code": "OWNERSHIP_UNCLASSIFIABLE_SHELL",
+        "target": "cd /workspace 2>/dev/null || cd \"$(pwd)\"; pwd; python3 -V; ls -la; cat .gitignore; git status --short 2>&1 | head; git log --oneline 2>&1 | head",
+        "task_id": "stage-p1-live-20261119T045534Z-main",
+        "tool_name": "bash",
+        "worker_id": "stage-p1-live-20261119T045534Z-main-worker"
+      }
+    ],
+    "denied_calls": 1,
+    "mode": "enforce"
+  },
+  "public_tests": {
+    "calls": 2,
+    "command_digest": "973146498eddafc565c6384df51bebcab53d636f249c31be20be88ae4763c683",
+    "contract": {
+      "command": "python3 -B -m pytest -q tests/test_public.py",
+      "max_calls": 4,
+      "max_output_chars": 4000,
+      "test_id": "public",
+      "timeout_seconds": 180
+    },
+    "oracle_is_separate": true,
+    "runs": [
+      {
+        "call_index": 1,
+        "command_digest": "973146498eddafc565c6384df51bebcab53d636f249c31be20be88ae4763c683",
+        "duration_ms": 1369.964,
+        "exit_code": 2,
+        "output_chars": 884,
+        "output_digest": "sha256:82e79c5cd30f2cf9eb1cce088d7088f69182b3ebf3759545ca51feaba1e680f8",
+        "output_truncated": false,
+        "reason": "Baseline run before implementing subtract(a, b) in app/calc.py",
+        "status": "FAIL",
+        "test_id": "public"
+      },
+      {
+        "call_index": 2,
+        "command_digest": "973146498eddafc565c6384df51bebcab53d636f249c31be20be88ae4763c683",
+        "duration_ms": 1334.505,
+        "exit_code": 0,
+        "output_chars": 96,
+        "output_digest": "sha256:7283f23195f47b25f50ab74d5e56616bf2245bda74412ce28507b54803494d20",
+        "output_truncated": false,
+        "reason": "Verify subtract(a, b) is implemented and existing public behaviour is preserved",
+        "status": "PASS",
+        "test_id": "public"
+      }
+    ]
+  },
+  "sandbox": {
+    "binding_id": "348daaadbad7e2cc2dc06f9d9e640c2fece558b22818f3b6a567feddd00ef131",
+    "binding_state": "READY",
+    "capabilities": {
+      "cancellation": true,
+      "command_streaming": false,
+      "contract_version": "1.0",
+      "evidence": true,
+      "file_transfer": true,
+      "isolation": "container",
+      "limitations": [
+        "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+        "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+        "Point-in-time snapshots are not exposed through this adapter.",
+        "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+      ],
+      "networking": "allowlist",
+      "persistent_filesystem": true,
+      "provider": "opensandbox",
+      "snapshots": false
+    },
+    "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+    "check_runs": 3,
+    "created": true,
+    "destroyed": true,
+    "error": null,
+    "export_digest": "sha256:d9d8c121993cc1a3286db9dc7b289125bad14436daf3bc00e1ba09a53845fe15",
+    "export_files": 7,
+    "export_size_bytes": 20480,
+    "host_separation": {
+      "host_only_visible": false,
+      "sandbox_only_read_back": true,
+      "sandbox_only_visible_on_host": false
+    },
+    "network_probe": "PASS",
+    "patch_changed_files": 1,
+    "patch_digest": "sha256:efe63a9e944fba0b8e2ffbfbc2f524444cabc7d9582dcb52da5eaea9dd06b367",
+    "provider": "opensandbox",
+    "provider_is_real": true,
+    "provision_commands": 4,
+    "provision_uploads": 1,
+    "retained": false,
+    "sandbox_id": "b5d0e9fb-33a8-454a-84e6-53eb3c64b1c8",
+    "workspace_root": "/workspace/project"
+  },
+  "status": "succeeded",
+  "verification": {
+    "dynamic": {
+      "command": "python3 -m pytest -q && python3 -c \"from app.calc import add, subtract; from app.text import normalize; from app.units import GRAMS_PER_KILOGRAM, total_grams; assert add(2, 3) == 5; assert subtract(9, 4) == 5; assert subtract(0, 0) == 0; assert subtract(-3, -1) == -2; assert normalize('  a  ') == 'a'; assert GRAMS_PER_KILOGRAM == 1000; assert total_grams(1, 2) == 3000; print('HIDDEN_OK')\"",
+      "cwd": "/workspace/project",
+      "elapsed_ms": 1315.889,
+      "exit_code": 0,
+      "ok": true,
+      "status": "PASS",
+      "stderr_chars": 0,
+      "stdout_chars": 105,
+      "stdout_digest": "sha256:ed84fdc01c5f88b136c86a9a509bb554b685317e47878ccb57c12f4dd98736af"
+    },
+    "snapshot": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1-live-1\\runs\\stage-p1-live-20261119T045534Z\\workspace",
+    "spec_digest": "sha256:5327e9961bc5b029f7582049e40194924766b7374d7d3f6963fda27dc3c8ea2f",
+    "spec_id": "stage-p1-calculator",
+    "static": {
+      "artifact_digest": "sha256:48e8368e46ac45214bf6897e05c29d39764e89338bb71ffd28f7699a8e06d619",
+      "deliverable_presence": "PASS",
+      "deliverable_type": "python-package",
+      "dynamic_mode": "unavailable",
+      "error": null,
+      "findings": [
+        {
+          "artifact": "app/calc.py",
+          "category": "PRESENCE",
+          "check_id": "calc-present",
+          "detail": "",
+          "evidence_digest": "sha256:e4a123e2deeaae92760bd0810ddb84df0d8045dafb7d05e0e487614f48c5b0ae",
+          "reason_code": "OK",
+          "status": "PASS"
+        },
+        {
+          "artifact": "app/units.py",
+          "category": "PRESENCE",
+          "check_id": "units-present",
+          "detail": "",
+          "evidence_digest": "sha256:46a99921bb0a7aa7b6ee5c3a5ee04f56118d9a6444f156bb26efb47f38d31098",
+          "reason_code": "OK",
+          "status": "PASS"
+        }
+      ],
+      "integration_status": "NOT_APPLICABLE",
+      "public_contract_status": "NOT_APPLICABLE",
+      "sandbox_cost_usd": null,
+      "spec_digest": "sha256:5327e9961bc5b029f7582049e40194924766b7374d7d3f6963fda27dc3c8ea2f",
+      "spec_id": "stage-p1-calculator",
+      "spec_version": "1.0.0",
+      "structural_validity": "NOT_APPLICABLE",
+      "verification_cpu_ms": 0.0,
+      "verification_overall": "PASS",
+      "verification_wall_ms": 2.425
+    },
+    "static_status": "PASS",
+    "verdict": "PASS"
+  }
+}

@@ -1,0 +1,1 @@
+diff --git a/app/calc.py b/app/calc.pyindex db08f8d..0424bc0 100644--- a/app/calc.py+++ b/app/calc.py@@ -4,3 +4,8 @@ def add(a, b):     """Return the sum of two numbers."""     return a + b+++def subtract(a, b):+    """Return the difference of two numbers."""+    return a - b
