@@ -110,10 +110,16 @@ def git_identity() -> dict[str, Any]:
             ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True
         ).stdout.strip()
 
+    status = _git("status", "--porcelain")
+    lines = [line for line in status.splitlines() if line.strip()]
+    # The freeze file is what this call writes; recording it would make every freeze look dirty.
+    own = [line for line in lines if "experiments/stage_b0_controlled/freeze.json" in line]
+    rest = [line for line in lines if line not in own]
     return {
         "git_head": _git("rev-parse", "HEAD"),
         "git_branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
-        "git_status": _git("status", "--porcelain"),
+        "git_status": "\n".join(rest),
+        "git_status_excludes_freeze_file": bool(own),
         "main_system_prompt_digest": contract.digest(MAIN_SYSTEM_PROMPT),
     }
 
