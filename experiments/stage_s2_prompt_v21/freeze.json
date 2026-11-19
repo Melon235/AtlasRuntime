@@ -25,11 +25,11 @@
     },
     "fixture_digest": "sha256:893238efa0d8bb58e835369321d590eafbba2e512add6d41f039b7a394b38828"
   },
-  "generated_at": "2026-11-19T10:35:02.549722+00:00",
+  "generated_at": "2026-11-19T10:36:00.954852+00:00",
   "git": {
     "baseline_commit": "1d03a2f6efb1e4ae45ccf8130d57917fe08eae3a",
     "git_branch": "exp/main-prompt-v21-final-pilot",
-    "git_head": "76088a0fb5ffd4eaf0ac095b919251da895e4263",
+    "git_head": "3590348f20322276d1548400aec05f4431ace7ee",
     "git_status": "",
     "git_status_excluded_files": [],
     "main_system_prompt_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a"
@@ -38,7 +38,7 @@
     "prompts/main_v21.md": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
     "reference/engine_reference.py": "sha256:286974edb05bd1733e71b8a8328a3479f42415a1cef772c9dc6937306d9d5fa7",
     "reference/report_reference.py": "sha256:ced9e80c9b321f7481ca14151e4bccb520b92a26e72560bbb885cd9fce0fe4b8",
-    "run_stage_s2.py": "sha256:1d2e692fd7ca4e973094d60fb7fb66914ee31f58082cc8fcee86d9aeb05bf209",
+    "run_stage_s2.py": "sha256:1880b9d03eb44dc9f26909a97783094e5acbc3c4da4efe9a26e95c191a023239",
     "s2_analysis.py": "sha256:103cf6c736ce6a5c03d0f52ac41252f3fc81f1a9496b2434f17bb4caaf93ccd5",
     "s2_contract.py": "sha256:53947a4a3cf1825314f2f72b1559a414682555904f2ee85ec53dc9c2aba38442",
     "s2_fixture.py": "sha256:294bdfe064fcf25708a70b8fd7b1ec04505ddc5aa00070c8a33405d1a0a3c489",
@@ -108,7 +108,7 @@
     "tool_error_mode": "corrected"
   },
   "offline": {
-    "digest": "sha256:1089da3f0eb804960c71ef0c6512618878fccfa7be914ee0f63cf5c4d917fce6",
+    "digest": "sha256:9423a274914ebf7af9ab7543ab1201c849bbeb3d51f9999e4c352a50bb11f3e2",
     "path": "experiments/stage_s2_prompt_v21/offline.json"
   },
   "oracle": {
