@@ -123,7 +123,6 @@ PUBLIC_TESTS = PublicTestContract(
 #: here is invented at verification time.
 HIDDEN_PROGRAM = """
 import json
-import shutil
 import tempfile
 from pathlib import Path
 
@@ -461,7 +460,6 @@ after = {item.name: item.read_bytes() for item in DIST.iterdir() if item.is_file
 check(before == after, "the audit wrote into the build directory")
 check(MANIFEST.read_bytes() == manifest_before, "the audit wrote into the manifest")
 
-shutil.rmtree(WORK, ignore_errors=True)
 if FAILURES:
     raise SystemExit("HIDDEN_FAIL: " + "; ".join(FAILURES))
 print("HIDDEN_OK")

@@ -7,9 +7,7 @@ so there is exactly one answer to "which bytes were provisioned".
 from __future__ import annotations
 
 import hashlib
-import os
 import shutil
-import stat
 import subprocess
 from pathlib import Path
 
@@ -36,18 +34,27 @@ def fixture_digest() -> str:
     return contract.digest(json.dumps(fixture_manifest(), sort_keys=True))
 
 
-def _drop_read_only(function, path, _) -> None:
-    """Windows: Git object files are read-only, so a plain ``rmtree`` cannot delete them."""
+def _fresh(destination: Path) -> Path:
+    """A path that does not exist yet.
 
-    os.chmod(path, stat.S_IWRITE)
-    function(path)
+    Nothing here deletes a directory: a provisioner that must first remove its destination cannot be
+    run twice safely, and a removal is not part of what this stage proves. A new sibling is used
+    instead, so every call gets a pristine tree.
+    """
+
+    if not destination.exists():
+        return destination
+    for index in range(1, 1000):
+        candidate = destination.with_name(f"{destination.name}-{index}")
+        if not candidate.exists():
+            return candidate
+    raise RuntimeError(f"cannot find a free scratch path next to {destination}")
 
 
 def materialize(destination: Path, *, with_git: bool = True) -> tuple[Path, str]:
-    """Copy the frozen fixture to ``destination`` and, optionally, commit it as a clean repository."""
+    """Copy the frozen fixture to a fresh ``destination`` and, optionally, commit it."""
 
-    if destination.exists():
-        shutil.rmtree(destination, onexc=_drop_read_only)
+    destination = _fresh(destination)
     destination.mkdir(parents=True)
     for name in fixture_manifest():
         target = destination / name
@@ -84,9 +91,12 @@ def init_repository(root: Path) -> str:
 def copy_for_experiment(destination: Path) -> Path:
     """A plain directory copy, no git: what the offline cases mutate."""
 
-    if destination.exists():
-        shutil.rmtree(destination, onexc=_drop_read_only)
-    shutil.copytree(contract.FIXTURE_ROOT, destination, ignore=shutil.ignore_patterns(*contract.FIXTURE_SKIP))
+    destination = _fresh(destination)
+    shutil.copytree(
+        contract.FIXTURE_ROOT,
+        destination,
+        ignore=shutil.ignore_patterns(*contract.FIXTURE_SKIP),
+    )
     return destination
 
 
