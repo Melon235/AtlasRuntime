@@ -1,0 +1,312 @@
+{
+  "cases": [
+    {
+      "adapter_equals_naive_join": true,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": true,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 5,
+      "command": "printf 'hello'",
+      "exit_code": 0,
+      "expected_chars": 5,
+      "naive_join_matches_expected": true,
+      "name": "single_line",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 1,
+      "stdout_fragments": [
+        "'hello'"
+      ],
+      "stdout_fragments_ending_in_newline": 0
+    },
+    {
+      "adapter_equals_naive_join": false,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": true,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 16,
+      "command": "printf 'alpha\\nbeta\\ngamma\\n'",
+      "exit_code": 0,
+      "expected_chars": 16,
+      "naive_join_matches_expected": false,
+      "name": "multi_line",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 3,
+      "stdout_fragments": [
+        "'alpha'",
+        "'beta'",
+        "'gamma'"
+      ],
+      "stdout_fragments_ending_in_newline": 0
+    },
+    {
+      "adapter_equals_naive_join": false,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": true,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 7,
+      "command": "printf 'one\\ntwo'",
+      "exit_code": 0,
+      "expected_chars": 7,
+      "naive_join_matches_expected": false,
+      "name": "no_trailing_newline",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 2,
+      "stdout_fragments": [
+        "'one'",
+        "'two'"
+      ],
+      "stdout_fragments_ending_in_newline": 0
+    },
+    {
+      "adapter_equals_naive_join": true,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": null,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 3,
+      "command": "printf 'a\\n\\nb\\n'",
+      "exit_code": 0,
+      "expected_chars": null,
+      "naive_join_matches_expected": null,
+      "name": "blank_line_inside",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 3,
+      "stdout_fragments": [
+        "'a'",
+        "'\\n'",
+        "'b'"
+      ],
+      "stdout_fragments_ending_in_newline": 1
+    },
+    {
+      "adapter_equals_naive_join": true,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": null,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 5,
+      "command": "printf 'a\\n\\n\\n\\nb\\n'",
+      "exit_code": 0,
+      "expected_chars": null,
+      "naive_join_matches_expected": null,
+      "name": "blank_lines_multi",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 5,
+      "stdout_fragments": [
+        "'a'",
+        "'\\n'",
+        "'\\n'",
+        "'\\n'",
+        "'b'"
+      ],
+      "stdout_fragments_ending_in_newline": 3
+    },
+    {
+      "adapter_equals_naive_join": false,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": true,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 3,
+      "command": "printf 'x\\r\\ny\\r\\n'",
+      "exit_code": 0,
+      "expected_chars": 3,
+      "naive_join_matches_expected": false,
+      "name": "crlf",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 2,
+      "stdout_fragments": [
+        "'x'",
+        "'y'"
+      ],
+      "stdout_fragments_ending_in_newline": 0
+    },
+    {
+      "adapter_equals_naive_join": true,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": true,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 0,
+      "command": "true",
+      "exit_code": 0,
+      "expected_chars": 0,
+      "naive_join_matches_expected": true,
+      "name": "empty_output",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 0,
+      "stdout_fragments": [],
+      "stdout_fragments_ending_in_newline": 0
+    },
+    {
+      "adapter_equals_naive_join": true,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": true,
+      "adapter_stderr_chars": 20,
+      "adapter_stdout_chars": 0,
+      "command": "printf 'boom: missing config\\n' >&2; exit 2",
+      "exit_code": 2,
+      "expected_chars": 0,
+      "naive_join_matches_expected": true,
+      "name": "stderr_only",
+      "ok": true,
+      "stderr_fragments": [
+        "'boom: missing config'"
+      ],
+      "stdout_fragment_count": 0,
+      "stdout_fragments": [],
+      "stdout_fragments_ending_in_newline": 0
+    },
+    {
+      "adapter_equals_naive_join": true,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": null,
+      "adapter_stderr_chars": 95,
+      "adapter_stdout_chars": 0,
+      "command": "python3 -c \"raise ValueError('bad input')\"",
+      "exit_code": 1,
+      "expected_chars": null,
+      "naive_join_matches_expected": null,
+      "name": "python_traceback",
+      "ok": true,
+      "stderr_fragments": [
+        "'Traceback (most recent call last):'",
+        "'  File \"<string>\", line 1, in <module>'",
+        "'ValueError: bad input'"
+      ],
+      "stdout_fragment_count": 0,
+      "stdout_fragments": [],
+      "stdout_fragments_ending_in_newline": 0
+    },
+    {
+      "adapter_equals_naive_join": true,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": null,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 33,
+      "command": "git log --oneline | head -3",
+      "exit_code": 0,
+      "expected_chars": null,
+      "naive_join_matches_expected": null,
+      "name": "git_log",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 1,
+      "stdout_fragments": [
+        "'ff9e8dd fixture: probe repository'"
+      ],
+      "stdout_fragments_ending_in_newline": 0
+    },
+    {
+      "adapter_equals_naive_join": false,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": null,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 127,
+      "command": "git checkout -- README.md 2>/dev/null; printf 'second\\n' >> README.md; git diff -- README.md",
+      "exit_code": 0,
+      "expected_chars": null,
+      "naive_join_matches_expected": null,
+      "name": "git_diff",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 7,
+      "stdout_fragments": [
+        "'diff --git a/README.md b/README.md'",
+        "'index 237dd8d..519c24b 100644'",
+        "'--- a/README.md'",
+        "'+++ b/README.md'",
+        "'@@ -1 +1,2 @@'",
+        "' # probe'",
+        "'+second'"
+      ],
+      "stdout_fragments_ending_in_newline": 0
+    },
+    {
+      "adapter_equals_naive_join": true,
+      "adapter_equals_provider_result": true,
+      "adapter_matches_expected": true,
+      "adapter_stderr_chars": 0,
+      "adapter_stdout_chars": 4000,
+      "command": "python3 -c \"print('x'*4000)\"",
+      "exit_code": 0,
+      "expected_chars": 4000,
+      "naive_join_matches_expected": true,
+      "name": "long_single_line",
+      "ok": true,
+      "stderr_fragments": [],
+      "stdout_fragment_count": 1,
+      "stdout_fragments": [
+        "'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"
+      ],
+      "stdout_fragments_ending_in_newline": 0
+    }
+  ],
+  "destroyed": true,
+  "expectations": {
+    "adapter_changes_at_least_one_case": true,
+    "adapter_matches_expected_everywhere": true,
+    "adapter_result_is_what_the_tool_reads": true,
+    "blank_line_collapsed_to_single_boundary": true,
+    "git_diff_is_multi_line": true,
+    "long_single_line_not_split": true,
+    "multi_fragment_stream_observed": true,
+    "naive_join_fails_live_cases": true,
+    "sandbox_destroyed": true,
+    "server_strips_final_newline": true,
+    "traceback_reached_stderr": true
+  },
+  "generated_at": "2026-11-19T07:12:15.284426+00:00",
+  "image": "atlas-uat-python:3.12",
+  "provider": "opensandbox",
+  "ready": true,
+  "sandbox": {
+    "binding_id": "deaed57efee8f8503be250be7455ce0e1d4a3a4c6548b34f843acef2d7dc9ca4",
+    "binding_state": "READY",
+    "capabilities": {
+      "cancellation": true,
+      "command_streaming": false,
+      "contract_version": "1.0",
+      "evidence": true,
+      "file_transfer": true,
+      "isolation": "container",
+      "limitations": [
+        "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+        "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+        "Point-in-time snapshots are not exposed through this adapter.",
+        "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+      ],
+      "networking": "allowlist",
+      "persistent_filesystem": true,
+      "provider": "opensandbox",
+      "snapshots": false
+    },
+    "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+    "check_runs": 0,
+    "created": true,
+    "destroyed": false,
+    "error": null,
+    "export_digest": null,
+    "export_files": 0,
+    "export_size_bytes": 0,
+    "host_separation": {
+      "host_only_visible": false,
+      "sandbox_only_read_back": true,
+      "sandbox_only_visible_on_host": false
+    },
+    "network_probe": "PASS",
+    "patch_changed_files": 0,
+    "patch_digest": null,
+    "provider": "opensandbox",
+    "provider_is_real": true,
+    "provision_commands": 0,
+    "provision_uploads": 0,
+    "retained": false,
+    "sandbox_id": "4bdf2794-3861-40f2-87aa-975c2c418419",
+    "tool_error_mode": "corrected",
+    "workspace_root": "/workspace/project"
+  }
+}

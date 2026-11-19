@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import re
-from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -45,6 +45,42 @@ from atlasos.sandbox.reattachment import (
     normalize_provider_created_at,
     normalize_remote_state,
 )
+
+
+def _join_log_messages(messages: Iterable[Any]) -> str:
+    """Reassemble one output stream from OpenSandbox ``OutputMessage`` fragments.
+
+    SDK contract (``opensandbox==1.2.0``, ``models/execd.py``): ``ExecutionLogs.stdout`` and
+    ``.stderr`` are ``list[OutputMessage]``, and ``OutputMessage.text`` is a *fragment*: it carries
+    no line terminator of its own, and the SDK's own formatter inserts ``"\\n"`` between two
+    fragments only when neither side already ends/starts with a line boundary. Concatenating them
+    with ``""`` — the behaviour this replaced — glued every line into one.
+
+    Line endings are normalized exactly as the SDK does it (``\\r\\n`` then a lone ``\\r`` become
+    ``\\n``), so there is one rule in the system rather than two. The single deliberate difference
+    from ``Execution.text`` — which is a *display* rendering — is that the result is not
+    ``rstrip``-ed: Atlas uses command output as data (the exported ``git diff`` patch, a test
+    report) and a server that sends a trailing newline keeps it.
+
+    Fidelity limit, stated rather than implied: this is **structural** fidelity. The adapter
+    receives text fragments, not the original byte stream, so (a) a logical line the server split
+    into several messages for transport gains a newline that was not in the original output, and
+    (b) a trailing newline the server stripped cannot be reconstructed. The raw byte count is not
+    recoverable from the SDK contract; use ``SandboxEvidence`` digests when byte identity matters.
+    """
+
+    parts: list[str] = []
+    last_char = ""
+    for message in messages:
+        text = getattr(message, "text", "")
+        fragment = "" if text is None else str(text)
+        if fragment and last_char and last_char not in "\r\n" and fragment[0] not in "\r\n":
+            parts.append("\n")
+        parts.append(fragment)
+        if fragment:
+            last_char = fragment[-1]
+    return "".join(parts).replace("\r\n", "\n").replace("\r", "\n")
+
 
 _OPEN_SANDBOX_LIMITATIONS = (
     "Docker container isolation; actual strength depends on the local OpenSandbox and Docker "
@@ -388,7 +424,7 @@ class OpenSandboxProvider:
     @staticmethod
     def _execution_text(execution: Any, stream: str) -> str:
         messages = getattr(getattr(execution, "logs", None), stream, None) or []
-        return "".join(str(getattr(message, "text", "")) for message in messages)
+        return _join_log_messages(messages)
 
     async def execute(self, handle: SandboxHandle, command: SandboxCommand) -> SandboxCommandResult:
         try:

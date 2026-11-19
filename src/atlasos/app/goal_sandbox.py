@@ -50,6 +50,10 @@ from atlasos.sandbox import (
     require_capabilities,
 )
 from atlasos.sandbox.opensandbox_provider import OpenSandboxOptions
+from atlasos.sandbox.tools import (
+    TOOL_ERROR_MODE_CORRECTED,
+    TOOL_ERROR_MODES,
+)
 from atlasos.sandbox.validation import (
     probe_host_separation,
     probe_network_none,
@@ -97,8 +101,18 @@ class GoalSandboxOptions:
     require_real: bool = True
     #: Test seam. Only consulted when ``provider`` is ``fake``.
     provider_factory: Callable[[Path], Any] | None = None
+    #: Stage G3-1 tool error semantics for the sandbox tools this goal owns. ``corrected`` (the
+    #: default here, and only here) reports a command whose exit status was *observed* as a known
+    #: error, so the Main can read it and continue; an unobserved outcome stays fatal in both modes.
+    #: Every other entry point keeps its own default, which is ``legacy``.
+    tool_error_mode: str = TOOL_ERROR_MODE_CORRECTED
 
     def __post_init__(self) -> None:
+        if self.tool_error_mode not in TOOL_ERROR_MODES:
+            raise ValueError(
+                f"unknown tool error mode {self.tool_error_mode!r}; expected one of "
+                f"{list(TOOL_ERROR_MODES)}"
+            )
         if self.provider == FAKE_PROVIDER:
             if self.require_real:
                 raise ValueError(
@@ -137,6 +151,9 @@ class _SandboxEvidence:
     export_files: int = 0
     export_size_bytes: int = 0
     check_runs: int = 0
+    #: Stage G3-1 mode actually used by every goal tool call in this run. Recorded so a reader of
+    #: the evidence never has to infer the semantics from an exit code.
+    tool_error_mode: str = ""
     error: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -303,7 +320,13 @@ class GoalSandbox:
         self.evidence.workspace_root = binding.workspace_root
 
         await self._probe_isolation()
-        self._tools = SandboxWorkspaceTools(manager, task_id, provider)
+        self.evidence.tool_error_mode = self.options.tool_error_mode
+        self._tools = SandboxWorkspaceTools(
+            manager,
+            task_id,
+            provider,
+            tool_error_mode=self.options.tool_error_mode,
+        )
         return binding
 
     async def _probe_isolation(self) -> None:

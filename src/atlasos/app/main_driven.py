@@ -38,7 +38,7 @@ import os
 import sys
 import uuid
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -83,8 +83,17 @@ from atlasos.handoff import HandoffStore
 from atlasos.integrations.anycode_engine import AtlasContextEngine
 from atlasos.integrations.deepseek import DeepSeekAdapter
 from atlasos.ledger import SQLiteActionLedgerStore
+from atlasos.sandbox.tools import TOOL_ERROR_MODE_CORRECTED, TOOL_ERROR_MODES
 from atlasos.tools import AtlasToolRuntime
 from atlasos.tools.conversation import reset_current_task_id, set_current_task_id
+from atlasos.trajectory.payloads import (
+    EXECUTION_INTEGRITY_OFF,
+    EXECUTION_INTEGRITY_RECORD,
+    PRIVATE_PAYLOAD_FILE,
+    PRIVATE_PAYLOAD_ROOT,
+    ToolPayloadCorpus,
+    read_corpus,
+)
 from atlasos.trajectory.recorder import TrajectoryRecorder
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -152,6 +161,16 @@ class GoalRunOptions:
     #: Host-fixed public suite the Main may run on itself. Requires ``sandbox``: the suite must
     #: execute inside the sandbox, and the command is never model-supplied.
     public_tests: PublicTestContract | None = None
+    #: Stage G3-1 semantics for the goal path. ``corrected`` makes a command whose exit status was
+    #: observed a *known* error the Main may read and recover from; an unobserved outcome (transport
+    #: failure, lost sandbox) still stops the run in both modes. Overrides the value on
+    #: ``sandbox`` so a run has exactly one mode, and is recorded in ``session.json``.
+    tool_error_mode: str = TOOL_ERROR_MODE_CORRECTED
+    #: Stage R1-1 evidence: record the exact input of every proposed tool call in the run's private
+    #: payload corpus before it executes. This is what makes the call that killed a run recoverable
+    #: after ``side_effect_unknown`` (stage P1b, DEV-4). The corpus lives under the run directory,
+    #: is never copied into a report, and carries no runtime authority.
+    tool_payload_recording: bool = True
 
 
 def _goal_policy() -> ActionPolicy:
@@ -196,6 +215,23 @@ def _register_provider(name: str, factory: Callable[[], Any]) -> None:
         return factory()
 
     register_provider_factory(name, build)
+
+
+def _goal_sandbox_options(options: GoalRunOptions) -> GoalSandboxOptions | None:
+    """The run's sandbox configuration, with the run-level tool error mode applied.
+
+    One knob, one value: ``GoalRunOptions.tool_error_mode`` wins over whatever the caller put on
+    ``GoalSandboxOptions``, so the mode is stated once and recorded once.
+    """
+
+    if options.sandbox is None:
+        return None
+    if options.tool_error_mode not in TOOL_ERROR_MODES:
+        raise ValueError(
+            f"unknown tool error mode {options.tool_error_mode!r}; expected one of "
+            f"{list(TOOL_ERROR_MODES)}"
+        )
+    return replace(options.sandbox, tool_error_mode=options.tool_error_mode)
 
 
 def _config_error(config: AtlasConfig) -> str | None:
@@ -428,6 +464,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     service: DelegationService | None = None
     engine: AtlasContextEngine | None = None
     sandbox: GoalSandbox | None = None
+    payload_corpus: ToolPayloadCorpus | None = None
     main_result: Any | None = None
     failure: str | None = None
     sandbox_failure: str | None = None
@@ -436,9 +473,12 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     main_usage = UsageAttributionHook()
 
     try:
-        if options.sandbox is not None:
+        sandbox_options = _goal_sandbox_options(options)
+        if options.tool_payload_recording:
+            payload_corpus = ToolPayloadCorpus.for_run(run_dir)
+        if sandbox_options is not None:
             sandbox = GoalSandbox(
-                options.sandbox,
+                sandbox_options,
                 config=options.config,
                 run_id=run_id,
                 run_dir=run_dir,
@@ -478,6 +518,14 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             sandbox_tools=sandbox.sandbox_tools if sandbox is not None else None,
             trajectory_recorder=recorder,
             runtime_instance_id=f"goal-{run_id}",
+            # DEV-4: every proposed tool input is written to the private corpus before it runs, so
+            # the call that ended a failed run is still recoverable afterwards.
+            execution_integrity_mode=(
+                EXECUTION_INTEGRITY_RECORD
+                if payload_corpus is not None
+                else EXECUTION_INTEGRITY_OFF
+            ),
+            tool_payload_corpus=payload_corpus,
             # P0.1: every refusal this gate returns happens before the tool body runs, so the Main
             # may read the reason and choose another action instead of losing the run.
             pre_execution_denials_retry_safe=True,
@@ -687,9 +735,41 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         "ownership": ownership.evidence_snapshot(),
         "handoff_reads": service.reader_metrics() if service is not None else None,
         "tool_surface": list(runtime.native_tool_names) if runtime is not None else [],
+        # Reliability closure: the two semantics a reader would otherwise have to infer.
+        "tool_error_mode": options.tool_error_mode,
+        "execution_integrity": _integrity_evidence(payload_corpus, run_dir),
     }
     (run_dir / "session.json").write_text(json.dumps(session, indent=2), encoding="utf-8")
     return session
+
+
+def _integrity_evidence(corpus: ToolPayloadCorpus | None, run_dir: Path) -> dict[str, Any]:
+    """Whether the exact input of a failed call survived the run, and where it lives.
+
+    ``records`` counts payloads, not calls: a call is recoverable when its ``input_ref`` in the
+    transcript resolves here. A write failure is reported, never hidden — an unrecoverable call is
+    an evidence gap, not an empty corpus.
+    """
+
+    if corpus is None:
+        return {
+            "mode": EXECUTION_INTEGRITY_OFF,
+            "records": 0,
+            "write_failures": 0,
+            "payload_file": None,
+            "authority": "none",
+        }
+    path = Path(run_dir) / PRIVATE_PAYLOAD_ROOT / PRIVATE_PAYLOAD_FILE
+    return {
+        "mode": EXECUTION_INTEGRITY_RECORD,
+        "payload_file": f"{PRIVATE_PAYLOAD_ROOT}/{PRIVATE_PAYLOAD_FILE}",
+        "records": len(read_corpus(path)),
+        "write_failures": corpus.write_failures,
+        "last_error": corpus.last_error,
+        # The corpus is host-local forensic evidence. It confers no permission and is never
+        # published: see docs/stage-reliability-closure-b0.md.
+        "authority": "evidence_only",
+    }
 
 
 def _public_test_evidence(
