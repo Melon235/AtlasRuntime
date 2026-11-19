@@ -1,0 +1,502 @@
+{
+  "acceptance": "FAIL",
+  "budget": {
+    "admission_rejections": 1,
+    "budget_overrun_tokens": 0,
+    "estimate_abs_error_tokens": 34319,
+    "estimate_samples": 24,
+    "in_flight": 0,
+    "last_rejection": "worker atlas-main needs ~40508 tokens (used 397300, reserved 0), 22700 of 420000 left",
+    "last_release_reason": null,
+    "last_write_off_reason": null,
+    "learned_ratio": 1.1493,
+    "limit_tokens": 420000,
+    "mode": "guarded",
+    "peak_reserved_tokens": 42108,
+    "remaining_tokens": 22700,
+    "requests_completed": 24,
+    "requests_released": 0,
+    "requests_started": 24,
+    "requests_written_off": 0,
+    "reserved_tokens": 0,
+    "samples": [
+      {
+        "actual_completion_tokens": 122,
+        "actual_prompt_tokens": 3708,
+        "actual_tokens": 3830,
+        "estimated_tokens": 8024,
+        "request_id": 1,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 131,
+        "actual_prompt_tokens": 4282,
+        "actual_tokens": 4413,
+        "estimated_tokens": 8777,
+        "request_id": 2,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 81,
+        "actual_prompt_tokens": 4475,
+        "actual_tokens": 4556,
+        "estimated_tokens": 9106,
+        "request_id": 3,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 186,
+        "actual_prompt_tokens": 5316,
+        "actual_tokens": 5502,
+        "estimated_tokens": 10156,
+        "request_id": 4,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 95,
+        "actual_prompt_tokens": 10206,
+        "actual_tokens": 10301,
+        "estimated_tokens": 15784,
+        "request_id": 5,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 115,
+        "actual_prompt_tokens": 17352,
+        "actual_tokens": 17467,
+        "estimated_tokens": 24036,
+        "request_id": 6,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 198,
+        "actual_prompt_tokens": 22209,
+        "actual_tokens": 22407,
+        "estimated_tokens": 29697,
+        "request_id": 7,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 118,
+        "actual_prompt_tokens": 26867,
+        "actual_tokens": 26985,
+        "estimated_tokens": 34983,
+        "request_id": 8,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 70,
+        "actual_prompt_tokens": 27737,
+        "actual_tokens": 27807,
+        "estimated_tokens": 36006,
+        "request_id": 9,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 57,
+        "actual_prompt_tokens": 28034,
+        "actual_tokens": 28091,
+        "estimated_tokens": 36346,
+        "request_id": 10,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 44,
+        "actual_prompt_tokens": 28124,
+        "actual_tokens": 28168,
+        "estimated_tokens": 36438,
+        "request_id": 11,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 41,
+        "actual_prompt_tokens": 28199,
+        "actual_tokens": 28240,
+        "estimated_tokens": 36517,
+        "request_id": 12,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 65,
+        "actual_prompt_tokens": 28439,
+        "actual_tokens": 28504,
+        "estimated_tokens": 36805,
+        "request_id": 13,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 60,
+        "actual_prompt_tokens": 28537,
+        "actual_tokens": 28597,
+        "estimated_tokens": 36907,
+        "request_id": 14,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 117,
+        "actual_prompt_tokens": 28721,
+        "actual_tokens": 28838,
+        "estimated_tokens": 37114,
+        "request_id": 15,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 66,
+        "actual_prompt_tokens": 28946,
+        "actual_tokens": 29012,
+        "estimated_tokens": 37338,
+        "request_id": 16,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 581,
+        "actual_prompt_tokens": 29045,
+        "actual_tokens": 29626,
+        "estimated_tokens": 37452,
+        "request_id": 17,
+        "worker": "atlas-main"
+      },
+      {
+        "actual_completion_tokens": 107,
+        "actual_prompt_tokens": 1878,
+        "actual_tokens": 1985,
+        "estimated_tokens": 6077,
+        "request_id": 18,
+        "worker": "research_worker:stage-s1-20261119T094539Z-main:r1:probe-samples"
+      },
+      {
+        "actual_completion_tokens": 73,
+        "actual_prompt_tokens": 2218,
+        "actual_tokens": 2291,
+        "estimated_tokens": 6521,
+        "request_id": 19,
+        "worker": "research_worker:stage-s1-20261119T094539Z-main:r1:probe-samples"
+      },
+      {
+        "actual_completion_tokens": 67,
+        "actual_prompt_tokens": 2319,
+        "actual_tokens": 2386,
+        "estimated_tokens": 6699,
+        "request_id": 20,
+        "worker": "research_worker:stage-s1-20261119T094539Z-main:r1:probe-samples"
+      },
+      {
+        "actual_completion_tokens": 140,
+        "actual_prompt_tokens": 2414,
+        "actual_tokens": 2554,
+        "estimated_tokens": 6840,
+        "request_id": 21,
+        "worker": "research_worker:stage-s1-20261119T094539Z-main:r1:probe-samples"
+      },
+      {
+        "actual_completion_tokens": 125,
+        "actual_prompt_tokens": 2605,
+        "actual_tokens": 2730,
+        "estimated_tokens": 7054,
+        "request_id": 22,
+        "worker": "research_worker:stage-s1-20261119T094539Z-main:r1:probe-samples"
+      },
+      {
+        "actual_completion_tokens": 116,
+        "actual_prompt_tokens": 2769,
+        "actual_tokens": 2885,
+        "estimated_tokens": 7261,
+        "request_id": 23,
+        "worker": "research_worker:stage-s1-20261119T094539Z-main:r1:probe-samples"
+      },
+      {
+        "actual_completion_tokens": 120,
+        "actual_prompt_tokens": 30005,
+        "actual_tokens": 30125,
+        "estimated_tokens": 42108,
+        "request_id": 24,
+        "worker": "atlas-main"
+      }
+    ],
+    "stop_reason": "budget_exhausted: worker atlas-main needs ~40508 tokens (used 397300, reserved 0), 22700 of 420000 left",
+    "used_completion_tokens": 2895,
+    "used_prompt_tokens": 394405,
+    "used_tokens": 397300,
+    "workers": {
+      "atlas-main": {
+        "actual_tokens": 382469,
+        "completed": 18,
+        "rejected": 1,
+        "started": 18,
+        "written_off": 0
+      },
+      "research_worker:stage-s1-20261119T094539Z-main:r1:probe-samples": {
+        "actual_tokens": 14831,
+        "completed": 6,
+        "rejected": 0,
+        "started": 6,
+        "written_off": 0
+      }
+    },
+    "written_off_tokens": 0
+  },
+  "delegation": {
+    "blocked_gates": [
+      []
+    ],
+    "children": [
+      {
+        "error_code": "max_turns",
+        "finished_offset_ms": 8672.421,
+        "key": "probe-samples",
+        "profile_id": "research_worker",
+        "ref_id": "ho-6100eb7b35de38b6a962469c",
+        "started_offset_ms": 1.27,
+        "status": "failed",
+        "success": false,
+        "summary_chars": 177,
+        "tool_calls": 12,
+        "turns": 6
+      }
+    ],
+    "enabled": true,
+    "max_observed_concurrency": 1,
+    "policy_versions": [
+      "m.1.0"
+    ],
+    "reason_codes": [
+      [
+        "DELEGATION_ADMITTED"
+      ]
+    ],
+    "result_chars": 1119,
+    "rounds": 1,
+    "routes": [
+      "delegate_one"
+    ]
+  },
+  "delegation_mode": "AUTONOMOUS_MAIN_DELEGATION",
+  "early_delegation": {
+    "delegate_turns": [
+      17
+    ],
+    "first_delegate_turn": 17,
+    "main_context_tokens_at_delegation_request": 29045,
+    "main_context_tokens_by_request": [
+      3708,
+      4282,
+      4475,
+      5316,
+      10206,
+      17352,
+      22209,
+      26867,
+      27737,
+      28034,
+      28124,
+      28199,
+      28439,
+      28537,
+      28721,
+      28946,
+      29045,
+      30005
+    ],
+    "read_targets_before_first_delegation": [
+      ".",
+      "README.md",
+      "pytest.ini",
+      "releaseguard/audit/contracts.py",
+      "releaseguard/audit/report.py",
+      "releaseguard/audit/service.py",
+      "releaseguard/audit/errors.py",
+      "releaseguard/audit/__init__.py",
+      "tests/test_public_audit.py",
+      "releaseguard/metadata/manifest_parser.py",
+      "releaseguard/metadata/version_rules.py",
+      "releaseguard/metadata/license_rules.py",
+      "releaseguard/metadata/errors.py",
+      "releaseguard/artifacts/scanner.py",
+      "releaseguard/artifacts/path_rules.py",
+      "releaseguard/artifacts/checksums.py",
+      "releaseguard/artifacts/errors.py",
+      "releaseguard/artifacts/__init__.py",
+      "samples/release-manifest.json",
+      "releaseguard/metadata/__init__.py",
+      "samples",
+      "samples/dist"
+    ],
+    "tool_call_count_before_first_delegation": 34
+  },
+  "execution_integrity": {
+    "authority": "evidence_only",
+    "last_error": null,
+    "mode": "record",
+    "payload_file": "private/tool_payloads.jsonl",
+    "records": 48,
+    "write_failures": 0
+  },
+  "git": {
+    "baseline_commit": "cb2e8a74a06021829d24a05b4f90bd1ce68c168e",
+    "git_branch": "exp/main-prompt-v2-pilot",
+    "git_head": "4a8c3018b7a59879192100b917355b927c734e6c",
+    "git_status": "",
+    "git_status_excluded_files": [],
+    "main_system_prompt_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a"
+  },
+  "goal_digest": "sha256:60cf5c027c8950347b1f34848941b7f65c6d64599076604d08f69fadb6259a06",
+  "handoff_utilisation": {
+    "child_read_targets": {
+      "stage-s1-20261119T094539Z-main:r1:probe-samples": [
+        "/workspace/project"
+      ]
+    },
+    "delegate_read_calls": [],
+    "handoff_payload_chars": 1119,
+    "handoff_reads_metrics": {
+      "read_calls": 0,
+      "read_denied": 0,
+      "read_success": 0
+    },
+    "main_write_targets": [],
+    "public_test_calls": [],
+    "read_targets_after_handoff": [],
+    "reread_after_handoff_of_child_work": []
+  },
+  "main": {
+    "output": "budget_exhausted: worker atlas-main needs ~40508 tokens (used 397300, reserved 0), 22700 of 420000 left",
+    "output_chars": 103,
+    "stop_message": "budget_exhausted: worker atlas-main needs ~40508 tokens (used 397300, reserved 0), 22700 of 420000 left",
+    "stop_reason": "budget_exceeded",
+    "tool_calls": [],
+    "turns": 0
+  },
+  "main_prompt": {
+    "chars": 7095,
+    "digest": "sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+    "source": "override",
+    "version": "main-v2.0-rc1"
+  },
+  "metrics": {
+    "child_completion_tokens": 628,
+    "child_total_prompt_tokens": 14203,
+    "delegation_rounds": 1,
+    "handoff_payload_chars": 1119,
+    "main_cache_hit_tokens": 350592,
+    "main_cache_miss_tokens": 29610,
+    "main_completion_tokens": 2267,
+    "main_context_tokens_by_request": [
+      3708,
+      4282,
+      4475,
+      5316,
+      10206,
+      17352,
+      22209,
+      26867,
+      27737,
+      28034,
+      28124,
+      28199,
+      28439,
+      28537,
+      28721,
+      28946,
+      29045,
+      30005
+    ],
+    "main_cumulative_input_tokens": 380202,
+    "main_peak_context_tokens": 30005,
+    "main_requests": 18,
+    "max_observed_child_concurrency": 1,
+    "system_total_tokens": 397300,
+    "unavailable_fields": []
+  },
+  "ownership": {
+    "allowed_calls": 38,
+    "checked_calls": 44,
+    "denied_calls": 6,
+    "mode": "enforce"
+  },
+  "preflight_status": "READY",
+  "public_tests": {
+    "calls": 0,
+    "command_digest": "ec17b2e8247b02e2d9d06dbbea763aa97fe9eb03ff74d49b8fed12cc111c0048",
+    "last_exit_code": null,
+    "statuses": []
+  },
+  "sandbox": {
+    "binding_id": "d8d2b59438e0dc2d20c6005b061f81e4952c49b8996d3cd485c039ffc3c77e8c",
+    "binding_state": "READY",
+    "capabilities": {
+      "cancellation": true,
+      "command_streaming": false,
+      "contract_version": "1.0",
+      "evidence": true,
+      "file_transfer": true,
+      "isolation": "container",
+      "limitations": [
+        "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+        "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+        "Point-in-time snapshots are not exposed through this adapter.",
+        "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+      ],
+      "networking": "allowlist",
+      "persistent_filesystem": true,
+      "provider": "opensandbox",
+      "snapshots": false
+    },
+    "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+    "check_runs": 1,
+    "created": true,
+    "destroyed": true,
+    "error": null,
+    "export_digest": "sha256:8f2dc66e3326641e23b5443d01cb98c74a7db8fd3940e1cbb8400e3c98a35b61",
+    "export_files": 23,
+    "export_size_bytes": 143360,
+    "host_separation": {
+      "host_only_visible": false,
+      "sandbox_only_read_back": true,
+      "sandbox_only_visible_on_host": false
+    },
+    "network_probe": "PASS",
+    "patch_changed_files": 0,
+    "patch_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "provider": "opensandbox",
+    "provider_is_real": true,
+    "provision_commands": 4,
+    "provision_uploads": 1,
+    "retained": false,
+    "sandbox_id": "8d7429ca-fe44-4aa4-82b1-0682a5d042b2",
+    "tool_error_mode": "corrected",
+    "workspace_root": "/workspace/project"
+  },
+  "source_tree_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
+  "stage": "S1",
+  "status": "failed",
+  "tool_error_mode": "corrected",
+  "verdict_inputs": {
+    "children_executed": 0,
+    "children_succeeded": 0,
+    "delegation_admitted": true,
+    "delegation_proposed": true,
+    "failure": null,
+    "handoff_read_used": false,
+    "max_observed_concurrency": 1,
+    "oracle_verdict": "FAIL",
+    "public_tests_passed": false,
+    "run_status": "failed",
+    "s1_decision_from_rules": "S1_V2_DELEGATION_PARTIAL"
+  },
+  "verification": {
+    "dynamic": {
+      "command": "python3 -m pytest -q && python3 -c '\nimport json\nimport tempfile\nfrom pathlib import Path\n\nfrom releaseguard.artifacts import normalize_artifact_path, normalize_digest, scan_artifacts\nfrom releaseguard.artifacts.errors import ArtifactPathError, DigestFormatError\nfrom releaseguard.audit import (\n    CHECK_CHECKSUMS,\n    CHECK_COVERAGE,\n    CHECK_EXTRAS,\n    CHECK_INVENTORY,\n    CHECK_LICENSE,\n    CHECK_MANIFEST,\n    CHECK_ORDER,\n    CHECK_PATHS,\n    CHECK_VERSION,\n    AuditContractError,\n    AuditIssue,\n    AuditPolicy,\n    CheckStatus,\n    Severity,\n    audit_release,\n    build_report,\n    render_report,\n)\nfrom releaseguard.audit.contracts import AuditCheck\nfrom releaseguard.metadata import check_license, check_version, parse_manifest, parse_manifest_text\n\nFAILURES = []\n\n\ndef check(condition, label):\n    if not condition:\n        FAILURES.append(label)\n\n\ndef statuses(report):\n    return {item.check_id: item.status for item in report.checks}\n\n\ndef issues_of(report, check_id):\n    return next(item for item in report.checks if item.check_id == check_id).issues\n\n\ndef payload():\n    return json.loads(MANIFEST.read_text(encoding=\"utf-8\"))\n\n\nORIGIN = Path.cwd()\nSAMPLES = ORIGIN / \"samples\"\nDIST = SAMPLES / \"dist\"\nMANIFEST = SAMPLES / \"release-manifest.json\"\nWORK = Path(tempfile.mkdtemp(prefix=\"oracle-\"))\n\n\ndef write_manifest(name, document):\n    path = WORK / name\n    path.write_text(json.dumps(document), encoding=\"utf-8\")\n    return path\n\n\ndef fake_check(check_id, severity):\n    if severity is None:\n        return AuditCheck(check_id=check_id, status=CheckStatus.PASS)\n    issue = AuditIssue(code=\"x\", severity=severity, subject=\"s\", message=\"m\")\n    status = CheckStatus.FAIL if severity is Severity.ERROR else CheckStatus.PASS\n    return AuditCheck(check_id=check_id, status=status, issues=(issue,))\n\n\ndef simple_manifest_document():\n    return {\n        \"release\": {\"name\": \"demo\", \"version\": \"1.0.0\"},\n        \"license\": {\"spdx\": \"MIT\"},\n        \"artifacts\": [{\"path\": \"demo.tar.gz\", \"sha256\": \"a\" * 64, \"size\": 1}],\n    }\n\n\n# -- 1. the healthy release ---------------------------------------------------\n\nreport = audit_release(MANIFEST, DIST)\ncheck(report.status is CheckStatus.PASS, \"healthy status\")\ncheck(tuple(item.check_id for item in report.checks) == CHECK_ORDER, \"healthy check order\")\ncheck(all(item.status is CheckStatus.PASS for item in report.checks), \"healthy every check passes\")\ncheck(report.artifact_count == 4, \"healthy artifact count\")\ncheck((report.manifest_name, report.manifest_version) == (\"releaseguard\", \"2.4.0\"), \"healthy identity\")\ncheck(\n    dict(report.summary)\n    == {\n        \"checks\": 8,\n        \"passed\": 8,\n        \"failed\": 0,\n        \"skipped\": 0,\n        \"errors\": 0,\n        \"warnings\": 1,\n        \"issues\": 1,\n    },\n    \"healthy summary\",\n)\nextras = issues_of(report, CHECK_EXTRAS)\ncheck([item.code for item in extras] == [\"undeclared_artifact\"], \"extras code\")\ncheck(extras[0].subject == \"extra-debug.log\", \"extras subject\")\ncheck(extras[0].severity is Severity.WARNING, \"extras severity\")\ncheck(issues_of(report, CHECK_COVERAGE) == (), \"healthy coverage empty\")\ncheck(issues_of(report, CHECK_CHECKSUMS) == (), \"healthy checksums empty\")\ncheck(issues_of(report, CHECK_PATHS) == (), \"healthy paths empty\")\n\nrendered = render_report(report)\ncheck(rendered == render_report(audit_release(MANIFEST, DIST)), \"render is stable\")\ncheck(rendered.endswith(\"\\n\"), \"render ends with a newline\")\ndocument = json.loads(rendered)\ncheck(document[\"status\"] == \"pass\", \"render status\")\ncheck(\n    list(report.as_dict())\n    == [\"status\", \"manifest\", \"artifact_count\", \"policy\", \"summary\", \"checks\", \"issues\"],\n    \"as_dict key order\",\n)\ncheck(\n    list(report.as_dict()[\"summary\"])\n    == [\"checks\", \"passed\", \"failed\", \"skipped\", \"errors\", \"warnings\", \"issues\"],\n    \"summary key order\",\n)\ncheck(document[\"manifest\"] == {\"name\": \"releaseguard\", \"version\": \"2.4.0\"}, \"render manifest\")\ncheck(str(SAMPLES) not in rendered, \"no absolute path in the report\")\ncheck(\"workspace\" not in rendered, \"no workspace path in the report\")\ncheck(audit_release(str(MANIFEST), str(DIST)).as_dict() == report.as_dict(), \"str paths accepted\")\n\n# -- 2. report assembly -------------------------------------------------------\n\nbuilt = build_report(\n    [\n        fake_check(CHECK_EXTRAS, None),\n        fake_check(CHECK_CHECKSUMS, Severity.WARNING),\n        fake_check(CHECK_MANIFEST, Severity.ERROR),\n        fake_check(CHECK_VERSION, None),\n    ]\n)\ncheck(\n    [item.check_id for item in built.checks]\n    == [CHECK_MANIFEST, CHECK_VERSION, CHECK_CHECKSUMS, CHECK_EXTRAS],\n    \"build_report orders by CHECK_ORDER\",\n)\ncheck(\n    [(item.severity.value, item.code) for item in built.issues]\n    == [(\"error\", \"x\"), (\"warning\", \"x\")],\n    \"build_report sorts issues by severity\",\n)\ncheck(built.status is CheckStatus.FAIL, \"build_report fails on an error\")\ncheck(built.summary[\"errors\"] == 1 and built.summary[\"warnings\"] == 1, \"build_report counts\")\n\nduplicate_refused = False\ntry:\n    build_report([fake_check(CHECK_MANIFEST, None), fake_check(CHECK_MANIFEST, None)])\nexcept AuditContractError as error:\n    duplicate_refused = getattr(error, \"code\", None) == \"duplicate_check\"\ncheck(duplicate_refused, \"build_report refuses a duplicate check\")\n\nskipped_only = build_report([AuditCheck(check_id=CHECK_MANIFEST, status=CheckStatus.SKIP)])\ncheck(skipped_only.status is CheckStatus.PASS, \"a skipped check is not a failure\")\ncheck(skipped_only.summary[\"skipped\"] == 1, \"skipped counted\")\n\n# -- 3. a manifest that cannot be read ---------------------------------------\n\nbroken = WORK / \"broken.json\"\nbroken.write_text(\"{not json\", encoding=\"utf-8\")\nreport = audit_release(broken, DIST)\nstate = statuses(report)\ncheck(state[CHECK_MANIFEST] is CheckStatus.FAIL, \"broken manifest fails\")\ncheck([item.code for item in issues_of(report, CHECK_MANIFEST)] == [\"manifest_not_json\"], \"broken code\")\ncheck(state[CHECK_INVENTORY] is CheckStatus.PASS, \"broken manifest still inventories\")\ncheck(report.artifact_count == 4, \"broken manifest artifact count\")\ncheck(report.manifest_name is None, \"broken manifest has no identity\")\ncheck(report.status is CheckStatus.FAIL, \"broken manifest status\")\nfor check_id in (CHECK_VERSION, CHECK_LICENSE, CHECK_PATHS, CHECK_CHECKSUMS, CHECK_COVERAGE, CHECK_EXTRAS):\n    check(state[check_id] is CheckStatus.SKIP, \"broken skip \" + check_id)\n\n# -- 4. a declared artifact that is not there --------------------------------\n\ndocument = payload()\ndocument[\"artifacts\"].append(\n    {\"path\": \"releaseguard-2.4.0-docs.zip\", \"sha256\": \"d\" * 64, \"size\": 12}\n)\nreport = audit_release(write_manifest(\"missing.json\", document), DIST)\ncheck(statuses(report)[CHECK_COVERAGE] is CheckStatus.FAIL, \"coverage fails\")\ncheck(statuses(report)[CHECK_CHECKSUMS] is CheckStatus.PASS, \"coverage does not touch checksums\")\ncheck(\n    [item.code for item in issues_of(report, CHECK_COVERAGE)] == [\"artifact_missing\"],\n    \"coverage code\",\n)\ncheck(\n    issues_of(report, CHECK_COVERAGE)[0].subject == \"releaseguard-2.4.0-docs.zip\",\n    \"coverage subject\",\n)\n\n# -- 5. digest and size disagreements ---------------------------------------\n\ndocument = payload()\ndocument[\"artifacts\"][2][\"sha256\"] = \"e\" * 64\nreport = audit_release(write_manifest(\"digest.json\", document), DIST)\ncheck(\n    [item.code for item in issues_of(report, CHECK_CHECKSUMS)] == [\"digest_mismatch\"],\n    \"digest mismatch code\",\n)\ncheck(issues_of(report, CHECK_CHECKSUMS)[0].subject == \"CHANGELOG.md\", \"digest mismatch subject\")\n\ndocument = payload()\ndocument[\"artifacts\"][2][\"size\"] = 1\nreport = audit_release(write_manifest(\"size.json\", document), DIST)\ncheck([item.code for item in issues_of(report, CHECK_CHECKSUMS)] == [\"size_mismatch\"], \"size mismatch\")\n\ndocument = payload()\ndocument[\"artifacts\"][0][\"sha256\"] = \"not-a-digest\"\nreport = audit_release(write_manifest(\"malformed.json\", document), DIST)\ncheck([item.code for item in issues_of(report, CHECK_CHECKSUMS)] == [\"digest_format\"], \"malformed digest\")\n\n# -- 6. one mistake, one finding --------------------------------------------\n\ndocument = payload()\ndocument[\"artifacts\"].append({\"path\": \"../escape.whl\", \"sha256\": \"f\" * 64, \"size\": 3})\nreport = audit_release(write_manifest(\"escape.json\", document), DIST)\ncheck(statuses(report)[CHECK_PATHS] is CheckStatus.FAIL, \"unsafe path fails the path check\")\ncheck(statuses(report)[CHECK_COVERAGE] is CheckStatus.PASS, \"unsafe path is not also missing\")\ncheck([item.code for item in issues_of(report, CHECK_PATHS)] == [\"path_escape\"], \"unsafe path code\")\ncheck(issues_of(report, CHECK_PATHS)[0].subject == \"../escape.whl\", \"unsafe path subject\")\n\n# -- 7. policy ---------------------------------------------------------------\n\nreport = audit_release(MANIFEST, DIST, policy=AuditPolicy(allow_extra_artifacts=False))\ncheck(statuses(report)[CHECK_EXTRAS] is CheckStatus.FAIL, \"extras can be fatal\")\ncheck([item.severity for item in issues_of(report, CHECK_EXTRAS)] == [Severity.ERROR], \"extras severity\")\ncheck(report.status is CheckStatus.FAIL, \"extras status\")\n\nreport = audit_release(MANIFEST, DIST, policy=AuditPolicy(fail_on_warnings=True))\ncheck(statuses(report)[CHECK_EXTRAS] is CheckStatus.PASS, \"promoted extras still pass the check\")\ncheck(report.status is CheckStatus.FAIL, \"promoted status\")\ncheck(report.summary[\"errors\"] == 0 and report.summary[\"warnings\"] == 1, \"promoted summary\")\n\nreport = audit_release(MANIFEST, DIST, policy=AuditPolicy(allowed_licenses=(\"MIT\",)))\ncheck(\n    [item.code for item in issues_of(report, CHECK_LICENSE)] == [\"license_not_allowed\"],\n    \"license policy\",\n)\n\n# -- 8. metadata findings reach the report ----------------------------------\n\ndocument = payload()\ndocument[\"release\"][\"version\"] = \"2.4.0rc1\"\nreport = audit_release(write_manifest(\"rc.json\", document), DIST)\ncheck(statuses(report)[CHECK_VERSION] is CheckStatus.FAIL, \"version rule fails the check\")\ncheck([item.code for item in issues_of(report, CHECK_VERSION)] == [\"prerelease_on_stable\"], \"version code\")\n\ndocument = payload()\ndocument[\"license\"][\"spdx\"] = \"GPL-3.0\"\nreport = audit_release(write_manifest(\"license.json\", document), DIST)\ncheck(\n    [item.code for item in issues_of(report, CHECK_LICENSE)] == [\"license_deprecated\", \"license_not_allowed\"],\n    \"license codes\",\n)\ncheck(\n    [item.severity for item in issues_of(report, CHECK_LICENSE)] == [Severity.WARNING, Severity.ERROR],\n    \"license severities\",\n)\n\n# -- 9. a build directory that is not there ---------------------------------\n\nreport = audit_release(MANIFEST, WORK / \"absent\")\ncheck(statuses(report)[CHECK_INVENTORY] is CheckStatus.FAIL, \"inventory fails\")\ncheck([item.code for item in issues_of(report, CHECK_INVENTORY)] == [\"artifact_root_missing\"], \"inventory code\")\ncheck(report.artifact_count == 0, \"inventory artifact count\")\nfor check_id in (CHECK_PATHS, CHECK_CHECKSUMS, CHECK_COVERAGE, CHECK_EXTRAS):\n    check(statuses(report)[check_id] is CheckStatus.SKIP, \"inventory skip \" + check_id)\n\n# -- 10. the compatibility surface is unchanged -----------------------------\n\nmanifest = parse_manifest(MANIFEST)\ncheck(manifest.channel == \"stable\", \"compat channel\")\ncheck(manifest.python_requirement == \">=3.9\", \"compat python requirement\")\ncheck([item.kind for item in manifest.artifacts] == [\"wheel\", \"sdist\", \"document\"], \"compat kinds\")\ncheck(manifest.artifact_paths()[2] == \"CHANGELOG.md\", \"compat artifact order\")\n\ndefaults = parse_manifest_text(json.dumps(simple_manifest_document()))\ncheck(defaults.artifacts[0].kind == \"binary\", \"compat default kind\")\ncheck(defaults.license.files == (), \"compat default license files\")\ncheck(defaults.channel == \"stable\", \"compat default channel\")\n\nduplicate_document = simple_manifest_document()\nduplicate_document[\"artifacts\"].append(dict(duplicate_document[\"artifacts\"][0]))\nduplicate_refused = False\ntry:\n    parse_manifest_text(json.dumps(duplicate_document))\nexcept Exception as error:\n    duplicate_refused = getattr(error, \"code\", None) == \"duplicate_artifact\"\ncheck(duplicate_refused, \"compat duplicate artifact code\")\n\ninventory = scan_artifacts(DIST)\ncheck(\n    inventory.paths()\n    == (\n        \"CHANGELOG.md\",\n        \"extra-debug.log\",\n        \"releaseguard-2.4.0-py3-none-any.whl\",\n        \"releaseguard-2.4.0.tar.gz\",\n    ),\n    \"compat inventory order\",\n)\ncheck(inventory.skipped == (), \"compat inventory has no refusals\")\n\npath_refused = False\ntry:\n    normalize_artifact_path(\"/etc/passwd\")\nexcept ArtifactPathError as error:\n    path_refused = error.code == \"path_absolute\"\ncheck(path_refused, \"compat absolute path code\")\n\ndigest_refused = False\ntry:\n    normalize_digest(\"nope\")\nexcept DigestFormatError as error:\n    digest_refused = error.code == \"digest_format\"\ncheck(digest_refused, \"compat digest code\")\n\nrc_document = simple_manifest_document()\nrc_document[\"release\"][\"version\"] = \"1.0.0rc1\"\ncheck(\n    [item.code for item in check_version(parse_manifest_text(json.dumps(rc_document)))]\n    == [\"prerelease_on_stable\"],\n    \"compat version rule\",\n)\ncheck(check_license(manifest) == (), \"compat license rule\")\n\n# -- 11. the audit reads, never writes -------------------------------------\n\nbefore = {item.name: item.read_bytes() for item in DIST.iterdir() if item.is_file()}\nmanifest_before = MANIFEST.read_bytes()\naudit_release(MANIFEST, DIST)\nafter = {item.name: item.read_bytes() for item in DIST.iterdir() if item.is_file()}\ncheck(before == after, \"the audit wrote into the build directory\")\ncheck(MANIFEST.read_bytes() == manifest_before, \"the audit wrote into the manifest\")\n\nif FAILURES:\n    raise SystemExit(\"HIDDEN_FAIL: \" + \"; \".join(FAILURES))\nprint(\"HIDDEN_OK\")\n'",
+      "cwd": "/workspace/project",
+      "elapsed_ms": 1925.406,
+      "exit_code": 1,
+      "ok": true,
+      "status": "FAIL",
+      "stderr_chars": 0,
+      "stdout_chars": 33981,
+      "stdout_digest": "sha256:60641fa626338a317067669144f6bc54d479ee65dfe2d7ba82373105ffb98c5f"
+    },
+    "static_status": "PASS",
+    "verdict": "FAIL"
+  },
+  "wall_clock_seconds": 63.971
+}

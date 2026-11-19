@@ -1,0 +1,544 @@
+{
+  "combined_blocking_failures": [],
+  "combined_status": "READY",
+  "delegation_mode": "AUTONOMOUS_MAIN_DELEGATION",
+  "fixture_commit": "9db0cac4f35a9f170f8c950c9b0eb526cb0c9a51",
+  "freeze": {
+    "fixture": {
+      "files": {
+        "README.md": "sha256:f2ecdd3d8e98c74bd7569e03b98022584656af8976ed7297e8233fbabb01911a",
+        "pytest.ini": "sha256:ddfcf6e0017476e9b9e8e55559c80e166c21f4f1ac242c7468dc85ad9dc69e52",
+        "releaseguard/__init__.py": "sha256:52868f6cfdba0f45ac88d394f0e252938d505ea3bbd4175a82958cc8f53bdd2c",
+        "releaseguard/artifacts/__init__.py": "sha256:92f793c97ee389f2f205405abd623f5d9b6bef74026085d7cc8cca267f50fabf",
+        "releaseguard/artifacts/checksums.py": "sha256:37d4c48062c415ef322bae263d7afdc09f11bd5ac55a157f6ab5d37235f72240",
+        "releaseguard/artifacts/errors.py": "sha256:816761c3a2f8710f57115851922b7d8804bea6a20a11405b459072308dfc609e",
+        "releaseguard/artifacts/path_rules.py": "sha256:0173b99897490ddb9f51a6170fe9a1736517800268a0e1b304fac2b7a6830430",
+        "releaseguard/artifacts/scanner.py": "sha256:c8bb49ff9b0ae24a525763af591e4028ed47345cb7a9adfc5a8a0582fd1de22f",
+        "releaseguard/audit/__init__.py": "sha256:4f44f9d4adeaa55122986c65eb7da47c30418bbc20090f2946d3b69068d4ee48",
+        "releaseguard/audit/contracts.py": "sha256:3838c4af1ba8b5b556b569c3780f02af0cb2b509d9df8a24606efcb251800606",
+        "releaseguard/audit/errors.py": "sha256:3d162c7f9ef8ad01d6c06d4a32d64a248bf4867dc64b2b89a785f353dcbfe20b",
+        "releaseguard/audit/report.py": "sha256:1eb3784fdc87368d39c01460b2c8b09d392cb549fd1232202a5cdfd5b813026e",
+        "releaseguard/audit/service.py": "sha256:55b74934383833bef317905447134414ba31ef854c8151650dd23c1abb849f1f",
+        "releaseguard/metadata/__init__.py": "sha256:432eab56be83d67afe86543d256df2351f58eb5c29485146e560813b988b6ae9",
+        "releaseguard/metadata/errors.py": "sha256:60ecc137bd5034720a41b06f32a8f15218361f372a4a3f5abc4f7c728baa1f81",
+        "releaseguard/metadata/license_rules.py": "sha256:a300623ed8a84c25b496e60d70972f9a1015fc2117871fa00d07af69fea572c5",
+        "releaseguard/metadata/manifest_parser.py": "sha256:aad7b27b6018ce64c953f58c9779954c2d2f6de43b21db49aa2c7baf8708c9ae",
+        "releaseguard/metadata/version_rules.py": "sha256:cd741656a1c9289d9b2e926105a99c8ef21ef23ee012751338c0a380868a3116",
+        "samples/LICENSE": "sha256:88a5a3d65345041375cd977599266382225727c6cc78fb76df8e7f57706dcc59",
+        "samples/dist/CHANGELOG.md": "sha256:ebe19442f37d4bf3bb39e7a47594369f763d1930e27069b2537c79fbad3b2a1e",
+        "samples/dist/extra-debug.log": "sha256:11e45546aadd10375070283f7dc53fd969438fa82085b22b86b5d7a07a3510a5",
+        "samples/dist/releaseguard-2.4.0-py3-none-any.whl": "sha256:a140e56bbd775e6f2ba682ec496a8b3768b7d6b9738cd4f8e5368d6e4d2e6b49",
+        "samples/dist/releaseguard-2.4.0.tar.gz": "sha256:790bcb4f8077dae25bb30dd0acb910862711233f4429d91ef3d892ecc08c95ed",
+        "samples/release-manifest.json": "sha256:4b05472bc4a4a1e556a06390fcb473ef8d5fc7729e02eb212bf706f17c79fcd1",
+        "tests/test_artifacts.py": "sha256:a0dc899c90d2480ac6a8769fff936e7202836b5a6affe24106b91a07b2d33eee",
+        "tests/test_metadata.py": "sha256:309fb38dcd676e76e8892e2e6915516edd8906b66402fcd7efe028b987200311",
+        "tests/test_public_audit.py": "sha256:25bc75a727da4981f07b7952ffcd121d49f996a08ad8b5f5f9fcf581e4aea13c"
+      },
+      "fixture_digest": "sha256:2b8edeeb875497d6ffc428f9705c4a2ed385e7943fb241c0879242bac1f99f96"
+    },
+    "generated_at": "2026-11-19T09:44:48.209815+00:00",
+    "git": {
+      "baseline_commit": "cb2e8a74a06021829d24a05b4f90bd1ce68c168e",
+      "git_branch": "exp/main-prompt-v2-pilot",
+      "git_head": "4a8c3018b7a59879192100b917355b927c734e6c",
+      "git_status": "",
+      "git_status_excluded_files": [],
+      "main_system_prompt_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a"
+    },
+    "harness": {
+      "prompts/main_v2.md": "sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+      "reference/report_reference.py": "sha256:18b25223b8f5418e0fdf33855551f6b32695212e4ecd39a6ba1fdeb2f4519880",
+      "reference/service_reference.py": "sha256:6171bc23ffd707d3ac9ea1baf70a9f8dfc2a5723a6c63ca179751da661b684c6",
+      "run_stage_s1.py": "sha256:e89b933e16747a8504875cc269da670b58bfb1eac75fbc99132d88b818d2fe82",
+      "s1_analysis.py": "sha256:1f41644e506ed8b4679d3abc678955ab70e65ec85d2dccc90554f725d47b04fb",
+      "s1_contract.py": "sha256:d84fdf6289b5e6ab089aeac62a9031bd5f921408a206e98b2dfc24a391f3f8ed",
+      "s1_fixture.py": "sha256:1960b354c7c61bc3b1996ffd4a0093dddfbc18cfde7c3c44450726c4443431f2",
+      "s1_offline.py": "sha256:6dee0bf28ac4c792e087b147c706e4680f5ae8de0c0891e8cf3ac2f21cd2daeb"
+    },
+    "identity": {
+      "delegation": {
+        "child_max_turns": 6,
+        "child_timeout_seconds": 300.0,
+        "enabled": true,
+        "max_children_per_call": 2,
+        "max_delegation_rounds": 3,
+        "max_parallel_children": 2
+      },
+      "delegation_mode": "AUTONOMOUS_MAIN_DELEGATION",
+      "experiment": "main_system_prompt_v2_real_model_pilot",
+      "fixture_root": "experiments/fixtures/stage_s1_releaseguard",
+      "goal": "The ReleaseGuard project in this workspace already parses release metadata and inventories build artifacts, but the shared release audit workflow is incomplete. Implement the release readiness audit so consumers can evaluate a release manifest against the actual artifact directory and receive a deterministic, structured report. Preserve the existing metadata and artifact APIs, error behavior, and compatibility tests. Only files inside releaseguard/audit may be written. Use the available public tests to verify your implementation.",
+      "goal_digest": "sha256:60cf5c027c8950347b1f34848941b7f65c6d64599076604d08f69fadb6259a06",
+      "live_attempts": 1,
+      "main_max_turns": 24,
+      "main_write_paths": [
+        "releaseguard/audit/"
+      ],
+      "model": "deepseek-chat",
+      "oracle": {
+        "chars": 13618,
+        "command_digest": "sha256:afd21f1f9365d0bb4a7d927fdde2e7c520b79686797279913f977d2c55e3d0cf",
+        "program_chars": 13581,
+        "program_digest": "sha256:ed097ac87c4e425e75dbec1148d72a9038f4e211325ca24d5e6c6da1fc2658f7"
+      },
+      "prompt": {
+        "default_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a",
+        "default_text_chars": 1388,
+        "default_version": "main-v1.0",
+        "file_bytes": 7099,
+        "file_digest": "sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+        "path": "experiments/stage_s1_prompt_v2/prompts/main_v2.md",
+        "selected_digest": "sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+        "selected_digest_scope": "sha256 of the prompt text (AgentConfig.system_prompt)",
+        "selected_version": "main-v2.0-rc1",
+        "text_chars": 7095
+      },
+      "provider": "deepseek",
+      "public_tests": {
+        "command": "python3 -B -m pytest -q tests",
+        "command_digest": "ec17b2e8247b02e2d9d06dbbea763aa97fe9eb03ff74d49b8fed12cc111c0048",
+        "max_calls": 4,
+        "test_id": "public",
+        "timeout_seconds": 240
+      },
+      "result_preview_chars": 900,
+      "sandbox": {
+        "cpu": "1",
+        "image": "atlas-uat-python:3.12",
+        "memory": "1Gi",
+        "network": "none",
+        "provider": "opensandbox",
+        "timeout_minutes": 30
+      },
+      "stage": "S1",
+      "token_budget": 420000,
+      "tool_error_mode": "corrected"
+    },
+    "offline": {
+      "digest": "sha256:b739fe2f3447c86c7777922a94d6e896dc29b11261f0f6463a0b3b56cdf55aa0",
+      "path": "experiments/stage_s1_prompt_v2/offline.json"
+    },
+    "runtime_delta_since_baseline": [
+      "src/atlasos/app/main_driven.py"
+    ],
+    "source": {
+      "file_count": 130,
+      "files": {
+        "__init__.py": "sha256:6d2a8b2b8beb1238e8f6a8d7b2308046abf378bc37c58c802ac44956a704fe27",
+        "actions/__init__.py": "sha256:fac3dfdb55e3d65f986e8872fd588be9a466bd4a4c4a4b296d77cd3609f9d5d2",
+        "actions/binding.py": "sha256:120c280994fca98ab4612483ce59f9c348ffa91862fa0e07b05a6635c786668d",
+        "actions/catalog.py": "sha256:f28a2e096a16d3be521642e5e5ddc7dc29ecd45db05deff68a798a44e37e46cd",
+        "actions/gate.py": "sha256:329b76154a87b0d2f61a70cb6d8ad96efeb2977f51b7df604b1033cb06a6f7c2",
+        "actions/models.py": "sha256:340cd47d129e3d6f8f244e867fc28f35a4668372b534ddf9c9ade1245875d95f",
+        "actions/policy.py": "sha256:f5c80ce39e8d1a7660a3ddfbff11421d02d88dac05f47efac7f3e17b4f3cd5fc",
+        "actions/reviewer.py": "sha256:7e079f127d8c5a636851c6e04d74869cfcc58ca36b42d03e8dc92ce76c67c6ac",
+        "app/__init__.py": "sha256:ee3f1ade67b670c01fab34f5a82e7c377b83ba57eb5cad1a74c4b1db5c2bb4c2",
+        "app/cli.py": "sha256:38796413c2db1a33f0d49361ef59b51e923643d9a81cab50a1ec3e2b8f0ce60d",
+        "app/coding.py": "sha256:faefd93166b5604878a737012949b090ee7254a36060de9e095c96608787b44e",
+        "app/goal_sandbox.py": "sha256:8c877d22879bd44626a37de8d9415315d611de62fde9d94dcb7572babd3d32d7",
+        "app/goal_verification.py": "sha256:f103121d8452b3ea4f68a42c80985faf87a31f9cb56678baa327dbca2d5e39e0",
+        "app/live_preflight.py": "sha256:2100f2145151c8442295fa7584928638c53018329b04aae4c3a302332db96fc5",
+        "app/main_driven.py": "sha256:b7fa53f4adb204f70d0ba364d8b750747b20e0637e42f3b85529df049afcaa61",
+        "app/public_tests.py": "sha256:0baa4182b0c9e0cdba177a81bfdf095702cc02b49fe4f074fb1ef8029e1d6164",
+        "app/service.py": "sha256:c896f3b6b36f1aaeee0f167dca98962b42e5b9e95bf3437290e0b018586e5fd2",
+        "app/static/index.html": "sha256:d77aa304d193b89e7e0bbb0e7254b16bd518f19f5093fcc36f03fe7320319e2f",
+        "app/web.py": "sha256:444bb3ef8d981b610a2dfd3cf800efbedbeb5e8e4c3a1462510741021baae045",
+        "approvals/__init__.py": "sha256:fa53b4abef05cab23a1763cbee88bb16fed675ca0d1ec701834edefef33909ab",
+        "approvals/coordinator.py": "sha256:a1f51595ac38ce1ceeb6d9bf99f349ab7a94f09984a7e4a40a067f7ae4ebd68d",
+        "approvals/models.py": "sha256:a7d70e621e0fa9c9e03cefd443ed0037ec7ff3dc083f377fc97e569b2856cbc6",
+        "approvals/projection.py": "sha256:67e2dbf7e3baf0d0a0122c210c1bed7f60b7af096fff8b9e254ce3642fb8fcbe",
+        "approvals/resume.py": "sha256:575fd81c93fe09d3d8fe8f61b7c41615d90ea182450d4a89a67006711a055d7a",
+        "approvals/store.py": "sha256:dde1ea5f0081fbf6179188d45a19ea0b12d41ae4db5d77ce2e30545d060daa85",
+        "budget.py": "sha256:b6d4b12559b1009d48f78194358f8a86ef231e84cd3cb85d065a703a755f2f2c",
+        "config.py": "sha256:731c12c6d0c36a9a06a27bc9ce7eea9e2bee275fa9200ef413703dbca12a6215",
+        "context/__init__.py": "sha256:4b41d45221cf3d580cfc94bf604b45af5c57b129678d6b2e804e9581f8959c7b",
+        "context/fingerprints.py": "sha256:dd82a49d99ec0217dc9f3a1dfd4bc64b7c1e42c014774c359602d79f3c037e4d",
+        "context/models.py": "sha256:f8e39cb0174582782b8817fb672714fda7092c024c2e041e551d9f8aec33e826",
+        "context/renderer.py": "sha256:6dc68a9ec62b21241fa042622de73a8dd49e63da7b8af47b2226ac5e16ea2aa3",
+        "context/requirements.py": "sha256:7df03ce8b2587868b77a3e607ccbd560d581775157d7e501d912a5ee93246717",
+        "context/selectors.py": "sha256:7122dcfe0943c97c4cdec6d2a047a1cc07f0355620191b0fd3471113b0158b0c",
+        "context/store.py": "sha256:37a06c812cc791590e18333b6f75fe220e37aac4b827bdf6370fad707e3e9af6",
+        "context/task_prompt.py": "sha256:2a88b11cf2db8a115dac0003ef7cc1fcc8b218b7cdb55cb0aade513b5de34a2b",
+        "context/transform.py": "sha256:399966d07fdc38d9f20620b898925f929a9e0e5fac219adbfecfd0278051cc79",
+        "delegation/__init__.py": "sha256:89dc19b46bc82a35226434475b1e75e5a7b82467f618c684e82eca466a0687a7",
+        "delegation/config.py": "sha256:3fb409e772d110405f981c44d6eba8e7a7ccbfdf8b264608b7d4ed4d86b2681f",
+        "delegation/handoff.py": "sha256:18da196562a8ce54c162695f3c16b0904f4ddc78cb50e3900dd5315d6f134572",
+        "delegation/models.py": "sha256:bd8c651c2c9a1c9741da0998a82806dfe2492b14d71f5b07655d06182bf2d5eb",
+        "delegation/ownership.py": "sha256:cf281daaa443eb5b3207518c31295e3365306c3332c1fde701dc9a8886fa1083",
+        "delegation/router.py": "sha256:c6602e4646347abdf10ca3a05e09b30deea46057c3fac5ab436a5354a861320d",
+        "delegation/service.py": "sha256:2aff2df1447c3cffae7ebe046794aab2ade9481e237a7adc68275d6ac3984a1a",
+        "delegation/tool.py": "sha256:0e81f2f365e739bff418ba9df40c6bfa74df58ac5a2fd65b80580abcaa6fb313",
+        "delegation/usage.py": "sha256:614ad21a9c1dbc5162f6bf74fc67989d6896ad3c33c863bd86064a9e47818aa4",
+        "durability/__init__.py": "sha256:8a21bb4f8aedd8659cf2cede21641823760d742df989f931b9bc3fac29096333",
+        "durability/context_rebuild.py": "sha256:21cb6fe561e4df0dccc7bd0fc0d5ee31ac4a134717a91c11f8bab0cae84285a8",
+        "durability/faults.py": "sha256:d7196d4a4426886dce337e53b5ddebf593d8b2c2d2f510d2cd1e21abc21e0d34",
+        "durability/manifest.py": "sha256:17a514e8dd367c2680c46b2ab648a004a2613d374d8e5a71b37bd0ac7907ad01",
+        "experiments.py": "sha256:8fbb85427601d40f738fe2a03a5326dfc7a51545b8c0727b8343d95edb2579d2",
+        "handoff.py": "sha256:96d9c0c010c02b2b5b7380ba182015d80b978748a1c0ff109b3f75a998899961",
+        "history_compaction.py": "sha256:f6e22b874e7833bce868a9a1931accfdb29a948014f1cb7464fb10e2610ffe9b",
+        "integrations/__init__.py": "sha256:93e9523b205a87d99851a8b5220dbcfdc8e17c296c0277dc3384a189d12d4d80",
+        "integrations/anycode_engine.py": "sha256:c20759e5e3ab0fd2ec1e1ad618f85516b8a75c6e011c9ec32d69b444b2de9fca",
+        "integrations/anycode_runtime.py": "sha256:fb1726f82a75c3cf7e5a9d12fe49a0a3ec2dbfac4715133bf53cbbe3c12f5889",
+        "integrations/deepseek.py": "sha256:907e8bf397594e0c852a662c961f66201359cd3097799002cd0826f864ab3939",
+        "ledger/__init__.py": "sha256:00a01d0f509e86966d94f77238c85a463a985a1055252c0b7f5430f0553ab494",
+        "ledger/bridge.py": "sha256:5936989da3a98fdad9b4f7db534a4a6b4df8ca470bb365bf0b0123d40be9379c",
+        "ledger/identity.py": "sha256:c24ed7291af470611d9fe440742594cbd639e1f6db8583ee99b00e4fd5f605ad",
+        "ledger/models.py": "sha256:52b011afd9028930c3beeda0e620844b469847f532c0797e01c50f59294533dc",
+        "ledger/recovery.py": "sha256:44731e9d88b4c42b888f6ae9ad399c469a9e728f45b8b2551d734e4bc92071d0",
+        "ledger/store.py": "sha256:d393fcb5730523f09d7b7e2303c0e3067e20ddb73c8aa729bba7822cb29e1b98",
+        "metrics/__init__.py": "sha256:42ac4260088bc7cda33f7f95d1c53a89e4e904ae53b4ef82b48de3434db890a4",
+        "metrics/collector.py": "sha256:3bedb1164b2bf7242d47a5efa9e82cc8d6e6c25697a58b59be32767098253d26",
+        "metrics/fingerprint.py": "sha256:e0e97cab0ef1f025b0365ce8406a8d94ec521d0b1915f24789c5b56e8f861f36",
+        "metrics/models.py": "sha256:e2e82ae37cec439be61dc657123d9338b2935a6756dd15374f140bf631305270",
+        "ownership/__init__.py": "sha256:d256d80358b8deda9d395307a2ee6a164eea74ed42429ca18da77c47f9ad0c6e",
+        "ownership/manifest.py": "sha256:8b44c818e2e1f76f9c14777c730ae0df8802387de792cd46122a6e7819ebd92b",
+        "ownership/models.py": "sha256:ab34ccb458cbd81b256ce2e0c4817a38a47c7841cd4475f5b6dbdf58aa906a40",
+        "ownership/paths.py": "sha256:59e6f6020532b380870e0c2242f4e7a2e353fa71583e45072091e038daf064a9",
+        "ownership/policy.py": "sha256:1c4f88b8c4ccf26e18dcfdc1d3371a87aea53f227445bb0ee0d6c9237969ad11",
+        "ownership/shell.py": "sha256:9fcf0bdbf8af95a916817f5d9559998c33b099c2fb47a14ba8ccadfb84c048b3",
+        "placement/__init__.py": "sha256:d123de939216e68d2cc58cbf8905e40934fc885988663b239f1bdeaca180ea65",
+        "placement/models.py": "sha256:70389813ec9edd6fa392c2c03dfd70bbc3304518ee7f471b38356dcfbd3922fe",
+        "placement/planner.py": "sha256:632857f166aff91daa399b12d1b270ae5508b0a5f17b78f7863cf7a752ad0df7",
+        "placement/policies.py": "sha256:90fede04f8a2858d6c1ab2a39d613a1be1183e617a15fd2af0ab86dd7cfca0ea",
+        "runtime.py": "sha256:3afa18e038ff269903ad70342aa75864b868d1c571de87fcf57d572fcd84576a",
+        "sandbox/__init__.py": "sha256:457e10268588392986b837d40555073fa2524fb11de2421701fa7cb358f37a30",
+        "sandbox/binding.py": "sha256:6680cf2ae67d59bec44ec5cb4be4fd8dc5046feeb76f8590652be4316da1f9fa",
+        "sandbox/export.py": "sha256:db76ab84b92fabd71849b3219f983ea3cc37dde866fb8de2e2ff7997ea2e3bf2",
+        "sandbox/models.py": "sha256:732ae0062bc9be7c34c163be07771655d97e9525606193b97f72bbff10cbf35b",
+        "sandbox/opensandbox_provider.py": "sha256:c03a6e13b9b1720968d18a74a6485abee672dff0aca668de27aaaebfc60fb5db",
+        "sandbox/ownership.py": "sha256:a158598a5edd5a7c42013359536014d0982707d5e9c6b33a5bea117f5aaafcc4",
+        "sandbox/provider.py": "sha256:82ab9fd1c7f2eafa89181a0191dfc84489118aa64a0cc8840097cff1fb3c88a4",
+        "sandbox/provision.py": "sha256:1e9c6b9c05038ab38f67ba2fcb1c2f948baf13c560daf8046c1321d45d78ae49",
+        "sandbox/reattachment.py": "sha256:dfd68a7379b6163acae42f58f9cb8b36f8d9232dc920c8fabc925792fd9d0a72",
+        "sandbox/store.py": "sha256:7a1c4659df2685689c062c97101c2394c67a8abbd51dd638f82b5e1022f570ed",
+        "sandbox/tools.py": "sha256:21a3ddef7eae7dee219521d1fcfb63491d6e84b662e11cf5bcb9f26e026317bc",
+        "sandbox/validation.py": "sha256:b3d0e631d729d155a17aa6d83033d6de4a31deb33499ca2c639d2d6ca4055dee",
+        "suspension/__init__.py": "sha256:e8cebcebe4f2095a97ecbbb2fee3a01ded645165acf35a043fb05d1f9acd871b",
+        "suspension/batch.py": "sha256:7f2f35dc32787a1ed68c0750a82ff6f79ffff97d2704a4e145fcdc7d6b716fb2",
+        "suspension/coordinator.py": "sha256:d51a5ec16b45c3eee23783c1301f38f3ecd6292aaa6a361c54ef12d8a18406b3",
+        "suspension/metrics.py": "sha256:8214b584ed33682980ba1d54670b74cb70c3d121f453575696073c4e00e8ad1e",
+        "suspension/models.py": "sha256:5470a4fdb9e7a28d1761a59f2778940499c24387fad473205d0cd7ec90929fd7",
+        "suspension/store.py": "sha256:873a1b0a33ce69e390f304ba1f890a153d46536352cf77abcfd77ed6e7e8c9e8",
+        "tool_result_offload.py": "sha256:87337201648c5383cb0a7670b58727040d22863071d518eafb13331e844e9b61",
+        "tools/__init__.py": "sha256:07dabc5a19123021a7fd32931e1618db1ec5eae5656a855766588a7f1b32f077",
+        "tools/catalog.py": "sha256:9001c517b3277838e26b573c895523ab94d48e01f0ac3fd88af4ead61571fc81",
+        "tools/conversation.py": "sha256:256fb846d4e25e0e78b1bff019692e65b7c6b54e3dc2d13ab16934f4e193aadd",
+        "tools/dispatch.py": "sha256:e14d51670bad2ca4a52f8e7999857586b08949d3316a466e961a3460322933a7",
+        "tools/registry.py": "sha256:f802663b1ca9c6bd94493e7243c14a404de9af4158999abf8c7cc4be78eea69e",
+        "tools/runtime.py": "sha256:bec3f965bff32ebc70d670b8cf2d0f14a08c4cb41c197c1ce24ea140529d0b79",
+        "tools/search.py": "sha256:6df2029e394365d1b6476e93ec525ea5e9f3398b129ce2bbfe4f9d3e9831bbb4",
+        "tools/state.py": "sha256:adec291c2aa94cd665f0f6029ecb2cc1ce667805fd157739a94007f09b5cb369",
+        "trajectory/__init__.py": "sha256:f8fddf26148ac1308411094424da0a5dc660f71b277551f98febbd44e5dc4b52",
+        "trajectory/codec.py": "sha256:2fbd7e41b0465737af404b3d79e3453f59fe972a748f09cbf9bde7824cbf29b9",
+        "trajectory/context.py": "sha256:9f783a1aa5df224a21eeae6d4e3af6861e671c9500438bfd6f5ae6892860f611",
+        "trajectory/models.py": "sha256:1d8d9ea19672ecbacdb03a05e9eceb497e34b1445a22e8912d8d97061bbe3e25",
+        "trajectory/payloads.py": "sha256:c234957e3f4f26ac71e28eca10df5a8defd02ff9f8922dd7871227147121657b",
+        "trajectory/reader.py": "sha256:af135eb8c991314908d20fb2eb04ebf1dd34d9876aaaa75d24c1ad827745d672",
+        "trajectory/reconcile.py": "sha256:1c8e95624e40abb8bba3819061550a412d049988fea23b673bd5513c03778b59",
+        "trajectory/recorder.py": "sha256:c352926f927d40862c4a9cbd25412457f7c08714d52d27471cc1ba0ba36212f7",
+        "trusted_recovery.py": "sha256:fbf8bf77c12ebac03f5039b3c0e257bb9f7a0f7c994b844507454c19d1789957",
+        "verification/__init__.py": "sha256:ce2e0300c4a80fbef2dc7c8ac4491b8c545a597d76d7a04c3ecf25726b604cce",
+        "verification/code_checks.py": "sha256:ce886dc0e9ea639387495520189042c44293fc8bac20a697076a918af9bba057",
+        "verification/dynamic.py": "sha256:91f13c4dc7a99bfc9172bbe97c83339e40a791cb69964f1c1c8f85b9e3176795",
+        "verification/engine.py": "sha256:fbe4ce95eeb2c0723d5368a0a076c3a00f08f65816030d8d4eed17307182017f",
+        "verification/file_checks.py": "sha256:524ba308c132b8a5fa2fb66a5b17c82a8e7ec6d4cc0dfdafc0610aef8d688b4c",
+        "verification/files.py": "sha256:905bce16b9596fca89e30f9a05f97744fa651d9b47769852decf0ff064237609",
+        "verification/models.py": "sha256:0921bc6ae5896b9b0ae4e99c96210d94328b1a37c8a268cd0c7f067c367ab6b2",
+        "verification/structured_checks.py": "sha256:946f3bcfd5d581fe7b8e39cdfe3d1ad6e31e79772a46f6d14d919324395f321d",
+        "verification/text_checks.py": "sha256:093b69a8d8f721ece13a7be181e174f8870a0e0502b1d47a16d0ec2a99358014",
+        "workers/__init__.py": "sha256:63e0f260edb77e06a7409760a0ba9c7bd7c4a2656bc789260003c789996bd33d",
+        "workers/catalog.py": "sha256:bb7c5a434de16c6e971701401bd4b9ef6bf37c26bf531b5b5d01b19d530303fc",
+        "workers/factory.py": "sha256:b90cfcc567f871ea406c1ceadf8b4ded165c37e245a2cb9336ab37d3c3d6ecc8",
+        "workers/models.py": "sha256:cf1157c75304c4d5d21bd10f6d78f19c48f202f3db53ba749aecb683154e64cd",
+        "workers/renderer.py": "sha256:a05f0efb495be9f92d66cdedcc78b97602325c5455b7e7a61707515cc7b0ea35",
+        "workers/routing.py": "sha256:b355d04570012e18ebf83f9580c7b28f54cc0be7cbf1d4f7c13a97db0ffecdb7",
+        "workers/store.py": "sha256:6cdace04dd27aba1f59047422c4ad636cc54a14101df8fa4c5d3a6115de84632",
+        "workflow.py": "sha256:78c468185726951e564d92e3f89b77c905450df1c63d45641cab1d52eb57c35d"
+      },
+      "root": "src/atlasos",
+      "tree_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae"
+    }
+  },
+  "generated_at": "2026-11-19T09:45:40.286927+00:00",
+  "offline": {
+    "passed": true,
+    "suites": {
+      "F1_fixture_solvability": true,
+      "F2_prompt_injection": true,
+      "F3_router_admission": true
+    }
+  },
+  "runtime": {
+    "blocking_failures": [],
+    "checks": [
+      {
+        "blocking": true,
+        "check_id": "sandbox_configured",
+        "detail": "sandbox configured",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "sandbox_provider_real",
+        "detail": "sandbox.provider='opensandbox'; expected one of ['daytona', 'opensandbox']",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "sandbox_isolation_required",
+        "detail": "require_real must stay True: the fake provider runs on the host",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "sandbox_workspace_root",
+        "detail": "sandbox workspace root '/workspace/project' must be an absolute in-container path",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "source_repo_clean",
+        "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s1-live\\fixture-2 is clean at 9db0cac4f35a",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "main_write_scope",
+        "detail": "the Main needs an explicit host-declared write scope; got ['releaseguard/audit/']",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "main_write_scope_relative",
+        "detail": "all write paths are workspace-relative",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "public_tests_configured",
+        "detail": "public suite 'public'",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "public_tests_separate_from_oracle",
+        "detail": "public and oracle commands must differ, otherwise the Main observes the oracle",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "acceptance_configured",
+        "detail": "an acceptance contract with a dynamic command is required; 'NOT_CONFIGURED' can never be a pipeline PASS",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "acceptance_digest_declared",
+        "detail": "the verification spec must carry a declared digest (it is signed by the host)",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "budget_configured",
+        "detail": "token_budget=420000 (admission is estimate-based; this is not a hard monetary cap)",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "delegation_bounds",
+        "detail": "delegation must be enabled with max_parallel_children >= 1",
+        "ok": true
+      },
+      {
+        "blocking": false,
+        "check_id": "context_metrics",
+        "detail": "UsageAttributionHook records per-request main context unconditionally",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "provider_deepseek",
+        "detail": "provider='deepseek'; stage P1 is authorized for the DeepSeek adapter only",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "model_fixed",
+        "detail": "model='deepseek-chat' must equal config.provider.model='deepseek-chat' so the arm identity is the configuration, not a runtime override",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "api_key_present",
+        "detail": "DEEPSEEK_API_KEY is set (the preflight reads it, it never sends it)",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "live_provider_factory",
+        "detail": "a live run must build the real adapter; an injected factory is a deterministic test",
+        "ok": true
+      },
+      {
+        "blocking": true,
+        "check_id": "scratch_run_directory",
+        "detail": "runs_root=C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s1-live\\runs must stay outside experiments/results and experiments/runs",
+        "ok": true
+      }
+    ],
+    "generated_at": "2026-11-19T09:45:40.056566+00:00",
+    "notes": {
+      "budget": "admission is a conservative estimate; the run stops admitting when the budget is exhausted and does not guarantee a zero-overrun bill",
+      "metrics": "main_context_tokens_by_request is provider-observed; unobserved fields are UNAVAILABLE rather than estimated",
+      "oracle": "the harness runs the acceptance contract after the Main stops; a public PASS is never used as the oracle verdict"
+    },
+    "status": "READY"
+  },
+  "runtime_status": "READY",
+  "stage_checks": [
+    {
+      "blocking": true,
+      "check_id": "runtime_source_frozen",
+      "detail": "tree digest sha256:4eebcf1e56e7bf78 over 130 files",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "harness_frozen",
+      "detail": "harness digests match the freeze",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "freeze_commit_is_ancestor",
+      "detail": "freeze written at 4a8c3018b7a5",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "worktree_clean",
+      "detail": "git status is empty",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "runtime_delta_is_the_prompt_seam",
+      "detail": "src/ differs from cb2e8a74a060 only in src/atlasos/app/main_driven.py; observed ['src/atlasos/app/main_driven.py']",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "router_workerfactory_handoff_unmodified",
+      "detail": "delegation machinery untouched; observed changes []",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "prompt_v1_default_unchanged",
+      "detail": "v1 digest sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "prompt_v2_digest_frozen",
+      "detail": "v2 text digest sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323, file digest sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "prompt_v2_selected",
+      "detail": "selected prompt version 'main-v2.0-rc1'; digest sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "prompt_v2_carries_no_controlled_instruction",
+      "detail": "neither the goal nor the prompt contains a controlled delegation instruction",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "goal_frozen",
+      "detail": "goal digest sha256:60cf5c027c895",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "fixture_not_reused",
+      "detail": "fixture root stage_s1_releaseguard is new; goal markers []; fixture markers []; byte-identical files shared with the P1b fixture []",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "fixture_matches_freeze",
+      "detail": "fixture digest sha256:2b8edeeb875497d6",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "fixture_solvable",
+      "detail": "the offline reference implementation passes the public suite and the oracle; the provisioned fixture fails the target suite",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "prompt_injection_verified",
+      "detail": "the frozen v2 bytes reach AgentConfig verbatim and never reach a child",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "router_admission_verified",
+      "detail": "the frozen router admits two independent read-only investigations and refuses the bad shapes",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "oracle_not_in_fixture",
+      "detail": "no oracle marker and no reference implementation inside the provisioned fixture",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "tool_error_mode_frozen",
+      "detail": "expected corrected, runtime option corrected",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "budget_and_turn_limits_frozen",
+      "detail": "budget 420000, main turns 24, delegation {'enabled': True, 'max_parallel_children': 2, 'max_children_per_call': 2, 'max_delegation_rounds': 3, 'child_timeout_seconds': 300.0, 'child_max_turns': 6, 'result_preview_chars': 900}",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "write_scope_is_the_audit_layer",
+      "detail": "main_write_paths=['releaseguard/audit/']",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "router_policy_version",
+      "detail": "frozen router policy m.1.0",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "no_prior_attempt",
+      "detail": "no attempt marker and no collected evidence",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "scratch_outside_worktree",
+      "detail": "runs_root=C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s1-live\\runs",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "single_live_attempt",
+      "detail": "the marker is claimed with O_CREAT|O_EXCL after READY and before run_goal",
+      "ok": true
+    }
+  ]
+}

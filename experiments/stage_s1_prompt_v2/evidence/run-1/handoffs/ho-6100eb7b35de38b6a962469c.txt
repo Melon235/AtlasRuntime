@@ -1,0 +1,1 @@
+No shell/execution tool is available in the disclosed catalog. I'll gather what I can through read-only file inspection, and clearly flag the parts that require shell execution.

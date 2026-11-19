@@ -1,0 +1,9 @@
+{
+  "created_at": "2026-11-19T09:46:36.029512+00:00",
+  "digest": "6100eb7b35de38b6a962469c1150bd365b94fa9fd7ce528b1827520576ae4092",
+  "length": 177,
+  "producer_key": "delegate:stage-s1-20261119T094539Z-main:r1:probe-samples",
+  "producer_title": "probe-samples (research_worker)",
+  "ref_id": "ho-6100eb7b35de38b6a962469c",
+  "run_id": "stage-s1-20261119T094539Z"
+}
