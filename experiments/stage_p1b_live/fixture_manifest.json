@@ -1,0 +1,37 @@
+{
+  "files": {
+    ".gitignore": "sha256:51ec42a2004d722be52cb598c29bc042ade504ad6ca3599a7ae95026d5d5248e",
+    "README.md": "sha256:04a8da5880770d343b591822838f349566884301149cd7dfbd7c625c64edcb3d",
+    "core/__init__.py": "sha256:b9b330d8df407b4fa23ab6390fe3b0c5b08f4e626509ccff2c4d19beff149bdb",
+    "core/adapter.py": "sha256:db9c77e1a41c0f390c5eb8994fd1341b53c1372a93eb6100db7238b2bdcc8830",
+    "core/contracts.py": "sha256:e0cbf9ca2c5c77a15833d006c9eb218bc33c1039de2705e67569c8c817a1e1bf",
+    "core/errors.py": "sha256:b6d8e85a5a6e4c7f5cdd04577ed010718c5ce1072b183ec6961492657f859496",
+    "core/registry.py": "sha256:b2536deea43236fa5d4880ef3f02187fded1942135fb2a00a1f9a29bd90c6d75",
+    "plugins/__init__.py": "sha256:c03c673651064494a7c9acfc733b8cd8d0bf34a3c7a54f43b334362aa8404b7e",
+    "plugins/file_events/__init__.py": "sha256:8913837c6109f66274fbd7861aa6024b0cec2fe8a5c207cdf0179a11ff3199ab",
+    "plugins/file_events/converters.py": "sha256:8ac4a1a94dead639fb5a0f99e86b306ce3be2b2613f038abb557da9c66ec4361",
+    "plugins/file_events/errors.py": "sha256:604ceb494dc8c401683e77a8863c06e396df1ef8b40f5aa9a4b42b961e5ef1a4",
+    "plugins/file_events/parser.py": "sha256:cc09777a7eceb01ac0e233e89143663075f178153869cbd4a4b411cd5ebb7466",
+    "plugins/file_events/schema.py": "sha256:3a117bb6212bd0a46dd0d56fca3542bb9bee8fbcf8d671486640ddff3fb5bb71",
+    "plugins/message_events/__init__.py": "sha256:e722b6c6c7e391c0c20cdc8727f61ad625c9a896809ef8aafbbe68a8c53a5c55",
+    "plugins/message_events/converters.py": "sha256:8c70f0f80a7d0c59576cd129f94ea849456464721b81debd8ee5616f049dd79b",
+    "plugins/message_events/errors.py": "sha256:d2ad18ebc0aaf2e4f7b81da825c5ce83da5a16833dd873c4a14901caffc0f9a4",
+    "plugins/message_events/parser.py": "sha256:376060efa8f64bd3363253d002a0742d4f9cb7bb0d3720e2955a0b89f1f2532e",
+    "plugins/message_events/schema.py": "sha256:8de6506fd9214e6db0d5d4e30f71ee342437c3aef86318c02a883f56d8f02ba6",
+    "samples/events.jsonl": "sha256:a165a68ac7e87cd66c2ecbefc63fa6a65b908c9030d844a522527adbd98a4576",
+    "samples/messages.json": "sha256:9217dac443e9c3881fc9d7a9c859b932afa74b130f17e22d2d02575c5436beea",
+    "tests/test_file_plugin.py": "sha256:7eba2b7371bcdbe52a885c95428d3f9671e50acfa79aec47fcbb88e5ecd02bb9",
+    "tests/test_message_plugin.py": "sha256:3ba90dd21ceb3a3e8d0e1f9386ab514e8758996c1205ff51256286b6efe846a8",
+    "tests/test_public_contract.py": "sha256:6a852a6591a9a22e4971e5f2014aaf07903d6c8a5840cc5dd690f6877ee83db3"
+  },
+  "fixture_root": "experiments\\fixtures\\stage_p1b_dual_plugin",
+  "generated_at": "2026-11-19T05:55:15.783884+00:00",
+  "goal_digest": "sha256:c24c72738eee9e4eef86f7bfe6a1d43651a5949a540c1b4e9ce37fad0a86b778",
+  "main_max_turns": 20,
+  "main_write_paths": [
+    "core/"
+  ],
+  "oracle_command_digest": "sha256:331f636558d978b994942a67118f6a6194ce3bffa2fe698bb19ad4eac27412e0",
+  "public_command_digest": "sha256:cab946f6e45f8713fc60cfa2cb80c61e1bea708e93b5341b85cbcb9caabe5c32",
+  "token_budget": 300000
+}

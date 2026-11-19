@@ -1,0 +1,26 @@
+{
+  "messages": [
+    {
+      "id": 1041,
+      "sent_at": 1795053907000,
+      "type": "USER_JOIN",
+      "priority": 4,
+      "labels": ["Onboarding", "onboarding"],
+      "payload": {"channel": "#general", "invited": true}
+    },
+    {
+      "id": 1042,
+      "sent_at": 1795053912000,
+      "type": "USER_LEFT",
+      "labels": [],
+      "payload": {"attempts": 3, "reason": null}
+    },
+    {
+      "id": 1043,
+      "sent_at": 1795053920000,
+      "type": "BOT_ERROR",
+      "priority": 5,
+      "payload": null
+    }
+  ]
+}

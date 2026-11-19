@@ -1,0 +1,228 @@
+{
+  "baseline": {
+    "contract_suite": {
+      "command": [
+        "D:\\Work\\AtlasRuntime\\.venv\\Scripts\\python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_public_contract.py"
+      ],
+      "exit_code": 1,
+      "hidden_ok": false,
+      "output_chars": 17682,
+      "output_tail": [
+        "FAILED tests/test_public_contract.py::test_dispatch_is_deterministic - NotImp...",
+        "10 failed, 2 passed in 0.15s",
+        "D:\\Work\\AtlasRuntime\\.venv\\Lib\\site-packages\\pytest_asyncio\\plugin.py:300: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.",
+        "The event loop scope for asynchronous fixtures will default to the \"fixture\" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to \"function\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"",
+        "",
+        "  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))"
+      ],
+      "passed": false
+    },
+    "contract_suite_fails": true,
+    "hidden": {
+      "command": [
+        "D:\\Work\\AtlasRuntime\\.venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport json\nfrom datetime import datetime, timedelta, timezone\n\nfrom core.adapter import normalize_event, supported_sources\nfrom core.contracts import NormalizedEvent, Severity\nfrom core.errors import UnknownSourceError\nfrom core.registry import build_default_registry\nfrom plugins.file_events import FileEventError, parse_document as parse_files\nfrom plugins.message_events import parse_document as parse_messages\n\nUTC = timezone.utc\nFAILURES = []\n\n\ndef check(condition, label):\n    if not condition:\n        FAILURES.append(label)\n\n\ndef read(path):\n    with open(path, encoding=\"utf-8\") as handle:\n        return handle.read()\n\n\nregistry = build_default_registry()\ncheck(registry.sources() == (\"file_events\", \"message_events\"), \"registry.sources\")\ncheck(supported_sources() == (\"file_events\", \"message_events\"), \"adapter.supported_sources\")\n\n\ndef file_event(**overrides):\n    raw = {\n        \"event_id\": \"ev-0123abcd\",\n        \"ts\": \"2026-11-19T02:05:06Z\",\n        \"kind\": \"build.started\",\n        \"level\": \"info\",\n        \"tags\": \"ci\",\n        \"attrs\": {\"a\": \"1\"},\n    }\n    raw.update(overrides)\n    return raw\n\n\ndef message_event(**overrides):\n    raw = {\n        \"id\": 1041,\n        \"sent_at\": 1795053907000,\n        \"type\": \"USER_JOIN\",\n        \"priority\": 4,\n        \"labels\": [\"B\", \"b\"],\n        \"payload\": {\"n\": 3, \"ok\": True, \"skip\": None, \"name\": \"x\", \"nested\": {\"b\": 1, \"a\": 2}},\n    }\n    raw.update(overrides)\n    return raw\n\n\nFILE_SEVERITY = {\n    \"trace\": \"debug\",\n    \"debug\": \"debug\",\n    \"info\": \"info\",\n    \"warn\": \"warning\",\n    \"err\": \"error\",\n    \"fatal\": \"error\",\n    None: \"info\",\n}\nfor raw_level, expected in FILE_SEVERITY.items():\n    event = normalize_event(\"file_events\", file_event(level=raw_level))\n    check(isinstance(event, NormalizedEvent), \"file record type\")\n    check(event.severity is Severity(expected), \"file severity \" + str(raw_level))\n    check(event.source == \"file_events\", \"file source\")\n    check(event.event_id == \"ev-0123abcd\", \"file event_id kept\")\n    check(event.occurred_at.utcoffset() == timedelta(0), \"file occurred_at utc\")\n    check(event.kind == \"build.started\", \"file kind kept\")\n\nevent = normalize_event(\"file_events\", file_event(ts=\"2026-11-19T04:05:06+02:00\"))\ncheck(event.occurred_at == datetime(2026, 11, 19, 2, 5, 6, tzinfo=UTC), \"file offset converted\")\n\nevent = normalize_event(\"file_events\", file_event(tags=\" b, A ,b,, \"))\ncheck(event.tags == (\"a\", \"b\"), \"file tags split, lowered, deduped, sorted\")\nevent = normalize_event(\"file_events\", file_event(tags=None, attrs=None))\ncheck(event.tags == () and event.attributes == {}, \"file empty optionals\")\nevent = normalize_event(\"file_events\", file_event(attrs={\"b\": \"2\", \"a\": \"1\"}))\ncheck(event.attributes == {\"a\": \"1\", \"b\": \"2\"}, \"file attributes copied\")\n\nMESSAGE_SEVERITY = {1: \"debug\", 2: \"info\", 3: \"info\", 4: \"warning\", 5: \"error\", None: \"info\"}\nfor raw_priority, expected in MESSAGE_SEVERITY.items():\n    event = normalize_event(\"message_events\", message_event(priority=raw_priority))\n    check(isinstance(event, NormalizedEvent), \"message record type\")\n    check(event.severity is Severity(expected), \"message severity \" + str(raw_priority))\n    check(event.source == \"message_events\", \"message source\")\n    check(event.event_id == \"msg-1041\", \"message id prefixed\")\n    check(event.kind == \"user_join\", \"message kind lowercased\")\n    check(event.occurred_at == datetime(2026, 11, 19, 2, 5, 7, tzinfo=UTC), \"message timestamp\")\n    check(event.occurred_at.utcoffset() == timedelta(0), \"message occurred_at utc\")\n    check(event.tags == (\"b\",), \"message labels normalized\")\n    check(\n        event.attributes\n        == {\n            \"n\": \"3\",\n            \"name\": \"x\",\n            \"nested\": json.dumps({\"b\": 1, \"a\": 2}, sort_keys=True, separators=(\",\", \":\")),\n            \"ok\": \"true\",\n        },\n        \"message attributes rendered as strings\",\n    )\n    check(all(isinstance(value, str) for value in event.attributes.values()), \"attribute types\")\n\nevent = normalize_event(\"message_events\", message_event(payload=None, labels=[]))\ncheck(event.attributes == {} and event.tags == (), \"message empty optionals\")\n\nnaive = \"naive timestamp accepted\"\ntry:\n    normalize_event(\"file_events\", file_event(ts=\"2026-11-19T02:05:06\"))\nexcept Exception as error:\n    naive = getattr(error, \"code\", None)\ncheck(naive == \"naive_timestamp\", \"naive timestamp code\")\n\nunknown_level = \"unknown level accepted\"\ntry:\n    normalize_event(\"file_events\", file_event(level=\"critical\"))\nexcept Exception as error:\n    unknown_level = getattr(error, \"code\", None)\ncheck(unknown_level == \"unknown_level\", \"unknown level code\")\n\nbad_priority = \"out of range priority accepted\"\ntry:\n    normalize_event(\"message_events\", message_event(priority=9))\nexcept Exception as error:\n    bad_priority = getattr(error, \"code\", None)\ncheck(bad_priority == \"priority_out_of_range\", \"priority range code\")\n\nunknown_source = \"unknown channel accepted\"\ntry:\n    normalize_event(\"carrier_pigeon\", file_event())\nexcept UnknownSourceError:\n    unknown_source = \"unknown_source\"\nexcept Exception as error:\n    unknown_source = getattr(error, \"code\", None)\ncheck(unknown_source == \"unknown_source\", \"unknown channel code\")\n\nraw = message_event()\nbefore = json.dumps(raw, sort_keys=True)\nnormalize_event(\"message_events\", raw)\ncheck(json.dumps(raw, sort_keys=True) == before, \"input record mutated\")\n\nevents = registry.dispatch(\"file_events\", read(\"samples/events.jsonl\"))\ncheck(\n    [event.event_id for event in events]\n    == [\"ev-1a2b3c4d\", \"ev-5e6f7a8b\", \"ev-3a4b5c6d\", \"ev-9c0d1e2f\"],\n    \"file dispatch order\",\n)\ncheck(all(isinstance(event, NormalizedEvent) for event in events), \"dispatch returns events\")\ncheck(events[0].severity is Severity.INFO, \"sample first severity\")\ncheck(events[1].severity is Severity.WARNING, \"sample warn severity\")\ncheck(events[2].occurred_at == datetime(2026, 11, 19, 2, 6, 0, tzinfo=UTC), \"sample default ts\")\ncheck(events[3].occurred_at == datetime(2026, 11, 19, 4, 59, 59, tzinfo=UTC), \"sample offset\")\ncheck(events[3].tags == (), \"sample absent tags\")\ncheck(events[3].attributes == {}, \"sample absent attributes\")\n\nmessages = registry.dispatch(\"message_events\", read(\"samples/messages.json\"))\ncheck(\n    [event.event_id for event in messages] == [\"msg-1041\", \"msg-1042\", \"msg-1043\"],\n    \"message dispatch order\",\n)\ncheck(messages[0].attributes == {\"channel\": \"#general\", \"invited\": \"true\"}, \"sample attributes\")\ncheck(messages[1].attributes == {\"attempts\": \"3\"}, \"null payload value dropped\")\ncheck(messages[2].severity is Severity.ERROR, \"sample priority 5\")\nagain = registry.dispatch(\"message_events\", read(\"samples/messages.json\"))\ncheck(\n    [event.as_dict() for event in again] == [event.as_dict() for event in messages],\n    \"dispatch deterministic\",\n)\n\nrecord = parse_files(\n    json.dumps({\"event_id\": \"ev-0123abcd\", \"ts\": \"2026-11-19T02:05:06Z\", \"kind\": \"a\"})\n)[0]\ncheck(record.level is None, \"file plugin keeps absent level raw\")\ncheck(record.ts == \"2026-11-19T02:05:06Z\", \"file plugin keeps raw ts\")\ncheck(record.as_mapping()[\"attrs\"] == {}, \"file plugin native mapping\")\n\nnative_error = \"no error\"\ntry:\n    parse_files(json.dumps({\"event_id\": \"bad\", \"ts\": \"2026-11-19T02:05:06Z\", \"kind\": \"a\"}))\nexcept FileEventError as error:\n    native_error = error.code\ncheck(native_error == \"bad_event_id\", \"file plugin error code\")\n\nmessage_record = parse_messages(json.dumps([{\"id\": 7, \"sent_at\": 1, \"type\": \"USER_JOIN\"}]))[0]\ncheck(message_record.priority is None, \"message plugin keeps absent priority raw\")\n\nif FAILURES:\n    raise SystemExit(\"HIDDEN_FAIL: \" + \"; \".join(FAILURES))\nprint(\"HIDDEN_OK\")\n"
+      ],
+      "contract_command": "python3 -c '\nimport json\nfrom datetime import datetime, timedelta, timezone\n\nfrom core.adapter import normalize_event, supported_sources\nfrom core.contracts import NormalizedEvent, Severity\nfrom core.errors import UnknownSourceError\nfrom core.registry import build_default_registry\nfrom plugins.file_events import FileEventError, parse_document as parse_files\nfrom plugins.message_events import parse_document as parse_messages\n\nUTC = timezone.utc\nFAILURES = []\n\n\ndef check(condition, label):\n    if not condition:\n        FAILURES.append(label)\n\n\ndef read(path):\n    with open(path, encoding=\"utf-8\") as handle:\n        return handle.read()\n\n\nregistry = build_default_registry()\ncheck(registry.sources() == (\"file_events\", \"message_events\"), \"registry.sources\")\ncheck(supported_sources() == (\"file_events\", \"message_events\"), \"adapter.supported_sources\")\n\n\ndef file_event(**overrides):\n    raw = {\n        \"event_id\": \"ev-0123abcd\",\n        \"ts\": \"2026-11-19T02:05:06Z\",\n        \"kind\": \"build.started\",\n        \"level\": \"info\",\n        \"tags\": \"ci\",\n        \"attrs\": {\"a\": \"1\"},\n    }\n    raw.update(overrides)\n    return raw\n\n\ndef message_event(**overrides):\n    raw = {\n        \"id\": 1041,\n        \"sent_at\": 1795053907000,\n        \"type\": \"USER_JOIN\",\n        \"priority\": 4,\n        \"labels\": [\"B\", \"b\"],\n        \"payload\": {\"n\": 3, \"ok\": True, \"skip\": None, \"name\": \"x\", \"nested\": {\"b\": 1, \"a\": 2}},\n    }\n    raw.update(overrides)\n    return raw\n\n\nFILE_SEVERITY = {\n    \"trace\": \"debug\",\n    \"debug\": \"debug\",\n    \"info\": \"info\",\n    \"warn\": \"warning\",\n    \"err\": \"error\",\n    \"fatal\": \"error\",\n    None: \"info\",\n}\nfor raw_level, expected in FILE_SEVERITY.items():\n    event = normalize_event(\"file_events\", file_event(level=raw_level))\n    check(isinstance(event, NormalizedEvent), \"file record type\")\n    check(event.severity is Severity(expected), \"file severity \" + str(raw_level))\n    check(event.source == \"file_events\", \"file source\")\n    check(event.event_id == \"ev-0123abcd\", \"file event_id kept\")\n    check(event.occurred_at.utcoffset() == timedelta(0), \"file occurred_at utc\")\n    check(event.kind == \"build.started\", \"file kind kept\")\n\nevent = normalize_event(\"file_events\", file_event(ts=\"2026-11-19T04:05:06+02:00\"))\ncheck(event.occurred_at == datetime(2026, 11, 19, 2, 5, 6, tzinfo=UTC), \"file offset converted\")\n\nevent = normalize_event(\"file_events\", file_event(tags=\" b, A ,b,, \"))\ncheck(event.tags == (\"a\", \"b\"), \"file tags split, lowered, deduped, sorted\")\nevent = normalize_event(\"file_events\", file_event(tags=None, attrs=None))\ncheck(event.tags == () and event.attributes == {}, \"file empty optionals\")\nevent = normalize_event(\"file_events\", file_event(attrs={\"b\": \"2\", \"a\": \"1\"}))\ncheck(event.attributes == {\"a\": \"1\", \"b\": \"2\"}, \"file attributes copied\")\n\nMESSAGE_SEVERITY = {1: \"debug\", 2: \"info\", 3: \"info\", 4: \"warning\", 5: \"error\", None: \"info\"}\nfor raw_priority, expected in MESSAGE_SEVERITY.items():\n    event = normalize_event(\"message_events\", message_event(priority=raw_priority))\n    check(isinstance(event, NormalizedEvent), \"message record type\")\n    check(event.severity is Severity(expected), \"message severity \" + str(raw_priority))\n    check(event.source == \"message_events\", \"message source\")\n    check(event.event_id == \"msg-1041\", \"message id prefixed\")\n    check(event.kind == \"user_join\", \"message kind lowercased\")\n    check(event.occurred_at == datetime(2026, 11, 19, 2, 5, 7, tzinfo=UTC), \"message timestamp\")\n    check(event.occurred_at.utcoffset() == timedelta(0), \"message occurred_at utc\")\n    check(event.tags == (\"b\",), \"message labels normalized\")\n    check(\n        event.attributes\n        == {\n            \"n\": \"3\",\n            \"name\": \"x\",\n            \"nested\": json.dumps({\"b\": 1, \"a\": 2}, sort_keys=True, separators=(\",\", \":\")),\n            \"ok\": \"true\",\n        },\n        \"message attributes rendered as strings\",\n    )\n    check(all(isinstance(value, str) for value in event.attributes.values()), \"attribute types\")\n\nevent = normalize_event(\"message_events\", message_event(payload=None, labels=[]))\ncheck(event.attributes == {} and event.tags == (), \"message empty optionals\")\n\nnaive = \"naive timestamp accepted\"\ntry:\n    normalize_event(\"file_events\", file_event(ts=\"2026-11-19T02:05:06\"))\nexcept Exception as error:\n    naive = getattr(error, \"code\", None)\ncheck(naive == \"naive_timestamp\", \"naive timestamp code\")\n\nunknown_level = \"unknown level accepted\"\ntry:\n    normalize_event(\"file_events\", file_event(level=\"critical\"))\nexcept Exception as error:\n    unknown_level = getattr(error, \"code\", None)\ncheck(unknown_level == \"unknown_level\", \"unknown level code\")\n\nbad_priority = \"out of range priority accepted\"\ntry:\n    normalize_event(\"message_events\", message_event(priority=9))\nexcept Exception as error:\n    bad_priority = getattr(error, \"code\", None)\ncheck(bad_priority == \"priority_out_of_range\", \"priority range code\")\n\nunknown_source = \"unknown channel accepted\"\ntry:\n    normalize_event(\"carrier_pigeon\", file_event())\nexcept UnknownSourceError:\n    unknown_source = \"unknown_source\"\nexcept Exception as error:\n    unknown_source = getattr(error, \"code\", None)\ncheck(unknown_source == \"unknown_source\", \"unknown channel code\")\n\nraw = message_event()\nbefore = json.dumps(raw, sort_keys=True)\nnormalize_event(\"message_events\", raw)\ncheck(json.dumps(raw, sort_keys=True) == before, \"input record mutated\")\n\nevents = registry.dispatch(\"file_events\", read(\"samples/events.jsonl\"))\ncheck(\n    [event.event_id for event in events]\n    == [\"ev-1a2b3c4d\", \"ev-5e6f7a8b\", \"ev-3a4b5c6d\", \"ev-9c0d1e2f\"],\n    \"file dispatch order\",\n)\ncheck(all(isinstance(event, NormalizedEvent) for event in events), \"dispatch returns events\")\ncheck(events[0].severity is Severity.INFO, \"sample first severity\")\ncheck(events[1].severity is Severity.WARNING, \"sample warn severity\")\ncheck(events[2].occurred_at == datetime(2026, 11, 19, 2, 6, 0, tzinfo=UTC), \"sample default ts\")\ncheck(events[3].occurred_at == datetime(2026, 11, 19, 4, 59, 59, tzinfo=UTC), \"sample offset\")\ncheck(events[3].tags == (), \"sample absent tags\")\ncheck(events[3].attributes == {}, \"sample absent attributes\")\n\nmessages = registry.dispatch(\"message_events\", read(\"samples/messages.json\"))\ncheck(\n    [event.event_id for event in messages] == [\"msg-1041\", \"msg-1042\", \"msg-1043\"],\n    \"message dispatch order\",\n)\ncheck(messages[0].attributes == {\"channel\": \"#general\", \"invited\": \"true\"}, \"sample attributes\")\ncheck(messages[1].attributes == {\"attempts\": \"3\"}, \"null payload value dropped\")\ncheck(messages[2].severity is Severity.ERROR, \"sample priority 5\")\nagain = registry.dispatch(\"message_events\", read(\"samples/messages.json\"))\ncheck(\n    [event.as_dict() for event in again] == [event.as_dict() for event in messages],\n    \"dispatch deterministic\",\n)\n\nrecord = parse_files(\n    json.dumps({\"event_id\": \"ev-0123abcd\", \"ts\": \"2026-11-19T02:05:06Z\", \"kind\": \"a\"})\n)[0]\ncheck(record.level is None, \"file plugin keeps absent level raw\")\ncheck(record.ts == \"2026-11-19T02:05:06Z\", \"file plugin keeps raw ts\")\ncheck(record.as_mapping()[\"attrs\"] == {}, \"file plugin native mapping\")\n\nnative_error = \"no error\"\ntry:\n    parse_files(json.dumps({\"event_id\": \"bad\", \"ts\": \"2026-11-19T02:05:06Z\", \"kind\": \"a\"}))\nexcept FileEventError as error:\n    native_error = error.code\ncheck(native_error == \"bad_event_id\", \"file plugin error code\")\n\nmessage_record = parse_messages(json.dumps([{\"id\": 7, \"sent_at\": 1, \"type\": \"USER_JOIN\"}]))[0]\ncheck(message_record.priority is None, \"message plugin keeps absent priority raw\")\n\nif FAILURES:\n    raise SystemExit(\"HIDDEN_FAIL: \" + \"; \".join(FAILURES))\nprint(\"HIDDEN_OK\")\n'",
+      "exit_code": 1,
+      "hidden_ok": false,
+      "output_chars": 522,
+      "output_tail": [
+        "  File \"C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-offline-xen6_jgv\\baseline\\core\\adapter.py\", line 55, in normalize_event",
+        "    return normalizer(raw)",
+        "           ^^^^^^^^^^^^^^^",
+        "  File \"C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-offline-xen6_jgv\\baseline\\core\\adapter.py\", line 65, in normalize_file_event",
+        "    raise NotImplementedError(\"file_events records are not normalized yet\")",
+        "NotImplementedError: file_events records are not normalized yet"
+      ],
+      "passed": false
+    },
+    "oracle_fails": true,
+    "plugin_suites": {
+      "command": [
+        "D:\\Work\\AtlasRuntime\\.venv\\Scripts\\python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_file_plugin.py",
+        "tests/test_message_plugin.py"
+      ],
+      "exit_code": 0,
+      "hidden_ok": false,
+      "output_chars": 733,
+      "output_tail": [
+        ".......................                                                  [100%]",
+        "23 passed in 0.06s",
+        "D:\\Work\\AtlasRuntime\\.venv\\Lib\\site-packages\\pytest_asyncio\\plugin.py:300: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.",
+        "The event loop scope for asynchronous fixtures will default to the \"fixture\" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to \"function\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"",
+        "",
+        "  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))"
+      ],
+      "passed": true
+    },
+    "plugin_suites_pass": true,
+    "public": {
+      "command": [
+        "D:\\Work\\AtlasRuntime\\.venv\\Scripts\\python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests"
+      ],
+      "contract_command": "python3 -B -m pytest -q tests",
+      "exit_code": 1,
+      "hidden_ok": false,
+      "output_chars": 17683,
+      "output_tail": [
+        "FAILED tests/test_public_contract.py::test_dispatch_is_deterministic - NotImp...",
+        "10 failed, 25 passed in 0.19s",
+        "D:\\Work\\AtlasRuntime\\.venv\\Lib\\site-packages\\pytest_asyncio\\plugin.py:300: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.",
+        "The event loop scope for asynchronous fixtures will default to the \"fixture\" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to \"function\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"",
+        "",
+        "  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))"
+      ],
+      "passed": false
+    }
+  },
+  "expectations": {
+    "all_wrong_rejected": true,
+    "baseline_oracle_fails": true,
+    "baseline_public_fails": true,
+    "commands_differ": true,
+    "contract_suite_fails": true,
+    "freeze_matches": true,
+    "oracle_beyond_public": true,
+    "oracle_isolated": true,
+    "plugin_suites_pass": true,
+    "reference_solved": true,
+    "unimplemented_rejected": true
+  },
+  "fixture_files": 23,
+  "freeze": {
+    "changed": [],
+    "file_count": 23,
+    "frozen": true,
+    "matches": true
+  },
+  "generated_at": "2026-11-19T05:55:15.788882+00:00",
+  "isolation": {
+    "fixture_files_scanned": 23,
+    "leaks": [],
+    "marker": "HIDDEN_OK",
+    "note": "the oracle is one host-held command string; it is not registered as a tool and is never written into the workspace",
+    "oracle_reachable_as_a_tool": false,
+    "public_and_oracle_commands_differ": true
+  },
+  "ready": true,
+  "reference": {
+    "hidden": {
+      "command": [
+        "D:\\Work\\AtlasRuntime\\.venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport json\nfrom datetime import datetime, timedelta, timezone\n\nfrom core.adapter import normalize_event, supported_sources\nfrom core.contracts import NormalizedEvent, Severity\nfrom core.errors import UnknownSourceError\nfrom core.registry import build_default_registry\nfrom plugins.file_events import FileEventError, parse_document as parse_files\nfrom plugins.message_events import parse_document as parse_messages\n\nUTC = timezone.utc\nFAILURES = []\n\n\ndef check(condition, label):\n    if not condition:\n        FAILURES.append(label)\n\n\ndef read(path):\n    with open(path, encoding=\"utf-8\") as handle:\n        return handle.read()\n\n\nregistry = build_default_registry()\ncheck(registry.sources() == (\"file_events\", \"message_events\"), \"registry.sources\")\ncheck(supported_sources() == (\"file_events\", \"message_events\"), \"adapter.supported_sources\")\n\n\ndef file_event(**overrides):\n    raw = {\n        \"event_id\": \"ev-0123abcd\",\n        \"ts\": \"2026-11-19T02:05:06Z\",\n        \"kind\": \"build.started\",\n        \"level\": \"info\",\n        \"tags\": \"ci\",\n        \"attrs\": {\"a\": \"1\"},\n    }\n    raw.update(overrides)\n    return raw\n\n\ndef message_event(**overrides):\n    raw = {\n        \"id\": 1041,\n        \"sent_at\": 1795053907000,\n        \"type\": \"USER_JOIN\",\n        \"priority\": 4,\n        \"labels\": [\"B\", \"b\"],\n        \"payload\": {\"n\": 3, \"ok\": True, \"skip\": None, \"name\": \"x\", \"nested\": {\"b\": 1, \"a\": 2}},\n    }\n    raw.update(overrides)\n    return raw\n\n\nFILE_SEVERITY = {\n    \"trace\": \"debug\",\n    \"debug\": \"debug\",\n    \"info\": \"info\",\n    \"warn\": \"warning\",\n    \"err\": \"error\",\n    \"fatal\": \"error\",\n    None: \"info\",\n}\nfor raw_level, expected in FILE_SEVERITY.items():\n    event = normalize_event(\"file_events\", file_event(level=raw_level))\n    check(isinstance(event, NormalizedEvent), \"file record type\")\n    check(event.severity is Severity(expected), \"file severity \" + str(raw_level))\n    check(event.source == \"file_events\", \"file source\")\n    check(event.event_id == \"ev-0123abcd\", \"file event_id kept\")\n    check(event.occurred_at.utcoffset() == timedelta(0), \"file occurred_at utc\")\n    check(event.kind == \"build.started\", \"file kind kept\")\n\nevent = normalize_event(\"file_events\", file_event(ts=\"2026-11-19T04:05:06+02:00\"))\ncheck(event.occurred_at == datetime(2026, 11, 19, 2, 5, 6, tzinfo=UTC), \"file offset converted\")\n\nevent = normalize_event(\"file_events\", file_event(tags=\" b, A ,b,, \"))\ncheck(event.tags == (\"a\", \"b\"), \"file tags split, lowered, deduped, sorted\")\nevent = normalize_event(\"file_events\", file_event(tags=None, attrs=None))\ncheck(event.tags == () and event.attributes == {}, \"file empty optionals\")\nevent = normalize_event(\"file_events\", file_event(attrs={\"b\": \"2\", \"a\": \"1\"}))\ncheck(event.attributes == {\"a\": \"1\", \"b\": \"2\"}, \"file attributes copied\")\n\nMESSAGE_SEVERITY = {1: \"debug\", 2: \"info\", 3: \"info\", 4: \"warning\", 5: \"error\", None: \"info\"}\nfor raw_priority, expected in MESSAGE_SEVERITY.items():\n    event = normalize_event(\"message_events\", message_event(priority=raw_priority))\n    check(isinstance(event, NormalizedEvent), \"message record type\")\n    check(event.severity is Severity(expected), \"message severity \" + str(raw_priority))\n    check(event.source == \"message_events\", \"message source\")\n    check(event.event_id == \"msg-1041\", \"message id prefixed\")\n    check(event.kind == \"user_join\", \"message kind lowercased\")\n    check(event.occurred_at == datetime(2026, 11, 19, 2, 5, 7, tzinfo=UTC), \"message timestamp\")\n    check(event.occurred_at.utcoffset() == timedelta(0), \"message occurred_at utc\")\n    check(event.tags == (\"b\",), \"message labels normalized\")\n    check(\n        event.attributes\n        == {\n            \"n\": \"3\",\n            \"name\": \"x\",\n            \"nested\": json.dumps({\"b\": 1, \"a\": 2}, sort_keys=True, separators=(\",\", \":\")),\n            \"ok\": \"true\",\n        },\n        \"message attributes rendered as strings\",\n    )\n    check(all(isinstance(value, str) for value in event.attributes.values()), \"attribute types\")\n\nevent = normalize_event(\"message_events\", message_event(payload=None, labels=[]))\ncheck(event.attributes == {} and event.tags == (), \"message empty optionals\")\n\nnaive = \"naive timestamp accepted\"\ntry:\n    normalize_event(\"file_events\", file_event(ts=\"2026-11-19T02:05:06\"))\nexcept Exception as error:\n    naive = getattr(error, \"code\", None)\ncheck(naive == \"naive_timestamp\", \"naive timestamp code\")\n\nunknown_level = \"unknown level accepted\"\ntry:\n    normalize_event(\"file_events\", file_event(level=\"critical\"))\nexcept Exception as error:\n    unknown_level = getattr(error, \"code\", None)\ncheck(unknown_level == \"unknown_level\", \"unknown level code\")\n\nbad_priority = \"out of range priority accepted\"\ntry:\n    normalize_event(\"message_events\", message_event(priority=9))\nexcept Exception as error:\n    bad_priority = getattr(error, \"code\", None)\ncheck(bad_priority == \"priority_out_of_range\", \"priority range code\")\n\nunknown_source = \"unknown channel accepted\"\ntry:\n    normalize_event(\"carrier_pigeon\", file_event())\nexcept UnknownSourceError:\n    unknown_source = \"unknown_source\"\nexcept Exception as error:\n    unknown_source = getattr(error, \"code\", None)\ncheck(unknown_source == \"unknown_source\", \"unknown channel code\")\n\nraw = message_event()\nbefore = json.dumps(raw, sort_keys=True)\nnormalize_event(\"message_events\", raw)\ncheck(json.dumps(raw, sort_keys=True) == before, \"input record mutated\")\n\nevents = registry.dispatch(\"file_events\", read(\"samples/events.jsonl\"))\ncheck(\n    [event.event_id for event in events]\n    == [\"ev-1a2b3c4d\", \"ev-5e6f7a8b\", \"ev-3a4b5c6d\", \"ev-9c0d1e2f\"],\n    \"file dispatch order\",\n)\ncheck(all(isinstance(event, NormalizedEvent) for event in events), \"dispatch returns events\")\ncheck(events[0].severity is Severity.INFO, \"sample first severity\")\ncheck(events[1].severity is Severity.WARNING, \"sample warn severity\")\ncheck(events[2].occurred_at == datetime(2026, 11, 19, 2, 6, 0, tzinfo=UTC), \"sample default ts\")\ncheck(events[3].occurred_at == datetime(2026, 11, 19, 4, 59, 59, tzinfo=UTC), \"sample offset\")\ncheck(events[3].tags == (), \"sample absent tags\")\ncheck(events[3].attributes == {}, \"sample absent attributes\")\n\nmessages = registry.dispatch(\"message_events\", read(\"samples/messages.json\"))\ncheck(\n    [event.event_id for event in messages] == [\"msg-1041\", \"msg-1042\", \"msg-1043\"],\n    \"message dispatch order\",\n)\ncheck(messages[0].attributes == {\"channel\": \"#general\", \"invited\": \"true\"}, \"sample attributes\")\ncheck(messages[1].attributes == {\"attempts\": \"3\"}, \"null payload value dropped\")\ncheck(messages[2].severity is Severity.ERROR, \"sample priority 5\")\nagain = registry.dispatch(\"message_events\", read(\"samples/messages.json\"))\ncheck(\n    [event.as_dict() for event in again] == [event.as_dict() for event in messages],\n    \"dispatch deterministic\",\n)\n\nrecord = parse_files(\n    json.dumps({\"event_id\": \"ev-0123abcd\", \"ts\": \"2026-11-19T02:05:06Z\", \"kind\": \"a\"})\n)[0]\ncheck(record.level is None, \"file plugin keeps absent level raw\")\ncheck(record.ts == \"2026-11-19T02:05:06Z\", \"file plugin keeps raw ts\")\ncheck(record.as_mapping()[\"attrs\"] == {}, \"file plugin native mapping\")\n\nnative_error = \"no error\"\ntry:\n    parse_files(json.dumps({\"event_id\": \"bad\", \"ts\": \"2026-11-19T02:05:06Z\", \"kind\": \"a\"}))\nexcept FileEventError as error:\n    native_error = error.code\ncheck(native_error == \"bad_event_id\", \"file plugin error code\")\n\nmessage_record = parse_messages(json.dumps([{\"id\": 7, \"sent_at\": 1, \"type\": \"USER_JOIN\"}]))[0]\ncheck(message_record.priority is None, \"message plugin keeps absent priority raw\")\n\nif FAILURES:\n    raise SystemExit(\"HIDDEN_FAIL: \" + \"; \".join(FAILURES))\nprint(\"HIDDEN_OK\")\n"
+      ],
+      "contract_command": "python3 -c '\nimport json\nfrom datetime import datetime, timedelta, timezone\n\nfrom core.adapter import normalize_event, supported_sources\nfrom core.contracts import NormalizedEvent, Severity\nfrom core.errors import UnknownSourceError\nfrom core.registry import build_default_registry\nfrom plugins.file_events import FileEventError, parse_document as parse_files\nfrom plugins.message_events import parse_document as parse_messages\n\nUTC = timezone.utc\nFAILURES = []\n\n\ndef check(condition, label):\n    if not condition:\n        FAILURES.append(label)\n\n\ndef read(path):\n    with open(path, encoding=\"utf-8\") as handle:\n        return handle.read()\n\n\nregistry = build_default_registry()\ncheck(registry.sources() == (\"file_events\", \"message_events\"), \"registry.sources\")\ncheck(supported_sources() == (\"file_events\", \"message_events\"), \"adapter.supported_sources\")\n\n\ndef file_event(**overrides):\n    raw = {\n        \"event_id\": \"ev-0123abcd\",\n        \"ts\": \"2026-11-19T02:05:06Z\",\n        \"kind\": \"build.started\",\n        \"level\": \"info\",\n        \"tags\": \"ci\",\n        \"attrs\": {\"a\": \"1\"},\n    }\n    raw.update(overrides)\n    return raw\n\n\ndef message_event(**overrides):\n    raw = {\n        \"id\": 1041,\n        \"sent_at\": 1795053907000,\n        \"type\": \"USER_JOIN\",\n        \"priority\": 4,\n        \"labels\": [\"B\", \"b\"],\n        \"payload\": {\"n\": 3, \"ok\": True, \"skip\": None, \"name\": \"x\", \"nested\": {\"b\": 1, \"a\": 2}},\n    }\n    raw.update(overrides)\n    return raw\n\n\nFILE_SEVERITY = {\n    \"trace\": \"debug\",\n    \"debug\": \"debug\",\n    \"info\": \"info\",\n    \"warn\": \"warning\",\n    \"err\": \"error\",\n    \"fatal\": \"error\",\n    None: \"info\",\n}\nfor raw_level, expected in FILE_SEVERITY.items():\n    event = normalize_event(\"file_events\", file_event(level=raw_level))\n    check(isinstance(event, NormalizedEvent), \"file record type\")\n    check(event.severity is Severity(expected), \"file severity \" + str(raw_level))\n    check(event.source == \"file_events\", \"file source\")\n    check(event.event_id == \"ev-0123abcd\", \"file event_id kept\")\n    check(event.occurred_at.utcoffset() == timedelta(0), \"file occurred_at utc\")\n    check(event.kind == \"build.started\", \"file kind kept\")\n\nevent = normalize_event(\"file_events\", file_event(ts=\"2026-11-19T04:05:06+02:00\"))\ncheck(event.occurred_at == datetime(2026, 11, 19, 2, 5, 6, tzinfo=UTC), \"file offset converted\")\n\nevent = normalize_event(\"file_events\", file_event(tags=\" b, A ,b,, \"))\ncheck(event.tags == (\"a\", \"b\"), \"file tags split, lowered, deduped, sorted\")\nevent = normalize_event(\"file_events\", file_event(tags=None, attrs=None))\ncheck(event.tags == () and event.attributes == {}, \"file empty optionals\")\nevent = normalize_event(\"file_events\", file_event(attrs={\"b\": \"2\", \"a\": \"1\"}))\ncheck(event.attributes == {\"a\": \"1\", \"b\": \"2\"}, \"file attributes copied\")\n\nMESSAGE_SEVERITY = {1: \"debug\", 2: \"info\", 3: \"info\", 4: \"warning\", 5: \"error\", None: \"info\"}\nfor raw_priority, expected in MESSAGE_SEVERITY.items():\n    event = normalize_event(\"message_events\", message_event(priority=raw_priority))\n    check(isinstance(event, NormalizedEvent), \"message record type\")\n    check(event.severity is Severity(expected), \"message severity \" + str(raw_priority))\n    check(event.source == \"message_events\", \"message source\")\n    check(event.event_id == \"msg-1041\", \"message id prefixed\")\n    check(event.kind == \"user_join\", \"message kind lowercased\")\n    check(event.occurred_at == datetime(2026, 11, 19, 2, 5, 7, tzinfo=UTC), \"message timestamp\")\n    check(event.occurred_at.utcoffset() == timedelta(0), \"message occurred_at utc\")\n    check(event.tags == (\"b\",), \"message labels normalized\")\n    check(\n        event.attributes\n        == {\n            \"n\": \"3\",\n            \"name\": \"x\",\n            \"nested\": json.dumps({\"b\": 1, \"a\": 2}, sort_keys=True, separators=(\",\", \":\")),\n            \"ok\": \"true\",\n        },\n        \"message attributes rendered as strings\",\n    )\n    check(all(isinstance(value, str) for value in event.attributes.values()), \"attribute types\")\n\nevent = normalize_event(\"message_events\", message_event(payload=None, labels=[]))\ncheck(event.attributes == {} and event.tags == (), \"message empty optionals\")\n\nnaive = \"naive timestamp accepted\"\ntry:\n    normalize_event(\"file_events\", file_event(ts=\"2026-11-19T02:05:06\"))\nexcept Exception as error:\n    naive = getattr(error, \"code\", None)\ncheck(naive == \"naive_timestamp\", \"naive timestamp code\")\n\nunknown_level = \"unknown level accepted\"\ntry:\n    normalize_event(\"file_events\", file_event(level=\"critical\"))\nexcept Exception as error:\n    unknown_level = getattr(error, \"code\", None)\ncheck(unknown_level == \"unknown_level\", \"unknown level code\")\n\nbad_priority = \"out of range priority accepted\"\ntry:\n    normalize_event(\"message_events\", message_event(priority=9))\nexcept Exception as error:\n    bad_priority = getattr(error, \"code\", None)\ncheck(bad_priority == \"priority_out_of_range\", \"priority range code\")\n\nunknown_source = \"unknown channel accepted\"\ntry:\n    normalize_event(\"carrier_pigeon\", file_event())\nexcept UnknownSourceError:\n    unknown_source = \"unknown_source\"\nexcept Exception as error:\n    unknown_source = getattr(error, \"code\", None)\ncheck(unknown_source == \"unknown_source\", \"unknown channel code\")\n\nraw = message_event()\nbefore = json.dumps(raw, sort_keys=True)\nnormalize_event(\"message_events\", raw)\ncheck(json.dumps(raw, sort_keys=True) == before, \"input record mutated\")\n\nevents = registry.dispatch(\"file_events\", read(\"samples/events.jsonl\"))\ncheck(\n    [event.event_id for event in events]\n    == [\"ev-1a2b3c4d\", \"ev-5e6f7a8b\", \"ev-3a4b5c6d\", \"ev-9c0d1e2f\"],\n    \"file dispatch order\",\n)\ncheck(all(isinstance(event, NormalizedEvent) for event in events), \"dispatch returns events\")\ncheck(events[0].severity is Severity.INFO, \"sample first severity\")\ncheck(events[1].severity is Severity.WARNING, \"sample warn severity\")\ncheck(events[2].occurred_at == datetime(2026, 11, 19, 2, 6, 0, tzinfo=UTC), \"sample default ts\")\ncheck(events[3].occurred_at == datetime(2026, 11, 19, 4, 59, 59, tzinfo=UTC), \"sample offset\")\ncheck(events[3].tags == (), \"sample absent tags\")\ncheck(events[3].attributes == {}, \"sample absent attributes\")\n\nmessages = registry.dispatch(\"message_events\", read(\"samples/messages.json\"))\ncheck(\n    [event.event_id for event in messages] == [\"msg-1041\", \"msg-1042\", \"msg-1043\"],\n    \"message dispatch order\",\n)\ncheck(messages[0].attributes == {\"channel\": \"#general\", \"invited\": \"true\"}, \"sample attributes\")\ncheck(messages[1].attributes == {\"attempts\": \"3\"}, \"null payload value dropped\")\ncheck(messages[2].severity is Severity.ERROR, \"sample priority 5\")\nagain = registry.dispatch(\"message_events\", read(\"samples/messages.json\"))\ncheck(\n    [event.as_dict() for event in again] == [event.as_dict() for event in messages],\n    \"dispatch deterministic\",\n)\n\nrecord = parse_files(\n    json.dumps({\"event_id\": \"ev-0123abcd\", \"ts\": \"2026-11-19T02:05:06Z\", \"kind\": \"a\"})\n)[0]\ncheck(record.level is None, \"file plugin keeps absent level raw\")\ncheck(record.ts == \"2026-11-19T02:05:06Z\", \"file plugin keeps raw ts\")\ncheck(record.as_mapping()[\"attrs\"] == {}, \"file plugin native mapping\")\n\nnative_error = \"no error\"\ntry:\n    parse_files(json.dumps({\"event_id\": \"bad\", \"ts\": \"2026-11-19T02:05:06Z\", \"kind\": \"a\"}))\nexcept FileEventError as error:\n    native_error = error.code\ncheck(native_error == \"bad_event_id\", \"file plugin error code\")\n\nmessage_record = parse_messages(json.dumps([{\"id\": 7, \"sent_at\": 1, \"type\": \"USER_JOIN\"}]))[0]\ncheck(message_record.priority is None, \"message plugin keeps absent priority raw\")\n\nif FAILURES:\n    raise SystemExit(\"HIDDEN_FAIL: \" + \"; \".join(FAILURES))\nprint(\"HIDDEN_OK\")\n'",
+      "exit_code": 0,
+      "hidden_ok": true,
+      "output_chars": 10,
+      "output_tail": [
+        "HIDDEN_OK"
+      ],
+      "passed": true
+    },
+    "public": {
+      "command": [
+        "D:\\Work\\AtlasRuntime\\.venv\\Scripts\\python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests"
+      ],
+      "contract_command": "python3 -B -m pytest -q tests",
+      "exit_code": 0,
+      "hidden_ok": false,
+      "output_chars": 733,
+      "output_tail": [
+        "...................................                                      [100%]",
+        "35 passed in 0.11s",
+        "D:\\Work\\AtlasRuntime\\.venv\\Lib\\site-packages\\pytest_asyncio\\plugin.py:300: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.",
+        "The event loop scope for asynchronous fixtures will default to the \"fixture\" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to \"function\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"",
+        "",
+        "  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))"
+      ],
+      "passed": true
+    },
+    "solved": true
+  },
+  "scratch": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-offline-xen6_jgv",
+  "variants": {
+    "dispatch_unsorted": {
+      "hidden_exit": 1,
+      "hidden_ok": false,
+      "hidden_tail": [
+        "HIDDEN_FAIL: file dispatch order; sample default ts; sample offset"
+      ],
+      "oracle_passed": false,
+      "public_passed": false
+    },
+    "file_tags_not_split": {
+      "hidden_exit": 1,
+      "hidden_ok": false,
+      "hidden_tail": [
+        "HIDDEN_FAIL: file tags split, lowered, deduped, sorted"
+      ],
+      "oracle_passed": false,
+      "public_passed": false
+    },
+    "message_id_without_prefix": {
+      "hidden_exit": 1,
+      "hidden_ok": false,
+      "hidden_tail": [
+        "HIDDEN_FAIL: message id prefixed; message id prefixed; message id prefixed; message id prefixed; message id prefixed; message id prefixed; message dispatch order"
+      ],
+      "oracle_passed": false,
+      "public_passed": false
+    },
+    "priority_one_as_info": {
+      "hidden_exit": 1,
+      "hidden_ok": false,
+      "hidden_tail": [
+        "HIDDEN_FAIL: message severity 1"
+      ],
+      "oracle_passed": false,
+      "public_passed": true
+    },
+    "trace_level_as_info": {
+      "hidden_exit": 1,
+      "hidden_ok": false,
+      "hidden_tail": [
+        "HIDDEN_FAIL: file severity trace"
+      ],
+      "oracle_passed": false,
+      "public_passed": true
+    },
+    "unimplemented": {
+      "hidden_exit": 1,
+      "hidden_ok": false,
+      "hidden_tail": [
+        "  File \"C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-offline-xen6_jgv\\unimplemented\\core\\adapter.py\", line 55, in normalize_event",
+        "    return normalizer(raw)",
+        "           ^^^^^^^^^^^^^^^",
+        "  File \"C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-offline-xen6_jgv\\unimplemented\\core\\adapter.py\", line 65, in normalize_file_event",
+        "    raise NotImplementedError(\"file_events records are not normalized yet\")",
+        "NotImplementedError: file_events records are not normalized yet"
+      ],
+      "oracle_passed": false,
+      "public_passed": false
+    }
+  }
+}

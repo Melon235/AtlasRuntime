@@ -1,0 +1,4 @@
+{"event_id": "ev-1a2b3c4d", "ts": "2026-11-19T04:05:06+02:00", "kind": "build.started", "level": "info", "tags": "ci,build", "attrs": {"branch": "main"}}
+{"event_id": "ev-5e6f7a8b", "ts": "2026-11-19T02:05:09Z", "kind": "build.retry", "level": "warn", "tags": "CI, build,ci", "attrs": {"retries": "2"}}
+{"event_id": "ev-9c0d1e2f", "ts": "2026-11-18T23:59:59-05:00", "kind": "build.failed", "level": "fatal", "producer": "ci-runner-3"}
+{"event_id": "ev-3a4b5c6d", "ts": "2026-11-19T02:06:00Z", "kind": "deploy.finished"}

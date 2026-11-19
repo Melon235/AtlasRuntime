@@ -1,0 +1,447 @@
+{
+  "child_profile": {
+    "base_tools": [
+      "dispatch_action",
+      "file_read",
+      "grep",
+      "list_files",
+      "tool_search"
+    ],
+    "can_delegate": false,
+    "max_turns": 6,
+    "no_sibling_result_dependency": [
+      0,
+      0
+    ],
+    "profile_id": "research_worker",
+    "read_only": true
+  },
+  "declared_dependency": {
+    "admitted": [],
+    "blocked_gates": [
+      "GATE_M_PROPOSAL"
+    ],
+    "children": [
+      {
+        "admitted": false,
+        "key": "file-channel",
+        "profile_id": "research_worker",
+        "reason_codes": [
+          "DEPENDENCY_NOT_SUPPORTED"
+        ]
+      },
+      {
+        "admitted": false,
+        "key": "message-channel",
+        "profile_id": "research_worker",
+        "reason_codes": [
+          "DEPENDENCY_NOT_SUPPORTED"
+        ]
+      }
+    ],
+    "frozen_decision": null,
+    "max_wave_width": 0,
+    "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5",
+    "policy_version": "m.1.0",
+    "reason_codes": [
+      "DEPENDENCY_NOT_SUPPORTED"
+    ],
+    "route": "direct"
+  },
+  "expectations": {
+    "child_cannot_delegate": true,
+    "child_is_read_only": true,
+    "dependency_refused": true,
+    "investigations_independent": true,
+    "missing_background_refused": true,
+    "single_investigation_admitted": true,
+    "two_investigations_admitted_parallel": true,
+    "write_scope_refused": true
+  },
+  "missing_background": {
+    "admitted": [],
+    "blocked_gates": [
+      "GATE_5_CONTEXT_SUFFICIENCY"
+    ],
+    "children": [
+      {
+        "admitted": false,
+        "key": "file-channel",
+        "profile_id": "research_worker",
+        "reason_codes": [
+          "CONTEXT_INSUFFICIENT"
+        ]
+      },
+      {
+        "admitted": false,
+        "key": "message-channel",
+        "profile_id": "research_worker",
+        "reason_codes": [
+          "CONTEXT_INSUFFICIENT"
+        ]
+      }
+    ],
+    "frozen_decision": {
+      "approved_task_ids": [],
+      "blocked_gates": [
+        "GATE_5_CONTEXT_SUFFICIENCY"
+      ],
+      "diagnostics": [],
+      "evidence_refs": [
+        "ev-goal-coverage",
+        "ev-risk-file-channel",
+        "ev-deliverable-file-channel",
+        "ev-context-file-channel",
+        "ev-risk-message-channel",
+        "ev-deliverable-message-channel",
+        "ev-context-message-channel"
+      ],
+      "gates": [
+        {
+          "evidence_refs": [
+            "ev-goal-coverage"
+          ],
+          "gate": "GATE_0_PROPOSAL_VALIDITY",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [],
+          "gate": "GATE_1_DELEGATION_NECESSITY",
+          "reason_codes": [
+            "INDEPENDENT_DELIVERABLES"
+          ],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [],
+          "gate": "GATE_2_DEPENDENCY_COUPLING",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [],
+          "gate": "GATE_3_PARALLEL_OPPORTUNITY",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [
+            "ev-risk-file-channel",
+            "ev-deliverable-file-channel",
+            "ev-context-file-channel",
+            "ev-risk-message-channel",
+            "ev-deliverable-message-channel",
+            "ev-context-message-channel"
+          ],
+          "gate": "GATE_4_SIDE_EFFECT_RISK",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [
+            "ev-context-file-channel",
+            "ev-context-message-channel"
+          ],
+          "gate": "GATE_5_CONTEXT_SUFFICIENCY",
+          "reason_codes": [
+            "CONTEXT_INSUFFICIENT"
+          ],
+          "status": "block",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        }
+      ],
+      "max_parallel_wave_width": 2,
+      "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5",
+      "policy_version": "m.1.0",
+      "proposal_id": "m-bb0303fddbec16e1346a2552",
+      "reason_codes": [
+        "CONTEXT_INSUFFICIENT"
+      ],
+      "route": "direct"
+    },
+    "max_wave_width": 2,
+    "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5",
+    "policy_version": "m.1.0",
+    "reason_codes": [
+      "CONTEXT_INSUFFICIENT"
+    ],
+    "route": "direct"
+  },
+  "policy_version": "m.1.0",
+  "ready": true,
+  "single_investigation": {
+    "admitted": [
+      "file-channel"
+    ],
+    "blocked_gates": [],
+    "children": [
+      {
+        "admitted": true,
+        "key": "file-channel",
+        "profile_id": "research_worker",
+        "reason_codes": [
+          "DELEGATION_ADMITTED"
+        ]
+      }
+    ],
+    "frozen_decision": {
+      "approved_task_ids": [
+        "file-channel"
+      ],
+      "blocked_gates": [],
+      "diagnostics": [],
+      "evidence_refs": [
+        "ev-goal-coverage",
+        "ev-risk-file-channel",
+        "ev-deliverable-file-channel",
+        "ev-context-file-channel"
+      ],
+      "gates": [
+        {
+          "evidence_refs": [
+            "ev-goal-coverage"
+          ],
+          "gate": "GATE_0_PROPOSAL_VALIDITY",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel"
+          ]
+        },
+        {
+          "evidence_refs": [
+            "ev-risk-file-channel",
+            "ev-deliverable-file-channel",
+            "ev-context-file-channel"
+          ],
+          "gate": "GATE_1_DELEGATION_NECESSITY",
+          "reason_codes": [
+            "DELEGATION_ADMITTED"
+          ],
+          "status": "pass",
+          "task_ids": [
+            "file-channel"
+          ]
+        }
+      ],
+      "max_parallel_wave_width": 1,
+      "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5",
+      "policy_version": "m.1.0",
+      "proposal_id": "m-50095624b38af02c673599c1",
+      "reason_codes": [
+        "DELEGATION_ADMITTED"
+      ],
+      "route": "delegate_one"
+    },
+    "max_wave_width": 1,
+    "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5",
+    "policy_version": "m.1.0",
+    "reason_codes": [
+      "DELEGATION_ADMITTED"
+    ],
+    "route": "delegate_one"
+  },
+  "two_parallel_investigations": {
+    "admitted": [
+      "file-channel",
+      "message-channel"
+    ],
+    "blocked_gates": [],
+    "children": [
+      {
+        "admitted": true,
+        "key": "file-channel",
+        "profile_id": "research_worker",
+        "reason_codes": [
+          "DELEGATION_ADMITTED"
+        ]
+      },
+      {
+        "admitted": true,
+        "key": "message-channel",
+        "profile_id": "research_worker",
+        "reason_codes": [
+          "DELEGATION_ADMITTED"
+        ]
+      }
+    ],
+    "frozen_decision": {
+      "approved_task_ids": [
+        "file-channel",
+        "message-channel"
+      ],
+      "blocked_gates": [],
+      "diagnostics": [],
+      "evidence_refs": [
+        "ev-goal-coverage",
+        "ev-risk-file-channel",
+        "ev-deliverable-file-channel",
+        "ev-context-file-channel",
+        "ev-risk-message-channel",
+        "ev-deliverable-message-channel",
+        "ev-context-message-channel"
+      ],
+      "gates": [
+        {
+          "evidence_refs": [
+            "ev-goal-coverage"
+          ],
+          "gate": "GATE_0_PROPOSAL_VALIDITY",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [],
+          "gate": "GATE_1_DELEGATION_NECESSITY",
+          "reason_codes": [
+            "INDEPENDENT_DELIVERABLES"
+          ],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [],
+          "gate": "GATE_2_DEPENDENCY_COUPLING",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [],
+          "gate": "GATE_3_PARALLEL_OPPORTUNITY",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [
+            "ev-risk-file-channel",
+            "ev-deliverable-file-channel",
+            "ev-context-file-channel",
+            "ev-risk-message-channel",
+            "ev-deliverable-message-channel",
+            "ev-context-message-channel"
+          ],
+          "gate": "GATE_4_SIDE_EFFECT_RISK",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [
+            "ev-context-file-channel",
+            "ev-context-message-channel"
+          ],
+          "gate": "GATE_5_CONTEXT_SUFFICIENCY",
+          "reason_codes": [],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        },
+        {
+          "evidence_refs": [],
+          "gate": "GATE_6_ADMISSION",
+          "reason_codes": [
+            "DELEGATION_ADMITTED",
+            "READ_ONLY_INDEPENDENT_WORK"
+          ],
+          "status": "pass",
+          "task_ids": [
+            "file-channel",
+            "message-channel"
+          ]
+        }
+      ],
+      "max_parallel_wave_width": 2,
+      "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5",
+      "policy_version": "m.1.0",
+      "proposal_id": "m-d008ef7c09812679c49f5eef",
+      "reason_codes": [
+        "DELEGATION_ADMITTED"
+      ],
+      "route": "delegate_parallel"
+    },
+    "max_wave_width": 2,
+    "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5",
+    "policy_version": "m.1.0",
+    "reason_codes": [
+      "DELEGATION_ADMITTED"
+    ],
+    "route": "delegate_parallel"
+  },
+  "workspace_root": "/workspace/project",
+  "write_scope_requested": {
+    "admitted": [],
+    "blocked_gates": [
+      "GATE_M_PROPOSAL"
+    ],
+    "children": [
+      {
+        "admitted": false,
+        "key": "file-channel",
+        "profile_id": "research_worker",
+        "reason_codes": [
+          "WRITE_SCOPE_NOT_GRANTED"
+        ]
+      },
+      {
+        "admitted": false,
+        "key": "message-channel",
+        "profile_id": "research_worker",
+        "reason_codes": [
+          "WRITE_SCOPE_NOT_GRANTED"
+        ]
+      }
+    ],
+    "frozen_decision": null,
+    "max_wave_width": 0,
+    "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5",
+    "policy_version": "m.1.0",
+    "reason_codes": [
+      "WRITE_SCOPE_NOT_GRANTED"
+    ],
+    "route": "direct"
+  }
+}
