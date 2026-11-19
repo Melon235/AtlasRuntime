@@ -1,0 +1,310 @@
+{
+  "stage": "B",
+  "protocol_version": "1.0.0",
+  "plan": {
+    "seed": 20261119,
+    "repetitions": 2,
+    "cells": [
+      {
+        "cell_id": "zonelint.P1.r1",
+        "task_id": "zonelint",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 1,
+        "order": 1
+      },
+      {
+        "cell_id": "slugkit.P2.r1",
+        "task_id": "slugkit",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 1,
+        "order": 2
+      },
+      {
+        "cell_id": "pager.P3.r1",
+        "task_id": "pager",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 1,
+        "order": 3
+      },
+      {
+        "cell_id": "cascade.P1.r1",
+        "task_id": "cascade",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 1,
+        "order": 4
+      },
+      {
+        "cell_id": "retrygate.P2.r1",
+        "task_id": "retrygate",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 1,
+        "order": 5
+      },
+      {
+        "cell_id": "ledgerclose.P3.r1",
+        "task_id": "ledgerclose",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 1,
+        "order": 6
+      },
+      {
+        "cell_id": "zonelint.P2.r1",
+        "task_id": "zonelint",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 2,
+        "order": 7
+      },
+      {
+        "cell_id": "slugkit.P3.r1",
+        "task_id": "slugkit",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 2,
+        "order": 8
+      },
+      {
+        "cell_id": "pager.P1.r1",
+        "task_id": "pager",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 2,
+        "order": 9
+      },
+      {
+        "cell_id": "cascade.P2.r1",
+        "task_id": "cascade",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 2,
+        "order": 10
+      },
+      {
+        "cell_id": "retrygate.P3.r1",
+        "task_id": "retrygate",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 2,
+        "order": 11
+      },
+      {
+        "cell_id": "ledgerclose.P1.r1",
+        "task_id": "ledgerclose",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 2,
+        "order": 12
+      },
+      {
+        "cell_id": "zonelint.P3.r1",
+        "task_id": "zonelint",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 3,
+        "order": 13
+      },
+      {
+        "cell_id": "slugkit.P1.r1",
+        "task_id": "slugkit",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 3,
+        "order": 14
+      },
+      {
+        "cell_id": "pager.P2.r1",
+        "task_id": "pager",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 3,
+        "order": 15
+      },
+      {
+        "cell_id": "cascade.P3.r1",
+        "task_id": "cascade",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 3,
+        "order": 16
+      },
+      {
+        "cell_id": "retrygate.P1.r1",
+        "task_id": "retrygate",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 3,
+        "order": 17
+      },
+      {
+        "cell_id": "ledgerclose.P2.r1",
+        "task_id": "ledgerclose",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 3,
+        "order": 18
+      },
+      {
+        "cell_id": "ledgerclose.P2.r2",
+        "task_id": "ledgerclose",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 1,
+        "order": 19
+      },
+      {
+        "cell_id": "slugkit.P3.r2",
+        "task_id": "slugkit",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 1,
+        "order": 20
+      },
+      {
+        "cell_id": "cascade.P1.r2",
+        "task_id": "cascade",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 1,
+        "order": 21
+      },
+      {
+        "cell_id": "zonelint.P2.r2",
+        "task_id": "zonelint",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 1,
+        "order": 22
+      },
+      {
+        "cell_id": "pager.P3.r2",
+        "task_id": "pager",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 1,
+        "order": 23
+      },
+      {
+        "cell_id": "retrygate.P1.r2",
+        "task_id": "retrygate",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 1,
+        "order": 24
+      },
+      {
+        "cell_id": "ledgerclose.P3.r2",
+        "task_id": "ledgerclose",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 2,
+        "order": 25
+      },
+      {
+        "cell_id": "slugkit.P1.r2",
+        "task_id": "slugkit",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 2,
+        "order": 26
+      },
+      {
+        "cell_id": "cascade.P2.r2",
+        "task_id": "cascade",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 2,
+        "order": 27
+      },
+      {
+        "cell_id": "zonelint.P3.r2",
+        "task_id": "zonelint",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 2,
+        "order": 28
+      },
+      {
+        "cell_id": "pager.P1.r2",
+        "task_id": "pager",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 2,
+        "order": 29
+      },
+      {
+        "cell_id": "retrygate.P2.r2",
+        "task_id": "retrygate",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 2,
+        "order": 30
+      },
+      {
+        "cell_id": "ledgerclose.P1.r2",
+        "task_id": "ledgerclose",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 3,
+        "order": 31
+      },
+      {
+        "cell_id": "slugkit.P2.r2",
+        "task_id": "slugkit",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 3,
+        "order": 32
+      },
+      {
+        "cell_id": "cascade.P3.r2",
+        "task_id": "cascade",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 3,
+        "order": 33
+      },
+      {
+        "cell_id": "zonelint.P1.r2",
+        "task_id": "zonelint",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 3,
+        "order": 34
+      },
+      {
+        "cell_id": "pager.P2.r2",
+        "task_id": "pager",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 3,
+        "order": 35
+      },
+      {
+        "cell_id": "retrygate.P3.r2",
+        "task_id": "retrygate",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 3,
+        "order": 36
+      }
+    ],
+    "digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+    "balance": {
+      "cells": 36,
+      "unique_pairs": true,
+      "complete_pairs": true,
+      "each_arm_in_each_round": true,
+      "first_arm_by_repetition": {
+        "1": "P1",
+        "2": "P2"
+      },
+      "first_arm_differs_across_repetitions": true
+    }
+  }
+}

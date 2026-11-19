@@ -73,6 +73,9 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 [tool.ruff.lint.per-file-ignores]
 # Typer declares CLI options in default arguments by design.
 "src/atlasos/app/cli.py" = ["B008"]
+# These modules embed fixture source and oracle programs as string literals. A line inside such a
+# literal is part of a file that is materialised and hashed; re-wrapping it would change the fixture.
+"experiments/stage_benchmark/tasks/*.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

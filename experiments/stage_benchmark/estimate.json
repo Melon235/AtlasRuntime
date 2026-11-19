@@ -1,0 +1,57 @@
+{
+  "cells": 36,
+  "scenarios": {
+    "LOW": {
+      "per_run_tokens": 229592,
+      "total_tokens": 8265312,
+      "per_run_cost_usd": 0.011022,
+      "total_cost_usd": 0.3968
+    },
+    "EXPECTED": {
+      "per_run_tokens": 306124,
+      "total_tokens": 11020464,
+      "per_run_cost_usd": 0.014696,
+      "total_cost_usd": 0.5291
+    },
+    "HIGH": {
+      "per_run_tokens": 514832,
+      "total_tokens": 18533952,
+      "per_run_cost_usd": 0.025116,
+      "total_cost_usd": 0.9042
+    }
+  },
+  "simultaneous_children": 2,
+  "wall_clock": {
+    "observed_seconds": [
+      54.4,
+      64.0
+    ],
+    "per_run_estimate_seconds": 180,
+    "sequential_hours": 1.8,
+    "note": "the pilots measured the model loop only; sandbox provisioning and export add to it"
+  },
+  "pricing": {
+    "cache_hit_input_per_million": 0.006,
+    "cache_miss_input_per_million": 0.3,
+    "output_per_million": 1.2,
+    "snapshot_date": "2026-11-06",
+    "source": "experiments/configs/eval-benchmark.yaml",
+    "basis": "frozen config; the file itself labels it an upper bound for deepseek-chat"
+  },
+  "observed_profile": {
+    "cache_hit_input_tokens": 264640,
+    "cache_miss_input_tokens": 31278,
+    "output_tokens": 2790,
+    "child_prompt_tokens": 7102,
+    "child_output_tokens": 314,
+    "total_tokens": 299022
+  },
+  "assumptions": [
+    "one run costs about what one prompt pilot cost; the tasks are comparable, not equal",
+    "the HIGH scenario assumes every run spends its whole 500000-token budget",
+    "cache behaviour is held at the observed mixture; a cold cache raises the miss share",
+    "the price is the frozen snapshot, not a live quote"
+  ],
+  "stage": "B",
+  "protocol_version": "1.0.0"
+}

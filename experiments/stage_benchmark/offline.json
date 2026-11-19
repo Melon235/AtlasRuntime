@@ -1,0 +1,371 @@
+{
+  "stage": "B",
+  "generated_at": "2026-11-19T15:55:59.614687+00:00",
+  "tasks": {
+    "slugkit": {
+      "task_id": "slugkit",
+      "ok": true,
+      "fixture_digest": "sha256:3e7c131194f33e6ff5d2a6e758829f230f1c04c20c192514b71da18bc7c9379c",
+      "baseline": {
+        "compatibility": {
+          "exit_code": 0,
+          "passed": 5,
+          "failed": 0
+        },
+        "target": {
+          "exit_code": 1,
+          "passed": 0,
+          "failed": 7
+        },
+        "oracle_rejects": true
+      },
+      "reference": {
+        "suite": {
+          "exit_code": 0,
+          "passed": 12,
+          "failed": 0
+        },
+        "oracle_passes": true
+      },
+      "wrong_variants": {
+        "no_truncation": {
+          "covers": "max_length ignored for long input",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "truncation_keeps_separator": {
+          "covers": "a truncated slug ending with '-'",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "is_slug_is_charwise": {
+          "covers": "is_slug accepting non-canonical values",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": false
+        }
+      },
+      "expectation": {
+        "compatibility_tests": 5,
+        "target_tests": 7,
+        "reference_tests": 12,
+        "reference_files": 1,
+        "reference_lines": 31,
+        "independent_investigations": 0,
+        "acceptance_difficulty": "LOW"
+      },
+      "matches_expectation": {
+        "compatibility_tests": true,
+        "target_tests": true,
+        "reference_tests": true
+      }
+    },
+    "pager": {
+      "task_id": "pager",
+      "ok": true,
+      "fixture_digest": "sha256:1e9a66cf2dab578f8681346343da43b230826ce8cd4a71ab08043663bc5c8031",
+      "baseline": {
+        "compatibility": {
+          "exit_code": 0,
+          "passed": 5,
+          "failed": 0
+        },
+        "target": {
+          "exit_code": 1,
+          "passed": 0,
+          "failed": 6
+        },
+        "oracle_rejects": true
+      },
+      "reference": {
+        "suite": {
+          "exit_code": 0,
+          "passed": 11,
+          "failed": 0
+        },
+        "oracle_passes": true
+      },
+      "wrong_variants": {
+        "start_not_clamped": {
+          "covers": "a start past the end producing an inverted slice",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "cursor_never_ends": {
+          "covers": "next_cursor returning a cursor on the last page",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": false
+        },
+        "zero_limit_allowed": {
+          "covers": "a limit of zero accepted, so paging cannot advance",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        }
+      },
+      "expectation": {
+        "compatibility_tests": 5,
+        "target_tests": 6,
+        "reference_tests": 11,
+        "independent_investigations": 0,
+        "acceptance_difficulty": "LOW"
+      },
+      "matches_expectation": {
+        "compatibility_tests": true,
+        "target_tests": true,
+        "reference_tests": true
+      }
+    },
+    "zonelint": {
+      "task_id": "zonelint",
+      "ok": true,
+      "fixture_digest": "sha256:59ad287ef54cd29693dffa32c58e258278e416ac7b32471632be6688efc084fa",
+      "baseline": {
+        "compatibility": {
+          "exit_code": 0,
+          "passed": 11,
+          "failed": 0
+        },
+        "target": {
+          "exit_code": 1,
+          "passed": 0,
+          "failed": 7
+        },
+        "oracle_rejects": true
+      },
+      "reference": {
+        "suite": {
+          "exit_code": 0,
+          "passed": 18,
+          "failed": 0
+        },
+        "oracle_passes": true
+      },
+      "wrong_variants": {
+        "warnings_fail": {
+          "covers": "a warning treated as a release blocker",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "sorted_by_code_only": {
+          "covers": "findings ordered by code, not severity first",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "counts_omit_empty_severity": {
+          "covers": "a counts dict missing severities that did not occur",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "input_is_aliased": {
+          "covers": "returning a report that shares state with its input",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        }
+      },
+      "expectation": {
+        "compatibility_tests": 11,
+        "target_tests": 7,
+        "reference_tests": 18,
+        "independent_investigations": 2,
+        "acceptance_difficulty": "MEDIUM"
+      },
+      "matches_expectation": {
+        "compatibility_tests": true,
+        "target_tests": true,
+        "reference_tests": true
+      }
+    },
+    "ledgerclose": {
+      "task_id": "ledgerclose",
+      "ok": true,
+      "fixture_digest": "sha256:a565f724f99aef17e51ae59ce9b0175c26320dcae45faefd78e456b61fd2d3eb",
+      "baseline": {
+        "compatibility": {
+          "exit_code": 0,
+          "passed": 11,
+          "failed": 0
+        },
+        "target": {
+          "exit_code": 1,
+          "passed": 0,
+          "failed": 7
+        },
+        "oracle_rejects": true
+      },
+      "reference": {
+        "suite": {
+          "exit_code": 0,
+          "passed": 18,
+          "failed": 0
+        },
+        "oracle_passes": true
+      },
+      "wrong_variants": {
+        "no_conversion": {
+          "covers": "foreign amounts summed as if they were base currency",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "rounds_half_up": {
+          "covers": "money rounded away from even on a half cent",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": false
+        },
+        "credits_are_negative": {
+          "covers": "the credit total reported as a negative number",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "zero_amounts_skipped": {
+          "covers": "a zero-amount row dropped instead of rejected",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": false
+        }
+      },
+      "expectation": {
+        "compatibility_tests": 11,
+        "target_tests": 7,
+        "reference_tests": 18,
+        "independent_investigations": 2,
+        "acceptance_difficulty": "MEDIUM"
+      },
+      "matches_expectation": {
+        "compatibility_tests": true,
+        "target_tests": true,
+        "reference_tests": true
+      }
+    },
+    "retrygate": {
+      "task_id": "retrygate",
+      "ok": true,
+      "fixture_digest": "sha256:1f6c1d8cc4f32d76280b8c3c37d459cd9d6ccf4b1dd07c07fe6f8cfd81856077",
+      "baseline": {
+        "compatibility": {
+          "exit_code": 0,
+          "passed": 10,
+          "failed": 0
+        },
+        "target": {
+          "exit_code": 1,
+          "passed": 0,
+          "failed": 8
+        },
+        "oracle_rejects": true
+      },
+      "reference": {
+        "suite": {
+          "exit_code": 0,
+          "passed": 18,
+          "failed": 0
+        },
+        "oracle_passes": true
+      },
+      "wrong_variants": {
+        "backoff_without_cap": {
+          "covers": "a delay that grows without bound",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": false
+        },
+        "permanent_consumes": {
+          "covers": "a refusal that still spends an attempt",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": false
+        },
+        "unknown_ignores_reserve": {
+          "covers": "the last attempt spent on an unknown error",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": false
+        },
+        "zero_hint_treated_as_absent": {
+          "covers": "a supplied retry_after_ms=0 replaced by the backoff",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": false
+        }
+      },
+      "expectation": {
+        "compatibility_tests": 10,
+        "target_tests": 8,
+        "reference_tests": 18,
+        "independent_investigations": 0,
+        "acceptance_difficulty": "MEDIUM"
+      },
+      "matches_expectation": {
+        "compatibility_tests": true,
+        "target_tests": true,
+        "reference_tests": true
+      }
+    },
+    "cascade": {
+      "task_id": "cascade",
+      "ok": true,
+      "fixture_digest": "sha256:e2a6f4c5f01e1155c1c86e5a1a9bb95f8a8d0d7de74a4b929e02c031babbbd76",
+      "baseline": {
+        "compatibility": {
+          "exit_code": 0,
+          "passed": 10,
+          "failed": 0
+        },
+        "target": {
+          "exit_code": 1,
+          "passed": 0,
+          "failed": 7
+        },
+        "oracle_rejects": true
+      },
+      "reference": {
+        "suite": {
+          "exit_code": 0,
+          "passed": 17,
+          "failed": 0
+        },
+        "oracle_passes": true
+      },
+      "wrong_variants": {
+        "power_left_associative": {
+          "covers": "2^3^2 grouped to the left",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "power_lowest_precedence": {
+          "covers": "power evaluated after multiplication",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "unary_tighter_than_power": {
+          "covers": "-2^2 parsed as (-2)^2",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": true
+        },
+        "trailing_tokens_ignored": {
+          "covers": "two expressions accepted as one",
+          "rejected_by_oracle": true,
+          "also_caught_by_public_suite": false
+        }
+      },
+      "expectation": {
+        "compatibility_tests": 10,
+        "target_tests": 7,
+        "reference_tests": 17,
+        "independent_investigations": 0,
+        "acceptance_difficulty": "HIGH"
+      },
+      "matches_expectation": {
+        "compatibility_tests": true,
+        "target_tests": true,
+        "reference_tests": true
+      }
+    }
+  },
+  "structural_checks": {
+    "two_tasks_per_structure": true,
+    "no_historical_task_reused": true,
+    "every_task_has_three_wrong_variants": true,
+    "every_write_scope_is_inside_the_package": true,
+    "goals_carry_no_experiment_language": true,
+    "oracle_marker_absent_from_every_fixture": true,
+    "reference_paths_are_inside_the_write_scope": true
+  },
+  "task_count": 6,
+  "wrong_variants": 22,
+  "rejected_variants": 22,
+  "passed": true
+}
