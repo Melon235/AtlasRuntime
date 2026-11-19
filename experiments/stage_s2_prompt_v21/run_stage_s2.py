@@ -112,6 +112,10 @@ EARLIER_FIXTURE_MANIFESTS = (
     REPO_ROOT / "experiments" / "stage_p1b_live" / "fixture_manifest.json",
     REPO_ROOT / "experiments" / "stage_s1_prompt_v2" / "freeze.json",
 )
+#: Configuration with no task content in it. Two projects that both run ``pytest`` have the same
+#: two-line config file; that is not a reused task, and treating it as one would make the check
+#: meaningless rather than strict.
+SHARED_SCAFFOLDING = frozenset({"pytest.ini", ".gitignore", ".gitattributes"})
 #: Outside the repository by default: run artefacts must never dirty the worktree.
 DEFAULT_SCRATCH = Path(
     os.environ.get("ATLAS_S2_SCRATCH") or (Path(tempfile.gettempdir()) / "atlas-s2-live")
@@ -355,7 +359,11 @@ def reuse_evidence() -> dict[str, Any]:
             continue
         frozen = json.loads(path.read_text(encoding="utf-8"))
         previous = frozen.get("files") or frozen.get("fixture", {}).get("files") or {}
-        shared.extend(name for name, digest in manifest.items() if previous.get(name) == digest)
+        shared.extend(
+            name
+            for name, digest in manifest.items()
+            if previous.get(name) == digest and name not in SHARED_SCAFFOLDING
+        )
     shared = sorted(set(shared))
     ok = not inside_history and not goal_markers and not fixture_markers and not shared
     return {
