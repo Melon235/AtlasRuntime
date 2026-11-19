@@ -1,9 +1,16 @@
-# Stage B0 — controlled real delegation (prepared, not executed)
+# Stage B0 — controlled real delegation
 
-Plan and harness for **Controlled Real Delegation Mechanism Validation**. Nothing here has been run
-against a model: the freeze and the preflight are done, the single live attempt is not.
+Harness for **Controlled Real Delegation Mechanism Validation**. One live attempt has been made
+(`evidence/run-1/`, run `stage-b0-20261119T080450Z`); the experiment is closed and cannot be run
+again from this branch. Read `docs/stage-b0-controlled-live.md` for the result and
+`docs/stage-reliability-closure-b0.md` §H for the design.
 
-Read `docs/stage-reliability-closure-b0.md` §H before running anything.
+Result: `B0_DELEGATION_MECHANISM_PASS_INTEGRATION_FAILED` — the Main delegated, the Router admitted
+two concurrent children, the handoffs came back, the Main resumed and edited; the Run Budget then
+rejected its next request and the integration stopped one assertion short of the public suite.
+
+Because an attempt marker exists, `--freeze` and `--run` both refuse here by design. A future
+authorized stage must start from a new branch with a fresh freeze, not by deleting the marker.
 
 ## What it asks
 

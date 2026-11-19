@@ -1,0 +1,457 @@
+# Research Report — `plugins/file_events` (eventpipe)
+
+**Scope note:** Read-only. No files were modified. Everything below is quoted verbatim from the workspace.
+
+---
+
+## 1. `plugins/file_events/parser.py` — parse entrypoints
+
+**Module docstring** (lines 1–5) fixes the design contract:
+
+```
+1	"""Parsing for the file channel: a JSON Lines document, one record per non-blank line.
+2	
+3	The parser returns the channel's raw values. It applies the structural rules from ``schema`` and
+4	nothing else: no default level, no timestamp conversion, no tag splitting.
+5	"""
+```
+
+There are **three** entrypoints: `parse_line`, `parse_document`, `parse_path`.
+
+### `parse_line` (lines 17–52)
+
+```
+17	def parse_line(line: str, *, line_number: int | None = None) -> FileEventRecord:
+18	    """Parse one line. A blank line is not an error; the caller decides to skip it."""
+19	
+20	    text = line.strip()
+21	    if not text:
+22	        raise FileEventError("bad_json", "blank line", line_number=line_number)
+23	    try:
+24	        raw = json.loads(text)
+25	    except json.JSONDecodeError as error:
+26	        raise FileEventError("bad_json", str(error), line_number=line_number) from error
+27	    if not isinstance(raw, Mapping):
+28	        raise FileEventError("wrong_type", "a line must be a JSON object", line_number=line_number)
+29	
+30	    validate_fields(raw, line_number=line_number)
+31	    if not EVENT_ID_PATTERN.match(raw["event_id"]):
+32	        raise FileEventError(
+33	            "bad_event_id",
+34	            "event_id must look like ev-<8 hex digits>",
+35	            line_number=line_number,
+36	        )
+37	    if not KIND_PATTERN.match(raw["kind"]):
+38	        raise FileEventError(
+39	            "bad_kind",
+40	            "kind must be a lowercase dotted identifier",
+41	            line_number=line_number,
+42	        )
+43	
+44	    attrs: dict[str, str] = dict(raw.get("attrs") or {})
+45	    return FileEventRecord(
+46	        event_id=raw["event_id"],
+47	        ts=raw["ts"],
+48	        kind=raw["kind"],
+49	        level=raw.get("level"),
+50	        tags=raw.get("tags"),
+51	        attrs=attrs,
+52	    )
+```
+
+Important behaviour points for an integrator:
+- Returns a **`FileEventRecord` dataclass instance**, *not* a dict.
+- `level` / `tags` pass through **raw** (`raw.get(...)` → `None` when absent — no defaulting). `ts` stays the **raw string**.
+- `attrs` is coerced to `dict(raw.get("attrs") or {})` — an absent/`null`/empty `attrs` becomes `{}`; note this is a *shallow dict copy*, not the sorted copy that `merge_attributes` produces.
+- Note the docstring says "A blank line is not an error", but the code **raises `bad_json` / "blank line"** on a blank/whitespace-only line (line 22). In practice this is unreachable through `parse_document`/`parse_path`, which skip blank lines first (lines 60–61). Only a direct `parse_line("")` call hits it.
+
+### `parse_document` (lines 55–63)
+
+```
+55	def parse_document(text: str) -> tuple[FileEventRecord, ...]:
+56	    """Parse a whole document. The first invalid line stops the parse and names its position."""
+57	
+58	    records: list[FileEventRecord] = []
+59	    for index, line in enumerate(text.splitlines(), start=1):
+60	        if not line.strip():
+61	            continue
+62	        records.append(parse_line(line, line_number=index))
+63	    return tuple(records)
+```
+
+- Input: the **whole `.jsonl` text as `str`** (not a path). This is what `core.registry` registers as the plugin's `parse` payload.
+- Blank lines are silently skipped; **1-based** `line_number` is passed into every error.
+- Returns a **`tuple[FileEventRecord, ...]` in document order** (no reordering).
+- Fails fast: the first invalid line aborts the whole parse.
+
+### `parse_path` (lines 66–69)
+
+```
+66	def parse_path(path: Path) -> tuple[FileEventRecord, ...]:
+67	    """Read and parse a ``.jsonl`` file."""
+68	
+69	    return parse_document(Path(path).read_text(encoding="utf-8"))
+```
+
+### `__all__` (line 72)
+
+```
+72	__all__ = ["parse_document", "parse_line", "parse_path"]
+```
+
+---
+
+## 2. `plugins/file_events/converters.py`, `schema.py`, `errors.py`
+
+### 2a. `converters.py` — four public value-rule functions
+
+The module docstring (lines 1–7) is a direct instruction to the integrator:
+
+```
+1	"""Value rules of the file channel.
+2	
+3	These four functions are the entire interpretation surface of the file channel, and they are public
+4	API: the file reader CLI, the retention job and the channel's own tests all call them. A consumer
+5	that re-implements any of them instead of calling it will drift from the channel's behaviour the
+6	next time a producer adds a level spelling or changes the tag separator.
+7	"""
+```
+
+**Constants** (lines 16–30):
+
+```
+16	#: Level a record is treated as when the line does not carry one.
+17	DEFAULT_LEVEL = "info"
+18	
+19	#: Raw level spelling -> the channel's canonical severity name.
+20	#: ``warning``/``error`` are accepted as inputs even though no producer emits them today.
+21	LEVEL_TO_SEVERITY: dict[str, str] = {
+22	    "trace": "debug",
+23	    "debug": "debug",
+24	    "info": "info",
+25	    "warn": "warning",
+26	    "warning": "warning",
+27	    "err": "error",
+28	    "error": "error",
+29	    "fatal": "error",
+30	}
+```
+
+**`severity_of(raw_level: str | None) -> str`** (lines 33–47):
+
+```
+33	def severity_of(raw_level: str | None) -> str:
+...
+40	    value = (raw_level or DEFAULT_LEVEL).strip().lower()
+41	    try:
+42	        return LEVEL_TO_SEVERITY[value]
+43	    except KeyError:
+44	        raise FileEventError(
+45	            "unknown_level",
+46	            f"level {raw_level!r} is not one of {sorted(LEVEL_TO_SEVERITY)}",
+47	        ) from None
+```
+- Accepts `None` → `"info"`. Case-insensitive and whitespace-tolerant (`strip().lower()`), but the lookup is a **hard error** (`unknown_level`), never a fallback.
+- Returns a **plain `str`** from the set `{"debug","info","warning","error"}` — *not* a `Severity` enum. Note this error carries **no** `line_number`.
+
+**`parse_timestamp(value: str) -> datetime`** (lines 50–63):
+
+```
+50	def parse_timestamp(value: str) -> datetime:
+...
+57	    try:
+58	        parsed = datetime.fromisoformat(value)
+59	    except ValueError as error:
+60	        raise FileEventError("wrong_type", f"ts is not ISO-8601: {value!r}") from error
+61	    if parsed.tzinfo is None or parsed.utcoffset() is None:
+62	        raise FileEventError("naive_timestamp", f"ts must carry an offset: {value!r}")
+63	    return parsed.astimezone(UTC)
+```
+- Input: the **raw `ts` string** (e.g. `"2026-11-19T04:05:06+02:00"`); output: **aware `datetime` converted to UTC**. Naive → `naive_timestamp`; unparseable → `wrong_type`. No `line_number` on these errors.
+
+**`split_tags(value: str | None) -> tuple[str, ...]`** (lines 66–72):
+
+```
+66	def split_tags(value: str | None) -> tuple[str, ...]:
+67	    """Split the comma-separated tag string into a sorted, lowercased, duplicate-free tuple."""
+68	
+69	    if not value:
+70	        return ()
+71	    seen = {item.strip().lower() for item in value.split(",")}
+72	    return tuple(sorted(tag for tag in seen if tag))
+```
+- Input: the **raw comma-separated tag string** (or `None`/`""`). Output: sorted, lowercased, de-duplicated, empty-string-free tuple.
+
+**`merge_attributes(attrs: Mapping[str, str] | None) -> dict[str, str]`** (lines 75–80):
+
+```
+75	def merge_attributes(attrs: Mapping[str, str] | None) -> dict[str, str]:
+76	    """Copy the attribute map into a sorted plain dict (this channel never coerces values)."""
+77	
+78	    if not attrs:
+79	        return {}
+80	    return {str(key): str(value) for key, value in sorted(attrs.items())}
+```
+- `None`/empty → `{}`; otherwise a new plain dict sorted by key. Despite the docstring "never coerces", it applies `str()` to both key and value (a no-op for strings already validated by the parser).
+
+**`__all__`** (lines 83–90):
+
+```
+83	__all__ = [
+84	    "DEFAULT_LEVEL",
+85	    "LEVEL_TO_SEVERITY",
+86	    "merge_attributes",
+87	    "parse_timestamp",
+88	    "severity_of",
+89	    "split_tags",
+90	]
+```
+
+**Integration shape implied:** `FileEventRecord` → `as_mapping()` dict → then `parse_timestamp(rec["ts"])`, `severity_of(rec["level"])`, `split_tags(rec["tags"])`, `merge_attributes(rec["attrs"])`.
+
+### 2b. `schema.py` — the native record and structural rules
+
+**Patterns and field lists** (lines 18–32):
+
+```
+18	#: ``ev-`` followed by eight lowercase hex characters.
+19	EVENT_ID_PATTERN = re.compile(r"^ev-[0-9a-f]{8}$")
+20	#: Lowercase dotted identifier, at most 32 characters.
+21	KIND_PATTERN = re.compile(r"^[a-z][a-z0-9_.-]{0,31}$")
+22	
+23	#: Fields a line must carry. Everything else is optional.
+24	REQUIRED_FIELDS = ("event_id", "ts", "kind")
+25	#: Optional fields and their raw types.
+26	OPTIONAL_FIELDS = ("level", "tags", "attrs")
+27	#: Raw level spellings a line may use. ``None`` means "not stated".
+28	RAW_LEVELS = ("trace", "debug", "info", "warn", "err", "fatal")
+29	
+30	#: Keys this plugin ignores. Forward compatibility: a producer may add a field before the reader
+31	#: knows about it, and dropping it is better than refusing the whole line.
+32	IGNORED_FIELDS = ("schema_version", "producer")
+```
+
+**The dataclass** (lines 35–56):
+
+```
+35	@dataclass(frozen=True, slots=True)
+36	class FileEventRecord:
+37	    """One parsed line, in the channel's own terms."""
+38	
+39	    event_id: str
+40	    ts: str
+41	    kind: str
+42	    level: str | None = None
+43	    tags: str | None = None
+44	    attrs: Mapping[str, str] = field(default_factory=dict)
+45	
+46	    def as_mapping(self) -> dict[str, Any]:
+47	        """The native wire form this plugin hands to the rest of the process."""
+48	
+49	        return {
+50	            "event_id": self.event_id,
+51	            "ts": self.ts,
+52	            "kind": self.kind,
+53	            "level": self.level,
+54	            "tags": self.tags,
+55	            "attrs": dict(self.attrs),
+56	        }
+```
+
+**Key fact for the integrator:** `as_mapping()` **always emits all six keys**, with `level`/`tags` possibly `None` and `attrs` always a dict. So the mapping the normalizer receives is `{"event_id": str, "ts": str, "kind": str, "level": str|None, "tags": str|None, "attrs": dict[str,str]}` — there are no *missing* keys at that point, only `None` values.
+
+**`validate_fields`** (lines 59–83):
+
+```
+59	def validate_fields(raw: Mapping[str, Any], *, line_number: int | None = None) -> None:
+60	    """Check presence and raw types. Values are never interpreted here."""
+61	
+62	    for name in REQUIRED_FIELDS:
+63	        if name not in raw:
+64	            raise FileEventError("missing_field", f"{name} is required", line_number=line_number)
+65	        if not isinstance(raw[name], str):
+66	            raise FileEventError("wrong_type", f"{name} must be a string", line_number=line_number)
+67	    level = raw.get("level")
+68	    if level is not None and not isinstance(level, str):
+69	        raise FileEventError("wrong_type", "level must be a string", line_number=line_number)
+70	    tags = raw.get("tags")
+71	    if tags is not None and not isinstance(tags, str):
+72	        raise FileEventError("wrong_type", "tags must be a string", line_number=line_number)
+73	    attrs = raw.get("attrs")
+74	    if attrs is not None:
+75	        if not isinstance(attrs, Mapping):
+76	            raise FileEventError("wrong_type", "attrs must be an object", line_number=line_number)
+77	        for key, value in attrs.items():
+78	            if not isinstance(key, str) or not isinstance(value, str):
+79	                raise FileEventError(
+80	                    "wrong_type",
+81	                    "attrs must map strings to strings; this channel does not coerce values",
+82	                    line_number=line_number,
+83	                )
+```
+
+Schema summary table:
+
+| Field | Required? | Raw type | Notes |
+|---|---|---|---|
+| `event_id` | **required** | `str` | must match `^ev-[0-9a-f]{8}$` |
+| `ts` | **required** | `str` | raw ISO-8601 string; must be a string here, offset validated later by `parse_timestamp` |
+| `kind` | **required** | `str` | must match `^[a-z][a-z0-9_.-]{0,31}$` |
+| `level` | optional | `str` or `None` | raw spelling; `None` = not stated |
+| `tags` | optional | `str` or `None` | raw comma-separated string (not a list) |
+| `attrs` | optional | object `str -> str` only | no coercion; absent → `{}` |
+| `schema_version`, `producer`, any other | ignored | any | dropped silently (forward compatibility) |
+
+`RAW_LEVELS` (line 28) is **not** enforced by `validate_fields` — level validity is only checked later by `severity_of`, which accepts a *superset* (`warning`, `error` are also accepted).
+
+### 2c. `errors.py` — failure vocabulary
+
+```
+10	FILE_ERROR_CODES = (
+11	    "bad_json",
+12	    "bad_event_id",
+13	    "bad_kind",
+14	    "missing_field",
+15	    "wrong_type",
+16	    "naive_timestamp",
+17	    "unknown_level",
+18	)
+```
+
+```
+21	class FileEventError(ValueError):
+22	    """A file record that cannot be parsed, with a stable machine-readable code."""
+23	
+24	    def __init__(self, code: str, message: str, *, line_number: int | None = None) -> None:
+25	        if code not in FILE_ERROR_CODES:
+26	            raise ValueError(f"unknown FileEventError code: {code!r}")
+27	        super().__init__(message)
+28	        self.code = code
+29	        self.message = message
+30	        self.line_number = line_number
+31	
+32	    def __str__(self) -> str:
+33	        if self.line_number is not None:
+34	            return f"{self.code} (line {self.line_number}): {self.message}"
+35	        return f"{self.code}: {self.message}"
+```
+
+- `FileEventError` subclasses **`ValueError`**, not `core.errors.AdapterError`. Its constructor **validates the code** against `FILE_ERROR_CODES` and raises a plain `ValueError` for an unrecognised code.
+- Attributes: `.code`, `.message`, `.line_number` (may be `None`).
+- `core/errors.py` docstring (lines 2–6) confirms the intended integration: "the shared layer never rewrites them into its own type, because a caller that branches on `FileEventError.code` must keep seeing that code."
+
+---
+
+## 3. `plugins/file_events/__init__.py` — exports
+
+```
+1	"""The file channel: a JSON Lines document of build and deployment events.
+2	
+3	This package is vendored. It knows nothing about ``core`` and must keep working on its own.
+4	"""
+5	
+6	from __future__ import annotations
+7	
+8	from .converters import (
+9	    DEFAULT_LEVEL,
+10	    LEVEL_TO_SEVERITY,
+11	    merge_attributes,
+12	    parse_timestamp,
+13	    severity_of,
+14	    split_tags,
+15	)
+16	from .errors import FILE_ERROR_CODES, FileEventError
+17	from .parser import parse_document, parse_line, parse_path
+18	from .schema import EVENT_ID_PATTERN, KIND_PATTERN, REQUIRED_FIELDS, FileEventRecord
+19	
+20	#: The channel name this package is registered under.
+21	SOURCE = "file_events"
+22	
+23	__all__ = [
+24	    "DEFAULT_LEVEL",
+25	    "EVENT_ID_PATTERN",
+26	    "FILE_ERROR_CODES",
+27	    "FileEventError",
+28	    "FileEventRecord",
+29	    "KIND_PATTERN",
+30	    "LEVEL_TO_SEVERITY",
+31	    "REQUIRED_FIELDS",
+32	    "SOURCE",
+33	    "merge_attributes",
+34	    "parse_document",
+35	    "parse_line",
+36	    "parse_path",
+37	    "parse_timestamp",
+38	    "severity_of",
+39	    "split_tags",
+40	]
+```
+
+- `SOURCE = "file_events"` is the canonical channel name — `core/adapter.py:79` and `core/registry.py:73` both import it as `FILE_SOURCE`.
+- **Not** re-exported: `OPTIONAL_FIELDS`, `RAW_LEVELS`, `IGNORED_FIELDS`, `validate_fields` (still importable from the submodules).
+- Package is deliberately standalone: "It knows nothing about `core` and must keep working on its own."
+
+---
+
+## 4. What `tests/test_file_plugin.py` asserts
+
+Imports come **only from the package root** (`plugins.file_events`), confirming the `__init__.py` surface is the tested API:
+
+```
+14	from plugins.file_events import (
+15	    FileEventError,
+16	    merge_attributes,
+17	    parse_document,
+18	    parse_line,
+19	    parse_timestamp,
+20	    severity_of,
+21	    split_tags,
+22	)
+```
+
+Fixture loads `samples/events.jsonl` (lines 27–29). Sample content for reference:
+
+```
+1	{"event_id": "ev-1a2b3c4d", "ts": "2026-11-19T04:05:06+02:00", "kind": "build.started", "level": "info", "tags": "ci,build", "attrs": {"branch": "main"}}
+2	{"event_id": "ev-5e6f7a8b", "ts": "2026-11-19T02:05:09Z", "kind": "build.retry", "level": "warn", "tags": "CI, build,ci", "attrs": {"retries": "2"}}
+3	{"event_id": "ev-9c0d1e2f", "ts": "2026-11-18T23:59:59-05:00", "kind": "build.failed", "level": "fatal", "producer": "ci-runner-3"}
+4	{"event_id": "ev-3a4b5c6d", "ts": "2026-11-19T02:06:00Z", "kind": "deploy.finished"}
+```
+
+| Test (line) | Assertion |
+|---|---|
+| `test_the_document_decodes_in_document_order` (32) | `parse_document` preserves document order: `["ev-1a2b3c4d","ev-5e6f7a8b","ev-9c0d1e2f","ev-3a4b5c6d"]` |
+| `test_native_records_keep_the_raw_values` (42) | Record 1 keeps raw values: `level == "warn"`, `tags == "CI, build,ci"`, `attrs == {"retries": "2"}`, `ts == "2026-11-19T02:05:09Z"` |
+| `test_optional_fields_are_absent_not_defaulted` (51) | Record 3: `level is None`, `tags is None`, `attrs == {}` |
+| `test_unknown_fields_are_ignored` (58) | Record 2 (has `producer`) still parses, `kind == "build.failed"` |
+| `test_levels_resolve_to_the_channel_vocabulary` (62) | `severity_of(None)=="info"`, `"warn"→"warning"`, `"ERR"→"error"`, `"fatal"→"error"`, `"trace"→"debug"` |
+| `test_an_unknown_level_is_refused` (70) | `severity_of("critical")` raises `FileEventError` with `.code == "unknown_level"` |
+| `test_timestamps_are_converted_to_utc` (76) | `"2026-11-19T04:05:06+02:00"` → `datetime(2026,11,19,2,5,6,tzinfo=UTC)`; `"2026-11-18T23:59:59-05:00"` → `datetime(2026,11,19,4,59,59,tzinfo=UTC)` |
+| `test_a_timestamp_without_an_offset_is_refused` (85) | naive ts → `.code == "naive_timestamp"` |
+| `test_tags_are_split_lowercased_and_deduplicated` (91) | `split_tags(" b, A ,b,, ") == ("a","b")`; `split_tags(None) == ()` |
+| `test_attributes_are_copied_sorted` (96) | `merge_attributes({"b":"2","a":"1"}) == {"a":"1","b":"2"}` and key order `["a","b"]` |
+| `test_a_broken_line_names_its_position` (102) | Missing required field → `missing_field` with `line_number == 1`; bad JSON on 2nd line → `bad_json` with `line_number == 2` |
+| `test_a_malformed_identifier_is_refused` (114) | `event_id="ev-XYZ"` → `.code == "bad_event_id"` |
+| `test_attribute_values_must_already_be_strings` (120) | `attrs={"count": 3}` → `.code == "wrong_type"` |
+
+Module docstring frames these as a **regression contract**: "the package is vendored and its callers depend on every value checked here."
+
+---
+
+## 5. Integration-relevant observations (cross-file, factual)
+
+1. **The payload `parse` receives is the full JSONL text** — `core/registry.py:83-86` registers `parse=lambda payload: tuple(record.as_mapping() for record in parse_file_document(payload))`. So `Plugin.parse` already converts records to **plain dicts with all six keys**; the normalizer in `core/adapter.py` sees dicts, not `FileEventRecord`s.
+2. **`core/adapter.py:58-65` is the stub to fill** and it explicitly forbids re-deriving rules: "Use the file channel's own converter functions; a rule re-derived here will disagree with the channel…" It currently raises `NotImplementedError("file_events records are not normalized yet")`.
+3. **Target shape** is `core/contracts.py:50-60`: `NormalizedEvent(event_id, source, kind, occurred_at, severity, attributes, tags)`, where `severity` becomes a `Severity` enum via `__post_init__`, `attributes` is sorted `str->str`, and `tags` is a tuple.
+4. **Converter/contract alignment:** `severity_of` returns a plain `str` that `NormalizedEvent.__post_init__` will coerce into `Severity` (`core/contracts.py:78-86`); `merge_attributes` output already satisfies the string-mapping check; `split_tags` output already satisfies the non-empty-string tag check. `parse_timestamp` output is already UTC-aware, so the `astimezone(UTC)` in `__post_init__` is a no-op.
+5. **Error propagation:** `FileEventError` is a `ValueError` and is *not* wrapped by core. `tests/test_public_contract.py:120-135` asserts that `normalize_event("file_events", …)` surfaces `.code == "naive_timestamp"` and `.code == "unknown_level"`, i.e. the converter exceptions must be allowed to propagate unchanged.
+6. **Ordering caveat:** `parse_document` returns **document order**, while `PluginRegistry.dispatch` is specified to return `(occurred_at, event_id)` order (`core/registry.py:54-60`); `tests/test_public_contract.py:138-148` expects `["ev-1a2b3c4d","ev-5e6f7a8b","ev-3a4b5c6d","ev-9c0d1e2f"]`, which differs from the document order of lines 34–39. Normalization is not where that sort lives, but the integrator should be aware of it.
+7. **`test_public_contract.py:165-166`** asserts the native mapping keeps raw values: `file_record["ts"] == "2026-11-19T04:05:06+02:00"` and `file_record["level"] == "info"` — confirming `as_mapping()` must remain raw.
+
+---
+
+## Limitations
+
+- I did not execute the tests, so the table above reports what the test *code asserts*, not an observed pass/fail run.
+- `plugins/message_events/*` and `README.md` were not read; they are outside the assigned package (only `core/` context was read to establish the integration target).
+- The docstring/code mismatch in `parse_line` regarding blank lines (line 18 vs. line 22) is reported as observed; I did not determine intent.

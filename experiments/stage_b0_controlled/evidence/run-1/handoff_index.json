@@ -1,0 +1,20 @@
+{
+  "refs": {
+    "ho-4091f043613e57a2059a845e": {
+      "key": "file-plugin-research",
+      "parent_agent": "atlas-main",
+      "parent_task_id": "stage-b0-20261119T080450Z-main",
+      "run_id": "stage-b0-20261119T080450Z",
+      "worker_id": "stage-b0-20261119T080450Z-main:r1:file-plugin-research"
+    },
+    "ho-4fbf145becaa635a1d7fd46b": {
+      "key": "message-plugin-research",
+      "parent_agent": "atlas-main",
+      "parent_task_id": "stage-b0-20261119T080450Z-main",
+      "run_id": "stage-b0-20261119T080450Z",
+      "worker_id": "stage-b0-20261119T080450Z-main:r1:message-plugin-research"
+    }
+  },
+  "run_id": "stage-b0-20261119T080450Z",
+  "schema_version": 1
+}

@@ -426,16 +426,23 @@ async def run(scratch: Path) -> dict[str, Any]:
     )
 
     session = await run_goal(options)
-    summary = summarize(session, report)
     run_dir = Path(session["run_dir"])
+    # Collect the artefacts first: a crash in reporting must not be able to lose a run that has
+    # already happened (that is exactly what happened on the first B0 attempt, see the stage doc).
+    destination = _collect(run_dir, scratch)
+    summary = summarize(session, report, commit)
     (run_dir / "stage_b0_summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
     )
-    _collect(run_dir, scratch)
+    (destination / "stage_b0_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
+    )
     return summary
 
 
-def summarize(session: dict[str, Any], preflight_report: dict[str, Any]) -> dict[str, Any]:
+def summarize(
+    session: dict[str, Any], preflight_report: dict[str, Any], commit: str
+) -> dict[str, Any]:
     delegation = session.get("delegation") or {}
     batches = delegation.get("batches") or []
     children = [child for batch in batches for child in batch["children"]]
@@ -489,7 +496,7 @@ def summarize(session: dict[str, Any], preflight_report: dict[str, Any]) -> dict
         "goal_digest": contract.goal_digest(),
         "instruction_digest": contract.instruction_digest(),
         "preflight_status": preflight_report["combined_status"],
-        "fixture_commit": preflight_report["fixture_commit"],
+        "fixture_commit": commit,
         "git": preflight_report["freeze"]["git"],
         "source_tree_digest": preflight_report["freeze"]["source"]["tree_digest"],
     }
@@ -513,6 +520,8 @@ def _collect(run_dir: Path, scratch: Path) -> Path:
         "stage_b0_summary.json",
         "workspace.patch",
         "tool_conversations.json",
+        # Per-worker assignments and outcomes: who was asked what, and how it ended.
+        "workers.json",
     ):
         source = run_dir / name
         if source.is_file():

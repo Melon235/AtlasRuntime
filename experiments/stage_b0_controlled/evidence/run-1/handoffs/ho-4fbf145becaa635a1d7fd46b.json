@@ -1,0 +1,9 @@
+{
+  "created_at": "2026-11-19T08:05:46.383375+00:00",
+  "digest": "4fbf145becaa635a1d7fd46b284446b4108e4491cfe4d57b87a9b9df4690d3c9",
+  "length": 18870,
+  "producer_key": "delegate:stage-b0-20261119T080450Z-main:r1:message-plugin-research",
+  "producer_title": "message-plugin-research (research_worker)",
+  "ref_id": "ho-4fbf145becaa635a1d7fd46b",
+  "run_id": "stage-b0-20261119T080450Z"
+}

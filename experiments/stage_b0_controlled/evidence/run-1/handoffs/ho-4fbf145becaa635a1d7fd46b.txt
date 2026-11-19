@@ -1,0 +1,416 @@
+# Read-only research report: `plugins/message_events`
+
+No files were modified. Findings below are quoted verbatim from disk with file paths and line numbers.
+
+---
+
+## 0. Package inventory
+
+```
+plugins/message_events/__init__.py
+plugins/message_events/converters.py
+plugins/message_events/errors.py
+plugins/message_events/parser.py
+plugins/message_events/schema.py
+```
+
+---
+
+## (1) `plugins/message_events/parser.py` — parse entrypoints
+
+There are **three** public parse entrypoints. All are exported via `__all__` (line 78).
+
+### `parse_message` — one record → `MessageRecord`
+
+`plugins/message_events/parser.py:33-52`:
+
+```python
+def parse_message(raw: Any, *, index: int | None = None) -> MessageRecord:
+    """Parse one message object."""
+
+    if not isinstance(raw, Mapping):
+        raise MessageEventError("wrong_type", "a message must be a JSON object", index=index)
+    validate_fields(raw, index=index)
+    if not _TYPE_RE.match(raw["type"]):
+        raise MessageEventError(
+            "wrong_type", "type must be an uppercase identifier such as USER_JOIN", index=index
+        )
+    labels = raw.get("labels") or ()
+    payload = raw.get("payload") or {}
+    return MessageRecord(
+        id=int(raw["id"]),
+        sent_at=int(raw["sent_at"]),
+        type=raw["type"],
+        priority=raw.get("priority"),
+        labels=tuple(str(label) for label in labels),
+        payload=dict(payload),
+    )
+```
+
+Behaviour, precisely:
+- Non-mapping input → `MessageEventError("wrong_type", ...)`.
+- Runs `schema.validate_fields` first (presence + raw types, see §2).
+- Rejects a `type` that does not match `TYPE_PATTERN` → `wrong_type`.
+- **No interpretation of values**: `priority` is kept as the raw int or `None`; `sent_at` stays epoch-milliseconds int; `payload` values stay raw (bools/numbers/nested dicts survive); `labels` are `str()`-coerced but **not** lowercased/deduped/sorted.
+- `labels` absent or falsy → `()`; `payload` absent or falsy → `{}`.
+- `index` is keyword-only and only used for error messages.
+
+### `parse_document` — whole document → `tuple[MessageRecord, ...]`
+
+`plugins/message_events/parser.py:55-69`:
+
+```python
+def parse_document(document: str | Mapping[str, Any] | Sequence[Any]) -> tuple[MessageRecord, ...]:
+    """Parse a whole document (JSON text, an already-decoded object, or a list of messages)."""
+
+    decoded: Any
+    if isinstance(document, str):
+        try:
+            decoded = json.loads(document)
+        except json.JSONDecodeError as error:
+            raise MessageEventError("bad_json", str(error)) from error
+    else:
+        decoded = document
+    return tuple(
+        parse_message(item, index=index)
+        for index, item in enumerate(_messages_of(decoded), start=1)
+    )
+```
+
+Accepts JSON **text**, an already-decoded mapping, or a bare list. **`index` is 1-based** and is attached to per-record errors.
+
+### `_messages_of` — both document shapes
+
+`plugins/message_events/parser.py:21-30`:
+
+```python
+def _messages_of(document: Any) -> Sequence[Any]:
+    if isinstance(document, Mapping):
+        if "messages" not in document:
+            raise MessageEventError("missing_field", "document has no 'messages' key")
+        messages = document["messages"]
+    else:
+        messages = document
+    if not isinstance(messages, Sequence) or isinstance(messages, (str, bytes)):
+        raise MessageEventError("wrong_type", "messages must be a list")
+    return messages
+```
+
+So: `{"messages": [...]}` **or** a bare `[...]` are both valid; an object without `messages` → `missing_field`.
+
+### `parse_path` — file → tuple
+
+`plugins/message_events/parser.py:72-75`:
+
+```python
+def parse_path(path: Path) -> tuple[MessageRecord, ...]:
+    """Read and parse a ``.json`` document of messages."""
+
+    return parse_document(Path(path).read_text(encoding="utf-8"))
+```
+
+### Returned internal record shape
+
+The **return type is the dataclass `MessageRecord` from `schema.py`**, not a dict. Keys/fields: `id: int`, `sent_at: int`, `type: str`, `priority: int | None`, `labels: tuple[str, ...]`, `payload: Mapping[str, Any]`. For the core integration use `MessageRecord.as_mapping()` (see §2) since `core.contracts.Plugin.parse` expects `tuple[Mapping[str, Any], ...]` (`core/contracts.py:130`), and `core.adapter.normalize_event` requires `raw` to be a `Mapping` (`core/adapter.py:50`).
+
+---
+
+## (2) `converters.py`, `schema.py`, `errors.py`
+
+### `plugins/message_events/converters.py` — the value rules (public API)
+
+Constants, `plugins/message_events/converters.py:16-26`:
+
+```python
+#: Priority a message is treated as when the backend does not send one.
+DEFAULT_PRIORITY = 3
+
+#: Priority -> this channel's canonical severity name.
+PRIORITY_TO_SEVERITY: dict[int, str] = {
+    1: "debug",
+    2: "info",
+    3: "info",
+    4: "warning",
+    5: "error",
+}
+```
+
+**`coerce_priority(raw_priority: Any | None) -> int`** — `converters.py:29-45`:
+
+```python
+def coerce_priority(raw_priority: Any | None) -> int:
+    if raw_priority is None:
+        return DEFAULT_PRIORITY
+    if not isinstance(raw_priority, int) or isinstance(raw_priority, bool):
+        raise MessageEventError("wrong_type", "priority must be an integer")
+    if not PRIORITY_TO_SEVERITY.get(raw_priority):
+        raise MessageEventError(
+            "priority_out_of_range",
+            f"priority {raw_priority} is outside {sorted(PRIORITY_TO_SEVERITY)}",
+        )
+    return raw_priority
+```
+
+`None` → `3`; `bool` explicitly rejected; out-of-range → `priority_out_of_range`. No clamping.
+
+**`severity_of(raw_priority: Any | None) -> str`** — `converters.py:48-52`:
+
+```python
+def severity_of(raw_priority: Any | None) -> str:
+    """Resolve a raw priority to one of ``debug``, ``info``, ``warning``, ``error``."""
+
+    priority = coerce_priority(raw_priority)
+    return PRIORITY_TO_SEVERITY[priority]
+```
+
+Returns one of `debug`/`info`/`warning`/`error` — exactly the `core.contracts.Severity` vocabulary.
+
+**`parse_timestamp(value: Any) -> datetime`** — `converters.py:55-63`:
+
+```python
+def parse_timestamp(value: Any) -> datetime:
+    """Convert epoch milliseconds into an aware UTC datetime."""
+
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise MessageEventError("wrong_type", f"sent_at must be integer milliseconds: {value!r}")
+    try:
+        return datetime.fromtimestamp(value / 1000.0, tz=UTC)
+    except (OverflowError, OSError, ValueError) as error:
+        raise MessageEventError("wrong_type", f"sent_at is out of range: {value!r}") from error
+```
+
+Epoch **ms** → aware UTC `datetime`. This satisfies `NormalizedEvent`'s tz-aware requirement (`core/contracts.py:71-76`).
+
+**`normalize_labels(labels: Sequence[str] | None) -> tuple[str, ...]`** — `converters.py:66-72`:
+
+```python
+def normalize_labels(labels: Sequence[str] | None) -> tuple[str, ...]:
+    """Return the labels as a sorted, lowercased, duplicate-free tuple of non-empty strings."""
+
+    if not labels:
+        return ()
+    seen = {str(label).strip().lower() for label in labels}
+    return tuple(sorted(label for label in seen if label))
+```
+
+**`stringify_value(value: Any) -> str`** — `converters.py:75-91`:
+
+```python
+def stringify_value(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return repr(value)
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+```
+
+Note the ordering: `bool` is checked **before** `int` (correct, since `bool` subclasses `int`). Containers → compact sorted-key JSON.
+
+**`stringify_payload(payload: Mapping[str, Any] | None) -> dict[str, str]`** — `converters.py:94-104`:
+
+```python
+def stringify_payload(payload: Mapping[str, Any] | None) -> dict[str, str]:
+    """Render the payload as a sorted string map. ``None`` values are dropped, not rendered."""
+
+    if not payload:
+        return {}
+    rendered: dict[str, str] = {}
+    for key, value in payload.items():
+        if value is None:
+            continue
+        rendered[str(key)] = stringify_value(value)
+    return dict(sorted(rendered.items()))
+```
+
+Returns `dict[str, str]`, sorted — directly usable as `NormalizedEvent.attributes`, whose `__post_init__` requires `str -> str` (`core/contracts.py:88-98`). **Caveat for the integrator:** `None` payload values are **dropped**, not rendered as `"null"`.
+
+`__all__` is at `converters.py:107-116`: `DEFAULT_PRIORITY`, `PRIORITY_TO_SEVERITY`, `coerce_priority`, `normalize_labels`, `parse_timestamp`, `severity_of`, `stringify_payload`, `stringify_value`.
+
+### `plugins/message_events/schema.py` — field contract and `MessageRecord`
+
+Constants, `schema.py:16-27`:
+
+```python
+#: Fields a message must carry.
+REQUIRED_FIELDS = ("id", "sent_at", "type")
+#: Optional fields and their raw types.
+OPTIONAL_FIELDS = ("priority", "labels", "payload")
+#: ``type`` is an uppercase identifier: ``USER_JOIN``, ``BOT_ERROR``, ...
+TYPE_PATTERN = r"^[A-Z][A-Z0-9_]{0,47}$"
+#: Priority range the backend may send. ``None`` means "not stated".
+PRIORITY_MIN = 1
+PRIORITY_MAX = 5
+
+#: Keys this plugin ignores, for forward compatibility with newer backends.
+IGNORED_FIELDS = ("schema_version", "trace_id")
+```
+
+The record dataclass **and the `as_mapping()` bridge**, `schema.py:30-51`:
+
+```python
+@dataclass(frozen=True, slots=True)
+class MessageRecord:
+    """One parsed message, in the channel's own terms."""
+
+    id: int
+    sent_at: int
+    type: str
+    priority: int | None = None
+    labels: tuple[str, ...] = ()
+    payload: Mapping[str, Any] = field(default_factory=dict)
+
+    def as_mapping(self) -> dict[str, Any]:
+        """The native wire form this plugin hands to the rest of the process."""
+
+        return {
+            "id": self.id,
+            "sent_at": self.sent_at,
+            "type": self.type,
+            "priority": self.priority,
+            "labels": list(self.labels),
+            "payload": dict(self.payload),
+        }
+```
+
+Field summary:
+
+| field | required | type | notes |
+|---|---|---|---|
+| `id` | yes | `int` | must be positive integer; `bool` rejected |
+| `sent_at` | yes | `int` | epoch **milliseconds**; `bool` rejected |
+| `type` | yes | `str` | must match `^[A-Z][A-Z0-9_]{0,47}$` |
+| `priority` | no | `int \| None` | defaults `None`; range 1–5 enforced by converters |
+| `labels` | no | `tuple[str, ...]` | defaults `()` |
+| `payload` | no | `Mapping[str, Any]` | defaults `{}`; raw values preserved |
+
+Validation entrypoint, `schema.py:54-78`:
+
+```python
+def validate_fields(raw: Mapping[str, Any], *, index: int | None = None) -> None:
+    """Check presence and raw types. Values are never interpreted here."""
+
+    for name in REQUIRED_FIELDS:
+        if name not in raw:
+            raise MessageEventError("missing_field", f"{name} is required", index=index)
+    if not isinstance(raw["id"], int) or isinstance(raw["id"], bool):
+        raise MessageEventError("bad_message_id", "id must be an integer", index=index)
+    if raw["id"] <= 0:
+        raise MessageEventError("bad_message_id", "id must be positive", index=index)
+    if not isinstance(raw["sent_at"], int) or isinstance(raw["sent_at"], bool):
+        raise MessageEventError(
+            "wrong_type", "sent_at must be integer epoch milliseconds", index=index
+        )
+    if not isinstance(raw["type"], str):
+        raise MessageEventError("wrong_type", "type must be a string", index=index)
+    priority = raw.get("priority")
+    if priority is not None and (not isinstance(priority, int) or isinstance(priority, bool)):
+        raise MessageEventError("wrong_type", "priority must be an integer", index=index)
+    labels = raw.get("labels")
+    if labels is not None and not isinstance(labels, (list, tuple)):
+        raise MessageEventError("wrong_type", "labels must be a list", index=index)
+    payload = raw.get("payload")
+    if payload is not None and not isinstance(payload, Mapping):
+        raise MessageEventError("wrong_type", "payload must be an object", index=index)
+```
+
+### `plugins/message_events/errors.py` — error vocabulary
+
+`schema.py`/`errors.py` full contents, `errors.py:10-35`:
+
+```python
+#: Every code this plugin may report.
+MESSAGE_ERROR_CODES = (
+    "bad_json",
+    "bad_message_id",
+    "wrong_type",
+    "missing_field",
+    "priority_out_of_range",
+    "naive_timestamp",
+)
+
+
+class MessageEventError(ValueError):
+    """A message record that cannot be parsed, with a stable machine-readable code."""
+
+    def __init__(self, code: str, message: str, *, index: int | None = None) -> None:
+        if code not in MESSAGE_ERROR_CODES:
+            raise ValueError(f"unknown MessageEventError code: {code!r}")
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.index = index
+
+    def __str__(self) -> str:
+        if self.index is not None:
+            return f"{self.code} (message {self.index}): {self.message}"
+        return f"{self.code}: {self.message}"
+```
+
+Two integration-relevant facts:
+- `MessageEventError` subclasses `ValueError` and exposes `.code`, `.message`, `.index`.
+- `"naive_timestamp"` is in the allowed code list but **no code in this package raises it** (`grep` confirms it appears only at `errors.py:17`). It exists so the code is legal if emitted; the tz-aware guarantee actually comes from `parse_timestamp` producing `tz=UTC`. Conversely the file channel uses `unknown_level` where this channel uses `priority_out_of_range` (documented at `errors.py:3-5`).
+
+---
+
+## (3) `plugins/message_events/__init__.py` — exports
+
+`plugins/message_events/__init__.py:8-45`:
+
+```python
+from .converters import (
+    DEFAULT_PRIORITY,
+    PRIORITY_TO_SEVERITY,
+    coerce_priority,
+    normalize_labels,
+    parse_timestamp,
+    severity_of,
+    stringify_payload,
+    stringify_value,
+)
+from .errors import MESSAGE_ERROR_CODES, MessageEventError
+from .parser import parse_document, parse_message, parse_path
+from .schema import PRIORITY_MAX, PRIORITY_MIN, REQUIRED_FIELDS, TYPE_PATTERN, MessageRecord
+
+#: The channel name this package is registered under.
+SOURCE = "message_events"
+```
+
+`__all__` (lines 25-45) contains: `DEFAULT_PRIORITY`, `MESSAGE_ERROR_CODES`, `MessageEventError`, `MessageRecord`, `PRIORITY_MAX`, `PRIORITY_MIN`, `PRIORITY_TO_SEVERITY`, `REQUIRED_FIELDS`, `SOURCE`, `TYPE_PATTERN`, `coerce_priority`, `normalize_labels`, `parse_document`, `parse_message`, `parse_path`, `parse_timestamp`, `severity_of`, `stringify_payload`, `stringify_value`.
+
+Gaps worth flagging for the integrator: **`OPTIONAL_FIELDS` and `IGNORED_FIELDS` are defined in `schema.py` but are _not_ re-exported** from `__init__.py`, and there is **no prebuilt `Plugin` instance** in this package — `core/adapter.py:78-86` imports only `SOURCE` from it, and `core/contracts.py:120-130` defines the `Plugin` dataclass with a `parse` callable returning `tuple[Mapping[str, Any], ...]`. The glue (calling `parse_document` then `record.as_mapping()`) does not exist yet anywhere; `core/adapter.normalize_message_event` is currently a stub that raises.
+
+---
+
+## `tests/test_message_plugin.py` — what is asserted
+
+Imports (`tests/test_message_plugin.py:13-21`) come **only from the package root** (`from plugins.message_events import ...`), and use: `MessageEventError`, `coerce_priority`, `normalize_labels`, `parse_document`, `parse_timestamp`, `severity_of`, `stringify_payload`. Sample fixture path: `SAMPLES = ... / "samples"` (line 23), reading `samples/messages.json`.
+
+| test (lines) | assertion |
+|---|---|
+| `test_the_document_decodes_every_message` (31-34) | `parse_document(text)` yields ids `[1041, 1042, 1043]` and types `["USER_JOIN", "USER_LEFT", "BOT_ERROR"]` — order preserved, 1-based indexing implied |
+| `test_native_records_keep_the_raw_values` (37-44) | `first.sent_at == 1795053907000`, `first.priority == 4`, `first.labels == ("Onboarding", "onboarding")` (**raw casing/dups preserved by the parser**), `first.payload == {"channel": "#general", "invited": True}` (bool preserved); `second.priority is None`; `third.payload == {}` (from `"payload": null`) |
+| `test_a_bare_list_of_messages_is_accepted` (47-50) | bare JSON array parses to 1 record; missing `priority` → `None` |
+| `test_priority_defaults_and_bounds` (53-58) | `coerce_priority(None) == 3`; `severity_of(None) == "info"`; `severity_of(1) == "debug"`; `severity_of(4) == "warning"`; `severity_of(5) == "error"` |
+| `test_priority_outside_the_range_is_refused` (61-68) | `coerce_priority(9)` → `.code == "priority_out_of_range"`; `coerce_priority(True)` → `.code == "wrong_type"` |
+| `test_epoch_milliseconds_become_utc` (71-75) | `parse_timestamp(1795053907000) == datetime(2026, 11, 19, 2, 5, 7, tzinfo=UTC)`; `utcoffset()` equals UTC's |
+| `test_labels_are_normalized` (78-81) | `normalize_labels(["B", "a", " b ", ""]) == ("a", "b")`; `[]` → `()`; `None` → `()` |
+| `test_payload_values_are_rendered_as_strings` (84-94) | `stringify_payload({"n": 3, "ratio": 0.5, "ok": True, "skip": None, "name": "x", "nested": {"b": 1, "a": 2}})` == `{"name": "x", "n": "3", "nested": '{"a":2,"b":1}', "ok": "true", "ratio": "0.5"}` — note `skip` absent, `0.5` → `"0.5"`, nested compact JSON |
+| `test_a_lowercase_type_is_refused` (97-100) | `"user_join"` → `.code == "wrong_type"` |
+| `test_a_non_integer_identifier_is_refused` (103-106) | `"id": "7"` → `.code == "bad_message_id"` |
+
+Not covered by the tests (so don't rely on tests as spec for these): `parse_message` directly, `parse_path`, `MessageRecord.as_mapping()`, `missing_field`, `bad_json`, `stringify_value`, `IGNORED_FIELDS`, `PRIORITY_MIN`/`PRIORITY_MAX`.
+
+---
+
+## Integration notes (facts, not modifications)
+
+Derived directly from the code above, for whoever writes `core/adapter.normalize_message_event`:
+
+- Input to a normalizer is a `Mapping` (`core/adapter.py:50`), so use `MessageRecord.as_mapping()`, i.e. `parse_document(payload)` → `tuple(record.as_mapping() for record in ...)`.
+- Natural mapping: `event_id = f"msg-{record['id']}"` per the prefix rule in `core/contracts.py:6-9`; `source = SOURCE` (`"message_events"`); `kind = record['type'].lower()` (e.g. `user_join`); `occurred_at = parse_timestamp(record['sent_at'])`; `severity = Severity(severity_of(record['priority']))`; `attributes = stringify_payload(record['payload'])`; `tags = normalize_labels(record['labels'])`.
+- Two divergences to decide deliberately rather than discover: `stringify_payload` **drops** `None` values, and `parse_*` do **not** normalize labels — `normalize_labels` does, and `NormalizedEvent` only requires non-empty strings (it does not itself lowercase/sort).
+- Error code mismatch between channels (`priority_out_of_range` vs the file channel's `unknown_level`) is documented at `errors.py:3-5`; `core/errors.py` should not assume interchangeable codes.

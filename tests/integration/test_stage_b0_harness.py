@@ -34,6 +34,18 @@ for entry in (B0_DIR, P1B_DIR):
 import run_stage_b0 as runner  # noqa: E402  # pyright: ignore[reportMissingImports]
 
 
+@pytest.fixture(autouse=True)
+def _isolated_evidence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the repository's own evidence directory out of the tests.
+
+    It holds the real stage B0 run, and its presence is one of the two records that make the
+    experiment un-repeatable — so without this redirection every test that reaches ``run()`` would
+    (correctly) be refused.
+    """
+
+    monkeypatch.setattr(runner, "EVIDENCE_ROOT", tmp_path / "repo-evidence")
+
+
 @pytest.fixture()
 def scratch(tmp_path: Path) -> Path:
     return tmp_path / "scratch"

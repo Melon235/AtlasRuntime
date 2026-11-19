@@ -1,0 +1,130 @@
+diff --git a/core/adapter.py b/core/adapter.py
+index b7e2bfb..5b8b2d1 100644
+--- a/core/adapter.py
++++ b/core/adapter.py
+@@ -62,7 +62,41 @@ def normalize_file_event(record: Mapping[str, Any]) -> NormalizedEvent:
+     channel the first time a producer adds a level spelling.
+     """
+ 
+-    raise NotImplementedError("file_events records are not normalized yet")
++    from plugins.file_events import (
++        SOURCE,
++        FileEventError,
++        merge_attributes,
++        parse_timestamp,
++        severity_of,
++        split_tags,
++    )
++
++    try:
++        event_id = record["event_id"]
++        kind = record["kind"]
++        occurred_at = parse_timestamp(record["ts"])
++        severity = severity_of(record.get("level"))
++        tags = split_tags(record.get("tags"))
++        attributes = merge_attributes(record.get("attrs"))
++    except KeyError as error:
++        raise _missing_field(SOURCE, error) from None
++    except FileEventError as error:
++        # The channel's own error code is part of its public API; keep it observable.
++        raise NormalizationError(
++            f"{SOURCE}: {error}",
++            code=error.code,
++            detail={"source": SOURCE, "line_number": error.line_number},
++        ) from error
++
++    return NormalizedEvent(
++        event_id=event_id,
++        source=SOURCE,
++        kind=kind,
++        occurred_at=occurred_at,
++        severity=severity,
++        attributes=attributes,
++        tags=tags,
++    )
+ 
+ 
+ def normalize_message_event(record: Mapping[str, Any]) -> NormalizedEvent:
+@@ -72,7 +106,56 @@ def normalize_message_event(record: Mapping[str, Any]) -> NormalizedEvent:
+     facts are handled by the channel's own converters, not here.
+     """
+ 
+-    raise NotImplementedError("message_events records are not normalized yet")
++    from plugins.message_events import (
++        SOURCE,
++        MessageEventError,
++        normalize_labels,
++        parse_timestamp,
++        severity_of,
++        stringify_payload,
++    )
++
++    try:
++        native_id = record["id"]
++        kind = record["type"]
++        occurred_at = parse_timestamp(record["sent_at"])
++        severity = severity_of(record.get("priority"))
++        tags = normalize_labels(record.get("labels"))
++        attributes = stringify_payload(record.get("payload"))
++    except KeyError as error:
++        raise _missing_field(SOURCE, error) from None
++    except MessageEventError as error:
++        # ``priority_out_of_range`` is this channel's own vocabulary; do not rewrite it.
++        raise NormalizationError(
++            f"{SOURCE}: {error}",
++            code=error.code,
++            detail={"source": SOURCE, "index": error.index},
++        ) from error
++
++    # The channel's identifier is numeric, so it is prefixed with the channel's short name to stay
++    # globally unique (``1041`` -> ``msg-1041``).
++    event_id = f"msg-{native_id}" if isinstance(native_id, int) else str(native_id)
++
++    return NormalizedEvent(
++        event_id=event_id,
++        source=SOURCE,
++        kind=kind,
++        occurred_at=occurred_at,
++        severity=severity,
++        attributes=attributes,
++        tags=tags,
++    )
++
++
++def _missing_field(source: str, error: KeyError) -> NormalizationError:
++    """A record that lacks a field the unified model cannot do without."""
++
++    field_name = error.args[0] if error.args else "?"
++    return NormalizationError(
++        f"{source}: native record is missing required field {field_name!r}",
++        code="missing_field",
++        detail={"source": source, "field": field_name},
++    )
+ 
+ 
+ def _install_defaults() -> None:
+diff --git a/core/registry.py b/core/registry.py
+index 6ae69e0..1e66f4b 100644
+--- a/core/registry.py
++++ b/core/registry.py
+@@ -59,12 +59,14 @@ class PluginRegistry:
+         itself emits another one.
+         """
+ 
+-        # The channel is known and its records decode; only the normalization step is missing.
+-        self.parse(source, payload)
+-        raise NotImplementedError(
+-            "PluginRegistry.dispatch does not normalize yet: it must return unified events in "
+-            "event order"
+-        )
++        # Imported here so ``core.adapter`` (which installs the default normalizers at import
++        # time) is fully initialized before dispatch uses it, whichever module is imported first.
++        from .adapter import normalize_event
++
++        # The channel is known and its records decode; normalization is the shared layer's job.
++        records = self.parse(source, payload)
++        events = [normalize_event(source, record) for record in records]
++        return tuple(sorted(events, key=lambda event: (event.occurred_at, event.event_id)))
+ 
+ 
+ def build_default_registry() -> PluginRegistry:

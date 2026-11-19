@@ -1,0 +1,9 @@
+{
+  "created_at": "2026-11-19T08:05:48.360451+00:00",
+  "digest": "4091f043613e57a2059a845e029f5a2f9074137817e0171094c748d824332e9d",
+  "length": 21309,
+  "producer_key": "delegate:stage-b0-20261119T080450Z-main:r1:file-plugin-research",
+  "producer_title": "file-plugin-research (research_worker)",
+  "ref_id": "ho-4091f043613e57a2059a845e",
+  "run_id": "stage-b0-20261119T080450Z"
+}

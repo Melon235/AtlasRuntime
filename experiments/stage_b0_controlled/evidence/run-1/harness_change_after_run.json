@@ -1,0 +1,15 @@
+{
+  "fix": "summarize() takes the fixture commit explicitly and collection now runs before reporting, so a reporting bug cannot lose a finished run.",
+  "frozen_harness": {
+    "b0_contract.py": "sha256:69fdec606d44656de37608ceadc3cfb1c2fe6b57653b9d7597d70d8cb3aa0a34",
+    "run_stage_b0.py": "sha256:d8f1d94fc9e63ab7e1ad1cced66952de345c67e18a4e97b3406e42e452c8cb82"
+  },
+  "frozen_source_tree": "sha256:275e7f0a68e0d290100be26fb249f41ca2591d3bad14f24a9f991a518fc3a16f",
+  "harness_after_fix": {
+    "b0_contract.py": "sha256:69fdec606d44656de37608ceadc3cfb1c2fe6b57653b9d7597d70d8cb3aa0a34",
+    "run_stage_b0.py": "sha256:fe412b98d78c066dda9afe8fa48f20af76753b169dfe17e077f4efa5ceb998c2"
+  },
+  "note": "The freeze was NOT regenerated: --freeze refuses to run once an attempt marker exists, which is the intended protection. The frozen digests remain the contract this run executed under, and preflight on this branch now reports harness_frozen as BLOCKED by design.",
+  "reason": "run_stage_b0.summarize() read preflight_report[fixture_commit], a key that evaluate() does not return. The KeyError happened after run_goal had returned, so the run itself completed but the summary and collection steps never ran.",
+  "source_tree_now": "sha256:275e7f0a68e0d290100be26fb249f41ca2591d3bad14f24a9f991a518fc3a16f"
+}

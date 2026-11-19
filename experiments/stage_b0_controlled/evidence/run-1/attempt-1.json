@@ -1,0 +1,18 @@
+{
+  "created_at": "2026-11-19T08:04:51.222880+00:00",
+  "delegation_mode": "CONTROLLED_DELEGATION",
+  "fixture_commit": "9eb8c57e904ec093048bb65de22593d47a996863",
+  "git": {
+    "git_branch": "exp/stage-b0-controlled-live",
+    "git_head": "fecf02a3b112f9b1fe3e9dbf2e7faffad576673e",
+    "git_status": "",
+    "git_status_excludes_freeze_file": false,
+    "main_system_prompt_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a"
+  },
+  "goal_digest": "sha256:5995bcaa3395510896017bbd9e43466afc4482ee7387e61a0ee0e4c5285bb483",
+  "instruction_digest": "sha256:890f410d4c570c719af17dbbce9fb8527c10c25367d6a98d1b9c9c11ecc4afa6",
+  "run_id": "stage-b0-20261119T080450Z",
+  "source_tree_digest": "sha256:275e7f0a68e0d290100be26fb249f41ca2591d3bad14f24a9f991a518fc3a16f",
+  "stage": "B0",
+  "tool_error_mode": "corrected"
+}

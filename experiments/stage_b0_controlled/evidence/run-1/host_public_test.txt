@@ -1,0 +1,40 @@
+# Host-side replay of the authorized public suite on the exported workspace
+
+This is analysis of an exported artefact AFTER the single live run. It is not a model call, not a
+sandbox execution and not a re-run of the experiment. It exists because the harness recorded the
+oracle verdict (static PASS / dynamic FAIL) but not the failing test names.
+
+command: python -B -m pytest -q -p no:cacheprovider tests
+cwd    : the workspace exported by the run
+result : exit 1
+
+........................F..........                                      [100%]
+================================== FAILURES ===================================
+______________ test_a_message_record_becomes_a_normalized_event _______________
+
+message_records = ({'id': 1041, 'sent_at': 1795053907000, 'type': 'USER_JOIN', 'priority': 4, ...}, {'id': 1042, 'sent_at': 179505391200...: 'USER_LEFT', 'priority': None, ...}, {'id': 1043, 'sent_at': 1795053920000, 'type': 'BOT_ERROR', 'priority': 5, ...})
+
+    def test_a_message_record_becomes_a_normalized_event(
+        message_records: tuple[dict[str, Any], ...],
+    ) -> None:
+        event = normalize_event("message_events", message_records[0])
+    
+        assert isinstance(event, NormalizedEvent)
+        assert event.event_id == "msg-1041"
+        assert event.source == "message_events"
+>       assert event.kind == "user_join"
+E       AssertionError: assert 'USER_JOIN' == 'user_join'
+E         
+E         - user_join
+E         + USER_JOIN
+
+tests\test_public_contract.py:72: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_public_contract.py::test_a_message_record_becomes_a_normalized_event
+1 failed, 34 passed in 0.13s
+
+--- stderr ---
+D:\Work\AtlasRuntime\.venv\Lib\site-packages\pytest_asyncio\plugin.py:300: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
