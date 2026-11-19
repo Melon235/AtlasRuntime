@@ -1,16 +1,12 @@
 {
   "stage": "B",
   "protocol_version": "1.0.0",
-  "frozen_at": "2026-11-19T15:57:01.009696+00:00",
+  "frozen_at": "2026-11-19T16:18:16.013094+00:00",
   "git": {
-    "git_head": "6bc57233bc3056db545e42d8c0c70deb6b3ddff9",
+    "git_head": "8aa00caaebebd274f5452c7aafb58be1b695470d",
     "git_branch": "exp/stage-b-benchmark-protocol",
-    "git_status": "M pyproject.toml\n?? experiments/stage_benchmark/\n?? tests/integration/test_stage_b_protocol.py",
-    "dirty_paths": [
-      "M pyproject.toml",
-      "?? experiments/stage_benchmark/",
-      "?? tests/integration/test_stage_b_protocol.py"
-    ]
+    "git_status": "",
+    "dirty_paths": []
   },
   "protocol": {
     "digest": "sha256:8bcedf7510411ca8b682e0ef4a6627ceb5cab373df8b7b94f14525194d133857",
