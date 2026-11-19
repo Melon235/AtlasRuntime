@@ -22,6 +22,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -57,6 +58,13 @@ def git(*args: str) -> str:
     ).stdout.strip()
 
 
+def _drop_read_only(function: Any, path: str, _: Any) -> None:
+    """Windows: Git object files are read-only, so a plain ``rmtree`` cannot delete them."""
+
+    os.chmod(path, stat.S_IWRITE)
+    function(path)
+
+
 def fixture_manifest() -> dict[str, str]:
     files: list[str] = []
     for path in sorted(contract.FIXTURE_ROOT.rglob("*")):
@@ -81,7 +89,7 @@ def build_fixture(destination: Path) -> tuple[Path, str]:
     """
 
     if destination.exists():
-        shutil.rmtree(destination)
+        shutil.rmtree(destination, onexc=_drop_read_only)
     destination.mkdir(parents=True)
     for name in fixture_manifest():
         target = destination / name

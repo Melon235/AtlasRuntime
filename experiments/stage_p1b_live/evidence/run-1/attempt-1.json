@@ -1,0 +1,10 @@
+{
+  "attempt": 1,
+  "fixture_commit": "4ddab3f509848dc8f3d80e18edd6f67b9851d573",
+  "git_head": "ec367449cf1e0c8b4ae04e252ef7ed0e0d8a8e87",
+  "goal_digest": "sha256:c24c72738eee9e4eef86f7bfe6a1d43651a5949a540c1b4e9ce37fad0a86b778",
+  "model": "deepseek-chat",
+  "scratch": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-live-1",
+  "started_at": "2026-11-19T05:57:52.527865+00:00",
+  "token_budget": 300000
+}

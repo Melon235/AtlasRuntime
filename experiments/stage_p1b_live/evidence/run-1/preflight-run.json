@@ -1,0 +1,126 @@
+{
+  "status": "READY",
+  "generated_at": "2026-11-19T05:57:52.585875+00:00",
+  "checks": [
+    {
+      "check_id": "sandbox_configured",
+      "ok": true,
+      "blocking": true,
+      "detail": "sandbox configured"
+    },
+    {
+      "check_id": "sandbox_provider_real",
+      "ok": true,
+      "blocking": true,
+      "detail": "sandbox.provider='opensandbox'; expected one of ['daytona', 'opensandbox']"
+    },
+    {
+      "check_id": "sandbox_isolation_required",
+      "ok": true,
+      "blocking": true,
+      "detail": "require_real must stay True: the fake provider runs on the host"
+    },
+    {
+      "check_id": "sandbox_workspace_root",
+      "ok": true,
+      "blocking": true,
+      "detail": "sandbox workspace root '/workspace/project' must be an absolute in-container path"
+    },
+    {
+      "check_id": "source_repo_clean",
+      "ok": true,
+      "blocking": true,
+      "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-live-1\\fixture is clean at 4ddab3f50984"
+    },
+    {
+      "check_id": "main_write_scope",
+      "ok": true,
+      "blocking": true,
+      "detail": "the Main needs an explicit host-declared write scope; got ['core/']"
+    },
+    {
+      "check_id": "main_write_scope_relative",
+      "ok": true,
+      "blocking": true,
+      "detail": "all write paths are workspace-relative"
+    },
+    {
+      "check_id": "public_tests_configured",
+      "ok": true,
+      "blocking": true,
+      "detail": "public suite 'public'"
+    },
+    {
+      "check_id": "public_tests_separate_from_oracle",
+      "ok": true,
+      "blocking": true,
+      "detail": "public and oracle commands must differ, otherwise the Main observes the oracle"
+    },
+    {
+      "check_id": "acceptance_configured",
+      "ok": true,
+      "blocking": true,
+      "detail": "an acceptance contract with a dynamic command is required; 'NOT_CONFIGURED' can never be a pipeline PASS"
+    },
+    {
+      "check_id": "acceptance_digest_declared",
+      "ok": true,
+      "blocking": true,
+      "detail": "the verification spec must carry a declared digest (it is signed by the host)"
+    },
+    {
+      "check_id": "budget_configured",
+      "ok": true,
+      "blocking": true,
+      "detail": "token_budget=300000 (admission is estimate-based; this is not a hard monetary cap)"
+    },
+    {
+      "check_id": "delegation_bounds",
+      "ok": true,
+      "blocking": true,
+      "detail": "delegation must be enabled with max_parallel_children >= 1"
+    },
+    {
+      "check_id": "context_metrics",
+      "ok": true,
+      "blocking": false,
+      "detail": "UsageAttributionHook records per-request main context unconditionally"
+    },
+    {
+      "check_id": "provider_deepseek",
+      "ok": true,
+      "blocking": true,
+      "detail": "provider='deepseek'; stage P1 is authorized for the DeepSeek adapter only"
+    },
+    {
+      "check_id": "model_fixed",
+      "ok": true,
+      "blocking": true,
+      "detail": "model='deepseek-chat' must equal config.provider.model='deepseek-chat' so the arm identity is the configuration, not a runtime override"
+    },
+    {
+      "check_id": "api_key_present",
+      "ok": true,
+      "blocking": true,
+      "detail": "DEEPSEEK_API_KEY is set (the preflight reads it, it never sends it)"
+    },
+    {
+      "check_id": "live_provider_factory",
+      "ok": true,
+      "blocking": true,
+      "detail": "a live run must build the real adapter; an injected factory is a deterministic test"
+    },
+    {
+      "check_id": "scratch_run_directory",
+      "ok": true,
+      "blocking": true,
+      "detail": "runs_root=C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-live-1\\runs must stay outside experiments/results and experiments/runs"
+    }
+  ],
+  "blocking_failures": [],
+  "notes": {
+    "budget": "admission is a conservative estimate; the run stops admitting when the budget is exhausted and does not guarantee a zero-overrun bill",
+    "metrics": "main_context_tokens_by_request is provider-observed; unobserved fields are UNAVAILABLE rather than estimated",
+    "oracle": "the harness runs the acceptance contract after the Main stops; a public PASS is never used as the oracle verdict"
+  }
+}

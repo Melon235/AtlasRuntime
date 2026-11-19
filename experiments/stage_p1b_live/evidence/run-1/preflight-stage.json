@@ -1,0 +1,178 @@
+{
+  "blocking_failures": [],
+  "checks": [
+    {
+      "blocking": true,
+      "check_id": "sandbox_configured",
+      "detail": "sandbox configured",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "sandbox_provider_real",
+      "detail": "sandbox.provider='opensandbox'; expected one of ['daytona', 'opensandbox']",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "sandbox_isolation_required",
+      "detail": "require_real must stay True: the fake provider runs on the host",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "sandbox_workspace_root",
+      "detail": "sandbox workspace root '/workspace/project' must be an absolute in-container path",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "source_repo_clean",
+      "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-live-1\\fixture is clean at 4ddab3f50984",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "main_write_scope",
+      "detail": "the Main needs an explicit host-declared write scope; got ['core/']",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "main_write_scope_relative",
+      "detail": "all write paths are workspace-relative",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "public_tests_configured",
+      "detail": "public suite 'public'",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "public_tests_separate_from_oracle",
+      "detail": "public and oracle commands must differ, otherwise the Main observes the oracle",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "acceptance_configured",
+      "detail": "an acceptance contract with a dynamic command is required; 'NOT_CONFIGURED' can never be a pipeline PASS",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "acceptance_digest_declared",
+      "detail": "the verification spec must carry a declared digest (it is signed by the host)",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "budget_configured",
+      "detail": "token_budget=300000 (admission is estimate-based; this is not a hard monetary cap)",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "delegation_bounds",
+      "detail": "delegation must be enabled with max_parallel_children >= 1",
+      "ok": true
+    },
+    {
+      "blocking": false,
+      "check_id": "context_metrics",
+      "detail": "UsageAttributionHook records per-request main context unconditionally",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "provider_deepseek",
+      "detail": "provider='deepseek'; stage P1 is authorized for the DeepSeek adapter only",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "model_fixed",
+      "detail": "model='deepseek-chat' must equal config.provider.model='deepseek-chat' so the arm identity is the configuration, not a runtime override",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "api_key_present",
+      "detail": "DEEPSEEK_API_KEY is set (the preflight reads it, it never sends it)",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "live_provider_factory",
+      "detail": "a live run must build the real adapter; an injected factory is a deterministic test",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "scratch_run_directory",
+      "detail": "runs_root=C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-p1b-live-1\\runs must stay outside experiments/results and experiments/runs",
+      "ok": true
+    }
+  ],
+  "combined_blocking_failures": [],
+  "combined_status": "READY",
+  "generated_at": "2026-11-19T05:57:52.484865+00:00",
+  "notes": {
+    "budget": "admission is a conservative estimate; the run stops admitting when the budget is exhausted and does not guarantee a zero-overrun bill",
+    "metrics": "main_context_tokens_by_request is provider-observed; unobserved fields are UNAVAILABLE rather than estimated",
+    "oracle": "the harness runs the acceptance contract after the Main stops; a public PASS is never used as the oracle verdict"
+  },
+  "p1b_checks": [
+    {
+      "blocking": true,
+      "check_id": "fixture_manifest_frozen",
+      "detail": "23 frozen files; changed: []",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "goal_frozen",
+      "detail": "goal digest sha256:c24c72738eee9e4eef86f7bfe6a1d43651a5949a540c1b4e9ce37fad0a86b778",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "main_prompt_unchanged",
+      "detail": "MAIN_SYSTEM_PROMPT sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a (stage P0.1 froze sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a)",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "runtime_tree_unmodified",
+      "detail": "src/ is clean",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "oracle_not_in_fixture",
+      "detail": "hidden marker found in: []",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "public_oracle_separate",
+      "detail": "the public suite and the oracle command differ",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "main_write_scope_frozen",
+      "detail": "main_write_paths=['core/']",
+      "ok": true
+    },
+    {
+      "blocking": true,
+      "check_id": "single_live_attempt",
+      "detail": "the attempt marker is written just before run_goal and never removed by this script",
+      "ok": true
+    }
+  ],
+  "status": "READY"
+}
