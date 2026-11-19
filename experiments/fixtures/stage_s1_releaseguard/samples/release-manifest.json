@@ -1,0 +1,34 @@
+{
+  "release": {
+    "name": "releaseguard",
+    "version": "2.4.0",
+    "channel": "stable",
+    "python_requirement": ">=3.9"
+  },
+  "license": {
+    "spdx": "Apache-2.0",
+    "files": [
+      "samples/LICENSE"
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "releaseguard-2.4.0-py3-none-any.whl",
+      "sha256": "a140e56bbd775e6f2ba682ec496a8b3768b7d6b9738cd4f8e5368d6e4d2e6b49",
+      "size": 295,
+      "kind": "wheel"
+    },
+    {
+      "path": "releaseguard-2.4.0.tar.gz",
+      "sha256": "790bcb4f8077dae25bb30dd0acb910862711233f4429d91ef3d892ecc08c95ed",
+      "size": 203,
+      "kind": "sdist"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "ebe19442f37d4bf3bb39e7a47594369f763d1930e27069b2537c79fbad3b2a1e",
+      "size": 360,
+      "kind": "document"
+    }
+  ]
+}
