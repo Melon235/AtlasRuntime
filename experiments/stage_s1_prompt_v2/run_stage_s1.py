@@ -347,21 +347,27 @@ def reuse_evidence() -> dict[str, Any]:
         for marker in HISTORICAL_TASK_MARKERS
         if any(marker in path.lower() for path in fixture_paths)
     ]
+    # Reuse is identical *content* under a new name, not a shared path: two projects may both have a
+    # README.md, and that is not a rename.
     shared_with_p1b: list[str] = []
     if P1B_FIXTURE_MANIFEST.is_file():
         frozen = json.loads(P1B_FIXTURE_MANIFEST.read_text(encoding="utf-8"))
-        shared_with_p1b = sorted(fixture_paths & set(frozen.get("files") or {}))
+        previous = frozen.get("files") or {}
+        current = fixture_builder.fixture_manifest()
+        shared_with_p1b = sorted(
+            path for path, digest in current.items() if previous.get(path) == digest
+        )
     ok = not inside_history and not goal_markers and not fixture_markers and not shared_with_p1b
     return {
         "ok": ok,
         "inside_historical_fixture": inside_history,
         "goal_markers": goal_markers,
         "fixture_markers": fixture_markers,
-        "paths_shared_with_p1b_fixture": shared_with_p1b,
+        "identical_files_with_p1b_fixture": shared_with_p1b,
         "detail": (
             f"fixture root {contract.FIXTURE_ROOT.name} is new; goal markers {goal_markers}; "
-            f"fixture markers {fixture_markers}; paths shared with the P1b fixture "
-            f"{len(shared_with_p1b)}"
+            f"fixture markers {fixture_markers}; byte-identical files shared with the P1b fixture "
+            f"{shared_with_p1b}"
         ),
     }
 
@@ -561,14 +567,24 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def run_offline_phase(scratch: Path) -> dict[str, Any]:
+def run_offline_phase(scratch: Path, *, record: bool = True) -> dict[str, Any]:
+    """Run the three offline suites.
+
+    ``record`` writes the report into the repository, and is used by ``--offline`` only. An
+    admission run re-executes the suites but keeps its own report in the scratch directory, so the
+    file the freeze identified stays byte-identical to the one that was frozen.
+    """
+
     report = offline.run_offline(scratch / "offline")
-    _write_json(OFFLINE_PATH, report)
+    if record:
+        _write_json(OFFLINE_PATH, report)
+    else:
+        _write_json(scratch / "offline.json", report)
     return report
 
 
 def preflight(scratch: Path) -> dict[str, Any]:
-    offline_report = run_offline_phase(scratch)
+    offline_report = run_offline_phase(scratch, record=False)
     fixture, commit = fixture_builder.materialize(scratch / "fixture", with_git=True)
     options = build_options(scratch / "runs", fixture, run_id="stage-s1-preflight")
     combined = evaluate(options, offline_report)
@@ -657,8 +673,13 @@ def _collect(run_dir: Path, scratch: Path) -> Path:
     handoffs = run_dir / "handoffs"
     if handoffs.is_dir():
         shutil.copytree(handoffs, destination / "handoffs", dirs_exist_ok=True)
-    for name in ("preflight.json", "offline.json"):
-        source = scratch / name if name == "preflight.json" else OFFLINE_PATH
+    for name, source in (
+        ("preflight.json", scratch / "preflight.json"),
+        # The frozen report, byte-identical to what the freeze identified.
+        ("offline.json", OFFLINE_PATH),
+        # What the admission run re-executed just before the model call.
+        ("offline-preflight.json", scratch / "offline.json"),
+    ):
         if source.is_file():
             shutil.copy2(source, destination / name)
     marker = attempt_marker(scratch)
@@ -794,7 +815,7 @@ def main(argv: list[str] | None = None) -> int:
     reason = prior_attempt(scratch)
     if reason is not None:
         raise SystemExit(f"refusing to run: {reason}")
-    offline_report = run_offline_phase(scratch)
+    offline_report = run_offline_phase(scratch, record=False)
     try:
         summary = asyncio.run(run(scratch, offline_report))
     except AttemptAlreadyStarted as error:

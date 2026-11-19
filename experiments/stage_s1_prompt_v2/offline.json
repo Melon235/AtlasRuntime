@@ -1,6 +1,6 @@
 {
   "fixture_digest": "sha256:2b8edeeb875497d6ffc428f9705c4a2ed385e7943fb241c0879242bac1f99f96",
-  "generated_at": "2026-11-19T09:43:38.633400+00:00",
+  "generated_at": "2026-11-19T09:44:42.569246+00:00",
   "goal_digest": "sha256:60cf5c027c8950347b1f34848941b7f65c6d64599076604d08f69fadb6259a06",
   "passed": true,
   "prompt": {
@@ -32,7 +32,7 @@
             ],
             "exit_code": 0,
             "stderr_tail": "D:\\Work\\AtlasRuntime\\.venv\\Lib\\site-packages\\pytest_asyncio\\plugin.py:300: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the \"fixture\" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to \"function\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
-            "stdout_tail": "....................................................................     [100%]\n68 passed in 0.52s\n"
+            "stdout_tail": "....................................................................     [100%]\n68 passed in 0.53s\n"
           },
           "description": "the frozen fixture as provisioned",
           "oracle": {
@@ -43,7 +43,7 @@
             "exit_code": 1,
             "hidden_fail": false,
             "hidden_ok": false,
-            "stderr_tail": "Traceback (most recent call last):\n  File \"<string>\", line 81, in <module>\n  File \"C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s1-live\\offline\\solvability\\case-baseline-1\\releaseguard\\audit\\service.py\", line 60, in audit_release\n    raise NotImplementedError(\"the shared release audit is not implemented yet\")\nNotImplementedError: the shared release audit is not implemented yet\n",
+            "stderr_tail": "Traceback (most recent call last):\n  File \"<string>\", line 81, in <module>\n  File \"C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-s1-live\\offline\\solvability\\case-baseline-3\\releaseguard\\audit\\service.py\", line 60, in audit_release\n    raise NotImplementedError(\"the shared release audit is not implemented yet\")\nNotImplementedError: the shared release audit is not implemented yet\n",
             "stdout_tail": ""
           },
           "oracle_rejects": true,
@@ -58,7 +58,7 @@
             ],
             "exit_code": 1,
             "stderr_tail": "D:\\Work\\AtlasRuntime\\.venv\\Lib\\site-packages\\pytest_asyncio\\plugin.py:300: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the \"fixture\" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to \"function\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
-            "stdout_tail": "_the_license_check_only\nFAILED tests/test_public_audit.py::test_the_policy_decides_which_licenses_are_allowed\nFAILED tests/test_public_audit.py::test_a_missing_artifact_fails_coverage_and_not_checksums\nFAILED tests/test_public_audit.py::test_a_digest_mismatch_names_the_artifact\nFAILED tests/test_public_audit.py::test_a_size_mismatch_is_a_different_issue_from_a_digest_mismatch\nFAILED tests/test_public_audit.py::test_a_malformed_declared_digest_is_reported_rather_than_raised\nFAILED tests/test_public_audit.py::test_an_unsafe_declared_path_is_one_error_not_two\nFAILED tests/test_public_audit.py::test_a_missing_build_directory_fails_the_inventory_and_skips_the_rest\nFAILED tests/test_public_audit.py::test_an_extra_artifact_can_be_made_fatal\nFAILED tests/test_public_audit.py::test_warnings_can_be_promoted_by_policy - ...\nFAILED tests/test_public_audit.py::test_build_report_returns_the_checks_in_the_documented_order\nFAILED tests/test_public_audit.py::test_build_report_sorts_issues_by_severity_then_code\nFAILED tests/test_public_audit.py::test_build_report_refuses_a_duplicated_check\nFAILED tests/test_public_audit.py::test_build_report_counts_a_skipped_check_without_failing\n21 failed in 0.65s\n"
+            "stdout_tail": "_the_license_check_only\nFAILED tests/test_public_audit.py::test_the_policy_decides_which_licenses_are_allowed\nFAILED tests/test_public_audit.py::test_a_missing_artifact_fails_coverage_and_not_checksums\nFAILED tests/test_public_audit.py::test_a_digest_mismatch_names_the_artifact\nFAILED tests/test_public_audit.py::test_a_size_mismatch_is_a_different_issue_from_a_digest_mismatch\nFAILED tests/test_public_audit.py::test_a_malformed_declared_digest_is_reported_rather_than_raised\nFAILED tests/test_public_audit.py::test_an_unsafe_declared_path_is_one_error_not_two\nFAILED tests/test_public_audit.py::test_a_missing_build_directory_fails_the_inventory_and_skips_the_rest\nFAILED tests/test_public_audit.py::test_an_extra_artifact_can_be_made_fatal\nFAILED tests/test_public_audit.py::test_warnings_can_be_promoted_by_policy - ...\nFAILED tests/test_public_audit.py::test_build_report_returns_the_checks_in_the_documented_order\nFAILED tests/test_public_audit.py::test_build_report_sorts_issues_by_severity_then_code\nFAILED tests/test_public_audit.py::test_build_report_refuses_a_duplicated_check\nFAILED tests/test_public_audit.py::test_build_report_counts_a_skipped_check_without_failing\n21 failed in 0.68s\n"
           },
           "whole_suite": {
             "argv": [
@@ -97,12 +97,12 @@
             ],
             "exit_code": 0,
             "stderr_tail": "D:\\Work\\AtlasRuntime\\.venv\\Lib\\site-packages\\pytest_asyncio\\plugin.py:300: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the \"fixture\" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to \"function\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
-            "stdout_tail": "........................................................................ [ 80%]\n.................                                                        [100%]\n89 passed in 0.72s\n"
+            "stdout_tail": "........................................................................ [ 80%]\n.................                                                        [100%]\n89 passed in 0.68s\n"
           },
           "suite_passes": true
         }
       },
-      "fixture_commit": "01a934a7940908a142ac4f712f5a87ae3910c590",
+      "fixture_commit": "fcf8df432f1e932c03576330d627e9dc27808bf1",
       "fixture_files": 27,
       "oracle_markers_leaked_into_fixture": [],
       "passed": true,
