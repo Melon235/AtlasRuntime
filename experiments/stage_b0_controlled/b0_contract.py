@@ -35,8 +35,13 @@ sys.path.insert(0, str(P1B_DIR))
 
 import p1b_contract as p1b  # noqa: E402
 
+from atlasos.sandbox.tools import TOOL_ERROR_MODE_CORRECTED  # noqa: E402
+
 #: Recorded in every artefact of this stage. Never promote this to "autonomous".
 DELEGATION_MODE = "CONTROLLED_DELEGATION"
+
+#: The goal-path tool error semantics this run is frozen under (reliability closure, DEV-3).
+TOOL_ERROR_MODE = TOOL_ERROR_MODE_CORRECTED
 
 #: The user-facing need. Identical in substance to stage P1b: the same project, the same gap, the
 #: same compatibility requirement, the same write scope.
@@ -103,6 +108,10 @@ def digest(text: str) -> str:
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def digest_bytes(payload: bytes) -> str:
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
 def goal_digest() -> str:
     return digest(GOAL)
 
@@ -126,6 +135,9 @@ def frozen_identity() -> dict[str, object]:
         "main_system_prompt_digest": MAIN_SYSTEM_PROMPT_DIGEST,
         "main_max_turns": MAIN_MAX_TURNS,
         "token_budget": TOKEN_BUDGET,
+        # The reliability-closure semantics this run is validated under. A live B0 run on a runtime
+        # whose goal path fell back to ``legacy`` would be measuring a different system.
+        "tool_error_mode": TOOL_ERROR_MODE,
         "main_write_paths": list(MAIN_WRITE_PATHS),
         "sandbox": {
             "provider": "opensandbox",
