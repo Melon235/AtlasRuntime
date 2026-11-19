@@ -1,0 +1,74 @@
+{
+  "plan": {
+    "name": "workgrid-release",
+    "revision": 3
+  },
+  "pools": [
+    {
+      "name": "workers",
+      "capacity": 2
+    },
+    {
+      "name": "gpu",
+      "capacity": 1
+    }
+  ],
+  "windows": [
+    {
+      "start": 0,
+      "end": 4
+    },
+    {
+      "start": 6,
+      "end": 10
+    }
+  ],
+  "tasks": [
+    {
+      "id": "build-a",
+      "duration": 2,
+      "demand": {
+        "workers": 1
+      }
+    },
+    {
+      "id": "build-b",
+      "duration": 2,
+      "demand": {
+        "workers": 1
+      }
+    },
+    {
+      "id": "test-a",
+      "duration": 2,
+      "depends_on": [
+        "build-a"
+      ],
+      "demand": {
+        "workers": 1
+      }
+    },
+    {
+      "id": "test-b",
+      "duration": 1,
+      "depends_on": [
+        "build-b"
+      ],
+      "demand": {
+        "workers": 1,
+        "gpu": 1
+      }
+    },
+    {
+      "id": "package",
+      "duration": 2,
+      "depends_on": [
+        "test-a",
+        "test-b"
+      ],
+      "demand": {
+        "workers": 1
+      }
+    }
+  ]
+}
