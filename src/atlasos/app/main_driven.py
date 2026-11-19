@@ -130,6 +130,49 @@ MAIN_SYSTEM_PROMPT = (
 )
 
 
+#: Version label of :data:`MAIN_SYSTEM_PROMPT`. A run's prompt is part of its identity: the same
+#: goal executed under a different prompt is a different experiment, so the label is recorded.
+MAIN_PROMPT_V1_VERSION = "main-v1.0"
+
+
+@dataclass(frozen=True)
+class MainPromptSpec:
+    """One selectable Main system prompt: a version label plus the exact bytes it injects.
+
+    The bytes are the whole contract. A caller that wants a different prompt passes a spec through
+    ``GoalRunOptions``; no module-level constant is reassigned, so one run cannot change the prompt
+    another run is already using, and the shipped prompt keeps its bytes and its digest.
+    """
+
+    version: str
+    text: str
+
+    def __post_init__(self) -> None:
+        if not self.version.strip():
+            raise ValueError("a main prompt spec requires a non-empty version label")
+        if not self.text.strip():
+            raise ValueError("a main prompt spec requires non-empty prompt text")
+
+    @property
+    def digest(self) -> str:
+        """``sha256:``-prefixed digest of exactly the text that becomes ``AgentConfig``."""
+        return "sha256:" + hashlib.sha256(self.text.encode("utf-8")).hexdigest()
+
+    def evidence(self, *, source: str) -> dict[str, Any]:
+        return {
+            "version": self.version,
+            "digest": self.digest,
+            "chars": len(self.text),
+            # ``default`` when the run used the shipped prompt, ``override`` when the Host selected
+            # another one. Never inferred: the caller that built the options is the only source.
+            "source": source,
+        }
+
+
+#: The shipped Main prompt, unchanged since stage P0.1. Its digest is frozen by every earlier stage.
+MAIN_PROMPT_V1 = MainPromptSpec(version=MAIN_PROMPT_V1_VERSION, text=MAIN_SYSTEM_PROMPT)
+
+
 @dataclass(frozen=True)
 class GoalRunOptions:
     """Everything one main-driven goal session needs."""
@@ -156,6 +199,10 @@ class GoalRunOptions:
     #: Stage P: run every file and shell tool inside one project sandbox shared by the Main and all
     #: children. ``None`` keeps the stage-M host mode, which has no isolation and says so.
     sandbox: GoalSandboxOptions | None = None
+    #: Opt-in Main system prompt. ``None`` means the shipped :data:`MAIN_PROMPT_V1`, byte for byte:
+    #: an ablation that does not ask for another prompt reads and writes nothing. A spec here is
+    #: only the Main's prompt; children are rendered from their trusted worker profile either way.
+    main_prompt: MainPromptSpec | None = None
     #: Host-owned acceptance contract, evaluated after the run by the harness (never by the Main).
     acceptance: GoalAcceptance | None = None
     #: Host-fixed public suite the Main may run on itself. Requires ``sandbox``: the suite must
@@ -374,6 +421,9 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     if problem is not None:
         raise ValueError(problem)
     delegation_config = options.delegation
+    # Resolved once: the prompt that reaches ``AgentConfig``, the one recorded in ``session.json``
+    # and the one a freeze check can hash are the same object.
+    main_prompt = options.main_prompt or MAIN_PROMPT_V1
 
     load_dotenv(REPO_ROOT / ".env", override=False)
     main_task_id = f"{run_id}-main"
@@ -562,7 +612,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             name=main_agent_name,
             model=options.model,
             provider=provider_name,
-            system_prompt=MAIN_SYSTEM_PROMPT,
+            system_prompt=main_prompt.text,
             tools=list(runtime.agent_tools),
             max_turns=options.max_turns,
             tool_security=tool_security,
@@ -690,6 +740,11 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         "isolation": "sandbox" if sandboxed else "host",
         "provider": options.provider,
         "model": options.model,
+        # Prompt identity of this run. ``source`` says whether the Host selected a prompt or the
+        # shipped default was used, so a reader never has to infer it from a digest.
+        "main_prompt": main_prompt.evidence(
+            source="default" if options.main_prompt is None else "override"
+        ),
         "status": "succeeded" if succeeded else "failed",
         "execution_succeeded": execution_succeeded,
         "failure": failure,
