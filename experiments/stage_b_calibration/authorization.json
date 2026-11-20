@@ -1,0 +1,18 @@
+{
+  "approval_commit": "a5bd3e451418ff2465afaafee223c02bdd706b76",
+  "approved_at": "2026-11-20T11:18:12.647516+00:00",
+  "approved_by": "Owner (Melon235)",
+  "approved_digests": {
+    "plan": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+    "protocol": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+    "runner_source": "sha256:2ad509933456e14eecaa37d892872b4d0b5b7e362076ad3b4095835f3fc85d59",
+    "runtime": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae"
+  },
+  "cells": [
+    "CALIBRATION.workgrid.c1"
+  ],
+  "consumed": false,
+  "cost_ceiling_usd": 1.0,
+  "note": "single calibration attempt; no retry; no benchmark cell",
+  "status": "APPROVED"
+}

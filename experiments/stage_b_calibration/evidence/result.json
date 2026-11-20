@@ -1,0 +1,27 @@
+{
+  "analysis_path": null,
+  "cell": {
+    "arm_id": "P1",
+    "cell_id": "CALIBRATION.workgrid.c1",
+    "in_matrix": false,
+    "order": 0,
+    "repetition": 0,
+    "round": 0,
+    "task_id": "workgrid"
+  },
+  "delegation_diagnostics": "NOT_APPLICABLE",
+  "detail": "FileNotFoundError: [Errno 2] No such file or directory: 'D:\\\\Work\\\\atlas-b2b\\\\evidence\\\\calibration\\\\CALIBRATION.workgrid.c1\\\\r0\\\\evidence\\\\tool_conversations.json'",
+  "digests": {
+    "preflight": "sha256:485db3fe12348bf776cd91c2d44bbcc1042d91600be0809f294f1b2566e70672",
+    "runner_source": "sha256:2ad509933456e14eecaa37d892872b4d0b5b7e362076ad3b4095835f3fc85d59"
+  },
+  "evidence_dir": "D:\\Work\\atlas-b2b\\evidence\\calibration\\CALIBRATION.workgrid.c1\\r0\\evidence",
+  "evidence_gaps": [],
+  "execution_integrity": "FAILED",
+  "failure_kind": "aggregation_failure",
+  "goal_correctness": "UNKNOWN",
+  "host_oracle_source": "UNKNOWN",
+  "ok": false,
+  "oracle_agreement": "UNKNOWN",
+  "status": "FAILED"
+}

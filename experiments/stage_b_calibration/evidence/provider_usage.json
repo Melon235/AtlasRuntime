@@ -1,0 +1,11 @@
+{
+  "child_completion_tokens": 0,
+  "child_total_prompt_tokens": 0,
+  "main_completion_tokens": null,
+  "main_prompt_hit_tokens": null,
+  "main_prompt_miss_tokens": null,
+  "main_requests": 0,
+  "model": "deepseek-chat",
+  "provider": "deepseek",
+  "system_total_tokens": 0
+}

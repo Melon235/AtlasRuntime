@@ -1,0 +1,9 @@
+{
+  "missing_raw": [
+    "tool_conversations.json",
+    "workspace.patch"
+  ],
+  "ok": false,
+  "reason": "raw evidence is incomplete; nothing may be inferred",
+  "status": "BLOCKED"
+}
