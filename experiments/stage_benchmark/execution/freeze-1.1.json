@@ -13,25 +13,12 @@
   },
   "e1_freeze": "sha256:a8dac818908da6c86f3b33008bb01e8a8a931136b5e03aa2c33a974979150c01",
   "freeze_version": "stage-b-execution/1.1",
-  "frozen_at": "2026-11-20T09:47:40.451516+00:00",
+  "frozen_at": "2026-11-20T09:57:19.503059+00:00",
   "git": {
-    "dirty_paths": [
-      "M experiments/stage_benchmark/execution/admission.py",
-      " M experiments/stage_benchmark/execution/collector.py",
-      " M experiments/stage_benchmark/execution/models.py",
-      " M experiments/stage_benchmark/execution/offline.json",
-      " M experiments/stage_benchmark/execution/offline.py",
-      " M experiments/stage_benchmark/execution/preflight.json",
-      " M experiments/stage_benchmark/execution/provision.py",
-      " M experiments/stage_benchmark/execution/runner.py",
-      " M tests/integration/test_stage_b_live_runner.py",
-      "?? experiments/stage_benchmark/execution/adapter.py",
-      "?? experiments/stage_benchmark/execution/archive/",
-      "?? tests/integration/test_stage_b_calibration_gate.py"
-    ],
+    "dirty_paths": [],
     "git_branch": "fix/stage-b-calibration-gate",
-    "git_head": "2dcf840796626e7f793c1d2e073ef6a12ded8627",
-    "git_status": "M experiments/stage_benchmark/execution/admission.py\n M experiments/stage_benchmark/execution/collector.py\n M experiments/stage_benchmark/execution/models.py\n M experiments/stage_benchmark/execution/offline.json\n M experiments/stage_benchmark/execution/offline.py\n M experiments/stage_benchmark/execution/preflight.json\n M experiments/stage_benchmark/execution/provision.py\n M experiments/stage_benchmark/execution/runner.py\n M tests/integration/test_stage_b_live_runner.py\n?? experiments/stage_benchmark/execution/adapter.py\n?? experiments/stage_benchmark/execution/archive/\n?? tests/integration/test_stage_b_calibration_gate.py"
+    "git_head": "12127156f32ae994702e1e92f5816be781d06a8e",
+    "git_status": ""
   },
   "offline": {
     "cases": 23,
@@ -39,7 +26,7 @@
     "passed": true
   },
   "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
-  "preflight_digest": "sha256:ce46f792e453412f68330613dcf978eebd8548b3651e39e705a00e41af69864b",
+  "preflight_digest": "sha256:62016b0f97a8461c87591f76cf78abf10e6d6b5a1ca914f1e57989a21d2e8cfa",
   "protocol": {
     "analysis_schema_version": "stage-b-result/1.1",
     "digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
