@@ -40,12 +40,14 @@ branch  fix/stage-b-metric-closure
 parent  chore(stage-b): re-freeze on a clean worktree
 ```
 
-Remote verification: a `git fetch --prune origin` was attempted through the environment's proxy
-(`http://127.0.0.1:7890`) and failed — `Failed to connect to 127.0.0.1 port 7890`. The remote state
-quoted in this document is therefore the **already-fetched** `origin/exp/stage-b-benchmark-protocol`
-at `42244a1`, which equals the local baseline. It is not a fresh confirmation of the remote head.
+Remote verification: the first `git fetch --prune origin` was attempted through the environment's
+proxy (`http://127.0.0.1:7890`) and failed — `Failed to connect to 127.0.0.1 port 7890`. A direct
+connection to `github.com:443` was then reachable, and the branch was pushed without a proxy. The
+remote head of `origin/exp/stage-b-benchmark-protocol` was **not** re-verified before the push; the
+value used for the baseline is the already-cached ref at `42244a1`, which equals the local baseline.
 
-The stage's own work is one commit, `1138b8d`, on top of `42244a1`. The freeze commit follows it.
+The stage's own work is one commit, `1138b8d`, on top of `42244a1`; the freeze commit `52d4e8d`
+follows it, and `origin/fix/stage-b-metric-closure` is at `52d4e8d`.
 
 ---
 
@@ -576,8 +578,9 @@ losing any.
    artefacts (66 and 11 respectively), identically at the baseline commit. CI runs `ruff check .`
    and would be red for that reason. Fixing it requires a decision about editing frozen stage
    artefacts, which is outside this stage's authority.
-7. **Remote state was not re-verified.** The `fetch` fell back to the already-cached
-   `origin/exp/stage-b-benchmark-protocol`; it is not evidence about the current remote head.
+7. **The baseline remote ref was not re-verified.** The `fetch` fell back to the already-cached
+   `origin/exp/stage-b-benchmark-protocol`. The stage's own branch was pushed and read back at
+   `52d4e8d`, so the publication of this work is confirmed; the *baseline's* remote state is not.
 8. **`observed_handoff_use` is knowingly absent.** It would require the runtime to record why the
    Main read a file. The record says `UNKNOWN` and explains itself rather than inferring use from
    ordering.
