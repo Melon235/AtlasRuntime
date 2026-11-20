@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,7 +29,11 @@ from ..tasks.base import (
 from .models import Attempt, AttemptAlreadyStarted, CellIdentity
 
 EXECUTION_DIR = Path(__file__).resolve().parent
-FREEZE_PATH = EXECUTION_DIR / "freeze.json"
+#: The original E2A freeze is archived byte-for-byte; it is never overwritten.
+E2A_FREEZE_PATH = EXECUTION_DIR / "freeze.json"
+ARCHIVE_DIR = EXECUTION_DIR / "archive"
+ARCHIVE_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.0.json"
+FREEZE_PATH = EXECUTION_DIR / "freeze-1.1.json"
 OFFLINE_PATH = EXECUTION_DIR / "offline.json"
 PREFLIGHT_PATH = EXECUTION_DIR / "preflight.json"
 
@@ -41,6 +46,7 @@ SOURCE_FILES = (
     "collector.py",
     "runner.py",
     "offline.py",
+    "adapter.py",
 )
 
 
@@ -277,6 +283,14 @@ def preflight(
     isolation = isolation_checks(document)
     checks.append(_check(isolation["ok"], "host_oracle_isolated", "; ".join(isolation["problems"])))
 
+    if E2A_FREEZE_PATH.is_file() and ARCHIVE_FREEZE_PATH.is_file():
+        archived_ok = digest_bytes(ARCHIVE_FREEZE_PATH.read_bytes()) == digest_bytes(
+            E2A_FREEZE_PATH.read_bytes()
+        )
+    else:
+        archived_ok = not ARCHIVE_FREEZE_PATH.is_file()
+    checks.append(_check(archived_ok, "e2a_freeze_preserved", str(ARCHIVE_FREEZE_PATH)))
+
     if cell is not None:
         cells = {item["cell_id"] for item in plan["plan"]["cells"]}
         identity_ok = (
@@ -284,6 +298,11 @@ def preflight(
         ) and cell.arm_id in protocol.ARM_IDS
         if cell.in_matrix:
             identity_ok = identity_ok and BY_ID[cell.task_id].task_id == cell.task_id
+        else:
+            from .provision import verify_calibration_identity
+
+            calibration_problems = verify_calibration_identity()
+            identity_ok = identity_ok and not calibration_problems
         checks.append(_check(identity_ok, "cell_identity_matches_plan", cell.cell_id))
         conflict = prior_attempt(cell_dir(evidence_root, cell))
         checks.append(_check(conflict is None, "no_cell_marker_or_evidence", conflict or "clear"))
@@ -370,11 +389,26 @@ def authorization_gate(
 def write_freeze(
     *, offline_report: Mapping[str, Any], preflight_result: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Write an independent execution freeze. Never touches the E1 protocol freeze."""
+    """Write a versioned execution freeze. Neither E1 nor the E2A original is overwritten."""
+
+    if not E2A_FREEZE_PATH.is_file():
+        raise RuntimeError(f"original E2A freeze is missing: {E2A_FREEZE_PATH}")
+    original_digest = digest_bytes(E2A_FREEZE_PATH.read_bytes())
+    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    if not ARCHIVE_FREEZE_PATH.is_file():
+        shutil.copy2(E2A_FREEZE_PATH, ARCHIVE_FREEZE_PATH)
+    if digest_bytes(ARCHIVE_FREEZE_PATH.read_bytes()) != original_digest:
+        raise RuntimeError("the archived E2A freeze does not match the original")
 
     document = {
-        "stage": "B-E2A",
-        "freeze_version": "stage-b-execution/1.0",
+        "stage": "B-E2A-CLOSURE",
+        "freeze_version": "stage-b-execution/1.1",
+        "supersedes": {
+            "version": "stage-b-execution/1.0",
+            "live_path": str(E2A_FREEZE_PATH),
+            "archive_path": str(ARCHIVE_FREEZE_PATH),
+            "digest": original_digest,
+        },
         "frozen_at": datetime.now(UTC).isoformat(),
         "git": stage_runner.git_identity(),
         "source": source_identity(),
@@ -391,11 +425,17 @@ def write_freeze(
             "cases": len(offline_report.get("cases") or []),
         },
         "preflight_digest": preflight_result.get("digest"),
+        "analysis": {
+            "execution_analysis_version": "stage-b-execution-analysis/1.0",
+            "e1_analyser_unchanged": "stage-b-reconstruct/1.1",
+        },
         "calibration": {
             "task": "workgrid",
+            "cell_id": "CALIBRATION.workgrid.c1",
             "in_matrix": False,
             "status": "PREPARED_NOT_RUN",
             "reason_not_run": "this stage may not call the provider",
+            "identity": "experiments/stage_s2_prompt_v21/freeze.json",
         },
     }
     FREEZE_PATH.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")

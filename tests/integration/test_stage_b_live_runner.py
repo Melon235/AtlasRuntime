@@ -295,9 +295,18 @@ async def _offline_cell(
     session_kwargs: dict[str, Any] | None = None,
     error: str | None = None,
     omit: bool = False,
+    host_oracle: Any = "DEFAULT",
 ) -> Any:
     document = _document()
     cell = provision.cell_from_plan(document, cell_id)
+    kwargs = session_kwargs or {}
+    if host_oracle == "DEFAULT":
+        host_oracle = {
+            "source": "fake:host:test",
+            "task_id": cell.task_id,
+            "ok": kwargs.get("oracle", "PASS") == "PASS",
+            "executed_after_main_stops": True,
+        }
 
     async def run(options: Any) -> dict[str, Any]:
         if error == "raise_key_error":
@@ -317,6 +326,7 @@ async def _offline_cell(
         provider_factory=offline.FakeProvider().build,
         sandbox_factory=lambda _root: offline.FakeProvider(),
         run_fn=run,
+        host_oracle=host_oracle,
     )
     return await runner.execute_cell(request)
 
@@ -435,13 +445,19 @@ def test_offline_suite_covers_every_named_case() -> None:
     assert report["passed"] is True
     assert set(offline.CASES).issubset(report["case_names"])
     assert report["network_calls"] == 0
-    assert len(report["cases"]) == 16
+    assert len(report["cases"]) == len(offline.CASES)
 
 
 def test_execution_freeze_is_independent_of_the_e1_freeze() -> None:
     e1 = admission.read_json(admission.EXECUTION_DIR.parent / "freeze.json")
     frozen = admission.read_json(admission.FREEZE_PATH)
-    assert frozen["freeze_version"] == "stage-b-execution/1.0"
+    assert frozen["freeze_version"] in {"stage-b-execution/1.0", "stage-b-execution/1.1"}
+    if frozen["freeze_version"] == "stage-b-execution/1.1":
+        archived = admission.read_json(admission.ARCHIVE_FREEZE_PATH)
+        assert archived["freeze_version"] == "stage-b-execution/1.0"
+        assert frozen["supersedes"]["digest"] == admission.digest_bytes(
+            admission.E2A_FREEZE_PATH.read_bytes()
+        )
     assert frozen["protocol"]["digest"] == e1["protocol"]["digest"]
     assert frozen["plan_digest"] == e1["plan"]["digest"]
     assert frozen["calibration"]["in_matrix"] is False

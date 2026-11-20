@@ -36,6 +36,13 @@ CASES = (
     "evidence_recovery",
     "incomplete_evidence_rejected",
     "prompt_arm_injection",
+    "router_direct_recovery",
+    "child_failure_recovery",
+    "child_failure_goal_fail",
+    "provider_success_host_oracle_fail",
+    "oracle_disagreement",
+    "host_oracle_missing",
+    "direct_no_router_gap",
 )
 
 
@@ -215,9 +222,18 @@ async def _case(
     error: str | None = None,
     omit: bool = False,
     expect_kind: str = "none",
+    host_oracle: Any = "DEFAULT",
 ) -> dict[str, Any]:
     document = protocol.read_protocol()
     cell = provision.cell_from_plan(document, cell_id)
+    kwargs = session_kwargs or {}
+    if host_oracle == "DEFAULT":
+        host_oracle = {
+            "source": "fake:host:offline-suite",
+            "task_id": cell.task_id,
+            "ok": kwargs.get("oracle", "PASS") == "PASS",
+            "executed_after_main_stops": True,
+        }
 
     async def configured(options: Any) -> dict[str, Any]:
         if error:
@@ -235,6 +251,7 @@ async def _case(
         provider_factory=FakeProvider().build,
         sandbox_factory=lambda _root: FakeProvider(),
         run_fn=configured,
+        host_oracle=host_oracle,
     )
     from .runner import execute_cell
 
@@ -263,7 +280,7 @@ async def _suite(root: Path) -> list[dict[str, Any]]:
             root,
             "pager.P1.r1",
             session_kwargs={"batches": (_batch("direct", 0),)},
-            expect_kind="router_rejected",
+            expect_kind="none",
         )
     )
     cases.append(
@@ -272,7 +289,7 @@ async def _suite(root: Path) -> list[dict[str, Any]]:
             root,
             "ledgerclose.P2.r2",
             session_kwargs={"batches": (_batch("delegate_one", 1, success=False),)},
-            expect_kind="child_failure",
+            expect_kind="none",
         )
     )
     cases.append(
@@ -285,7 +302,7 @@ async def _suite(root: Path) -> list[dict[str, Any]]:
                 "tool_names": ("file_read",),
                 "handoff_chars": 0,
             },
-            expect_kind="handoff_missing",
+            expect_kind="none",
         )
     )
     cases.append(
@@ -341,6 +358,88 @@ async def _suite(root: Path) -> list[dict[str, Any]]:
             expect_kind="collector_failure",
         )
     )
+
+    cases.append(
+        await _case(
+            "router_direct_recovery",
+            root,
+            "pager.P2.r2",
+            session_kwargs={"batches": (_batch("direct", 0),), "oracle": "PASS"},
+        )
+    )
+    cases.append(
+        await _case(
+            "child_failure_recovery",
+            root,
+            "ledgerclose.P1.r1",
+            session_kwargs={"batches": (_batch("delegate_one", 1, success=False),)},
+        )
+    )
+    cases.append(
+        await _case(
+            "child_failure_goal_fail",
+            root,
+            "ledgerclose.P1.r2",
+            session_kwargs={
+                "batches": (_batch("delegate_one", 1, success=False),),
+                "oracle": "FAIL",
+                "acceptance": "FAIL",
+                "status": "failed",
+            },
+            expect_kind="oracle_failed",
+        )
+    )
+    cases.append(
+        await _case(
+            "provider_success_host_oracle_fail",
+            root,
+            "cascade.P3.r1",
+            session_kwargs={"status": "succeeded", "acceptance": "PASS", "oracle": "PASS"},
+            host_oracle={
+                "source": "fake:host:adversarial",
+                "ok": False,
+                "executed_after_main_stops": True,
+            },
+            expect_kind="oracle_failed",
+        )
+    )
+    cases.append(
+        await _case(
+            "oracle_disagreement",
+            root,
+            "cascade.P3.r2",
+            session_kwargs={"oracle": "PASS", "acceptance": "PASS"},
+            host_oracle={
+                "source": "fake:host:adversarial",
+                "ok": False,
+                "executed_after_main_stops": True,
+            },
+            expect_kind="oracle_failed",
+        )
+    )
+    missing_oracle = await _case(
+        "host_oracle_missing",
+        root,
+        "zonelint.P3.r2",
+        host_oracle=None,
+        expect_kind="goal_unknown",
+    )
+    cases.append(missing_oracle)
+    direct_gap = await _case("direct_no_router_gap", root, "slugkit.P2.r1")
+    bundle_path = (
+        admission.cell_dir(
+            root / "direct_no_router_gap" / "evidence",
+            provision.cell_from_plan(protocol.read_protocol(), "slugkit.P2.r1"),
+        )
+        / "evidence"
+    )
+    analysis = json.loads((bundle_path / "analysis.json").read_text(encoding="utf-8"))
+    gaps = analysis["evidence_gaps"]
+    direct_gap["ok"] = direct_gap["ok"] and not any(
+        "router decision" in gap.lower() for gap in gaps
+    )
+    direct_gap["detail"] = "; ".join(gaps)
+    cases.append(direct_gap)
 
     # once-only protection and recovery are checked on their own scratch cells
     document = protocol.read_protocol()

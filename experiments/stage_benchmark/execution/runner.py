@@ -18,7 +18,7 @@ from typing import Any
 from .. import protocol
 from .. import run_stage_b as stage_runner
 from ..tasks import BY_ID
-from . import admission, collector, provision
+from . import adapter, admission, collector, provision
 from .models import (
     CellRequest,
     CellResult,
@@ -50,8 +50,22 @@ def _exception_kind(error: BaseException) -> str:
     return "provider_exception"
 
 
-def _terminal_kind(session: dict[str, Any], collection: dict[str, Any] | None) -> str:
-    """Name the outcome without turning an absent signal into a success."""
+def _views(
+    session: dict[str, Any], collection: dict[str, Any] | None, host_oracle: Any
+) -> dict[str, Any]:
+    """Return the versioned view. Delegation is diagnostic here, never a verdict input."""
+
+    record = ((collection or {}).get("analysis") or {}).get("record") or {}
+    view = record.get("execution_view")
+    if view is None:
+        view = adapter.build_view(record or session, oracle=host_oracle, gaps=[])
+    return view
+
+
+def _terminal_kind(
+    session: dict[str, Any], collection: dict[str, Any] | None, *, host_oracle: Any = None
+) -> str:
+    """Execution integrity first, then goal correctness. Delegation never sets the outcome."""
 
     if not isinstance(session, dict) or not session:
         return "provider_exception"
@@ -62,28 +76,18 @@ def _terminal_kind(session: dict[str, Any], collection: dict[str, Any] | None) -
         return "main_max_turns"
     if stop == "budget_exceeded" or budget.get("rejection_code") == "budget_exhausted":
         return "budget_exhaustion"
+    if (session.get("execution_integrity") or {}).get("sandbox_failure"):
+        return "sandbox_cleanup"
     if collection is not None and not collection.get("ok"):
         return "collector_failure"
-    analysis = (collection or {}).get("analysis", {}).get("record", {})
-    verification = analysis.get("verification") or {}
-    propagation = verification.get("public_test_statuses") or []
-    if propagation and propagation[-1] == "FAIL":
-        return "public_tests_failed"
-    if verification.get("oracle") == "FAIL":
-        return "oracle_failed"
-    delegation = analysis.get("delegation") or {}
-    admission = delegation.get("admission") or {}
-    proposed = int(admission.get("proposals") or delegation.get("proposals") or 0)
-    if proposed and not (admission.get("admitted") or 0) and (admission.get("rejected") or 0):
-        return "router_rejected"
-    admitted = int(delegation.get("children_admitted") or 0)
-    succeeded = int(delegation.get("children_succeeded") or 0)
-    if admitted and succeeded < admitted:
-        return "child_failure"
+
+    view = _views(session, collection, host_oracle)["goal_correctness"]
+    if view["status"] == "FAIL":
+        return "oracle_failed" if view["host_oracle"] == "FAIL" else "public_tests_failed"
+    if view["status"] == "UNKNOWN":
+        return "goal_unknown"
     if session.get("status") != "succeeded":
         return "provider_exception"
-    if proposed and not (analysis.get("handoff") or {}).get("delivered"):
-        return "handoff_missing"
     return "none"
 
 
@@ -142,6 +146,8 @@ async def execute_cell(request: CellRequest) -> CellResult:
     failure = "none"
     detail = ""
     gaps: list[str] = []
+    view: dict[str, Any] = {}
+    goal_view: dict[str, Any] = {}
 
     try:
         try:
@@ -169,12 +175,10 @@ async def execute_cell(request: CellRequest) -> CellResult:
         run_dir = runs_dir / options.run_id if options is not None else runs_dir
         try:
             exported = (session.get("artifacts") or {}).get("workspace_path")
-            oracle = None
-            if (
-                request.cell.task_id in BY_ID
-                and exported
-                and await asyncio.to_thread(os.path.isdir, exported)
-            ):
+            oracle = (
+                dict(request.host_oracle) if (request.host_oracle and not request.live) else None
+            )
+            if request.live and exported and await asyncio.to_thread(os.path.isdir, exported):
                 oracle = provision.host_oracle(Path(exported), request.cell.task_id)
             collection = collector.collect(
                 run_dir=run_dir,
@@ -192,8 +196,10 @@ async def execute_cell(request: CellRequest) -> CellResult:
             failure = "collector_failure" if failure == "none" else failure
             detail = detail or f"{type(error).__name__}: {error}"
 
+        view = _views(session, collection, oracle)
+        goal_view = view["goal_correctness"]
         if failure == "none":
-            failure = _terminal_kind(session, collection)
+            failure = _terminal_kind(session, collection, host_oracle=oracle)
         state = "COLLECTED" if failure == "none" else "FAILED"
         admission.mark_attempt(cell_root, state)
     except BaseException as error:
@@ -212,6 +218,15 @@ async def execute_cell(request: CellRequest) -> CellResult:
         else None,
         gaps=tuple(gaps),
         digests={"runner_source": source["digest"], "preflight": preflight["digest"]},
+        execution_integrity="OK"
+        if failure in {"none", "goal_unknown", "oracle_failed", "public_tests_failed"}
+        else "FAILED",
+        goal_correctness=str(goal_view.get("status", "UNKNOWN")),
+        delegation_diagnostics=str(
+            (view.get("delegation_diagnostics") or {}).get("status", "NOT_APPLICABLE")
+        ),
+        oracle_agreement=str(goal_view.get("oracle_agreement", "UNKNOWN")),
+        host_oracle_source=str(goal_view.get("authoritative_source", "UNKNOWN")),
     )
     _write(result_path, result.to_dict())
     return result
@@ -223,11 +238,21 @@ def _run_goal():  # pragma: no cover - the one true live composition
     return run_goal
 
 
-def recover(cell_id: str, *, evidence_root: Path, protocol_document: Any = None) -> dict[str, Any]:
+def recover(
+    cell_id: str,
+    *,
+    evidence_root: Path,
+    protocol_document: Any = None,
+    calibration: bool = False,
+) -> dict[str, Any]:
     """CLI-facing read-only recovery. It never reaches a provider or a sandbox."""
 
     document = dict(protocol_document or protocol.read_protocol())
-    cell = provision.cell_from_plan(document, cell_id)
+    cell = (
+        provision.calibration_cell() if calibration else provision.cell_from_plan(document, cell_id)
+    )
+    if calibration:
+        evidence_root = evidence_root / "calibration"
     cell_root = admission.cell_dir(evidence_root, cell)
     bundle = admission.evidence_dir(cell_root)
     result = collector.recover_evidence(
@@ -248,7 +273,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     group.add_argument("--freeze", action="store_true")
     group.add_argument("--execute-cell", metavar="CELL_ID")
+    group.add_argument("--execute-calibration", action="store_true")
     group.add_argument("--recover-evidence", metavar="CELL_ID")
+    group.add_argument("--recover-calibration", action="store_true")
     parser.add_argument("--runs-root", type=Path, default=Path.cwd() / ".stage-b-runs")
     parser.add_argument("--evidence-root", type=Path, default=Path.cwd() / ".stage-b-evidence")
     parser.add_argument("--live", action="store_true")
@@ -291,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    if args.execute_cell:
+    if args.execute_cell or args.execute_calibration:
         if not (args.live and args.confirm_live and args.authorization):
             print(
                 json.dumps(
@@ -301,12 +328,19 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         authorization = json.loads(args.authorization.read_text(encoding="utf-8"))
         document = protocol.read_protocol()
-        cell = provision.cell_from_plan(document, args.execute_cell)
+        calibration = bool(args.execute_calibration)
+        cell = (
+            provision.calibration_cell()
+            if calibration
+            else provision.cell_from_plan(document, args.execute_cell)
+        )
+        evidence_root = args.evidence_root / "calibration" if calibration else args.evidence_root
         request = CellRequest(
             cell=cell,
             runs_root=args.runs_root,
-            evidence_root=args.evidence_root,
+            evidence_root=evidence_root,
             live=True,
+            calibration=calibration,
             authorization=authorization,
             authorization_digest=admission.canonical_digest(authorization),
             protocol_document=document,
@@ -314,12 +348,16 @@ def main(argv: list[str] | None = None) -> int:
         import asyncio
 
         result = asyncio.run(execute_cell(request))
-        _write(args.evidence_root / "last-result.json", result.to_dict())
+        _write(evidence_root / "last-result.json", result.to_dict())
         print(json.dumps(result.to_dict()))
         return 0 if result.ok else 1
 
-    if args.recover_evidence:
-        result = recover(args.recover_evidence, evidence_root=args.evidence_root)
+    if args.recover_evidence or args.recover_calibration:
+        result = recover(
+            args.recover_evidence or provision.calibration_cell().cell_id,
+            evidence_root=args.evidence_root,
+            calibration=bool(args.recover_calibration),
+        )
         print(json.dumps({"status": result["status"], "ok": result["ok"]}))
         return 0 if result["ok"] else 2
 

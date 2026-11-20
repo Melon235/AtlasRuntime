@@ -11,6 +11,13 @@
     "provider_exception",
     "sandbox_lost",
     "collector_crash",
+    "router_direct_recovery",
+    "child_failure_recovery",
+    "child_failure_goal_fail",
+    "provider_success_host_oracle_fail",
+    "oracle_disagreement",
+    "host_oracle_missing",
+    "direct_no_router_gap",
     "duplicate_cell_start",
     "concurrent_claim",
     "evidence_recovery",
@@ -29,17 +36,17 @@
       "ok": true
     },
     {
-      "detail": "expected=router_rejected got=router_rejected ",
+      "detail": "expected=none got=none ",
       "name": "router_direct",
       "ok": true
     },
     {
-      "detail": "expected=child_failure got=child_failure ",
+      "detail": "expected=none got=none ",
       "name": "worker_failure",
       "ok": true
     },
     {
-      "detail": "expected=handoff_missing got=handoff_missing ",
+      "detail": "expected=none got=none ",
       "name": "handoff_missing",
       "ok": true
     },
@@ -69,12 +76,47 @@
       "ok": true
     },
     {
-      "detail": "expected=collector_failure got=collector_failure FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\atlas-b2a-offline5\\\\offline\\\\collector_crash\\\\evidence\\\\retrygate.P2.r1\\\\r1\\\\evidence\\\\session.json'",
+      "detail": "expected=collector_failure got=collector_failure FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\atlas-gate-off2\\\\offline\\\\collector_crash\\\\evidence\\\\retrygate.P2.r1\\\\r1\\\\evidence\\\\session.json'",
       "name": "collector_crash",
       "ok": true
     },
     {
-      "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-b2a-offline5\\offline\\duplicate\\evidence\\cascade.P2.r1\\r1\\attempts\\attempt-1.json",
+      "detail": "expected=none got=none ",
+      "name": "router_direct_recovery",
+      "ok": true
+    },
+    {
+      "detail": "expected=none got=none ",
+      "name": "child_failure_recovery",
+      "ok": true
+    },
+    {
+      "detail": "expected=oracle_failed got=oracle_failed ",
+      "name": "child_failure_goal_fail",
+      "ok": true
+    },
+    {
+      "detail": "expected=oracle_failed got=oracle_failed ",
+      "name": "provider_success_host_oracle_fail",
+      "ok": true
+    },
+    {
+      "detail": "expected=oracle_failed got=oracle_failed ",
+      "name": "oracle_disagreement",
+      "ok": true
+    },
+    {
+      "detail": "expected=goal_unknown got=goal_unknown ",
+      "name": "host_oracle_missing",
+      "ok": true
+    },
+    {
+      "detail": "tool_state.json; workers.json; PRIVATE_PAYLOAD_NOTICE.txt; transcript proposes 3 actions, the conversations hold 2 (main 2 + children 0)",
+      "name": "direct_no_router_gap",
+      "ok": true
+    },
+    {
+      "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-gate-off2\\offline\\duplicate\\evidence\\cascade.P2.r1\\r1\\attempts\\attempt-1.json",
       "name": "duplicate_cell_start",
       "ok": true
     },
@@ -100,7 +142,7 @@
     }
   ],
   "coverage": true,
-  "generated_at": "2026-11-20T08:32:33.848465+00:00",
+  "generated_at": "2026-11-20T09:47:38.238556+00:00",
   "network_calls": 0,
   "passed": true,
   "provider": "fake",

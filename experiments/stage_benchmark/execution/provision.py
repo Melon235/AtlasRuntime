@@ -8,11 +8,14 @@ never present in the fixture. This module composes ``run_goal``; it contains no 
 from __future__ import annotations
 
 import base64
+import hashlib
+import json
 import os
 import subprocess
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from atlasos.app.goal_sandbox import GoalSandboxOptions
 from atlasos.app.goal_verification import GoalAcceptance
@@ -90,6 +93,61 @@ def calibration_cell() -> CellIdentity:
     )
 
 
+def _hexdigest(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def s2_frozen_identity() -> dict[str, Any]:
+    """The frozen S2 calibration source of truth. Read-only, never regenerated here."""
+
+    path = REPO_ROOT / "experiments/stage_s2_prompt_v21/freeze.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def verify_calibration_identity() -> list[str]:
+    """Byte-level checks of WorkGrid goal, fixture, public tests and Host oracle against S2."""
+
+    from experiments.stage_s2_prompt_v21 import s2_contract
+
+    frozen = s2_frozen_identity()
+    identity = frozen["identity"]
+    problems: list[str] = []
+
+    if s2_contract.goal_digest() != identity["goal_digest"] or identity["goal"] != s2_contract.GOAL:
+        problems.append("calibration goal drifted from S2")
+    root = REPO_ROOT / CALIBRATION["source"]
+    if not root.is_dir():
+        problems.append("calibration fixture source is missing")
+    else:
+        for relative, expected in (frozen["fixture"]["files"]).items():
+            path = root / relative
+            if not path.is_file():
+                problems.append(f"calibration fixture missing: {relative}")
+                continue
+            digest = "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+            if digest != expected:
+                problems.append(f"calibration fixture drifted: {relative}")
+
+    tests = s2_contract.PUBLIC_TESTS
+    declared = identity["public_tests"]
+    if any(
+        getattr(tests, field) != declared[field]
+        for field in ("command", "max_calls", "timeout_seconds", "test_id")
+    ):
+        problems.append("calibration public tests drifted from S2")
+    if tests.command_digest() != declared["command_digest"]:
+        problems.append("calibration public-test command digest drifted")
+
+    oracle = identity["oracle"]
+    if s2_contract.digest(s2_contract.HIDDEN_PROGRAM) != oracle["program_digest"]:
+        problems.append("calibration oracle program drifted from S2")
+    if s2_contract.digest(s2_contract.ORACLE_COMMAND) != oracle["command_digest"]:
+        problems.append("calibration oracle command drifted from S2")
+    if list(s2_contract.MAIN_WRITE_PATHS) != list(identity["main_write_paths"]):
+        problems.append("calibration write scope drifted from S2")
+    return problems
+
+
 def verify_identity(
     cell: CellIdentity, *, document: dict[str, Any], runtime_digest: str, plan_digest: str
 ) -> list[str]:
@@ -97,10 +155,11 @@ def verify_identity(
 
     problems: list[str] = []
     if cell.task_id not in BY_ID:
-        if (REPO_ROOT / CALIBRATION["source"]).is_dir() is False:
-            problems.append("calibration fixture is missing")
+        problems.extend(verify_calibration_identity())
         if cell.arm_id != CALIBRATION["arm_id"]:
             problems.append("calibration arm changed")
+        if cell.cell_id != calibration_cell().cell_id:
+            problems.append("calibration cell id changed")
         return problems
     spec = BY_ID[cell.task_id]
     task = task_entry(document, cell.task_id)
@@ -162,6 +221,12 @@ def isolation_checks(document: dict[str, Any]) -> dict[str, Any]:
             )
         if task["oracle_digest"] != task_base.oracle_digest(spec):
             problems.append(f"{task_id}: oracle digest changed")
+
+    from experiments.stage_s2_prompt_v21 import s2_contract
+
+    visible_calibration = s2_contract.GOAL.lower()
+    if any(marker.lower() in visible_calibration for marker in LEAK_MARKERS):
+        problems.append("workgrid: oracle marker in the calibration goal")
     return {
         "ok": not problems,
         "problems": problems,
@@ -344,13 +409,27 @@ def build_options(
     )
 
 
+@dataclass(frozen=True)
+class _OracleOnlySpec:
+    oracle_source: str
+
+
 def host_oracle(workspace: Path, task_id: str) -> dict[str, Any]:
     """Run the frozen oracle on the Host, after the model has stopped. Never in a fixture."""
 
-    result = task_base.run_oracle(workspace, BY_ID[task_id])
+    if task_id in BY_ID:
+        result = task_base.run_oracle(workspace, BY_ID[task_id])
+        source = "host:experiments/stage_benchmark/tasks"
+    else:
+        from experiments.stage_s2_prompt_v21 import s2_contract
+
+        result = task_base.run_oracle(
+            workspace, cast(TaskSpec, _OracleOnlySpec(s2_contract.HIDDEN_PROGRAM))
+        )
+        source = "host:experiments/stage_s2_prompt_v21/s2_contract"
     return {
         "task_id": task_id,
-        "source": "host:experiments/stage_benchmark/tasks",
+        "source": source,
         "executed_after_main_stops": True,
         **result,
     }

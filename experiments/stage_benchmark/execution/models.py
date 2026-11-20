@@ -28,6 +28,7 @@ FAILURE_KINDS = (
     "collector_failure",
     "aggregation_failure",
     "sandbox_cleanup",
+    "goal_unknown",
 )
 
 
@@ -124,6 +125,10 @@ class CellRequest:
     sandbox_factory: Callable[[Path], Any] | None = None
     run_fn: Callable[[Any], Awaitable[dict[str, Any]]] | None = None
     protocol_document: Mapping[str, Any] | None = None
+    #: Offline-only seam for a synthetic Host Oracle result. The live CLI never sets this.
+    host_oracle: Mapping[str, Any] | None = None
+    #: The evidence root dedicated to calibration. Live calls must supply it explicitly.
+    calibration: bool = False
 
 
 @dataclass(frozen=True)
@@ -139,6 +144,11 @@ class CellResult:
     analysis_path: Path | None = None
     gaps: tuple[str, ...] = field(default_factory=tuple)
     digests: Mapping[str, str] = field(default_factory=dict)
+    execution_integrity: str = "UNKNOWN"
+    goal_correctness: str = "UNKNOWN"
+    delegation_diagnostics: str = "NOT_APPLICABLE"
+    oracle_agreement: str = "UNKNOWN"
+    host_oracle_source: str = "UNKNOWN"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -151,4 +161,9 @@ class CellResult:
             "analysis_path": str(self.analysis_path) if self.analysis_path else None,
             "evidence_gaps": list(self.gaps),
             "digests": dict(self.digests),
+            "execution_integrity": self.execution_integrity,
+            "goal_correctness": self.goal_correctness,
+            "delegation_diagnostics": self.delegation_diagnostics,
+            "oracle_agreement": self.oracle_agreement,
+            "host_oracle_source": self.host_oracle_source,
         }
