@@ -1,0 +1,53 @@
+{
+  "calibration": {
+    "in_matrix": false,
+    "reason_not_run": "this stage may not call the provider",
+    "status": "PREPARED_NOT_RUN",
+    "task": "workgrid"
+  },
+  "e1_freeze": "sha256:a8dac818908da6c86f3b33008bb01e8a8a931136b5e03aa2c33a974979150c01",
+  "freeze_version": "stage-b-execution/1.0",
+  "frozen_at": "2026-11-20T08:32:35.040161+00:00",
+  "git": {
+    "dirty_paths": [
+      "?? .tmp-offline/",
+      "?? .tmp-offline2/",
+      "?? .tmp-offline3/",
+      "?? .tmp-offline4/",
+      "?? .tmp-offline5/",
+      "?? .tmp-offline6/",
+      "?? experiments/stage_benchmark/execution/",
+      "?? tests/integration/test_stage_b_live_runner.py"
+    ],
+    "git_branch": "exp/stage-b-live-runner",
+    "git_head": "9ba44340aaa92231304e68bd01f940e459f86687",
+    "git_status": "?? .tmp-offline/\n?? .tmp-offline2/\n?? .tmp-offline3/\n?? .tmp-offline4/\n?? .tmp-offline5/\n?? .tmp-offline6/\n?? experiments/stage_benchmark/execution/\n?? tests/integration/test_stage_b_live_runner.py"
+  },
+  "offline": {
+    "cases": 16,
+    "digest": "sha256:2e8edff13fd0f518e9bbd03ed7cefb53e726e1efa1b76dfb451383273e94497f",
+    "passed": true
+  },
+  "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+  "preflight_digest": "sha256:0e4d4327fa81d6612cf03f0e4573d8052a09a8b6e48044392a88cb2721daf5ee",
+  "protocol": {
+    "analysis_schema_version": "stage-b-result/1.1",
+    "digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+    "version": "1.1.0"
+  },
+  "source": {
+    "digest": "sha256:a36b6567d105022c1de49ca6678b3ffafbbadfc445625b7d813a75d0173e1135",
+    "file_count": 7,
+    "files": {
+      "__init__.py": "sha256:a56e969e84b502e80b3c56faa5af50d3b88f3836a21e11dceed054fb0f7628dc",
+      "admission.py": "sha256:98f25aa9c30d22c7d9bc99d5a825f6c5e88787e8da58e37ae3e11876e7719229",
+      "collector.py": "sha256:7e8f4fa9e0fa5d2c50cbb6acdd9dcced46bcd442b6168909ac097b4ce569abd3",
+      "models.py": "sha256:381380e5eee8d8f3be6de3f9b5f9a1dce325b2e5eb9d4857e6500052006d1f1b",
+      "offline.py": "sha256:a95e6de1b4a630b5ecd014a831e6f52369e0027de757ab806907a99a4811cbce",
+      "provision.py": "sha256:ced6c171da007d4be4d2235d86748ff6b3b44532ee4e15a2a5acc650d62652e3",
+      "runner.py": "sha256:7941b9b6bba54774de5e48cc044e81abcaad99c6ffadab67d970119e4903a4c2"
+    },
+    "root": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution"
+  },
+  "stage": "B-E2A"
+}

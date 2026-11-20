@@ -1,0 +1,84 @@
+{
+  "checks": [
+    {
+      "detail": "READY",
+      "label": "protocol_v1_1_ready",
+      "ok": true
+    },
+    {
+      "detail": "1.1.0",
+      "label": "protocol_version_is_1_1",
+      "ok": true
+    },
+    {
+      "detail": "stage-b-result/1.1",
+      "label": "analysis_schema_matches",
+      "ok": true
+    },
+    {
+      "detail": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
+      "label": "runtime_source_unchanged",
+      "ok": true
+    },
+    {
+      "detail": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+      "label": "protocol_digest_unchanged",
+      "ok": true
+    },
+    {
+      "detail": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+      "label": "plan_digest_unchanged",
+      "ok": true
+    },
+    {
+      "detail": "P1/P2/P3",
+      "label": "prompt_versions_and_digests_unchanged",
+      "ok": true
+    },
+    {
+      "detail": "6 tasks",
+      "label": "task_and_oracle_digests_unchanged",
+      "ok": true
+    },
+    {
+      "detail": "deepseek / 500000",
+      "label": "run_config_unchanged",
+      "ok": true
+    },
+    {
+      "detail": "{'schema_version': 'stage-b-result/1.1', 'reconstruct_version': 'stage-b-reconstruct/1.1'}",
+      "label": "analysis_versions_unchanged",
+      "ok": true
+    },
+    {
+      "detail": "current=sha256:a36b6567d105022c1de49ca6678b3ffafbbadfc445625b7d813a75d0173e1135 frozen=sha256:a36b6567d105022c1de49ca6678b3ffafbbadfc445625b7d813a75d0173e1135 (not binding offline)",
+      "label": "runner_source_digest_matches_freeze",
+      "ok": true
+    },
+    {
+      "detail": "True",
+      "label": "fake_provider_suite_passed",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "label": "host_oracle_isolated",
+      "ok": true
+    },
+    {
+      "detail": "clear",
+      "label": "no_existing_cell_markers",
+      "ok": true
+    }
+  ],
+  "digest": "sha256:c3b294074b20ab439b43bd0a5d3b975fb282f82e40fce5b34c042e93ed992346",
+  "live": false,
+  "offline_report_digest": "sha256:2e8edff13fd0f518e9bbd03ed7cefb53e726e1efa1b76dfb451383273e94497f",
+  "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+  "problems": [],
+  "protocol_digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+  "protocol_version": "1.1.0",
+  "runner_source_digest": "sha256:a36b6567d105022c1de49ca6678b3ffafbbadfc445625b7d813a75d0173e1135",
+  "runtime_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
+  "status": "READY"
+}

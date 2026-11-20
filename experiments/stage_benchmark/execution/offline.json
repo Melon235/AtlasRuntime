@@ -1,0 +1,108 @@
+{
+  "case_names": [
+    "direct_pass",
+    "delegated_two_children",
+    "router_direct",
+    "worker_failure",
+    "handoff_missing",
+    "budget_exhaustion",
+    "tool_denial",
+    "oracle_fail",
+    "provider_exception",
+    "sandbox_lost",
+    "collector_crash",
+    "duplicate_cell_start",
+    "concurrent_claim",
+    "evidence_recovery",
+    "incomplete_evidence_rejected",
+    "prompt_arm_injection"
+  ],
+  "cases": [
+    {
+      "detail": "expected=none got=none ",
+      "name": "direct_pass",
+      "ok": true
+    },
+    {
+      "detail": "expected=none got=none ",
+      "name": "delegated_two_children",
+      "ok": true
+    },
+    {
+      "detail": "expected=router_rejected got=router_rejected ",
+      "name": "router_direct",
+      "ok": true
+    },
+    {
+      "detail": "expected=child_failure got=child_failure ",
+      "name": "worker_failure",
+      "ok": true
+    },
+    {
+      "detail": "expected=handoff_missing got=handoff_missing ",
+      "name": "handoff_missing",
+      "ok": true
+    },
+    {
+      "detail": "expected=budget_exhaustion got=budget_exhaustion ",
+      "name": "budget_exhaustion",
+      "ok": true
+    },
+    {
+      "detail": "expected=none got=none ",
+      "name": "tool_denial",
+      "ok": true
+    },
+    {
+      "detail": "expected=oracle_failed got=oracle_failed ",
+      "name": "oracle_fail",
+      "ok": true
+    },
+    {
+      "detail": "expected=provider_exception got=provider_exception RuntimeError: provider transport failed",
+      "name": "provider_exception",
+      "ok": true
+    },
+    {
+      "detail": "expected=sandbox_creation got=sandbox_creation RuntimeError: sandbox lost during tool execution",
+      "name": "sandbox_lost",
+      "ok": true
+    },
+    {
+      "detail": "expected=collector_failure got=collector_failure FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\atlas-b2a-offline5\\\\offline\\\\collector_crash\\\\evidence\\\\retrygate.P2.r1\\\\r1\\\\evidence\\\\session.json'",
+      "name": "collector_crash",
+      "ok": true
+    },
+    {
+      "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-b2a-offline5\\offline\\duplicate\\evidence\\cascade.P2.r1\\r1\\attempts\\attempt-1.json",
+      "name": "duplicate_cell_start",
+      "ok": true
+    },
+    {
+      "detail": "['refused', 'refused', 'refused', 'refused', 'refused', 'refused', 'refused', 'won']",
+      "name": "concurrent_claim",
+      "ok": true
+    },
+    {
+      "detail": "None",
+      "name": "evidence_recovery",
+      "ok": true
+    },
+    {
+      "detail": "['tool_conversations.json', 'workspace.patch', 'transcript.jsonl']",
+      "name": "incomplete_evidence_rejected",
+      "ok": true
+    },
+    {
+      "detail": "P1:main-v1.0:sha256:7e6fd829e51e0; P2:main-v2.0-rc1:sha256:2bb50b09fb92a; P3:main-v2.1-rc1:sha256:4147f19cab445",
+      "name": "prompt_arm_injection",
+      "ok": true
+    }
+  ],
+  "coverage": true,
+  "generated_at": "2026-11-20T08:32:33.848465+00:00",
+  "network_calls": 0,
+  "passed": true,
+  "provider": "fake",
+  "status": "READY"
+}
