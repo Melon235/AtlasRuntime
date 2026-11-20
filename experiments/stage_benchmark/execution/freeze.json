@@ -7,21 +7,12 @@
   },
   "e1_freeze": "sha256:a8dac818908da6c86f3b33008bb01e8a8a931136b5e03aa2c33a974979150c01",
   "freeze_version": "stage-b-execution/1.0",
-  "frozen_at": "2026-11-20T08:32:35.040161+00:00",
+  "frozen_at": "2026-11-20T09:15:07.155646+00:00",
   "git": {
-    "dirty_paths": [
-      "?? .tmp-offline/",
-      "?? .tmp-offline2/",
-      "?? .tmp-offline3/",
-      "?? .tmp-offline4/",
-      "?? .tmp-offline5/",
-      "?? .tmp-offline6/",
-      "?? experiments/stage_benchmark/execution/",
-      "?? tests/integration/test_stage_b_live_runner.py"
-    ],
+    "dirty_paths": [],
     "git_branch": "exp/stage-b-live-runner",
-    "git_head": "9ba44340aaa92231304e68bd01f940e459f86687",
-    "git_status": "?? .tmp-offline/\n?? .tmp-offline2/\n?? .tmp-offline3/\n?? .tmp-offline4/\n?? .tmp-offline5/\n?? .tmp-offline6/\n?? experiments/stage_benchmark/execution/\n?? tests/integration/test_stage_b_live_runner.py"
+    "git_head": "7530bbe8c3a7c3155ee67d763f071a861050eb0a",
+    "git_status": ""
   },
   "offline": {
     "cases": 16,
@@ -29,7 +20,7 @@
     "passed": true
   },
   "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
-  "preflight_digest": "sha256:0e4d4327fa81d6612cf03f0e4573d8052a09a8b6e48044392a88cb2721daf5ee",
+  "preflight_digest": "sha256:c3b294074b20ab439b43bd0a5d3b975fb282f82e40fce5b34c042e93ed992346",
   "protocol": {
     "analysis_schema_version": "stage-b-result/1.1",
     "digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
