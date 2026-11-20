@@ -1,0 +1,16 @@
+{
+  "archive_version": "1.0.0",
+  "files": {
+    "freeze.json": {
+      "bytes": 10857,
+      "digest": "sha256:a37e37b7fe87df7d5fb03487b535e7f31f37d3307c9d1480633cfee7a318f2a5"
+    },
+    "protocol.json": {
+      "bytes": 43458,
+      "digest": "sha256:8bcedf7510411ca8b682e0ef4a6627ceb5cab373df8b7b94f14525194d133857"
+    }
+  },
+  "reason": "the 1.0 metric semantics are preserved verbatim so a published 1.0 result can still be re-derived; the digests below are what a 1.0 analysis must match",
+  "source_commit": "42244a17efad45c8ee9523789a0218ac70b00f55",
+  "superseded_by": "1.1.0"
+}

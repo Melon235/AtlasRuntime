@@ -1,0 +1,1127 @@
+{
+  "stage": "B",
+  "protocol_version": "1.0.0",
+  "analysis_schema_version": "stage-b-result/1.0",
+  "questions": [
+    {
+      "id": "RQ1",
+      "question": "Does a later prompt produce more appropriate delegation on tasks that have independent work?",
+      "primary_metrics": [
+        "delegation_proposal_rate",
+        "effective_delegation_rate"
+      ]
+    },
+    {
+      "id": "RQ2",
+      "question": "Does a later prompt reduce inappropriate delegation and capability mismatch?",
+      "primary_metrics": [
+        "invalid_capability_delegation_rate",
+        "late_delegation_rate"
+      ]
+    },
+    {
+      "id": "RQ3",
+      "question": "Does delegation reduce Main peak context?",
+      "primary_metrics": [
+        "main_peak_context_tokens"
+      ]
+    },
+    {
+      "id": "RQ4",
+      "question": "Do child tokens, total cost and latency justify the delegation?",
+      "primary_metrics": [
+        "system_total_tokens",
+        "wall_clock_seconds",
+        "child_total_prompt_tokens"
+      ]
+    },
+    {
+      "id": "RQ5",
+      "question": "What do the prompts do to correctness, test completion and budget exhaustion?",
+      "primary_metrics": [
+        "oracle_pass_rate",
+        "goal_success_rate",
+        "budget_exhaustion_rate"
+      ]
+    }
+  ],
+  "arms": [
+    {
+      "arm_id": "P1",
+      "label": "main-v1.0",
+      "declared_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a",
+      "observed_digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a",
+      "matches_declaration": true,
+      "chars": 1388,
+      "path": null,
+      "provenance": "src/atlasos/app/main_driven.py::MAIN_SYSTEM_PROMPT (unchanged since P0.1)"
+    },
+    {
+      "arm_id": "P2",
+      "label": "main-v2.0-rc1",
+      "declared_digest": "sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+      "observed_digest": "sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+      "matches_declaration": true,
+      "chars": 7095,
+      "path": "experiments/stage_s1_prompt_v2/prompts/main_v2.md",
+      "provenance": "Stage S1 frozen candidate"
+    },
+    {
+      "arm_id": "P3",
+      "label": "main-v2.1-rc1",
+      "declared_digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
+      "observed_digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
+      "matches_declaration": true,
+      "chars": 10377,
+      "path": "experiments/stage_s2_prompt_v21/prompts/main_v21.md",
+      "provenance": "Stage S2 frozen candidate"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "slugkit",
+      "title": "Canonical document slugs",
+      "structure": "LOCAL_DIRECT",
+      "rationale": "One stub module whose rules are fully stated in its docstring, one complete helper module, and a reference change of two functions in one file. There is no second investigation to run in parallel and no cross-package integration to coordinate.",
+      "goal": "The slugkit project documents what a canonical document slug is, but its rule module raises NotImplementedError. Implement the slug rules so the public tests pass, keeping the existing text helpers unchanged.",
+      "goal_digest": "sha256:5a5d6e3ad8648b268d7c03edd62348658c0e015fd66f229c48ef3d80912972bc",
+      "write_scope": [
+        "slugkit/core.py"
+      ],
+      "fixture_digest": "sha256:3e7c131194f33e6ff5d2a6e758829f230f1c04c20c192514b71da18bc7c9379c",
+      "fixture_files": {
+        "README.md": "sha256:5bb673571085a60dda2bd152a15b78ada90ec6d9c5f5a9c10826e23e22aefcd6",
+        "pytest.ini": "sha256:c809c969ec7e11b9ff37784e9c6fcc0b7c5148d168e18b05aed797e03fbd6ead",
+        "slugkit/__init__.py": "sha256:df2fc324779125161fe9055562a48ad7e0782b52c4ce42e81c3dbc199b7de503",
+        "slugkit/core.py": "sha256:936e2ffb8d600b0da21917042bbefc7c6184a64774ced6301898289d77894dc9",
+        "slugkit/text.py": "sha256:6b677dffb8d5c5bd4ccaec6d65bfab57c3f6794ded0b575f7b492813c4746009",
+        "tests/test_public_slug.py": "sha256:4082de4a034ef76aab109d2586b7b96b1dd81e750fd3c8dc12efa57694698fea",
+        "tests/test_text.py": "sha256:22a42ba6bda9645e25738b2edbc21f273713277c9ec2056d8c61de40a7825f2c"
+      },
+      "reference_digest": "sha256:5d5d65100ecc927af18374d60ed9f7d542c042b9b0bc1f8cd32a60ff49309fb9",
+      "reference_files": 1,
+      "reference_lines": 49,
+      "reference_change_lines": {
+        "added": 16,
+        "removed": 2
+      },
+      "wrong_variants": [
+        {
+          "name": "no_truncation",
+          "covers": "max_length ignored for long input",
+          "file": "slugkit/core.py"
+        },
+        {
+          "name": "truncation_keeps_separator",
+          "covers": "a truncated slug ending with '-'",
+          "file": "slugkit/core.py"
+        },
+        {
+          "name": "is_slug_is_charwise",
+          "covers": "is_slug accepting non-canonical values",
+          "file": "slugkit/core.py"
+        }
+      ],
+      "wrong_variants_digest": "sha256:cabf2bd1e6779ca881ea444ee9a5344408f4dea8d6c8737c531ed3cf88c2921e",
+      "oracle_digest": "sha256:4fefc3fc9e90674dd210567613d5d8c5e1e8fa5a6879a052687debf9d70680a3",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_text.py"
+        ],
+        "target": [
+          "tests/test_public_slug.py"
+        ]
+      },
+      "expectation": {
+        "compatibility_tests": 5,
+        "target_tests": 7,
+        "reference_tests": 12,
+        "reference_files": 1,
+        "reference_lines": 31,
+        "independent_investigations": 0,
+        "acceptance_difficulty": "LOW"
+      },
+      "labels": {
+        "change_surface": "1 file, 2 functions",
+        "key_dependencies": "slugkit.text.words",
+        "oracle_scope": "idempotence, non-ASCII inputs, truncation boundaries, canonical form"
+      },
+      "notes": "Reads: README + core + text is enough. Public suite already states most rules."
+    },
+    {
+      "task_id": "pager",
+      "title": "Cursor pagination arithmetic",
+      "structure": "LOCAL_DIRECT",
+      "rationale": "Two arithmetic functions in a single module, with the codec and the error type already complete. The investigation is one read of the contract plus one of the codec; there is no independent second area to delegate.",
+      "goal": "The pager project has a working cursor codec, but the page arithmetic in pager/page.py is unimplemented. Implement page_bounds and next_cursor so the documented contract holds and the public tests pass. Do not change the cursor codec or the error type.",
+      "goal_digest": "sha256:8765101b51c2fd83882fcbba6a9ab428f6efc52135c097da0cf2d6609b02ef90",
+      "write_scope": [
+        "pager/page.py"
+      ],
+      "fixture_digest": "sha256:1e9a66cf2dab578f8681346343da43b230826ce8cd4a71ab08043663bc5c8031",
+      "fixture_files": {
+        "README.md": "sha256:292fd0b765df099f3242647db85366fd9289b35b6ab9e2119b29012f423f0e8e",
+        "pager/__init__.py": "sha256:ca6c197742020c0689c8a2f5e07f2a1bcdf93183b49374a1e1745d618bbde37d",
+        "pager/cursor.py": "sha256:629c74a2be8e96177a2c96d5ca807e96a19b7f6d32ac71eea259cb6e3aec3118",
+        "pager/errors.py": "sha256:a54a699e772053e22ca66149494025f8ff6f2b3626eba382d542e3c277d8b803",
+        "pager/page.py": "sha256:263d35e93a0dd8236138d389a105a7f501972c5aaf32b9a173113fd743c993f2",
+        "pytest.ini": "sha256:c809c969ec7e11b9ff37784e9c6fcc0b7c5148d168e18b05aed797e03fbd6ead",
+        "tests/test_cursor.py": "sha256:558620c770dd5e9b21fa5e9aa59343d7ea7355029fc4400d31f68e3d70c5e433",
+        "tests/test_public_page.py": "sha256:9117cb66c474aed042d3e8be081b6aa5350a06e8445a6c4ce25a66c38cd394a6"
+      },
+      "reference_digest": "sha256:9eb90e7e6ef5dd30f62ebbeb5e027af8272ad07952850ab6cfb3dfd8ac4848c6",
+      "reference_files": 1,
+      "reference_lines": 38,
+      "reference_change_lines": {
+        "added": 12,
+        "removed": 2
+      },
+      "wrong_variants": [
+        {
+          "name": "start_not_clamped",
+          "covers": "a start past the end producing an inverted slice",
+          "file": "pager/page.py"
+        },
+        {
+          "name": "cursor_never_ends",
+          "covers": "next_cursor returning a cursor on the last page",
+          "file": "pager/page.py"
+        },
+        {
+          "name": "zero_limit_allowed",
+          "covers": "a limit of zero accepted, so paging cannot advance",
+          "file": "pager/page.py"
+        }
+      ],
+      "wrong_variants_digest": "sha256:d18008b01dc872fa48ce18b7dd667644141ff63cf4219607490f6e7a362c0057",
+      "oracle_digest": "sha256:d4a95a1d0667934978988ecd827c7a36a76c0b9cb70abdfaedfd69897f6e19ef",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_cursor.py"
+        ],
+        "target": [
+          "tests/test_public_page.py"
+        ]
+      },
+      "expectation": {
+        "compatibility_tests": 5,
+        "target_tests": 6,
+        "reference_tests": 11,
+        "independent_investigations": 0,
+        "acceptance_difficulty": "LOW"
+      },
+      "labels": {
+        "change_surface": "1 file, 2 functions",
+        "key_dependencies": "pager.cursor codec and its strict decoding",
+        "oracle_scope": "empty collection, page tiling, purity, strict decoding, zero limit"
+      },
+      "notes": "The public suite states the clamp and the error; the tiling property is oracle-only."
+    },
+    {
+      "task_id": "zonelint",
+      "title": "DNS and certificate preflight",
+      "structure": "INDEPENDENT_INVESTIGATION",
+      "rationale": "Two rule packages with disjoint domains, no import between them, and different failure shapes: records report findings by scanning, certificates classify one object. The shared layer needs both semantics. Either package can be summarised in a few hundred tokens without the other, and neither requires the implementing agent to hold the whole repository.",
+      "goal": "The zonelint project checks a DNS zone and a TLS certificate, but the shared preflight layer in zonelint/preflight.py is unimplemented. Implement run_preflight so it merges both rule packages into one ordered, counted report with the documented status. Keep the records and certificates packages unchanged and verify with the public tests.",
+      "goal_digest": "sha256:f33267431b6116afe98b9f34f8c89e45130092d7701df71a0ecfc3aff72ce365",
+      "write_scope": [
+        "zonelint/preflight.py"
+      ],
+      "fixture_digest": "sha256:59ad287ef54cd29693dffa32c58e258278e416ac7b32471632be6688efc084fa",
+      "fixture_files": {
+        "README.md": "sha256:0c7d07cdd5b1e74440b9696a4f89d89df8b4dfdc2f58c6661db06de9065348fc",
+        "pytest.ini": "sha256:c809c969ec7e11b9ff37784e9c6fcc0b7c5148d168e18b05aed797e03fbd6ead",
+        "tests/test_certs.py": "sha256:1e83e89c64d11b1335fc3344a8d45b813c3d8dd78d4b0067fdd5090f6abc72db",
+        "tests/test_public_preflight.py": "sha256:544b66fa8b29aaeffe545304707a03988bed4d0c021936b6b03198ca44d2f27b",
+        "tests/test_records.py": "sha256:1d3e57ed9dda77ab11f146ab2532a46f2745b60566e618082b40e5dbb50bd475",
+        "zonelint/__init__.py": "sha256:581e9159fc44d03081ed7e2e5f108864ddbd1d8be733ebd410871ac3a2c14b31",
+        "zonelint/certs.py": "sha256:abe5765c471b9eb6c3d0f5ef65dd81bdd20910c11767a10b043e906eefbf1c09",
+        "zonelint/errors.py": "sha256:2a5ede98021b861f4ea59bd4b2e8e7256fdf6a146c841cd71713a8b58f33daac",
+        "zonelint/findings.py": "sha256:dea10aac1ca673934d827e2ba22e57b5bc2975c4a3d680145db885c23308be83",
+        "zonelint/preflight.py": "sha256:0639f0854f01228671d6949a1e4af01b6513dbced11a368fdfc79fc4a0ca6137",
+        "zonelint/records.py": "sha256:b6340bb3f25ebb1bcdcdbc76b9085517b61c983ddbe56fb528c2de674cb8851a"
+      },
+      "reference_digest": "sha256:dfc10b442c3067e7373b04dacb259bc54c1e2ec902a7615358544119ce54b551",
+      "reference_files": 1,
+      "reference_lines": 36,
+      "reference_change_lines": {
+        "added": 16,
+        "removed": 3
+      },
+      "wrong_variants": [
+        {
+          "name": "warnings_fail",
+          "covers": "a warning treated as a release blocker",
+          "file": "zonelint/preflight.py"
+        },
+        {
+          "name": "sorted_by_code_only",
+          "covers": "findings ordered by code, not severity first",
+          "file": "zonelint/preflight.py"
+        },
+        {
+          "name": "counts_omit_empty_severity",
+          "covers": "a counts dict missing severities that did not occur",
+          "file": "zonelint/preflight.py"
+        },
+        {
+          "name": "input_is_aliased",
+          "covers": "returning a report that shares state with its input",
+          "file": "zonelint/preflight.py"
+        }
+      ],
+      "wrong_variants_digest": "sha256:75ded9a073f23b5fbded7d95972ada322be8d35fc39806f3c8a0e7f694604d77",
+      "oracle_digest": "sha256:eb0c26e425d560984b157cb111fdd1a8a5924be2d976a09e04e47a5794396c67",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_records.py",
+          "tests/test_certs.py"
+        ],
+        "target": [
+          "tests/test_public_preflight.py"
+        ]
+      },
+      "expectation": {
+        "compatibility_tests": 11,
+        "target_tests": 7,
+        "reference_tests": 18,
+        "independent_investigations": 2,
+        "acceptance_difficulty": "MEDIUM"
+      },
+      "labels": {
+        "change_surface": "1 file, 1 function; reads two rule packages",
+        "key_dependencies": "zonelint.records.check_zone, zonelint.certs.check_certificate, Finding.sort_key",
+        "oracle_scope": "error accumulation, cross-package ordering, wildcard label depth, boundary values"
+      },
+      "notes": "Two independent investigations; the public suite covers none of the wildcard depth rules."
+    },
+    {
+      "task_id": "ledgerclose",
+      "title": "Multi-currency closing statement",
+      "structure": "INDEPENDENT_INVESTIGATION",
+      "rationale": "The accounting rules and the FX rules are separate packages with separate error types, separate value objects and no shared code. Either can be read and summarised in isolation; the closing layer is where both meet, and a mistake in either is invisible in the other's tests.",
+      "goal": "The ledgerclose project validates double-entry transactions and resolves FX quotes, but the closing statement in ledgerclose/close.py is unimplemented. Implement it so a validated book becomes a deterministic statement in the base currency, and verify with the public tests. Leave the ledger and rates packages unchanged.",
+      "goal_digest": "sha256:d30dc2f415b503c821f41f6c2217dbb23c050e11dcdeaf62035dc14bc315a1fb",
+      "write_scope": [
+        "ledgerclose/close.py"
+      ],
+      "fixture_digest": "sha256:a565f724f99aef17e51ae59ce9b0175c26320dcae45faefd78e456b61fd2d3eb",
+      "fixture_files": {
+        "README.md": "sha256:03f3a8498c362a8a54b7b8fcc2bcb96be169d7a17c268aa08ef22e0850cbd0cd",
+        "ledgerclose/__init__.py": "sha256:79a01b8bbbf47a4c8f8d74d6e08264cb99cf356d840cb041eff5bd44dcc4cdaa",
+        "ledgerclose/close.py": "sha256:55c3d8b43d70ed0a32e4040dbfa4d1aaff874fcdddcb7351964b2a72b080a918",
+        "ledgerclose/errors.py": "sha256:a4c3f65830bb89eb9961423a9329621cfe0c497d77cf7b550b1fb913e4a8c05c",
+        "ledgerclose/ledger.py": "sha256:58888c545377eed4c23b61794b275853475f5fb5991b2bc34d6e13b4ab825b07",
+        "ledgerclose/rates.py": "sha256:ab504aefc66536b1c06cd24bb5a9d953b2f7c1d1bcb58c0d04b5d5d800126273",
+        "pytest.ini": "sha256:c809c969ec7e11b9ff37784e9c6fcc0b7c5148d168e18b05aed797e03fbd6ead",
+        "tests/test_ledger.py": "sha256:854060a8bd3901b4faaa8fe686da4f3c71acf0d9e1d6fadd5d3eaedc330a97cb",
+        "tests/test_public_close.py": "sha256:ebcd9faea4e513dedee97b20bc2d4c475930c07803d72bc03c5c17b02101fa2c",
+        "tests/test_rates.py": "sha256:33e5f6d66a113c03ebfea18354636919cefe9403e2ab3e9e6ae16db6e369aafe"
+      },
+      "reference_digest": "sha256:f59fcf74b689698e5936bd7191577ae882b1379d56ead506ceec291bf3957e97",
+      "reference_files": 1,
+      "reference_lines": 58,
+      "reference_change_lines": {
+        "added": 19,
+        "removed": 2
+      },
+      "wrong_variants": [
+        {
+          "name": "no_conversion",
+          "covers": "foreign amounts summed as if they were base currency",
+          "file": "ledgerclose/close.py"
+        },
+        {
+          "name": "rounds_half_up",
+          "covers": "money rounded away from even on a half cent",
+          "file": "ledgerclose/close.py"
+        },
+        {
+          "name": "credits_are_negative",
+          "covers": "the credit total reported as a negative number",
+          "file": "ledgerclose/close.py"
+        },
+        {
+          "name": "zero_amounts_skipped",
+          "covers": "a zero-amount row dropped instead of rejected",
+          "file": "ledgerclose/close.py"
+        }
+      ],
+      "wrong_variants_digest": "sha256:9069d762644bac9f49e708f230b2d7327be4632596dcdda43dd96239ac568565",
+      "oracle_digest": "sha256:f45c8d1ce3ece872e1d3fb7df28bd71e16f6e47bc0fa96a1ad6be7d35440d31c",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_ledger.py",
+          "tests/test_rates.py"
+        ],
+        "target": [
+          "tests/test_public_close.py"
+        ]
+      },
+      "expectation": {
+        "compatibility_tests": 11,
+        "target_tests": 7,
+        "reference_tests": 18,
+        "independent_investigations": 2,
+        "acceptance_difficulty": "MEDIUM"
+      },
+      "labels": {
+        "change_surface": "1 file, 1 function; reads two packages",
+        "key_dependencies": "validate_entries, RateTable.rate_on, convert (half-even)",
+        "oracle_scope": "base-currency shortcut, half-even ties, as-of lookup, validation order, totals"
+      },
+      "notes": "The public suite states neither the base-currency shortcut nor the rounding mode."
+    },
+    {
+      "task_id": "retrygate",
+      "title": "Retry decision under coupled rules",
+      "structure": "COUPLED_UNCERTAIN",
+      "rationale": "Three small modules, one decision. Classification, attempt accounting and backoff are each trivial in isolation, and the failure modes live between them: whether a refusal consumes an attempt, whether a zero hint is a hint, whether the last slot may be spent on an unknown error. A worker given only one module cannot answer any of those questions, so the expected delegation benefit is low and the coordination cost is real.",
+      "goal": "The retrygate project classifies errors and counts attempts, but retrygate/policy.py does not decide anything yet. Implement decide() so the documented retry rules hold, and verify with the public tests. Leave the classification and budget modules unchanged.",
+      "goal_digest": "sha256:65401e5ea7a0cb79b98058dd60865169202ac62f4e512af93224fd25abf6f2f7",
+      "write_scope": [
+        "retrygate/policy.py"
+      ],
+      "fixture_digest": "sha256:1f6c1d8cc4f32d76280b8c3c37d459cd9d6ccf4b1dd07c07fe6f8cfd81856077",
+      "fixture_files": {
+        "README.md": "sha256:1f8f60058e8bb0a0be1c5cf285ca3227dce12b5df247ceaebb58547890a81752",
+        "pytest.ini": "sha256:c809c969ec7e11b9ff37784e9c6fcc0b7c5148d168e18b05aed797e03fbd6ead",
+        "retrygate/__init__.py": "sha256:6b35f73dc1b57f08557aa985587fdf38e71fd469a8723dbb75683a3ee11aaf48",
+        "retrygate/budget.py": "sha256:f3a8d013bd4517c6d494a331e80c815689a386cd01ccc3d3e879f51812309f03",
+        "retrygate/classify.py": "sha256:a55acbbdb2deefbdad2969610910d2558f35b393cddc89e235044cad5e7137db",
+        "retrygate/errors.py": "sha256:949f6210c8297a8d57a745f04c6962237c229da78e82afff467b594978cb98b0",
+        "retrygate/policy.py": "sha256:ddc4ddd75e903483d70aa907fa8ffc1c09586958f15507f7108de4e4028c8693",
+        "tests/test_budget.py": "sha256:56d86d0fa12fe3994f94bfacd062ba1ea03e23cb6d327b08e106fef5a9ff6824",
+        "tests/test_classify.py": "sha256:1d65536e39661162282f867d05f0a5a01574abe07618db942acb52d80527eea9",
+        "tests/test_public_policy.py": "sha256:86b63e885545d470fc216a0d667b67d1475b3492ffa90d478da94d0e0de4704f"
+      },
+      "reference_digest": "sha256:65def2b17d7477bdcaf54baed10dbc82728aa9b4293147cd00cdb7208637cccc",
+      "reference_files": 1,
+      "reference_lines": 63,
+      "reference_change_lines": {
+        "added": 22,
+        "removed": 1
+      },
+      "wrong_variants": [
+        {
+          "name": "backoff_without_cap",
+          "covers": "a delay that grows without bound",
+          "file": "retrygate/policy.py"
+        },
+        {
+          "name": "permanent_consumes",
+          "covers": "a refusal that still spends an attempt",
+          "file": "retrygate/policy.py"
+        },
+        {
+          "name": "unknown_ignores_reserve",
+          "covers": "the last attempt spent on an unknown error",
+          "file": "retrygate/policy.py"
+        },
+        {
+          "name": "zero_hint_treated_as_absent",
+          "covers": "a supplied retry_after_ms=0 replaced by the backoff",
+          "file": "retrygate/policy.py"
+        }
+      ],
+      "wrong_variants_digest": "sha256:4b3df7dd46be860d3f023d31b5166c1ae35433879621342bb0b13440b6862a14",
+      "oracle_digest": "sha256:36deaf1d95aaa1b093fb7e3d2a6527df3207bbd8ee009eb1abcf8f734d5cc377",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_classify.py",
+          "tests/test_budget.py"
+        ],
+        "target": [
+          "tests/test_public_policy.py"
+        ]
+      },
+      "expectation": {
+        "compatibility_tests": 10,
+        "target_tests": 8,
+        "reference_tests": 18,
+        "independent_investigations": 0,
+        "acceptance_difficulty": "MEDIUM"
+      },
+      "labels": {
+        "change_surface": "1 file, 1 function; three interacting rule sources",
+        "key_dependencies": "classify(), AttemptBudget.consume/remaining, backoff formula",
+        "oracle_scope": "cap, non-consuming refusals, zero hint, unknown reserve, attempt numbering"
+      },
+      "notes": "Deliberately coupled: the public suite states the happy paths only."
+    },
+    {
+      "task_id": "cascade",
+      "title": "Power operator in a coupled lexer and parser",
+      "structure": "COUPLED_UNCERTAIN",
+      "rationale": "The lexer owns the operator set and the parser owns precedence and associativity. Neither file can be changed correctly without the other, and the sharp edges are exactly where they meet: a token the lexer emits but the parser associates wrongly, or a grammar rule the parser supports but the lexer never delivers. Delegating the two files to two workers splits one grammar and the integration cost is the work.",
+      "goal": "The cascade project renders the parse tree of arithmetic expressions but only knows + - * / and unary minus. Extend it with the power operator ^, right-associative and binding tighter than multiplication, so the public tests pass. Keep the existing behaviour for every other operator unchanged.",
+      "goal_digest": "sha256:25d55baa21ce8220eedcd492ace64e444beed87c96b8c95744efe0359190223b",
+      "write_scope": [
+        "cascade/lexer.py",
+        "cascade/parser.py"
+      ],
+      "fixture_digest": "sha256:e2a6f4c5f01e1155c1c86e5a1a9bb95f8a8d0d7de74a4b929e02c031babbbd76",
+      "fixture_files": {
+        "README.md": "sha256:0693f801cfc3706c7f573413eb3b77cc00f8f205fef677de60eaac7db35fea5c",
+        "cascade/__init__.py": "sha256:892a3392d27b30b449e136b5d1b8ddf6026e0665785827e583ffa393405353b9",
+        "cascade/errors.py": "sha256:b01aaa1a6a9cd0d2ad4078166902987a7180722839a5b3e5af32d3d9b05b3e00",
+        "cascade/lexer.py": "sha256:690ac10f03d31a0f64ee291fff9c7e6bd1ce2d21b18a4dd956a7c027fce872fc",
+        "cascade/parser.py": "sha256:18e34d951d3ddc6e8837fdf341f56d5c0e618e5c2eac61f154b1d2e838142d5a",
+        "cascade/tokens.py": "sha256:13d9488969ddca4f0b10e080086bf60398b400f52618eb029deb3b0d7da963f8",
+        "pytest.ini": "sha256:c809c969ec7e11b9ff37784e9c6fcc0b7c5148d168e18b05aed797e03fbd6ead",
+        "tests/test_lexer.py": "sha256:33b22143b41d4104736c6442bb6a644e573327b11932214cc03e5824bcf09b7e",
+        "tests/test_normalize_basic.py": "sha256:bbae95faf801ea754018455909544be44a0c348d6c7f810f2c8b041ad7573bc1",
+        "tests/test_public_power.py": "sha256:adc44edd0c82c21879bf58f87af0053e1cafd11a72eb58d565c11a575ff643ec"
+      },
+      "reference_digest": "sha256:ecb88ac3d315539fabb6e38bb8ee125e7797accd4074cfcce8d48a4204aebb0c",
+      "reference_files": 2,
+      "reference_lines": 142,
+      "reference_change_lines": {
+        "added": 7,
+        "removed": 5
+      },
+      "wrong_variants": [
+        {
+          "name": "power_left_associative",
+          "covers": "2^3^2 grouped to the left",
+          "file": "cascade/parser.py"
+        },
+        {
+          "name": "power_lowest_precedence",
+          "covers": "power evaluated after multiplication",
+          "file": "cascade/parser.py"
+        },
+        {
+          "name": "unary_tighter_than_power",
+          "covers": "-2^2 parsed as (-2)^2",
+          "file": "cascade/parser.py"
+        },
+        {
+          "name": "trailing_tokens_ignored",
+          "covers": "two expressions accepted as one",
+          "file": "cascade/parser.py"
+        }
+      ],
+      "wrong_variants_digest": "sha256:56bad1f78d6c799551824c59f1a0058763c43fe29cebfb801e15f2e82f97839f",
+      "oracle_digest": "sha256:2460ead54eca92105a2c8d5c825aa89765d5c0c3bd32dbb1931429dd7a14db7e",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_lexer.py",
+          "tests/test_normalize_basic.py"
+        ],
+        "target": [
+          "tests/test_public_power.py"
+        ]
+      },
+      "expectation": {
+        "compatibility_tests": 10,
+        "target_tests": 7,
+        "reference_tests": 17,
+        "independent_investigations": 0,
+        "acceptance_difficulty": "HIGH"
+      },
+      "labels": {
+        "change_surface": "2 files, 3 edits; one shared grammar",
+        "key_dependencies": "OPERATORS set, _PRECEDENCE, _RIGHT_ASSOCIATIVE, _UNARY_PRECEDENCE",
+        "oracle_scope": "precedence both directions, unary interaction, idempotence, malformed input"
+      },
+      "notes": "The lexer change alone makes every test worse, not better: the parser then sees '^'."
+    }
+  ],
+  "structures": [
+    "LOCAL_DIRECT",
+    "INDEPENDENT_INVESTIGATION",
+    "COUPLED_UNCERTAIN"
+  ],
+  "run_config": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "main_max_turns": 20,
+    "child_max_turns": 6,
+    "max_concurrent_children": 2,
+    "max_delegation_rounds": 3,
+    "token_budget": 500000,
+    "tool_error_mode": "corrected",
+    "public_test_max_calls": 4,
+    "network": "none",
+    "cpu": 1,
+    "memory_gib": 1.0,
+    "sandbox_provider": "opensandbox",
+    "image": "atlas-uat-python:3.12",
+    "worker_profiles": [
+      "research_worker"
+    ],
+    "router_policy": "m.1.0",
+    "delegation": "enabled",
+    "repetitions": 2,
+    "seed": 20261119,
+    "sampling_seed_supported": false
+  },
+  "metrics": [
+    {
+      "id": "oracle_pass_rate",
+      "group": "primary",
+      "unit": "rate",
+      "numerator": "runs with oracle PASS",
+      "denominator": "all attempts",
+      "missing": "counted as FAIL, never dropped"
+    },
+    {
+      "id": "goal_success_rate",
+      "group": "primary",
+      "unit": "rate",
+      "numerator": "runs whose public suite and oracle both pass",
+      "denominator": "all attempts",
+      "missing": "counted as FAIL"
+    },
+    {
+      "id": "budget_exhaustion_rate",
+      "group": "primary",
+      "unit": "rate",
+      "numerator": "runs that stopped with budget_exceeded",
+      "denominator": "all attempts",
+      "missing": "UNKNOWN if the stop reason is absent"
+    },
+    {
+      "id": "runtime_failure_rate",
+      "group": "primary",
+      "unit": "rate",
+      "numerator": "runs that failed for a runtime, sandbox or tool fault",
+      "denominator": "all attempts",
+      "missing": "counted as FAIL, classified in failure_class"
+    },
+    {
+      "id": "delegation_proposal_rate",
+      "group": "delegation",
+      "unit": "rate",
+      "numerator": "runs with at least one delegate_tasks call",
+      "denominator": "all attempts",
+      "missing": "0 when the tool was on the surface"
+    },
+    {
+      "id": "router_admission_rate",
+      "group": "delegation",
+      "unit": "rate",
+      "numerator": "proposals admitted by the router",
+      "denominator": "proposals",
+      "missing": "UNKNOWN when no proposal exists"
+    },
+    {
+      "id": "child_completion_rate",
+      "group": "delegation",
+      "unit": "rate",
+      "numerator": "children that ended successfully",
+      "denominator": "children started",
+      "missing": "UNKNOWN when no child started"
+    },
+    {
+      "id": "effective_delegation_rate",
+      "group": "delegation",
+      "unit": "rate",
+      "numerator": "runs where a proposal was admitted, a child succeeded and the Main changed a file after the handoff",
+      "denominator": "all attempts",
+      "missing": "counted as not effective"
+    },
+    {
+      "id": "direct_execution_rate",
+      "group": "delegation",
+      "unit": "rate",
+      "numerator": "runs with no delegate_tasks call",
+      "denominator": "all attempts",
+      "missing": "0"
+    },
+    {
+      "id": "invalid_capability_delegation_rate",
+      "group": "delegation",
+      "unit": "rate",
+      "numerator": "runs where a delegated objective required a tool the profile does not have",
+      "denominator": "runs with a proposal",
+      "missing": "UNKNOWN when no proposal exists"
+    },
+    {
+      "id": "late_delegation_rate",
+      "group": "delegation",
+      "unit": "rate",
+      "numerator": "runs whose first delegate_tasks call came after turn LATE_DELEGATION_TURN_THRESHOLD, or after the first file edit",
+      "denominator": "runs with a proposal",
+      "missing": "UNKNOWN when no proposal exists; the threshold is pre-registered, not discovered"
+    },
+    {
+      "id": "first_delegation_turn",
+      "group": "delegation",
+      "unit": "turn",
+      "numerator": "turn index of the first delegate_tasks call",
+      "denominator": "runs with a proposal",
+      "missing": "UNKNOWN when no proposal exists"
+    },
+    {
+      "id": "first_implementation_turn",
+      "group": "delegation",
+      "unit": "turn",
+      "numerator": "turn index of the first file_edit or file_write",
+      "denominator": "all attempts",
+      "missing": "UNKNOWN when nothing was written"
+    },
+    {
+      "id": "main_peak_context_tokens",
+      "group": "context",
+      "unit": "tokens",
+      "numerator": "max prompt tokens over Main requests",
+      "denominator": "runs",
+      "missing": "UNKNOWN without provider usage"
+    },
+    {
+      "id": "main_cumulative_input_tokens",
+      "group": "context",
+      "unit": "tokens",
+      "numerator": "sum of Main prompt tokens",
+      "denominator": "runs",
+      "missing": "UNKNOWN"
+    },
+    {
+      "id": "main_cache_hit_tokens",
+      "group": "context",
+      "unit": "tokens",
+      "numerator": "prompt-cache hit tokens reported by the provider",
+      "denominator": "runs",
+      "missing": "UNKNOWN, never 0"
+    },
+    {
+      "id": "main_cache_miss_tokens",
+      "group": "context",
+      "unit": "tokens",
+      "numerator": "prompt-cache miss tokens reported by the provider",
+      "denominator": "runs",
+      "missing": "UNKNOWN, never 0"
+    },
+    {
+      "id": "child_total_prompt_tokens",
+      "group": "context",
+      "unit": "tokens",
+      "numerator": "sum of child prompt tokens",
+      "denominator": "runs",
+      "missing": "0 when no child ran"
+    },
+    {
+      "id": "system_total_tokens",
+      "group": "context",
+      "unit": "tokens",
+      "numerator": "all prompt and completion tokens of the run",
+      "denominator": "runs",
+      "missing": "UNKNOWN"
+    },
+    {
+      "id": "completion_tokens",
+      "group": "context",
+      "unit": "tokens",
+      "numerator": "Main plus child completion tokens",
+      "denominator": "runs",
+      "missing": "UNKNOWN"
+    },
+    {
+      "id": "wall_clock_seconds",
+      "group": "context",
+      "unit": "seconds",
+      "numerator": "run duration measured by the runner",
+      "denominator": "runs",
+      "missing": "UNKNOWN"
+    },
+    {
+      "id": "handoff_payload_chars",
+      "group": "context",
+      "unit": "chars",
+      "numerator": "characters the handoff delivered to the Main",
+      "denominator": "runs",
+      "missing": "0 when no handoff was produced"
+    },
+    {
+      "id": "duplicate_investigation_files",
+      "group": "context",
+      "unit": "files",
+      "numerator": "files the Main re-read after a child had read them, excluding integration reads recorded with a reason",
+      "denominator": "runs with a handoff",
+      "missing": "UNKNOWN when no handoff exists"
+    },
+    {
+      "id": "public_test_calls",
+      "group": "verification",
+      "unit": "calls",
+      "numerator": "run_public_tests invocations",
+      "denominator": "runs",
+      "missing": "0"
+    },
+    {
+      "id": "public_test_pass",
+      "group": "verification",
+      "unit": "boolean",
+      "numerator": "the last public suite run exited 0",
+      "denominator": "runs",
+      "missing": "FAIL"
+    },
+    {
+      "id": "repair_attempts",
+      "group": "verification",
+      "unit": "count",
+      "numerator": "file edits made after a failing public suite run",
+      "denominator": "runs",
+      "missing": "0"
+    },
+    {
+      "id": "changed_files",
+      "group": "verification",
+      "unit": "files",
+      "numerator": "files in the exported workspace patch",
+      "denominator": "runs",
+      "missing": "0"
+    },
+    {
+      "id": "ownership_denials",
+      "group": "verification",
+      "unit": "calls",
+      "numerator": "actions refused by the ownership policy",
+      "denominator": "runs",
+      "missing": "0"
+    }
+  ],
+  "plan": {
+    "seed": 20261119,
+    "repetitions": 2,
+    "cells": [
+      {
+        "cell_id": "zonelint.P1.r1",
+        "task_id": "zonelint",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 1,
+        "order": 1
+      },
+      {
+        "cell_id": "slugkit.P2.r1",
+        "task_id": "slugkit",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 1,
+        "order": 2
+      },
+      {
+        "cell_id": "pager.P3.r1",
+        "task_id": "pager",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 1,
+        "order": 3
+      },
+      {
+        "cell_id": "cascade.P1.r1",
+        "task_id": "cascade",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 1,
+        "order": 4
+      },
+      {
+        "cell_id": "retrygate.P2.r1",
+        "task_id": "retrygate",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 1,
+        "order": 5
+      },
+      {
+        "cell_id": "ledgerclose.P3.r1",
+        "task_id": "ledgerclose",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 1,
+        "order": 6
+      },
+      {
+        "cell_id": "zonelint.P2.r1",
+        "task_id": "zonelint",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 2,
+        "order": 7
+      },
+      {
+        "cell_id": "slugkit.P3.r1",
+        "task_id": "slugkit",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 2,
+        "order": 8
+      },
+      {
+        "cell_id": "pager.P1.r1",
+        "task_id": "pager",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 2,
+        "order": 9
+      },
+      {
+        "cell_id": "cascade.P2.r1",
+        "task_id": "cascade",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 2,
+        "order": 10
+      },
+      {
+        "cell_id": "retrygate.P3.r1",
+        "task_id": "retrygate",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 2,
+        "order": 11
+      },
+      {
+        "cell_id": "ledgerclose.P1.r1",
+        "task_id": "ledgerclose",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 2,
+        "order": 12
+      },
+      {
+        "cell_id": "zonelint.P3.r1",
+        "task_id": "zonelint",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 3,
+        "order": 13
+      },
+      {
+        "cell_id": "slugkit.P1.r1",
+        "task_id": "slugkit",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 3,
+        "order": 14
+      },
+      {
+        "cell_id": "pager.P2.r1",
+        "task_id": "pager",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 3,
+        "order": 15
+      },
+      {
+        "cell_id": "cascade.P3.r1",
+        "task_id": "cascade",
+        "arm_id": "P3",
+        "repetition": 1,
+        "round": 3,
+        "order": 16
+      },
+      {
+        "cell_id": "retrygate.P1.r1",
+        "task_id": "retrygate",
+        "arm_id": "P1",
+        "repetition": 1,
+        "round": 3,
+        "order": 17
+      },
+      {
+        "cell_id": "ledgerclose.P2.r1",
+        "task_id": "ledgerclose",
+        "arm_id": "P2",
+        "repetition": 1,
+        "round": 3,
+        "order": 18
+      },
+      {
+        "cell_id": "ledgerclose.P2.r2",
+        "task_id": "ledgerclose",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 1,
+        "order": 19
+      },
+      {
+        "cell_id": "slugkit.P3.r2",
+        "task_id": "slugkit",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 1,
+        "order": 20
+      },
+      {
+        "cell_id": "cascade.P1.r2",
+        "task_id": "cascade",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 1,
+        "order": 21
+      },
+      {
+        "cell_id": "zonelint.P2.r2",
+        "task_id": "zonelint",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 1,
+        "order": 22
+      },
+      {
+        "cell_id": "pager.P3.r2",
+        "task_id": "pager",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 1,
+        "order": 23
+      },
+      {
+        "cell_id": "retrygate.P1.r2",
+        "task_id": "retrygate",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 1,
+        "order": 24
+      },
+      {
+        "cell_id": "ledgerclose.P3.r2",
+        "task_id": "ledgerclose",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 2,
+        "order": 25
+      },
+      {
+        "cell_id": "slugkit.P1.r2",
+        "task_id": "slugkit",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 2,
+        "order": 26
+      },
+      {
+        "cell_id": "cascade.P2.r2",
+        "task_id": "cascade",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 2,
+        "order": 27
+      },
+      {
+        "cell_id": "zonelint.P3.r2",
+        "task_id": "zonelint",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 2,
+        "order": 28
+      },
+      {
+        "cell_id": "pager.P1.r2",
+        "task_id": "pager",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 2,
+        "order": 29
+      },
+      {
+        "cell_id": "retrygate.P2.r2",
+        "task_id": "retrygate",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 2,
+        "order": 30
+      },
+      {
+        "cell_id": "ledgerclose.P1.r2",
+        "task_id": "ledgerclose",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 3,
+        "order": 31
+      },
+      {
+        "cell_id": "slugkit.P2.r2",
+        "task_id": "slugkit",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 3,
+        "order": 32
+      },
+      {
+        "cell_id": "cascade.P3.r2",
+        "task_id": "cascade",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 3,
+        "order": 33
+      },
+      {
+        "cell_id": "zonelint.P1.r2",
+        "task_id": "zonelint",
+        "arm_id": "P1",
+        "repetition": 2,
+        "round": 3,
+        "order": 34
+      },
+      {
+        "cell_id": "pager.P2.r2",
+        "task_id": "pager",
+        "arm_id": "P2",
+        "repetition": 2,
+        "round": 3,
+        "order": 35
+      },
+      {
+        "cell_id": "retrygate.P3.r2",
+        "task_id": "retrygate",
+        "arm_id": "P3",
+        "repetition": 2,
+        "round": 3,
+        "order": 36
+      }
+    ],
+    "digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+    "balance": {
+      "cells": 36,
+      "unique_pairs": true,
+      "complete_pairs": true,
+      "each_arm_in_each_round": true,
+      "first_arm_by_repetition": {
+        "1": "P1",
+        "2": "P2"
+      },
+      "first_arm_differs_across_repetitions": true
+    }
+  },
+  "stopping_rules": [
+    "Every attempt enters the denominator; a failed or aborted run is never dropped or retried.",
+    "A run that exhausts the budget is a result, not an incident: it is recorded, not repeated.",
+    "The matrix is executed in the frozen order; an operator may stop the batch between cells for cost or infrastructure reasons, and a stopped batch is reported as incomplete together with the cells that ran.",
+    "No cell is re-run because its outcome looks unhelpful. A re-run is a new, separately registered experiment.",
+    "If the sandbox provider is unavailable, the affected cells are recorded as INFRASTRUCTURE_BLOCKED and the batch pauses; they are not silently skipped."
+  ],
+  "leak_rules": [
+    "The oracle program and the reference implementation live on the Host and are never provisioned into an agent-readable workspace.",
+    "The oracle runs after the agent stops, inside the sandbox, from a command the agent never sees.",
+    "The goal text carries no statement about the experiment, no worker count and no delegation instruction.",
+    "The private tool payload corpus is not published with the results.",
+    "Raw evidence is collected before any summarising, so a reporting defect cannot lose a run."
+  ],
+  "analysis": {
+    "schema_version": "stage-b-result/1.0",
+    "paired_unit": [
+      "task_id",
+      "repetition"
+    ],
+    "counted_separately": [
+      "provider_requests",
+      "assistant_turns",
+      "tool_calls"
+    ],
+    "reconstruction_source": [
+      "session.json",
+      "tool_conversations.json",
+      "transcript.jsonl"
+    ],
+    "never_inferred_from": [
+      "session.main.turns"
+    ],
+    "exploratory_note": "Three arms times six tasks times two repetitions is an exploratory design. A difference is a description of these runs, not an estimate of a general effect."
+  }
+}

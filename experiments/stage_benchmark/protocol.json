@@ -1,7 +1,46 @@
 {
   "stage": "B",
-  "protocol_version": "1.0.0",
-  "analysis_schema_version": "stage-b-result/1.0",
+  "protocol_version": "1.1.0",
+  "supersedes": "1.0.0",
+  "revisions": [
+    {
+      "id": "E1-1",
+      "area": "token_and_cost_accounting",
+      "change": "the estimate decomposes usage into five fields, each counted once; the child prompt is priced at the miss rate but is no longer added to the token total twice",
+      "rationale": "EXPECTED per-run was 306124 tokens; the same evidence gives 299022"
+    },
+    {
+      "id": "E1-2",
+      "area": "router_admission",
+      "change": "admission is decided per proposal from the router's own decision record, with five states; route=direct is a rejection, not an admission",
+      "rationale": "a non-empty routes list said nothing about whether anyone was admitted"
+    },
+    {
+      "id": "E1-3",
+      "area": "delegation_effectiveness",
+      "change": "effectiveness becomes an L1-L6 ladder; delegation_mechanism_completion_rate is the mechanical metric, effective_delegation_rate is a labelled proxy, both over proposals",
+      "rationale": "child success plus a later file edit proved ordering, not that the Main used the findings; a Direct run was scored zero by construction"
+    },
+    {
+      "id": "E1-4",
+      "area": "failure_classification",
+      "change": "failure is classified from status, stop reason, sandbox lifecycle and tool outcome into nine classes, with a primary cause, contributing diagnostics and a confidence; unknown is kept when the evidence does not decide",
+      "rationale": "every failure without a public test run used to be labelled goal"
+    },
+    {
+      "id": "E1-5",
+      "area": "metric_coverage",
+      "change": "each metric declares its evidence path and is reported MEASURED, UNKNOWN or UNSUPPORTED per record; repair_attempts becomes post_failure_edits",
+      "rationale": "a resolver that always returns None is not a measurement"
+    },
+    {
+      "id": "E1-6",
+      "area": "proposal_matching",
+      "change": "the flat tool-call list now shares the turn's call objects, so a call carries its own result; tool errors and denials were silently zero before",
+      "rationale": "results were attached to one object and read from a copy of it"
+    }
+  ],
+  "analysis_schema_version": "stage-b-result/1.1",
   "questions": [
     {
       "id": "RQ1",
@@ -564,7 +603,9 @@
       "unit": "rate",
       "numerator": "runs with oracle PASS",
       "denominator": "all attempts",
-      "missing": "counted as FAIL, never dropped"
+      "missing": "counted as FAIL, never dropped",
+      "definition": "share of attempts whose independent host-side oracle returned PASS",
+      "counterexample": "test_1_direct_pass_is_not_scored_as_failed_delegation"
     },
     {
       "id": "goal_success_rate",
@@ -572,7 +613,9 @@
       "unit": "rate",
       "numerator": "runs whose public suite and oracle both pass",
       "denominator": "all attempts",
-      "missing": "counted as FAIL"
+      "missing": "counted as FAIL",
+      "definition": "share of attempts whose public suite and oracle both passed",
+      "counterexample": "test_2b_a_direct_run_that_fails_its_goal_is_a_goal_failure"
     },
     {
       "id": "budget_exhaustion_rate",
@@ -580,15 +623,29 @@
       "unit": "rate",
       "numerator": "runs that stopped with budget_exceeded",
       "denominator": "all attempts",
-      "missing": "UNKNOWN if the stop reason is absent"
+      "missing": "UNKNOWN if the stop reason is absent",
+      "definition": "share of attempts the token guardrail stopped with budget_exceeded",
+      "counterexample": "test_9_budget_exhaustion_with_missing_session_turns"
     },
     {
       "id": "runtime_failure_rate",
       "group": "primary",
       "unit": "rate",
-      "numerator": "runs that failed for a runtime, sandbox or tool fault",
+      "numerator": "runs whose primary failure class is runtime or sandbox",
       "denominator": "all attempts",
-      "missing": "counted as FAIL, classified in failure_class"
+      "missing": "counted as FAIL; a tool or execution fault keeps its own class",
+      "definition": "share of attempts whose primary failure class is runtime or sandbox",
+      "counterexample": "test_12_runtime_internal_failure_is_not_a_goal_failure"
+    },
+    {
+      "id": "unknown_failure_rate",
+      "group": "primary",
+      "unit": "rate",
+      "numerator": "runs whose primary failure class could not be determined from evidence",
+      "denominator": "all attempts",
+      "missing": "UNKNOWN is a value, never a guess at a cause",
+      "definition": "share of attempts whose primary failure class the evidence cannot decide",
+      "counterexample": "test_12b_an_unexplained_stop_is_unknown_not_goal"
     },
     {
       "id": "delegation_proposal_rate",
@@ -596,15 +653,27 @@
       "unit": "rate",
       "numerator": "runs with at least one delegate_tasks call",
       "denominator": "all attempts",
-      "missing": "0 when the tool was on the surface"
+      "missing": "0 when the tool was on the surface",
+      "definition": "share of attempts in which the Main called delegate_tasks at least once",
+      "counterexample": "test_5_child_succeeded_but_main_never_continued"
     },
     {
       "id": "router_admission_rate",
       "group": "delegation",
       "unit": "rate",
-      "numerator": "proposals admitted by the router",
+      "numerator": "proposals whose router result admitted at least one child",
       "denominator": "proposals",
-      "missing": "UNKNOWN when no proposal exists"
+      "missing": "UNKNOWN when no proposal exists; route=direct admits nobody and is a decision",
+      "returns": "pair",
+      "states": [
+        "NO_PROPOSAL",
+        "PROPOSAL_REJECTED",
+        "DELEGATE_ONE_ADMITTED",
+        "DELEGATE_PARALLEL_ADMITTED",
+        "ROUTER_RESULT_UNKNOWN"
+      ],
+      "definition": "admitted proposals over proposed ones; route=direct admits nobody",
+      "counterexample": "test_15_multiple_proposals_are_counted_one_by_one"
     },
     {
       "id": "child_completion_rate",
@@ -612,15 +681,50 @@
       "unit": "rate",
       "numerator": "children that ended successfully",
       "denominator": "children started",
-      "missing": "UNKNOWN when no child started"
+      "missing": "UNKNOWN when no child started",
+      "definition": "children that ended successfully over children the router admitted",
+      "counterexample": "test_3_admitted_but_failed_worker_stops_the_ladder_at_l2"
+    },
+    {
+      "id": "delegation_mechanism_completion_rate",
+      "group": "delegation",
+      "unit": "rate",
+      "numerator": "runs that reached L2, L3, L4 and L5 of the delegation ladder",
+      "denominator": "runs with a proposal",
+      "missing": "UNKNOWN when no proposal exists; a Direct run has no mechanism to complete",
+      "returns": "pair",
+      "definition": "runs with a proposal that reached L2 through L5 of the ladder",
+      "counterexample": "test_5_child_succeeded_but_main_never_continued"
     },
     {
       "id": "effective_delegation_rate",
       "group": "delegation",
       "unit": "rate",
-      "numerator": "runs where a proposal was admitted, a child succeeded and the Main changed a file after the handoff",
-      "denominator": "all attempts",
-      "missing": "counted as not effective"
+      "numerator": "runs that reached L2 to L6 of the delegation ladder: admitted, worker completed, handoff delivered, Main continued, and the run passed its public suite and oracle",
+      "denominator": "runs with a proposal",
+      "missing": "UNKNOWN when no proposal exists; it is a proxy, not an attribution",
+      "returns": "pair",
+      "interpretation": "observable proxy: L6 is the correctness of the run and is not caused by the delegation; the ladder orders evidence, it does not establish benefit",
+      "definition": "runs with a proposal that reached L2 through L6; an observable proxy",
+      "counterexample": "test_6_delegation_completed_but_the_goal_failed"
+    },
+    {
+      "id": "delegation_level_reached",
+      "group": "delegation",
+      "unit": "level",
+      "numerator": "highest contiguous level of the L1-L6 ladder",
+      "denominator": "runs with a proposal",
+      "missing": "UNKNOWN when no proposal exists",
+      "levels": {
+        "L1_proposal": "the Main called delegate_tasks",
+        "L2_admission": "the router admitted at least one worker",
+        "L3_worker_completion": "every admitted worker completed successfully",
+        "L4_handoff_delivery": "a usable handoff reached the Main",
+        "L5_main_continuation": "the Main edited or tested after the handoff",
+        "L6_goal_correctness": "public suite and oracle passed"
+      },
+      "definition": "highest contiguous level of the L1-L6 ladder",
+      "counterexample": "test_3_admitted_but_failed_worker_stops_the_ladder_at_l2"
     },
     {
       "id": "direct_execution_rate",
@@ -628,7 +732,9 @@
       "unit": "rate",
       "numerator": "runs with no delegate_tasks call",
       "denominator": "all attempts",
-      "missing": "0"
+      "missing": "0",
+      "definition": "share of attempts with no delegate_tasks call at all",
+      "counterexample": "test_1_direct_pass_is_not_scored_as_failed_delegation"
     },
     {
       "id": "invalid_capability_delegation_rate",
@@ -636,7 +742,9 @@
       "unit": "rate",
       "numerator": "runs where a delegated objective required a tool the profile does not have",
       "denominator": "runs with a proposal",
-      "missing": "UNKNOWN when no proposal exists"
+      "missing": "UNKNOWN when no proposal exists",
+      "definition": "runs with a proposal whose objective required a tool the profile lacks",
+      "counterexample": "test_8_a_read_only_worker_asked_to_execute_is_an_invalid_assignment"
     },
     {
       "id": "late_delegation_rate",
@@ -644,7 +752,9 @@
       "unit": "rate",
       "numerator": "runs whose first delegate_tasks call came after turn LATE_DELEGATION_TURN_THRESHOLD, or after the first file edit",
       "denominator": "runs with a proposal",
-      "missing": "UNKNOWN when no proposal exists; the threshold is pre-registered, not discovered"
+      "missing": "UNKNOWN when no proposal exists; the threshold is pre-registered, not discovered",
+      "definition": "runs whose first proposal came after the pre-registered turn threshold or after the first implementation edit",
+      "counterexample": "test_16_a_proposal_after_the_first_edit_is_late"
     },
     {
       "id": "first_delegation_turn",
@@ -652,7 +762,9 @@
       "unit": "turn",
       "numerator": "turn index of the first delegate_tasks call",
       "denominator": "runs with a proposal",
-      "missing": "UNKNOWN when no proposal exists"
+      "missing": "UNKNOWN when no proposal exists",
+      "definition": "assistant turn index of the first delegate_tasks call",
+      "counterexample": "test_2_a_rejected_proposal_is_not_an_admission"
     },
     {
       "id": "first_implementation_turn",
@@ -660,7 +772,9 @@
       "unit": "turn",
       "numerator": "turn index of the first file_edit or file_write",
       "denominator": "all attempts",
-      "missing": "UNKNOWN when nothing was written"
+      "missing": "UNKNOWN when nothing was written",
+      "definition": "assistant turn index of the first file_edit or file_write",
+      "counterexample": "test_1_direct_pass_is_not_scored_as_failed_delegation"
     },
     {
       "id": "main_peak_context_tokens",
@@ -668,7 +782,9 @@
       "unit": "tokens",
       "numerator": "max prompt tokens over Main requests",
       "denominator": "runs",
-      "missing": "UNKNOWN without provider usage"
+      "missing": "UNKNOWN without provider usage",
+      "definition": "maximum prompt tokens over the Main's provider requests",
+      "counterexample": "test_12_missing_usage_fields_stay_missing"
     },
     {
       "id": "main_cumulative_input_tokens",
@@ -676,7 +792,9 @@
       "unit": "tokens",
       "numerator": "sum of Main prompt tokens",
       "denominator": "runs",
-      "missing": "UNKNOWN"
+      "missing": "UNKNOWN",
+      "definition": "sum of the Main's prompt tokens across its requests",
+      "counterexample": "test_12_missing_usage_fields_stay_missing"
     },
     {
       "id": "main_cache_hit_tokens",
@@ -684,7 +802,9 @@
       "unit": "tokens",
       "numerator": "prompt-cache hit tokens reported by the provider",
       "denominator": "runs",
-      "missing": "UNKNOWN, never 0"
+      "missing": "UNKNOWN, never 0",
+      "definition": "prompt-cache hit tokens the provider reported for the Main",
+      "counterexample": "test_12_missing_usage_fields_stay_missing"
     },
     {
       "id": "main_cache_miss_tokens",
@@ -692,7 +812,9 @@
       "unit": "tokens",
       "numerator": "prompt-cache miss tokens reported by the provider",
       "denominator": "runs",
-      "missing": "UNKNOWN, never 0"
+      "missing": "UNKNOWN, never 0",
+      "definition": "prompt-cache miss tokens the provider reported for the Main",
+      "counterexample": "test_12_missing_usage_fields_stay_missing"
     },
     {
       "id": "child_total_prompt_tokens",
@@ -700,7 +822,9 @@
       "unit": "tokens",
       "numerator": "sum of child prompt tokens",
       "denominator": "runs",
-      "missing": "0 when no child ran"
+      "missing": "0 when no child ran",
+      "definition": "sum of child prompt tokens; counted once, never added to a cache split",
+      "counterexample": "test_4_two_children_complete_in_parallel"
     },
     {
       "id": "system_total_tokens",
@@ -708,7 +832,9 @@
       "unit": "tokens",
       "numerator": "all prompt and completion tokens of the run",
       "denominator": "runs",
-      "missing": "UNKNOWN"
+      "missing": "UNKNOWN",
+      "definition": "main input + child input + main completion + child completion",
+      "counterexample": "test_12_missing_usage_fields_stay_missing"
     },
     {
       "id": "completion_tokens",
@@ -716,7 +842,9 @@
       "unit": "tokens",
       "numerator": "Main plus child completion tokens",
       "denominator": "runs",
-      "missing": "UNKNOWN"
+      "missing": "UNKNOWN",
+      "definition": "main plus child completion tokens",
+      "counterexample": "test_12_missing_usage_fields_stay_missing"
     },
     {
       "id": "wall_clock_seconds",
@@ -724,7 +852,9 @@
       "unit": "seconds",
       "numerator": "run duration measured by the runner",
       "denominator": "runs",
-      "missing": "UNKNOWN"
+      "missing": "UNKNOWN",
+      "definition": "run duration measured by the runner around the whole cell",
+      "counterexample": "test_every_declared_metric_reports_a_status_on_a_complete_record"
     },
     {
       "id": "handoff_payload_chars",
@@ -732,15 +862,20 @@
       "unit": "chars",
       "numerator": "characters the handoff delivered to the Main",
       "denominator": "runs",
-      "missing": "0 when no handoff was produced"
+      "missing": "0 when no handoff was produced",
+      "definition": "characters the handoff actually delivered to the Main",
+      "counterexample": "test_17_a_missing_handoff_record_is_not_fabricated"
     },
     {
       "id": "duplicate_investigation_files",
       "group": "context",
       "unit": "files",
-      "numerator": "files the Main re-read after a child had read them, excluding integration reads recorded with a reason",
+      "numerator": "raw path overlap between a child's successful reads and the Main's post-handoff reads",
       "denominator": "runs with a handoff",
-      "missing": "UNKNOWN when no handoff exists"
+      "missing": "UNKNOWN when no handoff or no child read exists",
+      "interpretation": "a shared path is not redundancy: a necessary integration read looks identical. The count is reported raw and meaningful duplication requires review",
+      "definition": "raw path overlap between a child's successful reads and the Main's post-handoff reads",
+      "counterexample": "test_14_a_shared_read_is_counted_raw_not_called_redundant"
     },
     {
       "id": "public_test_calls",
@@ -748,7 +883,9 @@
       "unit": "calls",
       "numerator": "run_public_tests invocations",
       "denominator": "runs",
-      "missing": "0"
+      "missing": "0",
+      "definition": "number of run_public_tests invocations",
+      "counterexample": "test_17_edits_after_a_failing_suite_are_post_failure_edits"
     },
     {
       "id": "public_test_pass",
@@ -756,15 +893,20 @@
       "unit": "boolean",
       "numerator": "the last public suite run exited 0",
       "denominator": "runs",
-      "missing": "FAIL"
+      "missing": "FAIL",
+      "definition": "whether the last public suite run exited zero",
+      "counterexample": "test_6_delegation_completed_but_the_goal_failed"
     },
     {
-      "id": "repair_attempts",
+      "id": "post_failure_edits",
       "group": "verification",
       "unit": "count",
-      "numerator": "file edits made after a failing public suite run",
+      "numerator": "file edits made after the first failing public suite run",
       "denominator": "runs",
-      "missing": "0"
+      "missing": "0 when no public suite run failed",
+      "interpretation": "a count of edits after a failure, not a claim that each one was a repair: causality between a failure and an edit is not observable",
+      "definition": "file edits made after the first failing public suite run",
+      "counterexample": "test_17_edits_after_a_failing_suite_are_post_failure_edits"
     },
     {
       "id": "changed_files",
@@ -772,7 +914,9 @@
       "unit": "files",
       "numerator": "files in the exported workspace patch",
       "denominator": "runs",
-      "missing": "0"
+      "missing": "0",
+      "definition": "files present in the exported workspace patch",
+      "counterexample": "test_17_edits_after_a_failing_suite_are_post_failure_edits"
     },
     {
       "id": "ownership_denials",
@@ -780,7 +924,9 @@
       "unit": "calls",
       "numerator": "actions refused by the ownership policy",
       "denominator": "runs",
-      "missing": "0"
+      "missing": "0",
+      "definition": "actions the ownership policy refused",
+      "counterexample": "test_11b_a_single_ownership_denial_is_not_a_run_failure"
     }
   ],
   "plan": {
@@ -1104,7 +1250,8 @@
     "Raw evidence is collected before any summarising, so a reporting defect cannot lose a run."
   ],
   "analysis": {
-    "schema_version": "stage-b-result/1.0",
+    "schema_version": "stage-b-result/1.1",
+    "analyzer_version": "stage-b-reconstruct/1.1",
     "paired_unit": [
       "task_id",
       "repetition"
@@ -1121,6 +1268,37 @@
     ],
     "never_inferred_from": [
       "session.main.turns"
+    ],
+    "failure_classes": [
+      "none",
+      "goal",
+      "budget",
+      "turn_limit",
+      "runtime",
+      "sandbox",
+      "tool",
+      "blocked",
+      "unknown"
+    ],
+    "proposal_states": [
+      "NO_PROPOSAL",
+      "PROPOSAL_REJECTED",
+      "DELEGATE_ONE_ADMITTED",
+      "DELEGATE_PARALLEL_ADMITTED",
+      "ROUTER_RESULT_UNKNOWN"
+    ],
+    "delegation_levels": [
+      "L1_proposal",
+      "L2_admission",
+      "L3_worker_completion",
+      "L4_handoff_delivery",
+      "L5_main_continuation",
+      "L6_goal_correctness"
+    ],
+    "metric_status_values": [
+      "MEASURED",
+      "UNKNOWN",
+      "UNSUPPORTED"
     ],
     "exploratory_note": "Three arms times six tasks times two repetitions is an exploratory design. A difference is a description of these runs, not an estimate of a general effect."
   }

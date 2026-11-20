@@ -1,24 +1,62 @@
 {
+  "protocol_version": "1.1.0",
   "cells": 36,
+  "usage_fields": [
+    "main_prompt_hit_tokens",
+    "main_prompt_miss_tokens",
+    "child_prompt_tokens",
+    "main_completion_tokens",
+    "child_completion_tokens"
+  ],
   "scenarios": {
     "LOW": {
-      "per_run_tokens": 229592,
-      "total_tokens": 8265312,
+      "usage": {
+        "main_prompt_hit_tokens": 198480.0,
+        "main_prompt_miss_tokens": 18132.0,
+        "child_prompt_tokens": 5326.1,
+        "main_completion_tokens": 2092.9,
+        "child_completion_tokens": 235.5
+      },
+      "per_run_tokens": 224266.5,
+      "total_tokens": 8073594.0,
       "per_run_cost_usd": 0.011022,
       "total_cost_usd": 0.3968
     },
     "EXPECTED": {
-      "per_run_tokens": 306124,
-      "total_tokens": 11020464,
+      "usage": {
+        "main_prompt_hit_tokens": 264640.0,
+        "main_prompt_miss_tokens": 24176.0,
+        "child_prompt_tokens": 7101.5,
+        "main_completion_tokens": 2790.5,
+        "child_completion_tokens": 314.0
+      },
+      "per_run_tokens": 299022.0,
+      "total_tokens": 10764792.0,
       "per_run_cost_usd": 0.014696,
       "total_cost_usd": 0.5291
     },
     "HIGH": {
-      "per_run_tokens": 514832,
-      "total_tokens": 18533952,
-      "per_run_cost_usd": 0.025116,
-      "total_cost_usd": 0.9042
+      "usage": {
+        "main_prompt_hit_tokens": 442509.4,
+        "main_prompt_miss_tokens": 40425.1,
+        "child_prompt_tokens": 11874.5,
+        "main_completion_tokens": 4666.0,
+        "child_completion_tokens": 525.0
+      },
+      "per_run_tokens": 500000.0,
+      "total_tokens": 18000000.0,
+      "per_run_cost_usd": 0.024574,
+      "total_cost_usd": 0.8847
     }
+  },
+  "budget_semantics": "the shared token budget is an admission limit used by the guard, not an observed ceiling; the HIGH scenario assumes a run consumes exactly that much and is a model, not a measurement",
+  "child_cache_visibility": "UNKNOWN",
+  "child_pricing_rule": "child prompt tokens are billed at the cache-miss rate because the provider reports no child cache split; they are counted once and never reported as misses",
+  "value_types": {
+    "provider_reported_usage": "prompt/completion tokens and the main cache split, as the provider reported them",
+    "budget_admission_estimate": "the shared 500000-token guard limit: an admission threshold the runtime enforces, not a measured ceiling and not a bill",
+    "pricing_estimate": "USD derived from the frozen per-million snapshot in experiments/configs/eval-benchmark.yaml",
+    "actual_billing": "UNKNOWN: the provider exposes no per-run invoice"
   },
   "simultaneous_children": 2,
   "wall_clock": {
@@ -39,19 +77,56 @@
     "basis": "frozen config; the file itself labels it an upper bound for deepseek-chat"
   },
   "observed_profile": {
-    "cache_hit_input_tokens": 264640,
-    "cache_miss_input_tokens": 31278,
-    "output_tokens": 2790,
-    "child_prompt_tokens": 7102,
-    "child_output_tokens": 314,
-    "total_tokens": 299022
+    "per_run": {
+      "main_prompt_hit_tokens": 264640.0,
+      "main_prompt_miss_tokens": 24176.0,
+      "child_prompt_tokens": 7101.5,
+      "main_completion_tokens": 2790.5,
+      "child_completion_tokens": 314.0
+    },
+    "per_run_total": 299022.0,
+    "runs": [
+      {
+        "run_id": "stage-s1-20261119T094539Z",
+        "usage": {
+          "main_prompt_hit_tokens": 350592,
+          "main_prompt_miss_tokens": 29610,
+          "child_prompt_tokens": 14203,
+          "main_completion_tokens": 2267,
+          "child_completion_tokens": 628
+        },
+        "total_from_usage": 397300,
+        "system_total_tokens": 397300,
+        "usage_sums_agree": true,
+        "main_input_tokens": 380202,
+        "cache_split_agrees": true
+      },
+      {
+        "run_id": "stage-s2-20261119T103641Z",
+        "usage": {
+          "main_prompt_hit_tokens": 178688,
+          "main_prompt_miss_tokens": 18742,
+          "child_prompt_tokens": 0,
+          "main_completion_tokens": 3314,
+          "child_completion_tokens": 0
+        },
+        "total_from_usage": 200744,
+        "system_total_tokens": 200744,
+        "usage_sums_agree": true,
+        "main_input_tokens": 197430,
+        "cache_split_agrees": true
+      }
+    ],
+    "all_usage_sums_agree": true,
+    "main_input_identity_holds": true,
+    "runs_with_complete_split": 2
   },
   "assumptions": [
     "one run costs about what one prompt pilot cost; the tasks are comparable, not equal",
-    "the HIGH scenario assumes every run spends its whole 500000-token budget",
+    "the HIGH scenario assumes a run consumes its whole 500000-token admission budget",
     "cache behaviour is held at the observed mixture; a cold cache raises the miss share",
+    "child prompt tokens are priced as misses because no child cache split is reported",
     "the price is the frozen snapshot, not a live quote"
   ],
-  "stage": "B",
-  "protocol_version": "1.0.0"
+  "stage": "B"
 }

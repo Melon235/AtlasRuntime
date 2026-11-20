@@ -1,6 +1,6 @@
 {
   "stage": "B",
-  "protocol_version": "1.0.0",
+  "protocol_version": "1.1.0",
   "plan": {
     "seed": 20261119,
     "repetitions": 2,

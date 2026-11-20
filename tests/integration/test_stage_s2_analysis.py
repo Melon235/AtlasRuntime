@@ -19,7 +19,7 @@ from typing import Any
 STAGE_DIR = Path(__file__).resolve().parents[2] / "experiments" / "stage_s2_prompt_v21"
 sys.path.insert(0, str(STAGE_DIR))
 
-import s2_analysis as analysis  # noqa: E402
+import s2_analysis as analysis  # noqa: E402  # pyright: ignore[reportMissingImports]
 
 MAIN = "run-main"
 

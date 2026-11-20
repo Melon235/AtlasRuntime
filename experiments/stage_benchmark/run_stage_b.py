@@ -8,6 +8,7 @@ yet. A missing command is a cheaper guarantee than a guarded one.
     --plan      rebuild protocol.json and plan.json from the code
     --freeze    write freeze.json; refuses unless --offline passed
     --estimate  write estimate.json from the frozen price block and the two observed pilots
+    --coverage  write coverage.json, the metric coverage matrix
     --check     re-derive everything and report READY or BLOCKED
 """
 
@@ -38,6 +39,11 @@ from experiments.stage_benchmark.tasks import base as task_base  # noqa: E402
 OFFLINE_PATH = STAGE_DIR / "offline.json"
 FREEZE_PATH = STAGE_DIR / "freeze.json"
 ESTIMATE_PATH = STAGE_DIR / "estimate.json"
+COVERAGE_PATH = STAGE_DIR / "coverage.json"
+ARCHIVE_DIR = STAGE_DIR / "archive" / "v1.0"
+
+#: The plan published by protocol 1.0.0. Metric semantics may move; the order may not.
+HISTORICAL_PLAN_DIGEST = "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648"
 
 RUNTIME_SOURCE_ROOT = REPO_ROOT / "src" / "atlasos"
 
@@ -247,6 +253,9 @@ def write_freeze(
     offline = json.loads(OFFLINE_PATH.read_text(encoding="utf-8"))
     if not offline.get("passed"):
         raise SystemExit("refusing to freeze: the offline suite did not pass")
+    if not COVERAGE_PATH.is_file():
+        raise SystemExit("refusing to freeze: --coverage has not been run")
+    coverage = json.loads(COVERAGE_PATH.read_text(encoding="utf-8"))
 
     protocol_bytes = (STAGE_DIR / "protocol.json").read_bytes()
     historical = {}
@@ -310,8 +319,19 @@ def write_freeze(
         },
         "estimate": {
             "path": "experiments/stage_benchmark/estimate.json",
-            "digest": digest_text(json.dumps(estimate_payload, sort_keys=True)),
+            "digest": digest_bytes(ESTIMATE_PATH.read_bytes())
+            if ESTIMATE_PATH.is_file()
+            else digest_text(json.dumps(estimate_payload, sort_keys=True)),
             "cells": estimate_payload["cells"],
+        },
+        "coverage": {
+            "path": "experiments/stage_benchmark/coverage.json",
+            "digest": digest_bytes(COVERAGE_PATH.read_bytes()),
+            "metrics": len(coverage.get("rows") or []),
+        },
+        "archive": {
+            "path": "experiments/stage_benchmark/archive/v1.0/manifest.json",
+            "digest": digest_bytes((ARCHIVE_DIR / "manifest.json").read_bytes()),
         },
         "historical": historical,
         "calibration": dict(CALIBRATION),
@@ -325,6 +345,140 @@ def write_freeze(
 
 def _check(ok: bool, label: str, detail: str = "") -> dict[str, Any]:
     return {"ok": bool(ok), "label": label, "detail": detail}
+
+
+def build_coverage(document: Mapping[str, Any]) -> dict[str, Any]:
+    """The metric coverage matrix: evidence path, resolver, status on a complete record.
+
+    A resolver proves the metric can be *computed*; the status proves the evidence is *there*. A
+    metric that reads UNKNOWN on a complete record is a semantic fact; one that reads UNSUPPORTED is
+    a schema defect, and the check in ``check_all`` refuses it.
+    """
+
+    record = _synthetic_records()[0]
+    rows = []
+    counts: dict[str, int] = {}
+    for metric in document["metrics"]:
+        status = schema.metric_status(record, metric["id"])
+        counts[status] = counts.get(status, 0) + 1
+        rows.append(
+            {
+                "metric": metric["id"],
+                "group": metric["group"],
+                "definition": metric.get("definition"),
+                "numerator": metric.get("numerator"),
+                "denominator": metric["denominator"],
+                "evidence_source": schema.EVIDENCE_PATHS.get(metric["id"]),
+                "resolver": metric["id"] in schema.RESOLVERS,
+                "returns": metric.get("returns", "value"),
+                "missing_policy": metric["missing"],
+                "counterexample_test": metric.get("counterexample"),
+                "status_on_complete_record": status,
+            }
+        )
+    payload = {
+        "protocol_version": document["protocol_version"],
+        "schema_version": schema.SCHEMA_VERSION,
+        "analyzer_version": reconstruct.ANALYZER_VERSION,
+        "metric_count": len(rows),
+        "status_counts": counts,
+        "rows": rows,
+    }
+    COVERAGE_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return payload
+
+
+def _archive_check() -> dict[str, Any]:
+    """The 1.0 artifacts are still on disk and still hash to what 1.0 published."""
+
+    manifest_path = ARCHIVE_DIR / "manifest.json"
+    if not manifest_path.is_file():
+        return _check(False, "archive_matches_published_v1_0", "no archive manifest")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    problems = []
+    for name, entry in (manifest.get("files") or {}).items():
+        path = ARCHIVE_DIR / name
+        if not path.is_file():
+            problems.append(f"{name} is missing")
+            continue
+        actual = digest_bytes(path.read_bytes())
+        if actual != entry.get("digest"):
+            problems.append(f"{name} digest moved")
+    return _check(
+        not problems,
+        "archive_matches_published_v1_0",
+        "; ".join(problems) or f"{len(manifest.get('files') or {})} files intact",
+    )
+
+
+def _archive_invariants(document: Mapping[str, Any]) -> dict[str, Any]:
+    """1.0 froze the inputs; 1.1 may only have moved the statistics.
+
+    Every model-facing input — the run configuration, the three prompt bytes, the six task digests
+    and the 36-cell plan — is compared against the archived 1.0 freeze. A difference here means the
+    revision changed the experiment instead of its measurement.
+    """
+
+    path = ARCHIVE_DIR / "freeze.json"
+    if not path.is_file():
+        return _check(False, "inputs_unchanged_since_1_0", "no archived 1.0 freeze")
+    archived = json.loads(path.read_text(encoding="utf-8"))
+    problems: list[str] = []
+
+    if dict(archived.get("config") or {}) != dict(document["run_config"]):
+        problems.append("run_config moved")
+
+    old_prompts = archived.get("prompts") or {}
+    new_prompts = {arm["arm_id"]: arm["observed_digest"] for arm in document["arms"]}
+    for arm_id, entry in old_prompts.items():
+        if new_prompts.get(arm_id) != entry.get("digest"):
+            problems.append(f"arm {arm_id} bytes moved")
+
+    if (archived.get("plan") or {}).get("digest") != document["plan"]["digest"]:
+        problems.append("plan digest moved")
+
+    old_tasks = archived.get("tasks") or {}
+    for task in document["tasks"]:
+        entry = old_tasks.get(task["task_id"]) or {}
+        for field in (
+            "fixture_digest",
+            "goal_digest",
+            "oracle_digest",
+            "reference_digest",
+            "wrong_variants_digest",
+        ):
+            if entry.get(field) != task[field]:
+                problems.append(f"{task['task_id']}.{field} moved")
+
+    if (archived.get("runtime") or {}).get("tree_digest") != source_identity()["tree_digest"]:
+        problems.append("runtime source moved")
+
+    return _check(
+        not problems,
+        "inputs_unchanged_since_1_0",
+        "; ".join(problems) or "config, prompts, tasks and plan identical to 1.0",
+    )
+
+
+def _counterexample_check(document: Mapping[str, Any]) -> dict[str, Any]:
+    """Every row of the coverage matrix names a test that exists."""
+
+    test_file = REPO_ROOT / "tests" / "integration" / "test_stage_b_metric_closure.py"
+    if not test_file.is_file():
+        return _check(False, "every_metric_names_a_real_counterexample", "the test file is missing")
+    text = test_file.read_text(encoding="utf-8")
+    missing = sorted(
+        {
+            str(metric.get("counterexample"))
+            for metric in document["metrics"]
+            if f"def {metric.get('counterexample')}(" not in text
+        }
+    )
+    return _check(
+        not missing,
+        "every_metric_names_a_real_counterexample",
+        f"tests not found: {missing}" if missing else f"{len(document['metrics'])} rows",
+    )
 
 
 def check_all() -> dict[str, Any]:
@@ -375,6 +529,43 @@ def check_all() -> dict[str, Any]:
     metric_ids = [item["id"] for item in document["metrics"]]
     missing = schema.unresolvable(metric_ids)
     checks.append(_check(not missing, "every_metric_has_a_resolver", f"missing: {missing}"))
+
+    # A resolver is not coverage: each metric must name an evidence path the record actually has.
+    without_evidence = sorted(
+        metric["id"] for metric in document["metrics"] if metric["id"] not in schema.EVIDENCE_PATHS
+    )
+    checks.append(
+        _check(
+            not without_evidence,
+            "every_metric_names_its_evidence",
+            f"without an evidence path: {without_evidence}",
+        )
+    )
+    statuses = {
+        metric_id: schema.metric_status(_synthetic_records()[0], metric_id)
+        for metric_id in metric_ids
+    }
+    unsupported = sorted(key for key, value in statuses.items() if value == "UNSUPPORTED")
+    checks.append(
+        _check(
+            not unsupported,
+            "a_complete_record_supports_every_metric",
+            f"UNSUPPORTED on a complete record: {unsupported}",
+        )
+    )
+
+    # The plan, the arms and the run configuration are frozen; only metric semantics moved.
+    checks.append(
+        _check(
+            document["plan"]["digest"] == HISTORICAL_PLAN_DIGEST,
+            "plan_digest_unchanged",
+            f"{document['plan']['digest'][:23]} vs {HISTORICAL_PLAN_DIGEST[:23]}",
+        )
+    )
+    archive = _archive_check()
+    checks.append(archive)
+    checks.append(_archive_invariants(document))
+    checks.append(_counterexample_check(document))
 
     offline = json.loads(OFFLINE_PATH.read_text(encoding="utf-8")) if OFFLINE_PATH.is_file() else {}
     checks.append(
@@ -434,27 +625,67 @@ def _synthetic_records() -> list[dict[str, Any]]:
         "consistency": {"gaps": []},
         "delegation": {
             "proposed": False,
+            "proposals": 0,
             "children": 0,
+            "children_admitted": 0,
             "children_succeeded": 0,
             "first_delegation_turn": None,
             "first_implementation_turn": 5,
             "routes": [],
+            "admission": {
+                "proposals": 0,
+                "admitted": 0,
+                "rejected": 0,
+                "unknown": 0,
+                "state": "NO_PROPOSAL",
+            },
+            "levels": {
+                "met": {
+                    "L1_proposal": False,
+                    "L2_admission": False,
+                    "L3_worker_completion": False,
+                    "L4_handoff_delivery": False,
+                    "L5_main_continuation": False,
+                    "L6_goal_correctness": True,
+                },
+                "level_reached": 0,
+            },
+        },
+        "handoff": {
+            "delivered": False,
+            "usable": False,
+            "payload_chars": 0,
+            "overlap_files": None,
+        },
+        "capability": {"invalid": None, "basis": "no child was admitted"},
+        "failure": {"primary": "none", "contributing": [], "confidence": "HIGH"},
+        "usage": {
+            "main_prompt_hit_tokens": 1,
+            "main_prompt_miss_tokens": 1,
+            "child_prompt_tokens": 0,
+            "main_completion_tokens": 1,
+            "child_completion_tokens": 0,
+            "main_input_tokens": 2,
+            "child_input_tokens": 0,
+            "cache_split_state": "COMPLETE",
+            "child_cache_visibility": "UNKNOWN",
+            "sum_matches_system_total": True,
         },
         "context": {
             "main_peak_context_tokens": 1,
-            "main_cumulative_input_tokens": 1,
-            "main_cache_hit_tokens": None,
-            "main_cache_miss_tokens": None,
+            "main_cumulative_input_tokens": 2,
+            "main_cache_hit_tokens": 1,
+            "main_cache_miss_tokens": 1,
             "child_total_prompt_tokens": 0,
             "completion_tokens": 1,
-            "system_total_tokens": 1,
+            "system_total_tokens": 3,
             "wall_clock_seconds": 1.0,
             "handoff_payload_chars": 0,
         },
         "verification": {
             "public_test_calls": 1,
             "public_tests_passed": True,
-            "repair_attempts": 0,
+            "post_failure_edits": 0,
             "changed_files": 1,
             "ownership_denials": 0,
             "oracle": "PASS",
@@ -496,6 +727,46 @@ def _real_evidence_checks() -> list[dict[str, Any]]:
                 f"gaps recorded: {record['consistency']['gaps']}",
             )
         )
+        # The accounting identity, on a real run: input = hit + miss, and the child prompt is in
+        # the total exactly once.
+        usage = record["usage"]
+        split_identity = (
+            usage["main_input_tokens"]
+            == usage["main_prompt_hit_tokens"] + usage["main_prompt_miss_tokens"]
+        )
+        checks.append(
+            _check(
+                split_identity
+                and record["consistency"]["cache_split_agrees"] is True
+                and usage["sum_matches_system_total"] is True,
+                "s1_usage_identity_holds",
+                f"input={usage['main_input_tokens']} hit={usage['main_prompt_hit_tokens']} "
+                f"miss={usage['main_prompt_miss_tokens']} child={usage['child_prompt_tokens']}",
+            )
+        )
+        # The semantics this stage rebuilt, checked against the one run where they are known. S1
+        # delegated once, the child was refused tools it did not have and died, and the run ended
+        # on the budget with no file changed: L2 without L3, a budget failure, and an invalid
+        # capability assignment.
+        checks.append(
+            _check(
+                record["delegation"]["admission"]["state"] == "ADMITTED"
+                and record["delegation"]["admission"]["admitted"] == 1
+                and record["delegation"]["levels"]["level_reached"] == 2
+                and record["capability"]["invalid"] is True
+                and record["failure"]["primary"] == "budget"
+                and record["handoff"]["delivered"] is True
+                and record["handoff"]["usable"] is False,
+                "s1_semantics_reconstruct",
+                "admitted={} level={} invalid={} failure={} usable_handoff={}".format(
+                    record["delegation"]["admission"]["admitted"],
+                    record["delegation"]["levels"]["level_reached"],
+                    record["capability"]["invalid"],
+                    record["failure"]["primary"],
+                    record["handoff"]["usable"],
+                ),
+            )
+        )
     if s2.is_dir():
         record = reconstruct.reconstruct(s2)
         checks.append(
@@ -513,9 +784,12 @@ def _real_evidence_checks() -> list[dict[str, Any]]:
         checks.append(
             _check(
                 not record["delegation"]["proposed"]
-                and record["verification"]["goal_passed"] is True,
+                and record["delegation"]["admission"]["state"] == "NO_PROPOSAL"
+                and record["verification"]["goal_passed"] is True
+                and record["failure"]["primary"] == "none",
                 "s2_direct_pass_reconstructs",
-                f"goal_passed={record['verification']['goal_passed']}",
+                f"goal_passed={record['verification']['goal_passed']}, "
+                f"admission={record['delegation']['admission']['state']}",
             )
         )
     return checks
@@ -531,6 +805,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     group.add_argument("--plan", action="store_true")
     group.add_argument("--freeze", action="store_true")
     group.add_argument("--estimate", action="store_true")
+    group.add_argument("--coverage", action="store_true")
     group.add_argument("--check", action="store_true")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
@@ -600,6 +875,23 @@ def main(argv: Iterable[str] | None = None) -> int:
         payload = build_estimate(document)
         print(json.dumps(payload, indent=2)[:4000])
         print(f"\nwritten: {ESTIMATE_PATH}")
+        return 0
+
+    if args.coverage:
+        document = protocol_module.read_protocol()
+        payload = build_coverage(document)
+        print(
+            json.dumps(
+                {
+                    "metrics": payload["metric_count"],
+                    "measured": payload["status_counts"].get("MEASURED", 0),
+                    "unknown": payload["status_counts"].get("UNKNOWN", 0),
+                    "unsupported": payload["status_counts"].get("UNSUPPORTED", 0),
+                    "path": str(COVERAGE_PATH),
+                },
+                indent=2,
+            )
+        )
         return 0
 
     report = check_all()

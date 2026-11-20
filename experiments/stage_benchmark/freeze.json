@@ -1,15 +1,30 @@
 {
   "stage": "B",
-  "protocol_version": "1.0.0",
-  "frozen_at": "2026-11-19T16:18:16.013094+00:00",
+  "protocol_version": "1.1.0",
+  "frozen_at": "2026-11-20T04:13:46.097775+00:00",
   "git": {
-    "git_head": "8aa00caaebebd274f5452c7aafb58be1b695470d",
-    "git_branch": "exp/stage-b-benchmark-protocol",
-    "git_status": "",
-    "dirty_paths": []
+    "git_head": "42244a17efad45c8ee9523789a0218ac70b00f55",
+    "git_branch": "fix/stage-b-metric-closure",
+    "git_status": "M experiments/stage_benchmark/estimate.json\n M experiments/stage_benchmark/estimate.py\n M experiments/stage_benchmark/freeze.json\n M experiments/stage_benchmark/plan.json\n M experiments/stage_benchmark/protocol.json\n M experiments/stage_benchmark/protocol.py\n M experiments/stage_benchmark/reconstruct.py\n M experiments/stage_benchmark/run_stage_b.py\n M experiments/stage_benchmark/schema.py\n M tests/integration/test_stage_b_protocol.py\n M tests/integration/test_stage_s2_analysis.py\n?? experiments/stage_benchmark/archive/\n?? experiments/stage_benchmark/coverage.json\n?? tests/integration/test_stage_b_metric_closure.py",
+    "dirty_paths": [
+      "M experiments/stage_benchmark/estimate.json",
+      " M experiments/stage_benchmark/estimate.py",
+      " M experiments/stage_benchmark/freeze.json",
+      " M experiments/stage_benchmark/plan.json",
+      " M experiments/stage_benchmark/protocol.json",
+      " M experiments/stage_benchmark/protocol.py",
+      " M experiments/stage_benchmark/reconstruct.py",
+      " M experiments/stage_benchmark/run_stage_b.py",
+      " M experiments/stage_benchmark/schema.py",
+      " M tests/integration/test_stage_b_protocol.py",
+      " M tests/integration/test_stage_s2_analysis.py",
+      "?? experiments/stage_benchmark/archive/",
+      "?? experiments/stage_benchmark/coverage.json",
+      "?? tests/integration/test_stage_b_metric_closure.py"
+    ]
   },
   "protocol": {
-    "digest": "sha256:8bcedf7510411ca8b682e0ef4a6627ceb5cab373df8b7b94f14525194d133857",
+    "digest": "sha256:0e79902070e8f291c22898043ce3b3802886989f441dba09f7360fc225535213",
     "path": "experiments/stage_benchmark/protocol.json"
   },
   "plan": {
@@ -189,12 +204,12 @@
     "sampling_seed_supported": false
   },
   "harness": {
-    "protocol.py": "sha256:954b1f9b7d2ff022dd8a4f4900f0404effddf2b7cbe8dee74c991373cc0761ce",
+    "protocol.py": "sha256:e5d4cce8ff6c8949ad0e5cec53001ba6b3f1fa38040f34b8979e5c5093cbba5c",
     "matrix.py": "sha256:5012f766aec52cf51fe4fec4b78292f53fd873333fb7332b541d72b1e9e20284",
-    "reconstruct.py": "sha256:cf3a9776a8425cdfd0eb59cd106b81f9c91f3b9bb52d9699bd658e1395834311",
-    "schema.py": "sha256:505da26dac80c08e9bac425b9da88521b066ab1baa98edf89a6560c50077ea9b",
-    "estimate.py": "sha256:6ccecb560106b7b32c278e46a63d30c534f1e606d9a9a5efa6c073b731aea0d2",
-    "run_stage_b.py": "sha256:95a2ecc9eb3f5b20574a9654ae2e8d2569600916eca9d96233bb187e2f96225e",
+    "reconstruct.py": "sha256:5a350d89040af1618fbb78e7eb712fce759394d4f474f64e175fb4c035c9b3e0",
+    "schema.py": "sha256:4458a1a6c9f0a9dcc8c9cf2a02d79de263e627bec29d4895c15b4f4620f82d45",
+    "estimate.py": "sha256:4026700dbeb1dec5fbe1e87b7aface0d19f43e6b6d9365fa67bf50d9ea7ce5a6",
+    "run_stage_b.py": "sha256:a0ba69481fdbdce242ad9360e88eda037196d25e25290d9b8cf8490cf4c1ea15",
     "tasks/__init__.py": "sha256:0564a3692986b7ab7697edc3ef0958e34a58035547311ee5c35eef1e85625ab8",
     "tasks/base.py": "sha256:330358c3a76cc01ee6cc891529b7d3d93c5d0809f59223820cebcbe4ec963ee3",
     "tasks/slugkit.py": "sha256:a5245397beb4abb56775e84f2cb808f9b4d48397c20d1e76879513b44c9d7008",
@@ -205,8 +220,8 @@
     "tasks/cascade.py": "sha256:a49a7c9974070f7a3a1c54ded5230ba4bcf65082ce9ad5cd926b9f5acdb831db"
   },
   "analysis": {
-    "schema_version": "stage-b-result/1.0",
-    "reconstruct_version": "stage-b-reconstruct/1.0"
+    "schema_version": "stage-b-result/1.1",
+    "reconstruct_version": "stage-b-reconstruct/1.1"
   },
   "offline": {
     "path": "experiments/stage_benchmark/offline.json",
@@ -216,7 +231,7 @@
   },
   "estimate": {
     "path": "experiments/stage_benchmark/estimate.json",
-    "digest": "sha256:4b831742ec932758f38793d096c78cadaa6ca56a67b703b76761792f665ee99e",
+    "digest": "sha256:e43a44f7e856e7640b1606e12b473d59f60ad5f80946ae26cdf63ba3e1863821",
     "cells": 36
   },
   "historical": {

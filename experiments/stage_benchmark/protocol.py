@@ -17,7 +17,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from . import matrix
+from . import matrix, schema
+from .reconstruct import ANALYZER_VERSION, PROPOSAL_STATES
+from .reconstruct import LEVELS as DELEGATION_LEVELS
 from .tasks import SPECS, STRUCTURES, TASK_IDS
 from .tasks import base as task_base
 
@@ -26,10 +28,88 @@ STAGE_DIR = REPO_ROOT / "experiments" / "stage_benchmark"
 PROTOCOL_PATH = STAGE_DIR / "protocol.json"
 PLAN_PATH = STAGE_DIR / "plan.json"
 
-PROTOCOL_VERSION = "1.0.0"
-ANALYSIS_SCHEMA_VERSION = "stage-b-result/1.0"
+PROTOCOL_VERSION = "1.1.0"
+SUPERSEDES_VERSION = "1.0.0"
+ANALYSIS_SCHEMA_VERSION = "stage-b-result/1.1"
+
+#: What changed from 1.0.0 and why. Metric semantics only: the plan, the arms, the tasks and the
+#: run configuration are untouched, which is asserted by their digests staying equal.
+REVISIONS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "E1-1",
+        "area": "token_and_cost_accounting",
+        "change": (
+            "the estimate decomposes usage into five fields, each counted once; the child "
+            "prompt is priced at the miss rate but is no longer added to the token total twice"
+        ),
+        "rationale": "EXPECTED per-run was 306124 tokens; the same evidence gives 299022",
+    },
+    {
+        "id": "E1-2",
+        "area": "router_admission",
+        "change": (
+            "admission is decided per proposal from the router's own decision record, with five "
+            "states; route=direct is a rejection, not an admission"
+        ),
+        "rationale": "a non-empty routes list said nothing about whether anyone was admitted",
+    },
+    {
+        "id": "E1-3",
+        "area": "delegation_effectiveness",
+        "change": (
+            "effectiveness becomes an L1-L6 ladder; delegation_mechanism_completion_rate is the "
+            "mechanical metric, effective_delegation_rate is a labelled proxy, both over proposals"
+        ),
+        "rationale": (
+            "child success plus a later file edit proved ordering, not that the Main used the "
+            "findings; a Direct run was scored zero by construction"
+        ),
+    },
+    {
+        "id": "E1-4",
+        "area": "failure_classification",
+        "change": (
+            "failure is classified from status, stop reason, sandbox lifecycle and tool outcome "
+            "into nine classes, with a primary cause, contributing diagnostics and a confidence; "
+            "unknown is kept when the evidence does not decide"
+        ),
+        "rationale": "every failure without a public test run used to be labelled goal",
+    },
+    {
+        "id": "E1-5",
+        "area": "metric_coverage",
+        "change": (
+            "each metric declares its evidence path and is reported MEASURED, UNKNOWN or "
+            "UNSUPPORTED per record; repair_attempts becomes post_failure_edits"
+        ),
+        "rationale": "a resolver that always returns None is not a measurement",
+    },
+    {
+        "id": "E1-6",
+        "area": "proposal_matching",
+        "change": (
+            "the flat tool-call list now shares the turn's call objects, so a call carries its own "
+            "result; tool errors and denials were silently zero before"
+        ),
+        "rationale": "results were attached to one object and read from a copy of it",
+    },
+)
 
 ARM_IDS: tuple[str, ...] = ("P1", "P2", "P3")
+
+#: The nine classes the failure classifier may return. ``unknown`` is an answer, not a hole.
+FAILURE_CLASSES: tuple[str, ...] = (
+    "none",
+    "goal",
+    "budget",
+    "turn_limit",
+    "runtime",
+    "sandbox",
+    "tool",
+    "blocked",
+    "unknown",
+)
+LEVEL_NAMES: tuple[str, ...] = tuple(name for name, _ in DELEGATION_LEVELS)
 
 #: Where each arm's bytes come from. ``None`` means the shipped constant in the runtime module.
 ARM_SOURCES: dict[str, dict[str, Any]] = {
@@ -142,9 +222,17 @@ METRICS: tuple[dict[str, Any], ...] = (
         "id": "runtime_failure_rate",
         "group": "primary",
         "unit": "rate",
-        "numerator": "runs that failed for a runtime, sandbox or tool fault",
+        "numerator": "runs whose primary failure class is runtime or sandbox",
         "denominator": "all attempts",
-        "missing": "counted as FAIL, classified in failure_class",
+        "missing": "counted as FAIL; a tool or execution fault keeps its own class",
+    },
+    {
+        "id": "unknown_failure_rate",
+        "group": "primary",
+        "unit": "rate",
+        "numerator": "runs whose primary failure class could not be determined from evidence",
+        "denominator": "all attempts",
+        "missing": "UNKNOWN is a value, never a guess at a cause",
     },
     # Delegation behaviour
     {
@@ -159,9 +247,17 @@ METRICS: tuple[dict[str, Any], ...] = (
         "id": "router_admission_rate",
         "group": "delegation",
         "unit": "rate",
-        "numerator": "proposals admitted by the router",
+        "numerator": "proposals whose router result admitted at least one child",
         "denominator": "proposals",
-        "missing": "UNKNOWN when no proposal exists",
+        "missing": "UNKNOWN when no proposal exists; route=direct admits nobody and is a decision",
+        "returns": "pair",
+        "states": [
+            "NO_PROPOSAL",
+            "PROPOSAL_REJECTED",
+            "DELEGATE_ONE_ADMITTED",
+            "DELEGATE_PARALLEL_ADMITTED",
+            "ROUTER_RESULT_UNKNOWN",
+        ],
     },
     {
         "id": "child_completion_rate",
@@ -172,15 +268,45 @@ METRICS: tuple[dict[str, Any], ...] = (
         "missing": "UNKNOWN when no child started",
     },
     {
+        "id": "delegation_mechanism_completion_rate",
+        "group": "delegation",
+        "unit": "rate",
+        "numerator": "runs that reached L2, L3, L4 and L5 of the delegation ladder",
+        "denominator": "runs with a proposal",
+        "missing": "UNKNOWN when no proposal exists; a Direct run has no mechanism to complete",
+        "returns": "pair",
+    },
+    {
         "id": "effective_delegation_rate",
         "group": "delegation",
         "unit": "rate",
         "numerator": (
-            "runs where a proposal was admitted, a child succeeded and the Main changed a file "
-            "after the handoff"
+            "runs that reached L2 to L6 of the delegation ladder: admitted, worker completed, "
+            "handoff delivered, Main continued, and the run passed its public suite and oracle"
         ),
-        "denominator": "all attempts",
-        "missing": "counted as not effective",
+        "denominator": "runs with a proposal",
+        "missing": "UNKNOWN when no proposal exists; it is a proxy, not an attribution",
+        "returns": "pair",
+        "interpretation": (
+            "observable proxy: L6 is the correctness of the run and is not caused by the "
+            "delegation; the ladder orders evidence, it does not establish benefit"
+        ),
+    },
+    {
+        "id": "delegation_level_reached",
+        "group": "delegation",
+        "unit": "level",
+        "numerator": "highest contiguous level of the L1-L6 ladder",
+        "denominator": "runs with a proposal",
+        "missing": "UNKNOWN when no proposal exists",
+        "levels": {
+            "L1_proposal": "the Main called delegate_tasks",
+            "L2_admission": "the router admitted at least one worker",
+            "L3_worker_completion": "every admitted worker completed successfully",
+            "L4_handoff_delivery": "a usable handoff reached the Main",
+            "L5_main_continuation": "the Main edited or tested after the handoff",
+            "L6_goal_correctness": "public suite and oracle passed",
+        },
     },
     {
         "id": "direct_execution_rate",
@@ -303,11 +429,14 @@ METRICS: tuple[dict[str, Any], ...] = (
         "group": "context",
         "unit": "files",
         "numerator": (
-            "files the Main re-read after a child had read them, excluding integration reads "
-            "recorded with a reason"
+            "raw path overlap between a child's successful reads and the Main's post-handoff reads"
         ),
         "denominator": "runs with a handoff",
-        "missing": "UNKNOWN when no handoff exists",
+        "missing": "UNKNOWN when no handoff or no child read exists",
+        "interpretation": (
+            "a shared path is not redundancy: a necessary integration read looks identical. The "
+            "count is reported raw and meaningful duplication requires review"
+        ),
     },
     # Verification
     {
@@ -327,12 +456,16 @@ METRICS: tuple[dict[str, Any], ...] = (
         "missing": "FAIL",
     },
     {
-        "id": "repair_attempts",
+        "id": "post_failure_edits",
         "group": "verification",
         "unit": "count",
-        "numerator": "file edits made after a failing public suite run",
+        "numerator": "file edits made after the first failing public suite run",
         "denominator": "runs",
-        "missing": "0",
+        "missing": "0 when no public suite run failed",
+        "interpretation": (
+            "a count of edits after a failure, not a claim that each one was a repair: causality "
+            "between a failure and an edit is not observable"
+        ),
     },
     {
         "id": "changed_files",
@@ -351,6 +484,139 @@ METRICS: tuple[dict[str, Any], ...] = (
         "missing": "0",
     },
 )
+
+#: Each metric's statistical definition and the synthetic case that would catch a regression. Kept
+#: apart from ``METRICS`` so the catalogue stays readable; :func:`build_protocol` merges them, and
+#: :func:`validate` refuses a metric that has neither. A metric with no counterexample is a number
+#: nobody has ever seen go wrong.
+METRIC_EVIDENCE: dict[str, dict[str, str]] = {
+    "oracle_pass_rate": {
+        "definition": "share of attempts whose independent host-side oracle returned PASS",
+        "counterexample": "test_1_direct_pass_is_not_scored_as_failed_delegation",
+    },
+    "goal_success_rate": {
+        "definition": "share of attempts whose public suite and oracle both passed",
+        "counterexample": "test_2b_a_direct_run_that_fails_its_goal_is_a_goal_failure",
+    },
+    "budget_exhaustion_rate": {
+        "definition": "share of attempts the token guardrail stopped with budget_exceeded",
+        "counterexample": "test_9_budget_exhaustion_with_missing_session_turns",
+    },
+    "runtime_failure_rate": {
+        "definition": "share of attempts whose primary failure class is runtime or sandbox",
+        "counterexample": "test_12_runtime_internal_failure_is_not_a_goal_failure",
+    },
+    "unknown_failure_rate": {
+        "definition": "share of attempts whose primary failure class the evidence cannot decide",
+        "counterexample": "test_12b_an_unexplained_stop_is_unknown_not_goal",
+    },
+    "delegation_proposal_rate": {
+        "definition": "share of attempts in which the Main called delegate_tasks at least once",
+        "counterexample": "test_5_child_succeeded_but_main_never_continued",
+    },
+    "router_admission_rate": {
+        "definition": "admitted proposals over proposed ones; route=direct admits nobody",
+        "counterexample": "test_15_multiple_proposals_are_counted_one_by_one",
+    },
+    "child_completion_rate": {
+        "definition": "children that ended successfully over children the router admitted",
+        "counterexample": "test_3_admitted_but_failed_worker_stops_the_ladder_at_l2",
+    },
+    "delegation_mechanism_completion_rate": {
+        "definition": "runs with a proposal that reached L2 through L5 of the ladder",
+        "counterexample": "test_5_child_succeeded_but_main_never_continued",
+    },
+    "effective_delegation_rate": {
+        "definition": "runs with a proposal that reached L2 through L6; an observable proxy",
+        "counterexample": "test_6_delegation_completed_but_the_goal_failed",
+    },
+    "delegation_level_reached": {
+        "definition": "highest contiguous level of the L1-L6 ladder",
+        "counterexample": "test_3_admitted_but_failed_worker_stops_the_ladder_at_l2",
+    },
+    "direct_execution_rate": {
+        "definition": "share of attempts with no delegate_tasks call at all",
+        "counterexample": "test_1_direct_pass_is_not_scored_as_failed_delegation",
+    },
+    "invalid_capability_delegation_rate": {
+        "definition": "runs with a proposal whose objective required a tool the profile lacks",
+        "counterexample": "test_8_a_read_only_worker_asked_to_execute_is_an_invalid_assignment",
+    },
+    "late_delegation_rate": {
+        "definition": "runs whose first proposal came after the pre-registered turn threshold or "
+        "after the first implementation edit",
+        "counterexample": "test_16_a_proposal_after_the_first_edit_is_late",
+    },
+    "first_delegation_turn": {
+        "definition": "assistant turn index of the first delegate_tasks call",
+        "counterexample": "test_2_a_rejected_proposal_is_not_an_admission",
+    },
+    "first_implementation_turn": {
+        "definition": "assistant turn index of the first file_edit or file_write",
+        "counterexample": "test_1_direct_pass_is_not_scored_as_failed_delegation",
+    },
+    "main_peak_context_tokens": {
+        "definition": "maximum prompt tokens over the Main's provider requests",
+        "counterexample": "test_12_missing_usage_fields_stay_missing",
+    },
+    "main_cumulative_input_tokens": {
+        "definition": "sum of the Main's prompt tokens across its requests",
+        "counterexample": "test_12_missing_usage_fields_stay_missing",
+    },
+    "main_cache_hit_tokens": {
+        "definition": "prompt-cache hit tokens the provider reported for the Main",
+        "counterexample": "test_12_missing_usage_fields_stay_missing",
+    },
+    "main_cache_miss_tokens": {
+        "definition": "prompt-cache miss tokens the provider reported for the Main",
+        "counterexample": "test_12_missing_usage_fields_stay_missing",
+    },
+    "child_total_prompt_tokens": {
+        "definition": "sum of child prompt tokens; counted once, never added to a cache split",
+        "counterexample": "test_4_two_children_complete_in_parallel",
+    },
+    "system_total_tokens": {
+        "definition": "main input + child input + main completion + child completion",
+        "counterexample": "test_12_missing_usage_fields_stay_missing",
+    },
+    "completion_tokens": {
+        "definition": "main plus child completion tokens",
+        "counterexample": "test_12_missing_usage_fields_stay_missing",
+    },
+    "wall_clock_seconds": {
+        "definition": "run duration measured by the runner around the whole cell",
+        "counterexample": "test_every_declared_metric_reports_a_status_on_a_complete_record",
+    },
+    "handoff_payload_chars": {
+        "definition": "characters the handoff actually delivered to the Main",
+        "counterexample": "test_17_a_missing_handoff_record_is_not_fabricated",
+    },
+    "duplicate_investigation_files": {
+        "definition": "raw path overlap between a child's successful reads and the Main's "
+        "post-handoff reads",
+        "counterexample": "test_14_a_shared_read_is_counted_raw_not_called_redundant",
+    },
+    "public_test_calls": {
+        "definition": "number of run_public_tests invocations",
+        "counterexample": "test_17_edits_after_a_failing_suite_are_post_failure_edits",
+    },
+    "public_test_pass": {
+        "definition": "whether the last public suite run exited zero",
+        "counterexample": "test_6_delegation_completed_but_the_goal_failed",
+    },
+    "post_failure_edits": {
+        "definition": "file edits made after the first failing public suite run",
+        "counterexample": "test_17_edits_after_a_failing_suite_are_post_failure_edits",
+    },
+    "changed_files": {
+        "definition": "files present in the exported workspace patch",
+        "counterexample": "test_17_edits_after_a_failing_suite_are_post_failure_edits",
+    },
+    "ownership_denials": {
+        "definition": "actions the ownership policy refused",
+        "counterexample": "test_11b_a_single_ownership_denial_is_not_a_run_failure",
+    },
+}
 
 STOPPING_RULES: tuple[str, ...] = (
     "Every attempt enters the denominator; a failed or aborted run is never dropped or retried.",
@@ -482,18 +748,21 @@ def build_protocol() -> dict[str, Any]:
     return {
         "stage": "B",
         "protocol_version": PROTOCOL_VERSION,
+        "supersedes": SUPERSEDES_VERSION,
+        "revisions": [dict(item) for item in REVISIONS],
         "analysis_schema_version": ANALYSIS_SCHEMA_VERSION,
         "questions": [dict(item) for item in QUESTIONS],
         "arms": arms,
         "tasks": [task_record(spec) for spec in SPECS],
         "structures": list(STRUCTURES),
         "run_config": {key: value for key, value in RUN_CONFIG.items()},
-        "metrics": [dict(item) for item in METRICS],
+        "metrics": [{**dict(item), **METRIC_EVIDENCE.get(item["id"], {})} for item in METRICS],
         "plan": plan,
         "stopping_rules": list(STOPPING_RULES),
         "leak_rules": list(LEAK_RULES),
         "analysis": {
             "schema_version": ANALYSIS_SCHEMA_VERSION,
+            "analyzer_version": ANALYZER_VERSION,
             "paired_unit": ["task_id", "repetition"],
             "counted_separately": ["provider_requests", "assistant_turns", "tool_calls"],
             "reconstruction_source": [
@@ -502,6 +771,10 @@ def build_protocol() -> dict[str, Any]:
                 "transcript.jsonl",
             ],
             "never_inferred_from": ["session.main.turns"],
+            "failure_classes": list(FAILURE_CLASSES),
+            "proposal_states": list(PROPOSAL_STATES),
+            "delegation_levels": list(LEVEL_NAMES),
+            "metric_status_values": ["MEASURED", "UNKNOWN", "UNSUPPORTED"],
             "exploratory_note": (
                 "Three arms times six tasks times two repetitions is an exploratory design. A "
                 "difference is a description of these runs, not an estimate of a general effect."
@@ -569,6 +842,32 @@ def validate(document: Mapping[str, Any]) -> list[str]:
     for item in document.get("metrics") or []:
         if not item.get("denominator") or not item.get("missing"):
             problems.append(f"metric {item.get('id')} has no denominator or no missing policy")
+        # A definition and a counterexample are what make the row auditable. Coverage without a
+        # test is a claim; coverage with a test is evidence.
+        for field in ("definition", "counterexample"):
+            if not item.get(field):
+                problems.append(f"metric {item.get('id')} has no {field}")
+    undescribed = sorted(set(METRIC_EVIDENCE) - metric_ids)
+    if undescribed:
+        problems.append(f"metric evidence declared for unknown metrics: {undescribed}")
+    missing = schema.unresolvable(sorted(metric_ids))
+    if missing:
+        problems.append(f"metrics without a resolver: {missing}")
+    if document.get("supersedes") != SUPERSEDES_VERSION:
+        problems.append("the document does not declare what it supersedes")
+    if not document.get("revisions"):
+        problems.append("a revision must record why each semantic changed")
+    for revision in document.get("revisions") or []:
+        for field in ("id", "area", "change", "rationale"):
+            if not revision.get(field):
+                problems.append(f"revision {revision.get('id')} has no {field}")
+    analysis = document.get("analysis") or {}
+    if set(analysis.get("failure_classes") or []) != set(FAILURE_CLASSES):
+        problems.append("declared failure classes differ from the classifier's")
+    if analysis.get("analyzer_version") != ANALYZER_VERSION:
+        problems.append("analysis.analyzer_version differs from the code")
+    if analysis.get("schema_version") != schema.SCHEMA_VERSION:
+        problems.append("analysis.schema_version differs from the schema module")
     return problems
 
 

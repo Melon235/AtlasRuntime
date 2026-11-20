@@ -7,6 +7,15 @@ instead of leaving a column empty after the money is spent.
 A resolver returns ``None`` for UNKNOWN. It never returns 0 in place of a missing measurement: the
 distinction between "no cache numbers were reported" and "the cache hit zero tokens" is the one
 Stage Closure-1C spent a stage establishing.
+
+Stage B-E1 added two things a resolver alone cannot give:
+
+* ``metric_status`` — whether a record carries the evidence a metric needs (MEASURED), whether the
+  evidence exists but does not decide (UNKNOWN), or whether the field is absent from this schema
+  version (UNSUPPORTED). "Has a resolver" was never the same as "can be measured".
+* **pair metrics** — rates whose denominator is a sub-population (proposals, admitted children)
+  return ``(numerator, denominator)`` instead of a ratio, so a Direct run contributes nothing to
+  ``router_admission_rate`` rather than contributing a zero.
 """
 
 from __future__ import annotations
@@ -14,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
-SCHEMA_VERSION = "stage-b-result/1.0"
+SCHEMA_VERSION = "stage-b-result/1.1"
 
 _REQUIRED: dict[str, tuple[str, ...]] = {
     "analyzer": ("version",),
@@ -22,7 +31,20 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "prompt": ("version", "digest"),
     "counts": ("provider_requests", "assistant_turns", "tool_calls"),
     "consistency": ("gaps",),
-    "delegation": ("proposed", "children", "first_delegation_turn", "first_implementation_turn"),
+    "delegation": (
+        "proposed",
+        "proposals",
+        "children",
+        "children_admitted",
+        "admission",
+        "levels",
+        "first_delegation_turn",
+        "first_implementation_turn",
+    ),
+    "handoff": ("delivered", "usable", "overlap_files"),
+    "capability": ("invalid", "basis"),
+    "failure": ("primary", "contributing", "confidence"),
+    "usage": ("main_prompt_hit_tokens", "main_prompt_miss_tokens", "child_prompt_tokens"),
     "context": ("main_peak_context_tokens", "system_total_tokens"),
     "verification": ("public_test_calls", "changed_files", "oracle", "goal_passed"),
 }
@@ -31,8 +53,28 @@ _REQUIRED_TOP = ("failure_class",)
 _ALLOWED = {
     "status": {"succeeded", "failed", "blocked", "cancelled"},
     "acceptance": {"PASS", "FAIL", "UNKNOWN", None},
-    "failure_class": {"none", "budget", "turn_limit", "goal", "runtime", "sandbox", "blocked"},
+    # ``unknown`` is a first-class outcome: a classifier that has to guess is worse than one that
+    # says so. ``tool`` covers an execution outcome the runtime could not establish.
+    "failure_class": {
+        "none",
+        "goal",
+        "budget",
+        "turn_limit",
+        "runtime",
+        "sandbox",
+        "tool",
+        "blocked",
+        "unknown",
+    },
 }
+
+#: Metrics whose per-run contribution is ``(numerator, denominator)``, not a ratio.
+PAIR_METRICS = frozenset(
+    {
+        "router_admission_rate",
+        "child_completion_rate",
+    }
+)
 
 
 def validate_record(record: Mapping[str, Any]) -> list[str]:
@@ -105,11 +147,26 @@ def _delegation(path: str) -> Callable[[Mapping[str, Any]], Any]:
     return resolver
 
 
+def _admission_pair(record: Mapping[str, Any]) -> Any:
+    """Admitted proposals out of proposed ones. A Direct run has no denominator and no value."""
+
+    admission = _get(record, "delegation.admission")
+    if not isinstance(admission, Mapping):
+        return None
+    proposals = admission.get("proposals")
+    if not proposals:
+        return None
+    return (int(admission.get("admitted") or 0), int(proposals))
+
+
 def _invalid_capability(record: Mapping[str, Any]) -> Any:
     capability = record.get("capability")
-    if not isinstance(capability, Mapping) or "invalid" not in capability:
-        return None  # UNKNOWN: nobody judged the objectives
-    return int(bool(capability["invalid"]))
+    if not isinstance(capability, Mapping):
+        return None
+    verdict = capability.get("invalid")
+    if verdict is None:
+        return None  # UNKNOWN: the evidence did not decide
+    return int(bool(verdict))
 
 
 #: Pre-registered, not discovered after looking at the data. Stage S1 delegated on turn 17 after
@@ -129,35 +186,83 @@ def _late_delegation(record: Mapping[str, Any]) -> Any:
 
 
 def _child_pair(record: Mapping[str, Any]) -> Any:
-    children = _get(record, "delegation.children")
+    admitted = _get(record, "delegation.children_admitted")
     succeeded = _get(record, "delegation.children_succeeded")
-    if children is None or succeeded is None or children == 0:
+    if admitted is None or succeeded is None or not admitted:
         return None
-    return (int(succeeded), int(children))
+    return (int(succeeded), int(admitted))
+
+
+def _levels(record: Mapping[str, Any]) -> Mapping[str, Any]:
+    levels = _get(record, "delegation.levels") or {}
+    return levels.get("met") or {} if isinstance(levels, Mapping) else {}
+
+
+def _level_chain(record: Mapping[str, Any], names: tuple[str, ...]) -> Any:
+    met = _levels(record)
+    if not met or not met.get("L1_proposal"):
+        return None  # no proposal: the mechanism metrics have no denominator here
+    return int(all(bool(met.get(name)) for name in names))
+
+
+def _mechanism_completion(record: Mapping[str, Any]) -> Any:
+    return _level_chain(
+        record,
+        (
+            "L2_admission",
+            "L3_worker_completion",
+            "L4_handoff_delivery",
+            "L5_main_continuation",
+        ),
+    )
 
 
 def _effective(record: Mapping[str, Any]) -> Any:
-    first_delegate = _get(record, "delegation.first_delegation_turn")
-    first_write = _get(record, "delegation.first_implementation_turn")
-    succeeded = _get(record, "delegation.children_succeeded")
-    if first_delegate is None or succeeded is None:
-        return 0
-    return int(bool(succeeded) and first_write is not None and first_write > first_delegate)
+    return _level_chain(
+        record,
+        (
+            "L2_admission",
+            "L3_worker_completion",
+            "L4_handoff_delivery",
+            "L5_main_continuation",
+            "L6_goal_correctness",
+        ),
+    )
+
+
+def _level_number(record: Mapping[str, Any]) -> Any:
+    return _get(record, "delegation.levels.level_reached")
+
+
+def _failure_is(*classes: str) -> Callable[[Mapping[str, Any]], Any]:
+    def resolver(record: Mapping[str, Any]) -> Any:
+        primary = _get(record, "failure.primary")
+        if primary is None:
+            return None
+        return int(primary in classes)
+
+    return resolver
+
+
+def _duplicate_reads(record: Mapping[str, Any]) -> Any:
+    overlap = _get(record, "handoff.overlap_files")
+    if overlap is None:
+        return None  # no child read anything, so overlap is undefined rather than zero
+    return len(overlap)
 
 
 RESOLVERS: dict[str, Callable[[Mapping[str, Any]], Any]] = {
     "oracle_pass_rate": _bool_rate("verification.oracle", expected="PASS"),
     "goal_success_rate": _bool_rate("verification.goal_passed"),
     "budget_exhaustion_rate": _bool_rate("run.stop_reason", expected="budget_exceeded"),
-    "runtime_failure_rate": lambda record: int(
-        record.get("failure_class") in {"runtime", "sandbox"}
-    ),
+    "runtime_failure_rate": _failure_is("runtime", "sandbox"),
+    "unknown_failure_rate": _failure_is("unknown"),
     "delegation_proposal_rate": _bool_rate("delegation.proposed"),
-    "router_admission_rate": lambda record: (
-        None if not _delegation("proposed")(record) else int(bool(_delegation("routes")(record)))
-    ),
+    "router_admission_rate": _admission_pair,
     "child_completion_rate": _child_pair,
+    "delegation_mechanism_completion_rate": _mechanism_completion,
     "effective_delegation_rate": _effective,
+    "delegation_level_reached": _level_number,
     "direct_execution_rate": lambda record: int(not bool(_delegation("proposed")(record))),
     "invalid_capability_delegation_rate": _invalid_capability,
     "late_delegation_rate": _late_delegation,
@@ -172,12 +277,47 @@ RESOLVERS: dict[str, Callable[[Mapping[str, Any]], Any]] = {
     "completion_tokens": _context("completion_tokens"),
     "wall_clock_seconds": _context("wall_clock_seconds"),
     "handoff_payload_chars": _context("handoff_payload_chars"),
-    "duplicate_investigation_files": lambda record: _get(record, "handoff.duplicate_reads"),
+    "duplicate_investigation_files": _duplicate_reads,
     "public_test_calls": _verification("public_test_calls"),
     "public_test_pass": _verification("public_tests_passed"),
-    "repair_attempts": _verification("repair_attempts"),
+    "post_failure_edits": _verification("post_failure_edits"),
     "changed_files": _verification("changed_files"),
     "ownership_denials": _verification("ownership_denials"),
+}
+
+#: What a record has to carry for a metric to be measurable at all. Used by the coverage matrix.
+EVIDENCE_PATHS: dict[str, str] = {
+    "oracle_pass_rate": "verification.oracle",
+    "goal_success_rate": "verification.goal_passed",
+    "budget_exhaustion_rate": "run.stop_reason",
+    "runtime_failure_rate": "failure.primary",
+    "unknown_failure_rate": "failure.primary",
+    "delegation_proposal_rate": "delegation.proposed",
+    "router_admission_rate": "delegation.admission",
+    "child_completion_rate": "delegation.children_admitted",
+    "delegation_mechanism_completion_rate": "delegation.levels",
+    "effective_delegation_rate": "delegation.levels",
+    "delegation_level_reached": "delegation.levels",
+    "direct_execution_rate": "delegation.proposed",
+    "invalid_capability_delegation_rate": "capability.invalid",
+    "late_delegation_rate": "delegation.first_delegation_turn",
+    "first_delegation_turn": "delegation.first_delegation_turn",
+    "first_implementation_turn": "delegation.first_implementation_turn",
+    "main_peak_context_tokens": "context.main_peak_context_tokens",
+    "main_cumulative_input_tokens": "context.main_cumulative_input_tokens",
+    "main_cache_hit_tokens": "context.main_cache_hit_tokens",
+    "main_cache_miss_tokens": "context.main_cache_miss_tokens",
+    "child_total_prompt_tokens": "context.child_total_prompt_tokens",
+    "system_total_tokens": "context.system_total_tokens",
+    "completion_tokens": "context.completion_tokens",
+    "wall_clock_seconds": "context.wall_clock_seconds",
+    "handoff_payload_chars": "handoff.payload_chars",
+    "duplicate_investigation_files": "handoff.overlap_files",
+    "public_test_calls": "verification.public_test_calls",
+    "public_test_pass": "verification.public_tests_passed",
+    "post_failure_edits": "verification.post_failure_edits",
+    "changed_files": "verification.changed_files",
+    "ownership_denials": "verification.ownership_denials",
 }
 
 
@@ -188,6 +328,25 @@ def metric_value(record: Mapping[str, Any], metric_id: str) -> Any:
     if resolver is None:
         raise KeyError(f"no resolver for metric {metric_id!r}")
     return resolver(record)
+
+
+def metric_status(record: Mapping[str, Any], metric_id: str) -> str:
+    """MEASURED, UNKNOWN or UNSUPPORTED for one metric on one record.
+
+    ``UNSUPPORTED`` means the record does not carry the evidence path at all, which is a schema
+    problem; ``UNKNOWN`` means the evidence is there and does not decide, which is a fact about the
+    run.
+    """
+
+    path = EVIDENCE_PATHS.get(metric_id)
+    if path is None:
+        return "UNSUPPORTED"
+    node: Any = record
+    for part in path.split("."):
+        if not isinstance(node, Mapping) or part not in node:
+            return "UNSUPPORTED"
+        node = node[part]
+    return "UNKNOWN" if metric_value(record, metric_id) is None else "MEASURED"
 
 
 def unresolvable(metric_ids: list[str] | tuple[str, ...]) -> list[str]:

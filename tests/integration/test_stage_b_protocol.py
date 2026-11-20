@@ -296,6 +296,30 @@ def test_a_budget_gap_is_explained_and_an_unknown_gap_is_not(tmp_path: Path) -> 
 
 
 def _record(arm: str, *, oracle: str, stop: str, proposed: bool, peak: int, total: int) -> dict:
+    """A result record in the 1.1 shape. The delegation block is what the ladder reads."""
+
+    admitted = 1 if proposed else 0
+    completed = proposed and oracle == "PASS"
+    levels = {
+        "L1_proposal": proposed,
+        "L2_admission": bool(admitted),
+        "L3_worker_completion": bool(admitted),
+        "L4_handoff_delivery": bool(admitted),
+        "L5_main_continuation": bool(admitted),
+        "L6_goal_correctness": oracle == "PASS",
+    }
+    reached = 0
+    for name in (
+        "L1_proposal",
+        "L2_admission",
+        "L3_worker_completion",
+        "L4_handoff_delivery",
+        "L5_main_continuation",
+        "L6_goal_correctness",
+    ):
+        if not levels[name]:
+            break
+        reached += 1
     return {
         "run": {
             "run_id": f"{arm}-r",
@@ -303,18 +327,49 @@ def _record(arm: str, *, oracle: str, stop: str, proposed: bool, peak: int, tota
             "arm_id": arm,
             "repetition": 1,
             "status": "succeeded",
-            "acceptance": "PASS",
+            "acceptance": "PASS" if oracle == "PASS" else "FAIL",
             "stop_reason": stop,
         },
+        "analyzer": {"version": reconstruct.ANALYZER_VERSION},
+        "prompt": {"version": "main-v1.0", "digest": "sha256:0"},
         "counts": {"provider_requests": 10, "assistant_turns": 10, "tool_calls": 10},
         "consistency": {"gaps": []},
         "delegation": {
             "proposed": proposed,
-            "children": 1 if proposed else 0,
-            "children_succeeded": 1 if proposed else 0,
+            "proposals": 1 if proposed else 0,
+            "children": admitted,
+            "children_admitted": admitted,
+            "children_succeeded": admitted,
             "first_delegation_turn": 3 if proposed else None,
             "first_implementation_turn": 5,
             "routes": ["delegate_one"] if proposed else [],
+            "admission": {
+                "proposals": 1 if proposed else 0,
+                "admitted": admitted,
+                "rejected": 0,
+                "unknown": 0,
+                "state": "ADMITTED" if admitted else "NO_PROPOSAL",
+            },
+            "levels": {"met": levels, "level_reached": reached},
+        },
+        "handoff": {
+            "delivered": bool(admitted),
+            "usable": bool(completed),
+            "payload_chars": 100 if admitted else 0,
+            "overlap_files": None,
+        },
+        "capability": {"invalid": False if proposed else None, "basis": "synthetic"},
+        "failure": {
+            "primary": "none" if oracle == "PASS" else "goal",
+            "contributing": [],
+            "confidence": "HIGH",
+        },
+        "usage": {
+            "main_prompt_hit_tokens": 0,
+            "main_prompt_miss_tokens": 0,
+            "child_prompt_tokens": 0,
+            "main_completion_tokens": 100,
+            "child_completion_tokens": 0,
         },
         "context": {
             "main_peak_context_tokens": peak,
@@ -330,7 +385,7 @@ def _record(arm: str, *, oracle: str, stop: str, proposed: bool, peak: int, tota
         "verification": {
             "public_test_calls": 1,
             "public_tests_passed": True,
-            "repair_attempts": 0,
+            "post_failure_edits": 0,
             "changed_files": 1,
             "ownership_denials": 0,
             "oracle": oracle,
@@ -353,6 +408,13 @@ def test_aggregation_counts_every_attempt_in_the_denominator() -> None:
     assert arm["budget_exhaustion_rate"] == pytest.approx(1 / 3, abs=1e-4)
     assert arm["delegation_proposal_rate"] == pytest.approx(1 / 3, abs=1e-4)
     assert arm["direct_execution_rate"] == pytest.approx(2 / 3, abs=1e-4)
+    # 1.1 moved effectiveness onto its own denominator: one proposal, admitted, worker completed,
+    # handoff usable, and the run failed its oracle, so the mechanism completed (L5) but the goal
+    # (L6) did not. Both rates are over proposals, and both denominators are recorded.
+    assert arm["delegation_mechanism_completion_rate"] == pytest.approx(1.0, abs=1e-4)
+    assert arm["effective_delegation_rate"] == pytest.approx(0.0, abs=1e-4)
+    assert arm["levels"]["L1_proposal"]["denominator"] == 3
+    assert arm["levels"]["L2_admission"]["denominator"] == 1
 
 
 def test_aggregation_pairs_observations_by_task_and_repetition() -> None:
@@ -394,10 +456,15 @@ def test_the_estimate_scales_with_the_number_of_cells() -> None:
 # --------------------------------------------------------------------------- freeze and runner
 
 
-def test_the_frozen_runtime_is_the_one_the_last_stage_froze() -> None:
+def _runner():  # noqa: ANN202 - a module handle, imported by path
     sys.path.insert(0, str(STAGE_DIR))
-    import run_stage_b  # noqa: PLC0415
+    import run_stage_b  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
 
+    return run_stage_b
+
+
+def test_the_frozen_runtime_is_the_one_the_last_stage_froze() -> None:
+    run_stage_b = _runner()
     identity = run_stage_b.source_identity()
     assert identity["tree_digest"] == run_stage_b.S2_SOURCE_TREE_DIGEST
     assert identity["file_count"] == 130
@@ -443,7 +510,4 @@ def test_the_freeze_records_what_the_protocol_says() -> None:
 
 
 def run_stage_b_digest() -> str:
-    sys.path.insert(0, str(STAGE_DIR))
-    import run_stage_b  # noqa: PLC0415
-
-    return run_stage_b.source_identity()["tree_digest"]
+    return _runner().source_identity()["tree_digest"]

@@ -1,8 +1,16 @@
 """Scale and cost of the matrix, from the frozen price snapshot and the observed runs.
 
 No number here is guessed: the price comes from the repository's frozen pricing block, the token
-mixtures come from the two real prompt pilots, and the multiplication is shown. A price that changes
-changes the total linearly and nothing else.
+mixtures come from the two real prompt pilots, and the multiplication is shown.
+
+**Every provider usage field is counted exactly once.** The previous version added the child prompt
+tokens into ``cache_miss_input_tokens`` for pricing *and* counted them again in the total, which
+inflated the per-run envelope by roughly the child prompt size (306 124 instead of 299 022). The
+decomposition below is the fix, and ``assert_once`` is the invariant it has to satisfy.
+
+A subtlety worth stating rather than hiding: child prompt tokens are **priced** as cache misses
+because the provider reports no cache split for a child, but they are not *reported* as misses.
+Pricing and accounting therefore use two different views of the same field, and both say so.
 """
 
 from __future__ import annotations
@@ -21,6 +29,20 @@ OBSERVED_RUNS: tuple[Path, ...] = (
     REPO_ROOT / "experiments/stage_s1_prompt_v2/evidence/run-1/session.json",
     REPO_ROOT / "experiments/stage_s2_prompt_v21/evidence/run-1/session.json",
 )
+
+#: The decomposition. ``total = sum(USAGE_FIELDS)``, and no field may be folded into another.
+USAGE_FIELDS: tuple[str, ...] = (
+    "main_prompt_hit_tokens",
+    "main_prompt_miss_tokens",
+    "child_prompt_tokens",
+    "main_completion_tokens",
+    "child_completion_tokens",
+)
+
+#: What the provider does not expose per child. Recorded so a reader cannot mistake the pricing
+#: assumption for a measurement.
+CHILD_CACHE_VISIBILITY = "UNKNOWN"
+CHILD_MISS_SHARE = 1.0
 
 _KEY = re.compile(
     r"^\s*(cache_hit_input_per_million|cache_miss_input_per_million|output_per_million)\s*:\s*([0-9.]+)\s*$",
@@ -52,51 +74,141 @@ def pricing(path: Path = PRICING_CONFIG) -> dict[str, Any]:
     }
 
 
+#: Where each field of the decomposition comes from in a stored session.
+USAGE_SOURCES: dict[str, str] = {
+    "main_prompt_hit_tokens": "main_cache_hit_tokens",
+    "main_prompt_miss_tokens": "main_cache_miss_tokens",
+    "child_prompt_tokens": "child_total_prompt_tokens",
+    "main_completion_tokens": "main_completion_tokens",
+    "child_completion_tokens": "child_completion_tokens",
+}
+
+
+def usage_of(session: Mapping[str, Any]) -> dict[str, int | None]:
+    """One run's usage, in the decomposition, from its own metrics block.
+
+    A field the provider did not report is ``None``, never 0. A run that reported no cache split and
+    a run that reported a 100% miss rate are different facts, and the estimate is exactly where
+    confusing them would quietly move money.
+    """
+
+    metrics = session.get("metrics") or {}
+    return {
+        field: (None if metrics.get(source) is None else int(metrics[source]))
+        for field, source in USAGE_SOURCES.items()
+    }
+
+
+def total_tokens(usage: Mapping[str, float]) -> float:
+    """Sum of the five fields. Callers must not add anything else to it."""
+
+    return float(sum(usage[field] for field in USAGE_FIELDS))
+
+
+def assert_once(usage: Mapping[str, float | None]) -> None:
+    """The invariant this module exists to keep: each field appears once, and nothing is extra."""
+
+    unknown = set(usage) - set(USAGE_FIELDS)
+    if unknown:
+        raise ValueError(f"usage carries fields outside the decomposition: {sorted(unknown)}")
+    missing = set(USAGE_FIELDS) - set(usage)
+    if missing:
+        raise ValueError(f"usage is missing fields: {sorted(missing)}")
+
+
 def observed_profile(paths: Iterable[Path] = OBSERVED_RUNS) -> dict[str, Any]:
-    """The token mixture of the two real pilots, averaged."""
+    """The token mixture of the two real pilots, averaged, plus each run's own consistency."""
 
     rows: list[dict[str, Any]] = []
     for path in paths:
         if not path.is_file():
             continue
         session = json.loads(path.read_text(encoding="utf-8"))
+        usage = usage_of(session)
+        missing = sorted(field for field, value in usage.items() if value is None)
+        if missing:
+            raise RuntimeError(
+                f"{path} does not report {missing}: the estimate is derived from runs whose usage "
+                "is fully reported, and substituting zero would understate the envelope"
+            )
+        known = {field: int(value) for field, value in usage.items() if value is not None}
         metrics = session.get("metrics") or {}
-        child_prompt = int(metrics.get("child_total_prompt_tokens") or 0)
+        main_input = metrics.get("main_cumulative_input_tokens")
+        reported_total = metrics.get("system_total_tokens")
         rows.append(
             {
                 "run_id": session.get("run_id"),
-                "hit": int(metrics.get("main_cache_hit_tokens") or 0),
-                # Child cache behaviour is not reported per child, so every child prompt token is
-                # priced as a miss. That is the conservative direction and it is stated here.
-                "miss": int(metrics.get("main_cache_miss_tokens") or 0) + child_prompt,
-                "output": int(metrics.get("main_completion_tokens") or 0),
-                "child_prompt": child_prompt,
-                "child_output": int(metrics.get("child_completion_tokens") or 0),
-                "total": int(metrics.get("system_total_tokens") or 0),
+                "usage": known,
+                "total_from_usage": int(total_tokens(known)),
+                "system_total_tokens": reported_total,
+                "usage_sums_agree": reported_total is not None
+                and int(reported_total) == int(total_tokens(known)),
+                # main input = hit + miss. Checked, not assumed.
+                "main_input_tokens": None if main_input is None else int(main_input),
+                "cache_split_agrees": None
+                if main_input is None
+                else known["main_prompt_hit_tokens"] + known["main_prompt_miss_tokens"]
+                == int(main_input),
             }
         )
     if not rows:
         raise RuntimeError("no observed run is available for the estimate")
+
     count = len(rows)
+    per_run = {
+        field: round(sum(row["usage"][field] for row in rows) / count, 1) for field in USAGE_FIELDS
+    }
     return {
         "runs": rows,
-        "per_run": {
-            "cache_hit_input_tokens": round(sum(row["hit"] for row in rows) / count),
-            "cache_miss_input_tokens": round(sum(row["miss"] for row in rows) / count),
-            "output_tokens": round(sum(row["output"] for row in rows) / count),
-            "child_prompt_tokens": round(sum(row["child_prompt"] for row in rows) / count),
-            "child_output_tokens": round(sum(row["child_output"] for row in rows) / count),
-            "total_tokens": round(sum(row["total"] for row in rows) / count),
-        },
+        "per_run": per_run,
+        "per_run_total": round(total_tokens(per_run), 1),
+        "child_cache_visibility": CHILD_CACHE_VISIBILITY,
+        "child_miss_share_assumption": CHILD_MISS_SHARE,
+        "all_usage_sums_agree": all(row["usage_sums_agree"] for row in rows),
+        "main_input_identity_holds": all(row["cache_split_agrees"] is not False for row in rows),
+        "runs_with_complete_split": sum(1 for row in rows if row["cache_split_agrees"] is not None),
     }
 
 
-def _run_cost(profile: Mapping[str, int], prices: Mapping[str, Any]) -> float:
+def run_cost(usage: Mapping[str, float | None], prices: Mapping[str, Any]) -> float:
+    """USD for one run. Input is billed once; output is billed once.
+
+    A usage with an unreported field cannot be priced: substituting zero would understate the bill,
+    and the caller has to say what it assumes instead.
+    """
+
+    assert_once(usage)
+    unreported = sorted(field for field in USAGE_FIELDS if usage[field] is None)
+    if unreported:
+        raise ValueError(f"cannot price a usage with unreported fields: {unreported}")
+    known = {field: float(value) for field, value in usage.items() if value is not None}
+    billed_hit = known["main_prompt_hit_tokens"]
+    billed_miss = known["main_prompt_miss_tokens"] + known["child_prompt_tokens"] * CHILD_MISS_SHARE
+    billed_output = known["main_completion_tokens"] + known["child_completion_tokens"]
     return (
-        profile["cache_hit_input_tokens"] * prices["cache_hit_input_per_million"]
-        + profile["cache_miss_input_tokens"] * prices["cache_miss_input_per_million"]
-        + (profile["output_tokens"] + profile["child_output_tokens"]) * prices["output_per_million"]
+        billed_hit * prices["cache_hit_input_per_million"]
+        + billed_miss * prices["cache_miss_input_per_million"]
+        + billed_output * prices["output_per_million"]
     ) / 1_000_000
+
+
+def _scaled(usage: Mapping[str, float], factor: float) -> dict[str, float]:
+    return {field: round(usage[field] * factor, 1) for field in USAGE_FIELDS}
+
+
+def _to_budget(usage: Mapping[str, float], budget: int) -> dict[str, float]:
+    """Spread ``budget`` across the fields by the observed mixture, keeping the sum exact."""
+
+    observed = total_tokens(usage)
+    if observed <= 0:
+        raise ValueError("no observed tokens to scale from")
+    scaled = {field: usage[field] / observed * budget for field in USAGE_FIELDS}
+    rounded = {field: round(value, 1) for field, value in scaled.items()}
+    # Put the rounding residue on the largest field so the identity still holds exactly.
+    residue = round(budget - total_tokens(rounded), 1)
+    largest = max(rounded, key=lambda field: rounded[field])
+    rounded[largest] = round(rounded[largest] + residue, 1)
+    return rounded
 
 
 def estimate(
@@ -105,44 +217,54 @@ def estimate(
     """LOW / EXPECTED / HIGH token and cost envelopes for the whole matrix."""
 
     observed = profile["per_run"]
+    assert_once(observed)
 
-    def scaled(factor: float) -> dict[str, int]:
-        return {
-            "cache_hit_input_tokens": round(observed["cache_hit_input_tokens"] * factor),
-            "cache_miss_input_tokens": round(observed["cache_miss_input_tokens"] * factor),
-            "output_tokens": round(observed["output_tokens"] * factor),
-            "child_prompt_tokens": round(observed["child_prompt_tokens"] * factor),
-            "child_output_tokens": round(observed["child_output_tokens"] * factor),
-        }
-
-    high_total = budget_tokens
-    high_miss = round(high_total * 0.10)
-    high_hit = high_total - high_miss - round(observed["output_tokens"] * 2)
     scenarios = {
-        "LOW": scaled(0.75),
-        "EXPECTED": scaled(1.0),
-        "HIGH": {
-            "cache_hit_input_tokens": max(high_hit, 0),
-            "cache_miss_input_tokens": high_miss,
-            "output_tokens": round(observed["output_tokens"] * 2),
-            "child_prompt_tokens": round(observed["child_prompt_tokens"] * 2),
-            "child_output_tokens": round(observed["child_output_tokens"] * 2),
+        "LOW": _scaled(observed, 0.75),
+        "EXPECTED": dict(observed),
+        "HIGH": _to_budget(observed, budget_tokens),
+    }
+    result: dict[str, Any] = {
+        "protocol_version": "1.1",
+        "cells": cells,
+        "usage_fields": list(USAGE_FIELDS),
+        "scenarios": {},
+        "budget_semantics": (
+            "the shared token budget is an admission limit used by the guard, not an observed "
+            "ceiling; the HIGH scenario assumes a run consumes exactly that much and is a model, "
+            "not a measurement"
+        ),
+        "child_cache_visibility": CHILD_CACHE_VISIBILITY,
+        "child_pricing_rule": (
+            "child prompt tokens are billed at the cache-miss rate because the provider reports no "
+            "child cache split; they are counted once and never reported as misses"
+        ),
+        #: Four different quantities, named so a reader cannot take one for another.
+        "value_types": {
+            "provider_reported_usage": (
+                "prompt/completion tokens and the main cache split, as the provider reported them"
+            ),
+            "budget_admission_estimate": (
+                "the shared 500000-token guard limit: an admission threshold the runtime enforces, "
+                "not a measured ceiling and not a bill"
+            ),
+            "pricing_estimate": (
+                "USD derived from the frozen per-million snapshot in "
+                "experiments/configs/eval-benchmark.yaml"
+            ),
+            "actual_billing": "UNKNOWN: the provider exposes no per-run invoice",
         },
     }
-    result: dict[str, Any] = {"cells": cells, "scenarios": {}}
-    for name, tokens in scenarios.items():
-        per_run_total = (
-            tokens["cache_hit_input_tokens"]
-            + tokens["cache_miss_input_tokens"]
-            + tokens["output_tokens"]
-            + tokens["child_prompt_tokens"]
-            + tokens["child_output_tokens"]
-        )
+    for name, usage in scenarios.items():
+        assert_once(usage)
+        per_run_total = total_tokens(usage)
+        cost = run_cost(usage, prices)
         result["scenarios"][name] = {
-            "per_run_tokens": per_run_total,
-            "total_tokens": per_run_total * cells,
-            "per_run_cost_usd": round(_run_cost(tokens, prices), 6),
-            "total_cost_usd": round(_run_cost(tokens, prices) * cells, 4),
+            "usage": dict(usage),
+            "per_run_tokens": round(per_run_total, 1),
+            "total_tokens": round(per_run_total * cells, 1),
+            "per_run_cost_usd": round(cost, 6),
+            "total_cost_usd": round(cost * cells, 4),
         }
 
     result["simultaneous_children"] = 2
@@ -155,11 +277,19 @@ def estimate(
         ),
     }
     result["pricing"] = dict(prices)
-    result["observed_profile"] = profile["per_run"]
+    result["observed_profile"] = {
+        "per_run": observed,
+        "per_run_total": profile["per_run_total"],
+        "runs": profile["runs"],
+        "all_usage_sums_agree": profile["all_usage_sums_agree"],
+        "main_input_identity_holds": profile.get("main_input_identity_holds"),
+        "runs_with_complete_split": profile.get("runs_with_complete_split"),
+    }
     result["assumptions"] = [
         "one run costs about what one prompt pilot cost; the tasks are comparable, not equal",
-        "the HIGH scenario assumes every run spends its whole 500000-token budget",
+        "the HIGH scenario assumes a run consumes its whole 500000-token admission budget",
         "cache behaviour is held at the observed mixture; a cold cache raises the miss share",
+        "child prompt tokens are priced as misses because no child cache split is reported",
         "the price is the frozen snapshot, not a live quote",
     ]
     return result

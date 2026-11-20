@@ -1,0 +1,249 @@
+{
+  "stage": "B",
+  "protocol_version": "1.0.0",
+  "frozen_at": "2026-11-19T16:18:16.013094+00:00",
+  "git": {
+    "git_head": "8aa00caaebebd274f5452c7aafb58be1b695470d",
+    "git_branch": "exp/stage-b-benchmark-protocol",
+    "git_status": "",
+    "dirty_paths": []
+  },
+  "protocol": {
+    "digest": "sha256:8bcedf7510411ca8b682e0ef4a6627ceb5cab373df8b7b94f14525194d133857",
+    "path": "experiments/stage_benchmark/protocol.json"
+  },
+  "plan": {
+    "digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+    "cells": 36,
+    "seed": 20261119,
+    "repetitions": 2
+  },
+  "runtime": {
+    "root": "src/atlasos",
+    "file_count": 130,
+    "tree_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae"
+  },
+  "prompts": {
+    "P1": {
+      "label": "main-v1.0",
+      "digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a",
+      "chars": 1388,
+      "path": null
+    },
+    "P2": {
+      "label": "main-v2.0-rc1",
+      "digest": "sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+      "chars": 7095,
+      "path": "experiments/stage_s1_prompt_v2/prompts/main_v2.md"
+    },
+    "P3": {
+      "label": "main-v2.1-rc1",
+      "digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
+      "chars": 10377,
+      "path": "experiments/stage_s2_prompt_v21/prompts/main_v21.md"
+    }
+  },
+  "tasks": {
+    "slugkit": {
+      "structure": "LOCAL_DIRECT",
+      "fixture_digest": "sha256:3e7c131194f33e6ff5d2a6e758829f230f1c04c20c192514b71da18bc7c9379c",
+      "goal_digest": "sha256:5a5d6e3ad8648b268d7c03edd62348658c0e015fd66f229c48ef3d80912972bc",
+      "oracle_digest": "sha256:4fefc3fc9e90674dd210567613d5d8c5e1e8fa5a6879a052687debf9d70680a3",
+      "reference_digest": "sha256:5d5d65100ecc927af18374d60ed9f7d542c042b9b0bc1f8cd32a60ff49309fb9",
+      "wrong_variants_digest": "sha256:cabf2bd1e6779ca881ea444ee9a5344408f4dea8d6c8737c531ed3cf88c2921e",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_text.py"
+        ],
+        "target": [
+          "tests/test_public_slug.py"
+        ]
+      },
+      "write_scope": [
+        "slugkit/core.py"
+      ]
+    },
+    "pager": {
+      "structure": "LOCAL_DIRECT",
+      "fixture_digest": "sha256:1e9a66cf2dab578f8681346343da43b230826ce8cd4a71ab08043663bc5c8031",
+      "goal_digest": "sha256:8765101b51c2fd83882fcbba6a9ab428f6efc52135c097da0cf2d6609b02ef90",
+      "oracle_digest": "sha256:d4a95a1d0667934978988ecd827c7a36a76c0b9cb70abdfaedfd69897f6e19ef",
+      "reference_digest": "sha256:9eb90e7e6ef5dd30f62ebbeb5e027af8272ad07952850ab6cfb3dfd8ac4848c6",
+      "wrong_variants_digest": "sha256:d18008b01dc872fa48ce18b7dd667644141ff63cf4219607490f6e7a362c0057",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_cursor.py"
+        ],
+        "target": [
+          "tests/test_public_page.py"
+        ]
+      },
+      "write_scope": [
+        "pager/page.py"
+      ]
+    },
+    "zonelint": {
+      "structure": "INDEPENDENT_INVESTIGATION",
+      "fixture_digest": "sha256:59ad287ef54cd29693dffa32c58e258278e416ac7b32471632be6688efc084fa",
+      "goal_digest": "sha256:f33267431b6116afe98b9f34f8c89e45130092d7701df71a0ecfc3aff72ce365",
+      "oracle_digest": "sha256:eb0c26e425d560984b157cb111fdd1a8a5924be2d976a09e04e47a5794396c67",
+      "reference_digest": "sha256:dfc10b442c3067e7373b04dacb259bc54c1e2ec902a7615358544119ce54b551",
+      "wrong_variants_digest": "sha256:75ded9a073f23b5fbded7d95972ada322be8d35fc39806f3c8a0e7f694604d77",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_records.py",
+          "tests/test_certs.py"
+        ],
+        "target": [
+          "tests/test_public_preflight.py"
+        ]
+      },
+      "write_scope": [
+        "zonelint/preflight.py"
+      ]
+    },
+    "ledgerclose": {
+      "structure": "INDEPENDENT_INVESTIGATION",
+      "fixture_digest": "sha256:a565f724f99aef17e51ae59ce9b0175c26320dcae45faefd78e456b61fd2d3eb",
+      "goal_digest": "sha256:d30dc2f415b503c821f41f6c2217dbb23c050e11dcdeaf62035dc14bc315a1fb",
+      "oracle_digest": "sha256:f45c8d1ce3ece872e1d3fb7df28bd71e16f6e47bc0fa96a1ad6be7d35440d31c",
+      "reference_digest": "sha256:f59fcf74b689698e5936bd7191577ae882b1379d56ead506ceec291bf3957e97",
+      "wrong_variants_digest": "sha256:9069d762644bac9f49e708f230b2d7327be4632596dcdda43dd96239ac568565",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_ledger.py",
+          "tests/test_rates.py"
+        ],
+        "target": [
+          "tests/test_public_close.py"
+        ]
+      },
+      "write_scope": [
+        "ledgerclose/close.py"
+      ]
+    },
+    "retrygate": {
+      "structure": "COUPLED_UNCERTAIN",
+      "fixture_digest": "sha256:1f6c1d8cc4f32d76280b8c3c37d459cd9d6ccf4b1dd07c07fe6f8cfd81856077",
+      "goal_digest": "sha256:65401e5ea7a0cb79b98058dd60865169202ac62f4e512af93224fd25abf6f2f7",
+      "oracle_digest": "sha256:36deaf1d95aaa1b093fb7e3d2a6527df3207bbd8ee009eb1abcf8f734d5cc377",
+      "reference_digest": "sha256:65def2b17d7477bdcaf54baed10dbc82728aa9b4293147cd00cdb7208637cccc",
+      "wrong_variants_digest": "sha256:4b3df7dd46be860d3f023d31b5166c1ae35433879621342bb0b13440b6862a14",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_classify.py",
+          "tests/test_budget.py"
+        ],
+        "target": [
+          "tests/test_public_policy.py"
+        ]
+      },
+      "write_scope": [
+        "retrygate/policy.py"
+      ]
+    },
+    "cascade": {
+      "structure": "COUPLED_UNCERTAIN",
+      "fixture_digest": "sha256:e2a6f4c5f01e1155c1c86e5a1a9bb95f8a8d0d7de74a4b929e02c031babbbd76",
+      "goal_digest": "sha256:25d55baa21ce8220eedcd492ace64e444beed87c96b8c95744efe0359190223b",
+      "oracle_digest": "sha256:2460ead54eca92105a2c8d5c825aa89765d5c0c3bd32dbb1931429dd7a14db7e",
+      "reference_digest": "sha256:ecb88ac3d315539fabb6e38bb8ee125e7797accd4074cfcce8d48a4204aebb0c",
+      "wrong_variants_digest": "sha256:56bad1f78d6c799551824c59f1a0058763c43fe29cebfb801e15f2e82f97839f",
+      "public_suite": {
+        "compatibility": [
+          "tests/test_lexer.py",
+          "tests/test_normalize_basic.py"
+        ],
+        "target": [
+          "tests/test_public_power.py"
+        ]
+      },
+      "write_scope": [
+        "cascade/lexer.py",
+        "cascade/parser.py"
+      ]
+    }
+  },
+  "config": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "main_max_turns": 20,
+    "child_max_turns": 6,
+    "max_concurrent_children": 2,
+    "max_delegation_rounds": 3,
+    "token_budget": 500000,
+    "tool_error_mode": "corrected",
+    "public_test_max_calls": 4,
+    "network": "none",
+    "cpu": 1,
+    "memory_gib": 1.0,
+    "sandbox_provider": "opensandbox",
+    "image": "atlas-uat-python:3.12",
+    "worker_profiles": [
+      "research_worker"
+    ],
+    "router_policy": "m.1.0",
+    "delegation": "enabled",
+    "repetitions": 2,
+    "seed": 20261119,
+    "sampling_seed_supported": false
+  },
+  "harness": {
+    "protocol.py": "sha256:954b1f9b7d2ff022dd8a4f4900f0404effddf2b7cbe8dee74c991373cc0761ce",
+    "matrix.py": "sha256:5012f766aec52cf51fe4fec4b78292f53fd873333fb7332b541d72b1e9e20284",
+    "reconstruct.py": "sha256:cf3a9776a8425cdfd0eb59cd106b81f9c91f3b9bb52d9699bd658e1395834311",
+    "schema.py": "sha256:505da26dac80c08e9bac425b9da88521b066ab1baa98edf89a6560c50077ea9b",
+    "estimate.py": "sha256:6ccecb560106b7b32c278e46a63d30c534f1e606d9a9a5efa6c073b731aea0d2",
+    "run_stage_b.py": "sha256:95a2ecc9eb3f5b20574a9654ae2e8d2569600916eca9d96233bb187e2f96225e",
+    "tasks/__init__.py": "sha256:0564a3692986b7ab7697edc3ef0958e34a58035547311ee5c35eef1e85625ab8",
+    "tasks/base.py": "sha256:330358c3a76cc01ee6cc891529b7d3d93c5d0809f59223820cebcbe4ec963ee3",
+    "tasks/slugkit.py": "sha256:a5245397beb4abb56775e84f2cb808f9b4d48397c20d1e76879513b44c9d7008",
+    "tasks/pager.py": "sha256:845675348e5e95fcfeafa5606c858b85a9ebca30f665f23c482d5f0b3d4f3aba",
+    "tasks/zonelint.py": "sha256:bb2453860384293f7483c10f1ebddf13d3ddd93b1b913751f875819f165bda01",
+    "tasks/ledgerclose.py": "sha256:badbb78ca634b4cad97d425cd5f9acd19bb4e9cf2d0499ab240931c6c0f0a1c9",
+    "tasks/retrygate.py": "sha256:4359db598cf676a6033bead821632eca765e890d6912a36b62c1d043a31c997f",
+    "tasks/cascade.py": "sha256:a49a7c9974070f7a3a1c54ded5230ba4bcf65082ce9ad5cd926b9f5acdb831db"
+  },
+  "analysis": {
+    "schema_version": "stage-b-result/1.0",
+    "reconstruct_version": "stage-b-reconstruct/1.0"
+  },
+  "offline": {
+    "path": "experiments/stage_benchmark/offline.json",
+    "digest": "sha256:fdb534910d1262a2f8e8f9bac290124c5f037dafc20954e0efbd41b59bfc5d78",
+    "tasks": 6,
+    "wrong_variants": 22
+  },
+  "estimate": {
+    "path": "experiments/stage_benchmark/estimate.json",
+    "digest": "sha256:4b831742ec932758f38793d096c78cadaa6ca56a67b703b76761792f665ee99e",
+    "cells": 36
+  },
+  "historical": {
+    "experiments/stage_p1b_live/fixture_manifest.json": "sha256:eb43e309adb8daa09d0a6f5ca21b33d42325e68809253b033636d6f93ea0c2e4",
+    "experiments/stage_b0_controlled/freeze.json": "sha256:6e42f92f502e4398320827d05096821a4b6e7dabef7ef45ca47a8e09f7b56371",
+    "experiments/stage_s1_prompt_v2/freeze.json": "sha256:7f963a38e317696208f09f2d960870aa28f39be140759203f7a8ac0197a496ca",
+    "experiments/stage_s1_prompt_v2/prompts/main_v2.md": "sha256:2bb50b09fb92ac6b9630cdac3972704de2d60a9a79117ffac301c8adb749a323",
+    "experiments/stage_s2_prompt_v21/freeze.json": "sha256:663402519691396e6c9a49c2ce071895993e88048e2095bb8e4e849c6d02e3a8",
+    "experiments/stage_s2_prompt_v21/prompts/main_v21.md": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
+    "experiments/fixtures/stage_s1_releaseguard/README.md": "sha256:f2ecdd3d8e98c74bd7569e03b98022584656af8976ed7297e8233fbabb01911a",
+    "experiments/fixtures/stage_s2_workgrid/README.md": "sha256:c6f16fe8a30f1a2fda9fd7a523d02306fa75609996cd3e842faa40993ba6edb3"
+  },
+  "calibration": {
+    "task": "workgrid",
+    "source": "experiments/fixtures/stage_s2_workgrid",
+    "why": "it is already solved, already has an oracle, and is not one of the six benchmark tasks",
+    "purpose": "prove the evidence collector produces a complete bundle on a live run",
+    "status": "PREPARED_NOT_RUN",
+    "reason_not_run": "this stage may not call the model",
+    "required_evidence": [
+      "session.json",
+      "attempt-1.json",
+      "transcript.jsonl",
+      "tool_conversations.json",
+      "workspace.patch",
+      "trajectory/",
+      "analysis record with counts, consistency and gaps"
+    ]
+  }
+}
