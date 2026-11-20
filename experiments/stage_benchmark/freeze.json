@@ -1,30 +1,15 @@
 {
   "stage": "B",
   "protocol_version": "1.1.0",
-  "frozen_at": "2026-11-20T04:13:46.097775+00:00",
+  "frozen_at": "2026-11-20T05:44:12.404388+00:00",
   "git": {
-    "git_head": "42244a17efad45c8ee9523789a0218ac70b00f55",
+    "git_head": "1138b8d533f4aeafaee2f8f169b2888caf0cebf2",
     "git_branch": "fix/stage-b-metric-closure",
-    "git_status": "M experiments/stage_benchmark/estimate.json\n M experiments/stage_benchmark/estimate.py\n M experiments/stage_benchmark/freeze.json\n M experiments/stage_benchmark/plan.json\n M experiments/stage_benchmark/protocol.json\n M experiments/stage_benchmark/protocol.py\n M experiments/stage_benchmark/reconstruct.py\n M experiments/stage_benchmark/run_stage_b.py\n M experiments/stage_benchmark/schema.py\n M tests/integration/test_stage_b_protocol.py\n M tests/integration/test_stage_s2_analysis.py\n?? experiments/stage_benchmark/archive/\n?? experiments/stage_benchmark/coverage.json\n?? tests/integration/test_stage_b_metric_closure.py",
-    "dirty_paths": [
-      "M experiments/stage_benchmark/estimate.json",
-      " M experiments/stage_benchmark/estimate.py",
-      " M experiments/stage_benchmark/freeze.json",
-      " M experiments/stage_benchmark/plan.json",
-      " M experiments/stage_benchmark/protocol.json",
-      " M experiments/stage_benchmark/protocol.py",
-      " M experiments/stage_benchmark/reconstruct.py",
-      " M experiments/stage_benchmark/run_stage_b.py",
-      " M experiments/stage_benchmark/schema.py",
-      " M tests/integration/test_stage_b_protocol.py",
-      " M tests/integration/test_stage_s2_analysis.py",
-      "?? experiments/stage_benchmark/archive/",
-      "?? experiments/stage_benchmark/coverage.json",
-      "?? tests/integration/test_stage_b_metric_closure.py"
-    ]
+    "git_status": "",
+    "dirty_paths": []
   },
   "protocol": {
-    "digest": "sha256:0e79902070e8f291c22898043ce3b3802886989f441dba09f7360fc225535213",
+    "digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
     "path": "experiments/stage_benchmark/protocol.json"
   },
   "plan": {
@@ -204,12 +189,12 @@
     "sampling_seed_supported": false
   },
   "harness": {
-    "protocol.py": "sha256:e5d4cce8ff6c8949ad0e5cec53001ba6b3f1fa38040f34b8979e5c5093cbba5c",
+    "protocol.py": "sha256:654e80394de7e0496b5b48aaa358235b83285df8b747214adf4fbd054586f470",
     "matrix.py": "sha256:5012f766aec52cf51fe4fec4b78292f53fd873333fb7332b541d72b1e9e20284",
-    "reconstruct.py": "sha256:5a350d89040af1618fbb78e7eb712fce759394d4f474f64e175fb4c035c9b3e0",
+    "reconstruct.py": "sha256:e29eac23976b226136896f907203a7f20713c5b9e5f57d609640ab69b92d8ed1",
     "schema.py": "sha256:4458a1a6c9f0a9dcc8c9cf2a02d79de263e627bec29d4895c15b4f4620f82d45",
-    "estimate.py": "sha256:4026700dbeb1dec5fbe1e87b7aface0d19f43e6b6d9365fa67bf50d9ea7ce5a6",
-    "run_stage_b.py": "sha256:a0ba69481fdbdce242ad9360e88eda037196d25e25290d9b8cf8490cf4c1ea15",
+    "estimate.py": "sha256:7bdf9069c08376bf4baabc349d2272dcd843a740b838cba79d1c5e98d7add2be",
+    "run_stage_b.py": "sha256:d4c2c1b15618ea4367811077cf2a3024ed6d2c4967932c9a1061064beef7a3f0",
     "tasks/__init__.py": "sha256:0564a3692986b7ab7697edc3ef0958e34a58035547311ee5c35eef1e85625ab8",
     "tasks/base.py": "sha256:330358c3a76cc01ee6cc891529b7d3d93c5d0809f59223820cebcbe4ec963ee3",
     "tasks/slugkit.py": "sha256:a5245397beb4abb56775e84f2cb808f9b4d48397c20d1e76879513b44c9d7008",
@@ -225,14 +210,23 @@
   },
   "offline": {
     "path": "experiments/stage_benchmark/offline.json",
-    "digest": "sha256:fdb534910d1262a2f8e8f9bac290124c5f037dafc20954e0efbd41b59bfc5d78",
+    "digest": "sha256:cdff8aeca2959290098a4c444f262a085ea972b4ce04b3709856dd9ad7bf3b1e",
     "tasks": 6,
     "wrong_variants": 22
   },
   "estimate": {
     "path": "experiments/stage_benchmark/estimate.json",
-    "digest": "sha256:e43a44f7e856e7640b1606e12b473d59f60ad5f80946ae26cdf63ba3e1863821",
+    "digest": "sha256:55b826a1f3f70e75cae881ee27e2c2e4366eb55fbcfe62f060bac3e03f07db13",
     "cells": 36
+  },
+  "coverage": {
+    "path": "experiments/stage_benchmark/coverage.json",
+    "digest": "sha256:b404e6ce8364c95c4797a5cf14de72f34204b8f3447031abcaaeacf658f9815b",
+    "metrics": 31
+  },
+  "archive": {
+    "path": "experiments/stage_benchmark/archive/v1.0/manifest.json",
+    "digest": "sha256:a321f07a5cda9b0ebd511905e6b1c665bf5543f16efcd94b54cced29a0faaea0"
   },
   "historical": {
     "experiments/stage_p1b_live/fixture_manifest.json": "sha256:eb43e309adb8daa09d0a6f5ca21b33d42325e68809253b033636d6f93ea0c2e4",
