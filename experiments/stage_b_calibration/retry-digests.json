@@ -1,0 +1,28 @@
+{
+  "published_digests": {
+    "analysis.json": "sha256:a90066cd9fc4d855564761e763632132b2641fab328e32e6be6acbfd35fc9048",
+    "attempt-1.json": "sha256:946ac9b40a82c3cdca57ea3eb8ec92e1e2c916f2a10d92e5844ad226fed648d9",
+    "evidence_manifest.json": "sha256:8312de47b7c20b531583c69126643340182c09b56280e9a813ca1cf746bbc9f4",
+    "handoff_references.json": "sha256:8f96344bc18fa58b4ba581a3748220f7b5ee5c337c8b05749cd3d6237461722f",
+    "oracle.json": "sha256:d15dc895608932347d4e86c5e5ea102b1363e5679c16945678005bdb0990d864",
+    "provider_usage.json": "sha256:3eba607d670809e1587b8252863af2dbd690a11c6cda9a0191291c419b987b0e",
+    "public_tests.json": "sha256:e1dd3624433b382fdf3c998de483c839c477e5ad37b0f8d41f6c049b9c303e51",
+    "recovery.json": "sha256:a4dac559d60c64e0d422c86be2b7c4fd8af8636d67d7355eeab7fc66494b9255",
+    "result.json": "sha256:c7e351b3345123fe041872a7bd2c1586e8d017b868ced20e72165aede10cc67f",
+    "router_decisions.json": "sha256:c7ba3114b4686073caa3d18b96e1db469b6bb1efda3f3082f4c97a5e35de0f9e",
+    "sandbox_lifecycle.json": "sha256:82faeae53cde0a21cbb2b4fcab36f6fac08ce18b6ff114d94b5e491549edf1d0",
+    "session.json": "sha256:471cda061748a9cb5c51b84646b548f82dca6a71bb11c7455734b61ae07a4af9",
+    "trajectory/stage-b-CALIBRATION.workgrid.c2/meta.json": "sha256:95db9851fcb50189f3907cab55966dab12372669409c4a201899a0bc16d4189a",
+    "trajectory/stage-b-CALIBRATION.workgrid.c2/transcript.jsonl": "sha256:f276e3ef789c9e6adc91a98a52556fcd192b0d1258137e650194983f0c148a8f",
+    "transcript.jsonl": "sha256:f276e3ef789c9e6adc91a98a52556fcd192b0d1258137e650194983f0c148a8f",
+    "worker_outcomes.json": "sha256:5a4d7b39cfea6692fc68e44f71619e1aaf8dcb30d783acc69aae8744a87931d4"
+  },
+  "raw_digests": {
+    "attempt-1.json": "sha256:946ac9b40a82c3cdca57ea3eb8ec92e1e2c916f2a10d92e5844ad226fed648d9",
+    "session.json": "sha256:471cda061748a9cb5c51b84646b548f82dca6a71bb11c7455734b61ae07a4af9",
+    "trajectory/stage-b-CALIBRATION.workgrid.c2/meta.json": "sha256:95db9851fcb50189f3907cab55966dab12372669409c4a201899a0bc16d4189a",
+    "trajectory/stage-b-CALIBRATION.workgrid.c2/transcript.jsonl": "sha256:f276e3ef789c9e6adc91a98a52556fcd192b0d1258137e650194983f0c148a8f",
+    "transcript.jsonl": "sha256:f276e3ef789c9e6adc91a98a52556fcd192b0d1258137e650194983f0c148a8f"
+  },
+  "redactions": []
+}

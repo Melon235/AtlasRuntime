@@ -1,0 +1,18 @@
+{
+  "authorization_digest": "sha256:ec3d2bb946352b55d741762604c0363daa392c1a2f4d08c3de6889b74dcb41df",
+  "cell": {
+    "arm_id": "P1",
+    "cell_id": "CALIBRATION.workgrid.c2",
+    "in_matrix": false,
+    "order": 0,
+    "repetition": 0,
+    "round": 0,
+    "task_id": "workgrid"
+  },
+  "claimed_at": "2026-11-22T10:05:12.232006+00:00",
+  "path": "D:\\Work\\atlas-b2c\\evidence\\calibration\\CALIBRATION.workgrid.c2\\r0\\attempts\\attempt-1.json",
+  "preflight_digest": "sha256:a279f5d35c706f541174a0470aaf4b842016a2be28cc38f2b0074dc9d88db855",
+  "retries_allowed": false,
+  "runner_source_digest": "sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0",
+  "state": "RUNNING"
+}

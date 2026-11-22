@@ -1,9 +1,17 @@
 # Stage B-E2C — OpenSandbox Proxy Fix and Controlled Calibration Retry
 
-Status (Phase A): `STAGE_B_E2C_RETRY_READY_OFFLINE`.
+Status: Phase A reached `STAGE_B_E2C_RETRY_READY_OFFLINE`; Phase B was then authorised and ran
+exactly once, and failed at sandbox creation.
 
-Phase B (the live retry) has **not** run. It still requires a new, explicit owner authorization; the
-authorization consumed in Stage B-E2B is not reused.
+Final verdict for the live retry: **`CALIBRATION_INFRA_FAILED` / `GOAL_UNKNOWN`**. The
+authorization consumed in Stage B-E2B was not reused; a new one was granted for
+`CALIBRATION.workgrid.c2`.
+
+The Phase A engineering outcome stands: the proxy conflict is fixed, the preflight now fails closed
+on a real SDK probe, a pre-agent failure produces an INCOMPLETE analysis instead of a crash, the
+primary failure survives downstream faults, and the marker reaches a terminal state. What failed is
+one layer further in: the execution layer renders the 1 GiB memory limit as `1.0Gi`, which this
+OpenSandbox server rejects.
 
 ---
 
@@ -280,80 +288,133 @@ Regression measured in this workspace:
 | runtime / protocol / plan | `4eebcf1e…` / `937f9253…` / `c6914474…` (unchanged) |
 
 The freeze does not digest itself. The earlier freezes are archived byte-for-byte and `--check`
-verifies both archives on every preflight.
+verifies both archives on every preflight. It records the calibration as `PREPARED_NOT_RUN`
+because that was its state when the harness was frozen; the attempt was consumed afterwards.
+
+The authorization record is not rewritten after use. Consumption is proven by the attempt marker
+(`authorization_digest` + `state: FAILED` + `retries_allowed: false`), and a second run for c2 is
+refused at preflight. A future harness should flip `consumed` at claim time instead of relying on
+the marker alone.
 
 ---
 
 ## M. New Owner Authorization
 
-**Not yet granted.** The E2B authorization is consumed and cannot be reused; its cell list names
-c1, and `authorization_gate()` rejects it for c2 in a test.
+Granted once, in-session, for `CALIBRATION.workgrid.c2` at a 0.50 USD ceiling, approver
+`Owner (Melon235)`, commit `6cf4699`, digests read from a live preflight:
 
-A Phase B authorization must contain, with values read from a fresh preflight (not typed by hand):
+| Field | Value |
+|---|---|
+| authorization file | `experiments/stage_b_calibration/authorization-c2.json` |
+| record digest | `sha256:ec3d2bb946352b55d741762604c0363daa392c1a2f4d08c3de6889b74dcb41df` |
+| `cells` | `["CALIBRATION.workgrid.c2"]` |
+| `cost_ceiling_usd` | `0.5` |
+| protocol / plan / runtime / runner | `937f9253…` / `c6914474…` / `4eebcf1e…` / `bd127674…` |
 
-```json
-{
-  "status": "APPROVED",
-  "approved_by": "...",
-  "approval_commit": "<HEAD>",
-  "approved_at": "<ISO-8601>",
-  "cells": ["CALIBRATION.workgrid.c2"],
-  "approved_digests": {"protocol": "...", "plan": "...", "runtime": "...", "runner_source": "..."},
-  "consumed": false,
-  "cost_ceiling_usd": <owner choice>
-}
-```
-
-The ceiling is an approval field. This runtime has no USD hard stop; it must not be described as
-currency enforcement.
+The ceiling is an approval field; this runtime has no USD hard stop.
 
 ---
 
 ## N. Live Retry Evidence
 
-Not produced. Phase B has not started. No DeepSeek request, no sandbox creation, no run.
+One attempt, `2026-11-22T10:05:12Z`, consumed. No retry.
+
+```text
+status:         failed
+failure:        sandbox create failed; sandbox task fails closed:
+                code='sandbox_create_failed'
+                message="Create sandbox failed: Invalid resourceLimits.memory:
+                '1.0Gi'; must resolve to a positive resource limit."
+provider requests: 0
+sandbox created:   false
+tokens:            null / 0
+marker:            FAILED, retries_allowed=false
+```
+
+Stage reached: **sandbox creation**, i.e. after the health probe and marker claim, before the model
+loop. The session records the prompt as `main-v1.0` / `sha256:7e6fd829…`, so the arm was correct.
+
+Root cause is in this stage's own execution layer, not in the runtime:
+
+```python
+# experiments/stage_benchmark/execution/provision.py:371
+memory=f"{config['memory_gib']}Gi",   # 1.0 -> "1.0Gi"
+```
+
+`memory_gib` is a float, so the rendered quantity is `1.0Gi`. This OpenSandbox server accepts an
+integer quantity (`1Gi`) and rejects `1.0Gi` with `SANDBOX::INVALID_PARAMETER`. The frozen 1 GiB
+experiment parameter is correct; only its rendering is wrong. The fault was not detectable by the
+preflight, because the preflight probes `/health` and does not create a sandbox.
+
+What the E2C repairs did prove, on a real attempt:
+
+| Repair | Observed |
+|---|---|
+| collector survives a pre-agent run | `analysis.json` and `evidence_manifest.json` written |
+| analysis is honest | `status: INCOMPLETE`, `record: null`, `degraded.stage: PRE_AGENT` |
+| primary failure survives | `failure_kind: sandbox_creation`, `secondary_failures: []` |
+| marker lifecycle | `state: FAILED` (E2B left `RUNNING`) |
+| no model call on failure | `main_requests: 0` |
+| recovery is read-only | `INCOMPLETE`, `raw_digests_unchanged: true`, no provider |
+
+Not validated: model loop, tool execution, public tests, host oracle.
+
+Note: the runtime error object carries `retryable=True`. That is the runtime's generic transport
+hint; the calibration policy is stricter and the attempt was **not** retried.
 
 ---
 
 ## O. Evidence Integrity
 
-No new run evidence exists in this phase. What was verified:
+Private raw evidence (outside the repository): `session.json`, `transcript.jsonl`, `attempt-1.json`,
+`trajectory/`. Published redacted subset: 16 files in `experiments/stage_b_calibration/retry/`,
+with `retry-digests.json` recording 5 raw and 16 published digests.
 
 | Check | Result |
 |---|---|
-| c1 marker unchanged | SHA-256 matches the committed copy |
-| Matrix markers | 0 |
-| New evidence root | no marker |
-| Raw evidence of c1 | untouched, private, outside the repository |
-| Real health probe | PASS through the runtime adapter, 0 model requests, 0 sandboxes |
+| raw digests before/after recovery | identical |
+| redactions | none needed (no oracle text present) |
+| manifest | 14 published entries, 5 raw entries, `immutable_raw: true` |
+| oracle | `UNKNOWN`, no substitution |
+| public tests | 0 calls |
+| matrix markers | 0 |
+| c1 marker | unchanged, `DEAEF36A…` |
+
+Recovery produced `status: INCOMPLETE` rather than pretending the run completed. Evidence integrity
+is INCOMPLETE by construction: no conversation, no patch, no analysis record.
 
 ---
 
 ## P. Final Decision
 
-`STAGE_B_E2C_RETRY_READY_OFFLINE`.
+| Axis | Verdict |
+|---|---|
+| Phase A (offline readiness) | `STAGE_B_E2C_RETRY_READY_OFFLINE` |
+| Execution integrity (live retry) | **FAILED** — sandbox rejected the memory quantity before any model call |
+| Evidence integrity | **INCOMPLETE** — correct and honest, but the run produced no conversation |
+| Coding correctness | **UNKNOWN** |
 
-The proxy conflict is fixed at the correct layer (host-scoped `NO_PROXY`, provider proxy intact),
-preflight now fails closed on a real sandbox probe before a marker exists, a pre-agent failure
-produces an honest INCOMPLETE analysis instead of a crash, the primary failure survives downstream
-faults, the marker reaches a terminal state, and the harness is frozen as 1.2 with the retry
-identity `CALIBRATION.workgrid.c2`.
+**`CALIBRATION_INFRA_FAILED` / `GOAL_UNKNOWN`.**
 
-Phase B remains blocked on a new owner authorization.
+The proxy defect that caused E2B is fixed and the new failure is a different, narrower one in a
+layer this stage owns. Under the one-attempt rule the retry was not repeated.
 
 ---
 
 ## Q. Remaining Risks
 
-1. **The endpoint is a WSL NAT address** (`172.28.248.27`) and will change on reboot. It must be
-   re-read and passed with `--sandbox-endpoint`; there is no stable DNS name yet.
-2. **The VPN proxy is external state.** If it is reconfigured to intercept private ranges despite
-   `NO_PROXY`, the probe will now catch it, but the environment still needs care.
-3. **The preflight probe runs on the operator's machine.** It proves reachability from that host,
-   not from any other.
-4. **No live model behaviour has been observed yet.** Prompt adherence, tool use, budget accounting
-   and oracle authority remain unverified against DeepSeek.
-5. **Pre-agent analysis has no reconstructed record.** It is intentionally `record: null`; any
-   benchmark statistic that needs a record must treat it as INCOMPLETE.
-6. **Repository-wide Ruff is still red** on frozen S1 artefacts (66 check / 11 format), exactly as
-   at the E1 baseline. Scoped checks on changed files pass.
+1. **The memory rendering must be fixed in `execution/provision.py`** (`str(int(...))` or an integer
+   contract), then the harness re-frozen and a new authorization granted. This is a one-line
+   execution-layer fix, not a runtime change.
+2. **Preflight cannot detect create-time parameter rejection.** A future probe could attempt a
+   dry-run create or validate the resource envelope against the server schema before a marker.
+3. **The endpoint is a WSL NAT address** (`172.28.248.27`) and changes on reboot; pass
+   `--sandbox-endpoint` each time.
+4. **The VPN proxy is external state.** `NO_PROXY` handles the sandbox host, but the DeepSeek path
+   still depends on the proxy being healthy.
+5. **No live model behaviour has been observed yet.** Prompt adherence, tool use, budget accounting
+   and oracle authority remain unverified.
+6. **The runtime marks this error `retryable=True`.** Policy, not runtime, is the authority; a future
+   operator must not read that flag as permission.
+7. **Repository-wide Ruff is still red** on frozen S1 artefacts (66 check / 11 format), unchanged
+   from the E1 baseline.

@@ -1,0 +1,39 @@
+{
+  "analysis_path": "D:\\Work\\atlas-b2c\\evidence\\calibration\\CALIBRATION.workgrid.c2\\r0\\evidence\\analysis.json",
+  "cell": {
+    "arm_id": "P1",
+    "cell_id": "CALIBRATION.workgrid.c2",
+    "in_matrix": false,
+    "order": 0,
+    "repetition": 0,
+    "round": 0,
+    "task_id": "workgrid"
+  },
+  "delegation_diagnostics": "NOT_APPLICABLE",
+  "detail": "",
+  "digests": {
+    "preflight": "sha256:a279f5d35c706f541174a0470aaf4b842016a2be28cc38f2b0074dc9d88db855",
+    "runner_source": "sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0"
+  },
+  "evidence_dir": "D:\\Work\\atlas-b2c\\evidence\\calibration\\CALIBRATION.workgrid.c2\\r0\\evidence",
+  "evidence_gaps": [
+    "tool_conversations.json",
+    "workspace.patch",
+    "tool_state.json",
+    "workers.json",
+    "PRIVATE_PAYLOAD_NOTICE.txt",
+    "host oracle result was not collected separately",
+    "no agent conversation was produced: the run ended in PRE_AGENT before the model loop",
+    "host oracle verdict is UNKNOWN; no other source may substitute for it",
+    "not applicable: tool_conversations.json",
+    "not applicable: workspace.patch"
+  ],
+  "execution_integrity": "FAILED",
+  "failure_kind": "sandbox_creation",
+  "goal_correctness": "UNKNOWN",
+  "host_oracle_source": "UNKNOWN",
+  "ok": false,
+  "oracle_agreement": "UNKNOWN",
+  "secondary_failures": [],
+  "status": "FAILED"
+}

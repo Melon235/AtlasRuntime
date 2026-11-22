@@ -1,0 +1,13 @@
+{
+  "calls": 0,
+  "command_digest": "ec17b2e8247b02e2d9d06dbbea763aa97fe9eb03ff74d49b8fed12cc111c0048",
+  "contract": {
+    "command": "python3 -B -m pytest -q tests",
+    "max_calls": 4,
+    "max_output_chars": 6000,
+    "test_id": "public",
+    "timeout_seconds": 240
+  },
+  "oracle_is_separate": true,
+  "runs": []
+}

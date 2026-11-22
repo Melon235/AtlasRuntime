@@ -1,0 +1,309 @@
+{
+  "run_id": "stage-b-CALIBRATION.workgrid.c2",
+  "mode": "main_driven",
+  "goal": "The WorkGrid project already provides dependency graph validation and resource availability rules, but its shared scheduling engine is incomplete. Implement a deterministic scheduling workflow that respects task dependencies and resource capacity constraints, reports unschedulable tasks clearly, and preserves the existing dependency and resource APIs. Make changes only in the authorized scheduler package and use the available public tests to verify the result.",
+  "run_dir": "D:\\Work\\atlas-b2c\\runs\\CALIBRATION.workgrid.c2\\r0\\runs\\stage-b-CALIBRATION.workgrid.c2",
+  "workspace_root": "D:\\Work\\atlas-b2c\\runs\\CALIBRATION.workgrid.c2\\r0\\runs\\host-workspace",
+  "workspace_tool_root": "/workspace/project",
+  "isolation": "sandbox",
+  "provider": "deepseek",
+  "model": "deepseek-chat",
+  "main_prompt": {
+    "version": "main-v1.0",
+    "digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a",
+    "chars": 1388,
+    "source": "override"
+  },
+  "status": "failed",
+  "execution_succeeded": false,
+  "failure": "sandbox create failed; sandbox task fails closed: code='sandbox_create_failed' message=\"Create sandbox failed: Invalid resourceLimits.memory: '1.0Gi'; must resolve to a positive resource limit. | [SANDBOX::INVALID_PARAMETER] Invalid resourceLimits.memory: '1.0Gi'; must resolve to a positive resource limit. | request_id=f8656f43b5314db3a930a9c512239411\" retryable=True details={}",
+  "main": {
+    "agent": "atlas-main",
+    "worker_id": "stage-b-CALIBRATION.workgrid.c2-main-worker",
+    "task_id": "stage-b-CALIBRATION.workgrid.c2-main",
+    "success": false,
+    "stop_reason": null,
+    "stop_message": null,
+    "turns": 0,
+    "tool_calls": [],
+    "output": "",
+    "prompt_tokens": 0,
+    "total_prompt_tokens": 0,
+    "cache_hit_tokens": 0,
+    "cache_miss_tokens": 0,
+    "completion_tokens": 0
+  },
+  "delegation": null,
+  "delegation_enabled": true,
+  "child_tokens": null,
+  "metrics": {
+    "main_requests": 0,
+    "main_peak_context_tokens": null,
+    "main_cumulative_input_tokens": null,
+    "main_context_tokens_by_request": null,
+    "main_cache_hit_tokens": null,
+    "main_cache_miss_tokens": null,
+    "main_completion_tokens": null,
+    "child_total_prompt_tokens": 0,
+    "child_completion_tokens": 0,
+    "system_total_tokens": 0,
+    "handoff_payload_chars": 0,
+    "delegation_rounds": 0,
+    "max_observed_child_concurrency": 0,
+    "unavailable_fields": [
+      "main_peak_context_tokens",
+      "main_cumulative_input_tokens",
+      "main_context_tokens_by_request",
+      "main_cache_hit_tokens",
+      "main_cache_miss_tokens",
+      "main_completion_tokens"
+    ]
+  },
+  "sandbox": {
+    "provider": "opensandbox",
+    "provider_is_real": true,
+    "capabilities": {
+      "provider": "opensandbox",
+      "contract_version": "1.0",
+      "isolation": "container",
+      "networking": "allowlist",
+      "persistent_filesystem": true,
+      "snapshots": false,
+      "command_streaming": false,
+      "cancellation": true,
+      "file_transfer": true,
+      "evidence": true,
+      "limitations": [
+        "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+        "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+        "Point-in-time snapshots are not exposed through this adapter.",
+        "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+      ]
+    },
+    "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+    "binding_id": "",
+    "sandbox_id": "",
+    "binding_state": "",
+    "workspace_root": "/workspace/project",
+    "network_probe": "NOT_RUN",
+    "host_separation": {},
+    "provision_commands": 0,
+    "provision_uploads": 0,
+    "created": false,
+    "destroyed": false,
+    "retained": false,
+    "patch_digest": null,
+    "patch_changed_files": 0,
+    "export_digest": null,
+    "export_files": 0,
+    "export_size_bytes": 0,
+    "check_runs": 0,
+    "tool_error_mode": "",
+    "error": "local ownership for workload 'stage-b-CALIBRATION.workgrid.c2'/'stage-b-CALIBRATION.workgrid.c2-main' is not held"
+  },
+  "artifacts": null,
+  "verification": null,
+  "acceptance": "NOT_CONFIGURED",
+  "public_tests": {
+    "contract": {
+      "test_id": "public",
+      "command": "python3 -B -m pytest -q tests",
+      "timeout_seconds": 240,
+      "max_output_chars": 6000,
+      "max_calls": 4
+    },
+    "command_digest": "ec17b2e8247b02e2d9d06dbbea763aa97fe9eb03ff74d49b8fed12cc111c0048",
+    "calls": 0,
+    "runs": [],
+    "oracle_is_separate": true
+  },
+  "preflight": {
+    "status": "READY",
+    "generated_at": "2026-11-22T10:05:12.624616+00:00",
+    "checks": [
+      {
+        "check_id": "sandbox_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "sandbox configured"
+      },
+      {
+        "check_id": "sandbox_provider_real",
+        "ok": true,
+        "blocking": true,
+        "detail": "sandbox.provider='opensandbox'; expected one of ['daytona', 'opensandbox']"
+      },
+      {
+        "check_id": "sandbox_isolation_required",
+        "ok": true,
+        "blocking": true,
+        "detail": "require_real must stay True: the fake provider runs on the host"
+      },
+      {
+        "check_id": "sandbox_workspace_root",
+        "ok": true,
+        "blocking": true,
+        "detail": "sandbox workspace root '/workspace/project' must be an absolute in-container path"
+      },
+      {
+        "check_id": "source_repo_clean",
+        "ok": true,
+        "blocking": true,
+        "detail": "D:\\Work\\atlas-b2c\\runs\\CALIBRATION.workgrid.c2\\r0\\fixture is clean at 90b8597240f6"
+      },
+      {
+        "check_id": "main_write_scope",
+        "ok": true,
+        "blocking": true,
+        "detail": "the Main needs an explicit host-declared write scope; got ['workgrid/scheduler/']"
+      },
+      {
+        "check_id": "main_write_scope_relative",
+        "ok": true,
+        "blocking": true,
+        "detail": "all write paths are workspace-relative"
+      },
+      {
+        "check_id": "public_tests_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "public suite 'public'"
+      },
+      {
+        "check_id": "public_tests_separate_from_oracle",
+        "ok": true,
+        "blocking": true,
+        "detail": "public and oracle commands must differ, otherwise the Main observes the oracle"
+      },
+      {
+        "check_id": "acceptance_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "an acceptance contract with a dynamic command is required; 'NOT_CONFIGURED' can never be a pipeline PASS"
+      },
+      {
+        "check_id": "acceptance_digest_declared",
+        "ok": true,
+        "blocking": true,
+        "detail": "the verification spec must carry a declared digest (it is signed by the host)"
+      },
+      {
+        "check_id": "budget_configured",
+        "ok": true,
+        "blocking": true,
+        "detail": "token_budget=500000 (admission is estimate-based; this is not a hard monetary cap)"
+      },
+      {
+        "check_id": "delegation_bounds",
+        "ok": true,
+        "blocking": true,
+        "detail": "delegation must be enabled with max_parallel_children >= 1"
+      },
+      {
+        "check_id": "context_metrics",
+        "ok": true,
+        "blocking": false,
+        "detail": "UsageAttributionHook records per-request main context unconditionally"
+      },
+      {
+        "check_id": "provider_deepseek",
+        "ok": true,
+        "blocking": true,
+        "detail": "provider='deepseek'; stage P1 is authorized for the DeepSeek adapter only"
+      },
+      {
+        "check_id": "model_fixed",
+        "ok": true,
+        "blocking": true,
+        "detail": "model='deepseek-chat' must equal config.provider.model='deepseek-chat' so the arm identity is the configuration, not a runtime override"
+      },
+      {
+        "check_id": "api_key_present",
+        "ok": true,
+        "blocking": true,
+        "detail": "DEEPSEEK_API_KEY is set (the preflight reads it, it never sends it)"
+      },
+      {
+        "check_id": "live_provider_factory",
+        "ok": true,
+        "blocking": true,
+        "detail": "a live run must build the real adapter; an injected factory is a deterministic test"
+      },
+      {
+        "check_id": "scratch_run_directory",
+        "ok": true,
+        "blocking": true,
+        "detail": "runs_root=D:\\Work\\atlas-b2c\\runs\\CALIBRATION.workgrid.c2\\r0\\runs must stay outside experiments/results and experiments/runs"
+      }
+    ],
+    "blocking_failures": [],
+    "notes": {
+      "budget": "admission is a conservative estimate; the run stops admitting when the budget is exhausted and does not guarantee a zero-overrun bill",
+      "metrics": "main_context_tokens_by_request is provider-observed; unobserved fields are UNAVAILABLE rather than estimated",
+      "oracle": "the harness runs the acceptance contract after the Main stops; a public PASS is never used as the oracle verdict"
+    }
+  },
+  "budget": {
+    "mode": "guarded",
+    "limit_tokens": 500000,
+    "used_prompt_tokens": 0,
+    "used_completion_tokens": 0,
+    "used_tokens": 0,
+    "written_off_tokens": 0,
+    "reserved_tokens": 0,
+    "remaining_tokens": 500000,
+    "peak_reserved_tokens": 0,
+    "requests_started": 0,
+    "requests_completed": 0,
+    "requests_written_off": 0,
+    "requests_released": 0,
+    "in_flight": 0,
+    "admission_rejections": 0,
+    "budget_overrun_tokens": 0,
+    "estimate_abs_error_tokens": 0,
+    "estimate_samples": 0,
+    "learned_ratio": 1.0,
+    "stop_reason": null,
+    "last_rejection": null,
+    "last_write_off_reason": null,
+    "last_release_reason": null,
+    "workers": {},
+    "samples": []
+  },
+  "ownership": {
+    "mode": "enforce",
+    "coverage": "PARTIAL",
+    "policy_version": "r1.1.0",
+    "run_id": "stage-b-CALIBRATION.workgrid.c2",
+    "workspace_root": "/workspace/project",
+    "workers": {
+      "stage-b-CALIBRATION.workgrid.c2-main-worker": {
+        "task_id": "stage-b-CALIBRATION.workgrid.c2-main",
+        "paths": [
+          "workgrid/scheduler/"
+        ],
+        "excluded": [],
+        "manifest_digest": "fb7624fac305445d0d5e380bdb0ce8431ff72609e5fab1623a963f34d4bab9cc",
+        "provenance": "trusted_host_declaration"
+      }
+    },
+    "checked_calls": 0,
+    "allowed_calls": 0,
+    "denied_calls": 0,
+    "unknown_worker_denials": 0,
+    "unknown_workers": [],
+    "denials": [],
+    "audit_findings": []
+  },
+  "handoff_reads": null,
+  "tool_surface": [],
+  "tool_error_mode": "corrected",
+  "execution_integrity": {
+    "mode": "record",
+    "payload_file": "private/tool_payloads.jsonl",
+    "records": 0,
+    "write_failures": 0,
+    "last_error": null,
+    "authority": "evidence_only"
+  }
+}

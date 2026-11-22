@@ -1,0 +1,14 @@
+{
+  "run_id": "stage-b-CALIBRATION.workgrid.c2",
+  "agent_name": "atlas-main",
+  "model": "deepseek-chat",
+  "status": "running",
+  "created_at": "2026-11-22T10:05:12.626616Z",
+  "updated_at": "2026-11-22T10:05:12.626616Z",
+  "last_heartbeat": "2026-11-22T10:05:12.626616Z",
+  "wake": null,
+  "metadata": {
+    "atlas_trajectory": "1"
+  },
+  "format_version": 1
+}

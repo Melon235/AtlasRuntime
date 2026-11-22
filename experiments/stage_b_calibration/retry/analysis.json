@@ -1,0 +1,73 @@
+{
+  "analyzer_version": "stage-b-reconstruct/1.1",
+  "cell": {
+    "arm_id": "P1",
+    "cell_id": "CALIBRATION.workgrid.c2",
+    "in_matrix": false,
+    "order": 0,
+    "repetition": 0,
+    "round": 0,
+    "task_id": "workgrid"
+  },
+  "consistency_checks": {
+    "oracle_agreement": "UNKNOWN",
+    "schema_problems": [
+      "record not reconstructed: pre-agent failure"
+    ]
+  },
+  "degraded": {
+    "missing_raw": [
+      "tool_conversations.json"
+    ],
+    "not_applicable": [
+      "tool_conversations.json",
+      "workspace.patch"
+    ],
+    "reason": "the run ended before the agent loop produced a conversation",
+    "session_failure": "sandbox create failed; sandbox task fails closed: code='sandbox_create_failed' message=\"Create sandbox failed: Invalid resourceLimits.memory: '1.0Gi'; must resolve to a positive resource limit. | [SANDBOX::INVALID_PARAMETER] Invalid resourceLimits.memory: '1.0Gi'; must resolve to a positive resource limit. | request_id=f8656f43b5314db3a930a9c512239411\" retryable=True details={}",
+    "session_status": "failed",
+    "stage": "PRE_AGENT"
+  },
+  "evidence_gaps": [
+    "no agent conversation was produced: the run ended in PRE_AGENT before the model loop",
+    "host oracle verdict is UNKNOWN; no other source may substitute for it"
+  ],
+  "execution_analysis_version": "stage-b-execution-analysis/1.1",
+  "execution_view": {
+    "analysis_version": "stage-b-execution-analysis/1.1",
+    "delegation_diagnostics": {
+      "authoritative": false,
+      "status": "NOT_APPLICABLE"
+    },
+    "execution_integrity": {
+      "primary_failure": "sandbox create failed; sandbox task fails closed: code='sandbox_create_failed' message=\"Create sandbox failed: Invalid resourceLimits.memory: '1.0Gi'; must resolve to a positive resource limit. | [SANDBOX::INVALID_PARAMETER] Invalid resourceLimits.memory: '1.0Gi'; must resolve to a positive resource limit. | request_id=f8656f43b5314db3a930a9c512239411\" retryable=True details={}",
+      "provider_requests": 0,
+      "public_test_calls": null,
+      "sandbox_created": false,
+      "sandbox_destroyed": false,
+      "session_status": "failed",
+      "stage": "PRE_AGENT"
+    },
+    "goal_correctness": {
+      "authoritative_source": "UNKNOWN",
+      "host_oracle": "UNKNOWN",
+      "oracle_agreement": "UNKNOWN",
+      "public_tests": "UNKNOWN",
+      "sandbox_verification": "UNKNOWN",
+      "status": "UNKNOWN"
+    },
+    "sources": {
+      "delegation": "session.delegation + handoff evidence (diagnostic only)",
+      "host_oracle": "host:oracle.json (executed after the Main stopped)",
+      "sandbox_verification": "session.verification (Sandbox-side, advisory)"
+    }
+  },
+  "generated_at": "2026-11-22T10:06:05.136560+00:00",
+  "harness_source_digest": "sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0",
+  "protocol_version": "1.1.0",
+  "reconstruct_version": "stage-b-reconstruct/1.1",
+  "record": null,
+  "schema_version": "stage-b-result/1.1",
+  "status": "INCOMPLETE",
+  "valid": false
+}

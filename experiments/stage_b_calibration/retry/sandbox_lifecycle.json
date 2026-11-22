@@ -1,0 +1,45 @@
+{
+  "cleanup_failure": null,
+  "sandbox": {
+    "binding_id": "",
+    "binding_state": "",
+    "capabilities": {
+      "cancellation": true,
+      "command_streaming": false,
+      "contract_version": "1.0",
+      "evidence": true,
+      "file_transfer": true,
+      "isolation": "container",
+      "limitations": [
+        "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+        "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+        "Point-in-time snapshots are not exposed through this adapter.",
+        "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+      ],
+      "networking": "allowlist",
+      "persistent_filesystem": true,
+      "provider": "opensandbox",
+      "snapshots": false
+    },
+    "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+    "check_runs": 0,
+    "created": false,
+    "destroyed": false,
+    "error": "local ownership for workload 'stage-b-CALIBRATION.workgrid.c2'/'stage-b-CALIBRATION.workgrid.c2-main' is not held",
+    "export_digest": null,
+    "export_files": 0,
+    "export_size_bytes": 0,
+    "host_separation": {},
+    "network_probe": "NOT_RUN",
+    "patch_changed_files": 0,
+    "patch_digest": null,
+    "provider": "opensandbox",
+    "provider_is_real": true,
+    "provision_commands": 0,
+    "provision_uploads": 0,
+    "retained": false,
+    "sandbox_id": "",
+    "tool_error_mode": "",
+    "workspace_root": "/workspace/project"
+  }
+}

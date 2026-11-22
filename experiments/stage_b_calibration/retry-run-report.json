@@ -1,0 +1,166 @@
+{
+  "analysis": {
+    "degraded_stage": "PRE_AGENT",
+    "execution_analysis_version": "stage-b-execution-analysis/1.1",
+    "gaps": [
+      "no agent conversation was produced: the run ended in PRE_AGENT before the model loop",
+      "host oracle verdict is UNKNOWN; no other source may substitute for it"
+    ],
+    "status": "INCOMPLETE",
+    "valid": false
+  },
+  "attempt": 1,
+  "authorization": {
+    "approval_commit": "6cf46998adbd60b9d62e1d3a6c029034e411920e",
+    "approved_at": "2026-11-22T10:05:04.336986+00:00",
+    "approved_by": "Owner (Melon235)",
+    "cost_ceiling_usd": 0.5,
+    "digest": "sha256:ec3d2bb946352b55d741762604c0363daa392c1a2f4d08c3de6889b74dcb41df",
+    "digests": {
+      "plan": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+      "protocol": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+      "runner_source": "sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0",
+      "runtime": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae"
+    },
+    "path": "experiments/stage_b_calibration/authorization-c2.json"
+  },
+  "cell": "CALIBRATION.workgrid.c2",
+  "evidence": {
+    "published": 16,
+    "raw": 5,
+    "redactions": []
+  },
+  "execution": {
+    "failure": "sandbox create failed; sandbox task fails closed: code='sandbox_create_failed' message=\"Create sandbox failed: Invalid resourceLimits.memory: '1.0Gi'; must resolve to a positive resource limit. | [SANDBOX::INVALID_PARAMETER] Invalid resourceLimits.memory: '1.0Gi'; must resolve to a positive resource limit. | request_id=f8656f43b5314db3a930a9c512239411\" retryable=True details={}",
+    "prompt": {
+      "chars": 1388,
+      "digest": "sha256:7e6fd829e51e094917960d309014acbe7c6636c7cec1a6f62213ec4ce986552a",
+      "source": "override",
+      "version": "main-v1.0"
+    },
+    "provider_requests": 0,
+    "sandbox_created": false,
+    "sandbox_destroyed": false,
+    "status": "failed",
+    "tokens": {
+      "main_cache_hit_tokens": null,
+      "main_cache_miss_tokens": null,
+      "main_completion_tokens": null,
+      "main_cumulative_input_tokens": null,
+      "system_total_tokens": 0
+    }
+  },
+  "fixes_not_validated": [
+    "model loop",
+    "tool execution",
+    "public tests",
+    "host oracle"
+  ],
+  "fixes_validated": [
+    "marker reached FAILED",
+    "analysis and manifest produced for a PRE_AGENT run",
+    "primary failure stayed sandbox_creation",
+    "no model call",
+    "no retry"
+  ],
+  "marker": {
+    "claimed_at": "2026-11-22T10:05:12.232006+00:00",
+    "retries_allowed": false,
+    "state": "FAILED"
+  },
+  "preflight_digest": "sha256:a279f5d35c706f541174a0470aaf4b842016a2be28cc38f2b0074dc9d88db855",
+  "recovery": {
+    "analysis_path": "D:\\Work\\atlas-b2c\\evidence\\calibration\\CALIBRATION.workgrid.c2\\r0\\evidence\\analysis.json",
+    "analysis_version": "stage-b-execution-analysis/1.1",
+    "degraded": true,
+    "evidence_gaps": [
+      "no agent conversation was produced: the run ended in PRE_AGENT before the model loop",
+      "host oracle verdict is UNKNOWN; no other source may substitute for it"
+    ],
+    "harness_source_digest": "sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0",
+    "manifest": {
+      "contract": {
+        "derived": [
+          "analysis.json",
+          "evidence_manifest.json"
+        ],
+        "never": [
+          "oracle source",
+          "reference implementation"
+        ],
+        "required": [
+          "session.json",
+          "attempt-1.json",
+          "transcript.jsonl",
+          "tool_conversations.json",
+          "workspace.patch",
+          "trajectory/",
+          "router_decisions.json",
+          "worker_outcomes.json",
+          "handoff_references.json",
+          "provider_usage.json",
+          "public_tests.json",
+          "oracle.json",
+          "sandbox_lifecycle.json",
+          "analysis.json",
+          "evidence_manifest.json"
+        ]
+      },
+      "file_count": 14,
+      "files": {
+        "analysis.json": "sha256:a90066cd9fc4d855564761e763632132b2641fab328e32e6be6acbfd35fc9048",
+        "attempt-1.json": "sha256:946ac9b40a82c3cdca57ea3eb8ec92e1e2c916f2a10d92e5844ad226fed648d9",
+        "evidence_manifest.json": "sha256:4ac57fa742d727d373c2f45904d5494005daa6e8ed22433cbca66570829820e5",
+        "handoff_references.json": "sha256:8f96344bc18fa58b4ba581a3748220f7b5ee5c337c8b05749cd3d6237461722f",
+        "oracle.json": "sha256:d15dc895608932347d4e86c5e5ea102b1363e5679c16945678005bdb0990d864",
+        "provider_usage.json": "sha256:3eba607d670809e1587b8252863af2dbd690a11c6cda9a0191291c419b987b0e",
+        "public_tests.json": "sha256:e1dd3624433b382fdf3c998de483c839c477e5ad37b0f8d41f6c049b9c303e51",
+        "router_decisions.json": "sha256:c7ba3114b4686073caa3d18b96e1db469b6bb1efda3f3082f4c97a5e35de0f9e",
+        "sandbox_lifecycle.json": "sha256:82faeae53cde0a21cbb2b4fcab36f6fac08ce18b6ff114d94b5e491549edf1d0",
+        "session.json": "sha256:471cda061748a9cb5c51b84646b548f82dca6a71bb11c7455734b61ae07a4af9",
+        "trajectory/stage-b-CALIBRATION.workgrid.c2/meta.json": "sha256:95db9851fcb50189f3907cab55966dab12372669409c4a201899a0bc16d4189a",
+        "trajectory/stage-b-CALIBRATION.workgrid.c2/transcript.jsonl": "sha256:f276e3ef789c9e6adc91a98a52556fcd192b0d1258137e650194983f0c148a8f",
+        "transcript.jsonl": "sha256:f276e3ef789c9e6adc91a98a52556fcd192b0d1258137e650194983f0c148a8f",
+        "worker_outcomes.json": "sha256:5a4d7b39cfea6692fc68e44f71619e1aaf8dcb30d783acc69aae8744a87931d4"
+      },
+      "generated_at": "2026-11-22T10:06:05.142557+00:00",
+      "immutable_raw": true,
+      "raw_digests": {
+        "attempt-1.json": "sha256:946ac9b40a82c3cdca57ea3eb8ec92e1e2c916f2a10d92e5844ad226fed648d9",
+        "session.json": "sha256:471cda061748a9cb5c51b84646b548f82dca6a71bb11c7455734b61ae07a4af9",
+        "trajectory/stage-b-CALIBRATION.workgrid.c2/meta.json": "sha256:95db9851fcb50189f3907cab55966dab12372669409c4a201899a0bc16d4189a",
+        "trajectory/stage-b-CALIBRATION.workgrid.c2/transcript.jsonl": "sha256:f276e3ef789c9e6adc91a98a52556fcd192b0d1258137e650194983f0c148a8f",
+        "transcript.jsonl": "sha256:f276e3ef789c9e6adc91a98a52556fcd192b0d1258137e650194983f0c148a8f"
+      },
+      "raw_dir": "_raw",
+      "raw_file_count": 5,
+      "redactions": []
+    },
+    "missing": [],
+    "missing_raw_optional": [
+      "tool_conversations.json",
+      "workspace.patch"
+    ],
+    "not_applicable": [
+      "tool_conversations.json",
+      "workspace.patch"
+    ],
+    "ok": false,
+    "raw_digests_unchanged": true,
+    "restored_published": [],
+    "status": "INCOMPLETE"
+  },
+  "root_cause": {
+    "detail": "provision.py rendered memory as str(memory_gib) + Gi, giving 1.0Gi; the OpenSandbox server requires an integer quantity such as 1Gi",
+    "layer": "execution/provision.py",
+    "runtime_error": "Invalid resourceLimits.memory: 1.0Gi; must resolve to a positive resource limit."
+  },
+  "runner_source_digest": "sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0",
+  "stage": "B-E2C",
+  "verdicts": {
+    "evidence_integrity": "INCOMPLETE",
+    "execution_integrity": "FAILED",
+    "goal": "GOAL_UNKNOWN",
+    "infrastructure": "CALIBRATION_INFRA_FAILED"
+  }
+}
