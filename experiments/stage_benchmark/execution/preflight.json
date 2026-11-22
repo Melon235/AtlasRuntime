@@ -51,7 +51,7 @@
       "ok": true
     },
     {
-      "detail": "current=sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0 frozen=None (not binding offline)",
+      "detail": "current=sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0 frozen=sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0 (not binding offline)",
       "label": "runner_source_digest_matches_freeze",
       "ok": true
     },
@@ -86,7 +86,7 @@
       "ok": true
     }
   ],
-  "digest": "sha256:7dec6f4e50cb983bb3f6c870fd588f8348f56cc803f63164a28f75bb1f87a131",
+  "digest": "sha256:0edb0902cc9063cf4f0a302089e1835d286cef7158bfac682cf15bcce086b430",
   "live": false,
   "offline_report_digest": "sha256:a2acbc16933eb4d8911064acb88c8d7b8659e12eda26c27c69cc2dbab5d9ca0a",
   "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
