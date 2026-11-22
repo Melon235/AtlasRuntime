@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import os
 import sys
@@ -18,7 +19,7 @@ from typing import Any
 from .. import protocol
 from .. import run_stage_b as stage_runner
 from ..tasks import BY_ID
-from . import adapter, admission, collector, provision
+from . import adapter, admission, collector, network, provision
 from .models import (
     CellRequest,
     CellResult,
@@ -55,17 +56,17 @@ def _views(
 ) -> dict[str, Any]:
     """Return the versioned view. Delegation is diagnostic here, never a verdict input."""
 
-    record = ((collection or {}).get("analysis") or {}).get("record") or {}
-    view = record.get("execution_view")
+    analysis = (collection or {}).get("analysis") or {}
+    record = analysis.get("record") or {}
+    view = analysis.get("execution_view") or record.get("execution_view")
     if view is None:
+        # A degraded analysis has no record; the raw session still carries the real failure.
         view = adapter.build_view(record or session, oracle=host_oracle, gaps=[])
     return view
 
 
-def _terminal_kind(
-    session: dict[str, Any], collection: dict[str, Any] | None, *, host_oracle: Any = None
-) -> str:
-    """Execution integrity first, then goal correctness. Delegation never sets the outcome."""
+def _integrity_kind(session: dict[str, Any]) -> str | None:
+    """Stop reasons and sandbox lifecycle. Never reads the analyser, so it cannot be broken."""
 
     if not isinstance(session, dict) or not session:
         return "provider_exception"
@@ -78,6 +79,28 @@ def _terminal_kind(
         return "budget_exhaustion"
     if (session.get("execution_integrity") or {}).get("sandbox_failure"):
         return "sandbox_cleanup"
+    sandbox = session.get("sandbox") or {}
+    failure_text = session.get("failure") if isinstance(session.get("failure"), str) else ""
+    if (
+        session.get("status") == "failed"
+        and sandbox.get("provider_is_real") is True
+        and sandbox.get("created") is False
+        and "sandbox" in failure_text.lower()
+    ):
+        return "sandbox_creation"
+    return None
+
+
+def _terminal_kind(
+    session: dict[str, Any], collection: dict[str, Any] | None, *, host_oracle: Any = None
+) -> str:
+    """Execution integrity first, then goal correctness. Delegation never sets the outcome."""
+
+    integrity = _integrity_kind(session)
+    if integrity:
+        return integrity
+    if not isinstance(session, dict) or not session:
+        return "provider_exception"
     if collection is not None and not collection.get("ok"):
         return "collector_failure"
 
@@ -95,6 +118,8 @@ async def execute_cell(request: CellRequest) -> CellResult:
     """Run one cell once. Provider calls happen only after the claim is durable."""
 
     document = dict(request.protocol_document or protocol.read_protocol())
+    # The sandbox host must bypass the Windows VPN proxy before any runtime client is built.
+    network.apply_proxy_bypass()
     source = admission.source_identity()
     preflight = admission.preflight(
         evidence_root=request.evidence_root,
@@ -102,6 +127,8 @@ async def execute_cell(request: CellRequest) -> CellResult:
         live=request.live,
         protocol_document=document,
         require_offline_report=request.live,
+        probe_sandbox=request.live,
+        sandbox_probe=request.sandbox_probe,
     )
     if preflight["status"] != "READY":
         raise ExecutionBlocked("preflight blocked: " + "; ".join(preflight["problems"]))
@@ -134,7 +161,9 @@ async def execute_cell(request: CellRequest) -> CellResult:
         authorization_digest=gate["digest"],
         source_digest=source["digest"],
     )
-    admission.mark_attempt(cell_root, "RUNNING")
+    # The claim itself is durable; a failed state write must not abort the attempt.
+    with contextlib.suppress(BaseException):
+        admission.mark_attempt(cell_root, "RUNNING")
     bundle = admission.evidence_dir(cell_root)
     run_root = request.runs_root / request.cell.cell_id / f"r{request.cell.repetition}"
     fixture_root = run_root / "fixture"
@@ -146,6 +175,8 @@ async def execute_cell(request: CellRequest) -> CellResult:
     failure = "none"
     detail = ""
     gaps: list[str] = []
+    secondary: list[str] = []
+    oracle: dict[str, Any] | None = None
     view: dict[str, Any] = {}
     goal_view: dict[str, Any] = {}
 
@@ -172,6 +203,12 @@ async def execute_cell(request: CellRequest) -> CellResult:
             detail = f"{type(error).__name__}: {error}"
             session = session or {}
 
+        # An integrity failure is decided before collection: a crashed collector must not be able
+        # to replace "the sandbox never started" with "the collector failed".
+        integrity_failure = _integrity_kind(session) if failure == "none" else None
+        if integrity_failure:
+            failure = integrity_failure
+
         run_dir = runs_dir / options.run_id if options is not None else runs_dir
         try:
             exported = (session.get("artifacts") or {}).get("workspace_path")
@@ -192,19 +229,39 @@ async def execute_cell(request: CellRequest) -> CellResult:
             gaps = list(collection["evidence_gaps"])
             if not collection["ok"]:
                 gaps.extend(f"missing: {name}" for name in collection["missing"])
+            gaps.extend(
+                f"not applicable: {name}" for name in collection.get("not_applicable") or ()
+            )
         except BaseException as error:
-            failure = "collector_failure" if failure == "none" else failure
+            secondary.append(f"collector_failure: {type(error).__name__}: {error}")
+            if failure == "none":
+                failure = "collector_failure"
             detail = detail or f"{type(error).__name__}: {error}"
 
-        view = _views(session, collection, oracle)
-        goal_view = view["goal_correctness"]
-        if failure == "none":
-            failure = _terminal_kind(session, collection, host_oracle=oracle)
-        state = "COLLECTED" if failure == "none" else "FAILED"
-        admission.mark_attempt(cell_root, state)
+        try:
+            view = _views(session, collection, oracle)
+            goal_view = view["goal_correctness"]
+            if failure == "none":
+                failure = _terminal_kind(session, collection, host_oracle=oracle)
+        except BaseException as error:
+            secondary.append(f"aggregation_failure: {type(error).__name__}: {error}")
+            if failure == "none":
+                failure = "aggregation_failure"
+            detail = detail or f"{type(error).__name__}: {error}"
     except BaseException as error:
-        failure = "aggregation_failure"
+        # A fault outside the guarded stages. The primary failure, if one already exists, wins.
+        secondary.append(f"aggregation_failure: {type(error).__name__}: {error}")
+        if failure == "none":
+            failure = "aggregation_failure"
         detail = detail or f"{type(error).__name__}: {error}"
+    finally:
+        # The marker must reach a terminal state even when collection or analysis failed. A marker
+        # write error is a diagnostic, never a replacement for the primary failure.
+        state = "COLLECTED" if failure == "none" else "FAILED"
+        try:
+            admission.mark_attempt(cell_root, state)
+        except BaseException as error:
+            secondary.append(f"marker_update_failure: {type(error).__name__}: {error}")
 
     result = CellResult(
         cell=request.cell,
@@ -227,6 +284,7 @@ async def execute_cell(request: CellRequest) -> CellResult:
         ),
         oracle_agreement=str(goal_view.get("oracle_agreement", "UNKNOWN")),
         host_oracle_source=str(goal_view.get("authoritative_source", "UNKNOWN")),
+        secondary_failures=tuple(secondary),
     )
     _write(result_path, result.to_dict())
     return result
@@ -281,7 +339,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--confirm-live", action="store_true")
     parser.add_argument("--authorization", type=Path)
+    parser.add_argument(
+        "--sandbox-endpoint",
+        metavar="HOST:PORT",
+        help="set OPEN_SANDBOX_ENDPOINT for this process; the host is added to NO_PROXY",
+    )
     args = parser.parse_args(argv)
+    if args.sandbox_endpoint:
+        os.environ["OPEN_SANDBOX_ENDPOINT"] = args.sandbox_endpoint
+    network.apply_proxy_bypass()
 
     if args.offline:
         from .offline import run_all
@@ -367,6 +433,8 @@ def main(argv: list[str] | None = None) -> int:
         live=bool(args.live),
         offline_report=report,
         require_offline_report=bool(args.live),
+        # A real health probe through the runtime client. It creates no sandbox and calls no model.
+        probe_sandbox=True,
     )
     admission.write_preflight(result)
     print(json.dumps(result))

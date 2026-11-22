@@ -76,7 +76,7 @@
       "ok": true
     },
     {
-      "detail": "expected=collector_failure got=collector_failure FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\atlas-gate-off2\\\\offline\\\\collector_crash\\\\evidence\\\\retrygate.P2.r1\\\\r1\\\\evidence\\\\session.json'",
+      "detail": "expected=collector_failure got=collector_failure FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\e2c-off2\\\\offline\\\\collector_crash\\\\evidence\\\\retrygate.P2.r1\\\\r1\\\\evidence\\\\session.json'",
       "name": "collector_crash",
       "ok": true
     },
@@ -116,7 +116,7 @@
       "ok": true
     },
     {
-      "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\atlas-gate-off2\\offline\\duplicate\\evidence\\cascade.P2.r1\\r1\\attempts\\attempt-1.json",
+      "detail": "C:\\Users\\86180\\AppData\\Local\\Temp\\e2c-off2\\offline\\duplicate\\evidence\\cascade.P2.r1\\r1\\attempts\\attempt-1.json",
       "name": "duplicate_cell_start",
       "ok": true
     },
@@ -131,7 +131,7 @@
       "ok": true
     },
     {
-      "detail": "['tool_conversations.json', 'workspace.patch', 'transcript.jsonl']",
+      "detail": "None",
       "name": "incomplete_evidence_rejected",
       "ok": true
     },
@@ -142,7 +142,7 @@
     }
   ],
   "coverage": true,
-  "generated_at": "2026-11-20T09:47:38.238556+00:00",
+  "generated_at": "2026-11-22T09:42:32.383353+00:00",
   "network_calls": 0,
   "passed": true,
   "provider": "fake",

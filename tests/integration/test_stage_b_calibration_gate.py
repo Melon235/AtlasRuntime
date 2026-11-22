@@ -89,7 +89,7 @@ def _view(result: Any) -> dict[str, Any]:
 
 def test_calibration_entry_builds_the_right_cell() -> None:
     cell = provision.calibration_cell()
-    assert cell.cell_id == "CALIBRATION.workgrid.c1"
+    assert cell.cell_id == "CALIBRATION.workgrid.c2"
     assert cell.arm_id == "P1"
     assert cell.in_matrix is False
     help_text = (
@@ -133,6 +133,13 @@ def test_no_authorization_cannot_enter_live_path(tmp_path: Path) -> None:
                     live=True,
                     calibration=True,
                     protocol_document=_document(),
+                    sandbox_probe=lambda: {
+                        "ok": True,
+                        "code": "SANDBOX_HEALTH_READY",
+                        "endpoint": "fake:8080",
+                        "status_code": 200,
+                        "detail": "healthy",
+                    },
                 )
             )
         )

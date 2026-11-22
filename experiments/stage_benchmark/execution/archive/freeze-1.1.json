@@ -1,0 +1,57 @@
+{
+  "analysis": {
+    "e1_analyser_unchanged": "stage-b-reconstruct/1.1",
+    "execution_analysis_version": "stage-b-execution-analysis/1.0"
+  },
+  "calibration": {
+    "cell_id": "CALIBRATION.workgrid.c1",
+    "identity": "experiments/stage_s2_prompt_v21/freeze.json",
+    "in_matrix": false,
+    "reason_not_run": "this stage may not call the provider",
+    "status": "PREPARED_NOT_RUN",
+    "task": "workgrid"
+  },
+  "e1_freeze": "sha256:a8dac818908da6c86f3b33008bb01e8a8a931136b5e03aa2c33a974979150c01",
+  "freeze_version": "stage-b-execution/1.1",
+  "frozen_at": "2026-11-20T09:57:19.503059+00:00",
+  "git": {
+    "dirty_paths": [],
+    "git_branch": "fix/stage-b-calibration-gate",
+    "git_head": "12127156f32ae994702e1e92f5816be781d06a8e",
+    "git_status": ""
+  },
+  "offline": {
+    "cases": 23,
+    "digest": "sha256:38b8a873e49ce29f0d666af175140c119c64d655e419aa6d6fb6b7ae67ed268c",
+    "passed": true
+  },
+  "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+  "preflight_digest": "sha256:62016b0f97a8461c87591f76cf78abf10e6d6b5a1ca914f1e57989a21d2e8cfa",
+  "protocol": {
+    "analysis_schema_version": "stage-b-result/1.1",
+    "digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+    "version": "1.1.0"
+  },
+  "source": {
+    "digest": "sha256:2ad509933456e14eecaa37d892872b4d0b5b7e362076ad3b4095835f3fc85d59",
+    "file_count": 8,
+    "files": {
+      "__init__.py": "sha256:a56e969e84b502e80b3c56faa5af50d3b88f3836a21e11dceed054fb0f7628dc",
+      "adapter.py": "sha256:bab2fc7773dd16afb35212fbea37212eaa5858f5b6e1adb0785108a03d1edbcb",
+      "admission.py": "sha256:476bc67b204cf36001ec6a6d8fe05ab7315e5fbb32dfee24d8ab4424cce0630e",
+      "collector.py": "sha256:05db004c2d66311c3fe6959ef8c9094da0b7c3b6b9f58b035e921d67b21317d1",
+      "models.py": "sha256:a8c3a638db06b4a7ba4bb9add6c9d7df8c0418db1f1a6bae2c80b944940c6084",
+      "offline.py": "sha256:6dc70e6388c64b92b12921e142c63b89baa87f1e11a62b7ed09ac231ef6d253e",
+      "provision.py": "sha256:e1b7523596b4c7c8206898bfe04afd20ff09c53fcc384cbfebc7d167dfab2525",
+      "runner.py": "sha256:b17ed9806ee833ef98917f22f4b26f35903f44947b4082a0022a985b76afbeed"
+    },
+    "root": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution"
+  },
+  "stage": "B-E2A-CLOSURE",
+  "supersedes": {
+    "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.0.json",
+    "digest": "sha256:7bf630e55dfd1cb8fbf15bd8a2a40cb0ee001987d6bf3c68ad527144c8e5a7e6",
+    "live_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\freeze.json",
+    "version": "stage-b-execution/1.0"
+  }
+}

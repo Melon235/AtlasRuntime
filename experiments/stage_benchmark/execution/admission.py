@@ -11,7 +11,7 @@ import hashlib
 import json
 import os
 import shutil
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -33,7 +33,9 @@ EXECUTION_DIR = Path(__file__).resolve().parent
 E2A_FREEZE_PATH = EXECUTION_DIR / "freeze.json"
 ARCHIVE_DIR = EXECUTION_DIR / "archive"
 ARCHIVE_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.0.json"
-FREEZE_PATH = EXECUTION_DIR / "freeze-1.1.json"
+FREEZE_11_PATH = EXECUTION_DIR / "freeze-1.1.json"
+ARCHIVE_11_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.1.json"
+FREEZE_PATH = EXECUTION_DIR / "freeze-1.2.json"
 OFFLINE_PATH = EXECUTION_DIR / "offline.json"
 PREFLIGHT_PATH = EXECUTION_DIR / "preflight.json"
 
@@ -47,6 +49,7 @@ SOURCE_FILES = (
     "runner.py",
     "offline.py",
     "adapter.py",
+    "network.py",
 )
 
 
@@ -162,6 +165,8 @@ def preflight(
     protocol_document: Mapping[str, Any] | None = None,
     offline_report: Mapping[str, Any] | None = None,
     require_offline_report: bool = True,
+    probe_sandbox: bool = False,
+    sandbox_probe: Callable[[], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Re-derive every frozen identity. Read-only: this function writes nothing."""
 
@@ -278,18 +283,39 @@ def preflight(
         )
     )
 
+    from . import network  # local import: keeps the module graph acyclic
     from .provision import isolation_checks  # local import: provision imports admission constants
 
     isolation = isolation_checks(document)
     checks.append(_check(isolation["ok"], "host_oracle_isolated", "; ".join(isolation["problems"])))
 
-    if E2A_FREEZE_PATH.is_file() and ARCHIVE_FREEZE_PATH.is_file():
-        archived_ok = digest_bytes(ARCHIVE_FREEZE_PATH.read_bytes()) == digest_bytes(
-            E2A_FREEZE_PATH.read_bytes()
+    sandbox: dict[str, Any] = {
+        "probed": bool(probe_sandbox),
+        "endpoint": network.sandbox_endpoint()[0],
+    }
+    if probe_sandbox:
+        probe = (sandbox_probe or network.probe_runtime_health)()
+        sandbox.update(probe)
+        checks.append(
+            _check(
+                bool(probe.get("ok")),
+                "sandbox_health",
+                f"{probe.get('code')} endpoint={probe.get('endpoint')} "
+                f"status={probe.get('status_code')} detail={probe.get('detail')}",
+            )
         )
-    else:
-        archived_ok = not ARCHIVE_FREEZE_PATH.is_file()
-    checks.append(_check(archived_ok, "e2a_freeze_preserved", str(ARCHIVE_FREEZE_PATH)))
+
+    for label, live_path, archived_path in (
+        ("e2a_freeze_preserved", E2A_FREEZE_PATH, ARCHIVE_FREEZE_PATH),
+        ("e2a_freeze_1_1_preserved", FREEZE_11_PATH, ARCHIVE_11_FREEZE_PATH),
+    ):
+        if live_path.is_file() and archived_path.is_file():
+            archived_ok = digest_bytes(archived_path.read_bytes()) == digest_bytes(
+                live_path.read_bytes()
+            )
+        else:
+            archived_ok = not archived_path.is_file()
+        checks.append(_check(archived_ok, label, str(archived_path)))
 
     if cell is not None:
         cells = {item["cell_id"] for item in plan["plan"]["cells"]}
@@ -332,6 +358,7 @@ def preflight(
         "runtime_digest": runtime["tree_digest"],
         "runner_source_digest": source["digest"],
         "offline_report_digest": canonical_digest(report) if report else None,
+        "sandbox": sandbox,
     }
     result["digest"] = canonical_digest(
         {key: value for key, value in result.items() if key != "digest"}
@@ -400,15 +427,35 @@ def write_freeze(
     if digest_bytes(ARCHIVE_FREEZE_PATH.read_bytes()) != original_digest:
         raise RuntimeError("the archived E2A freeze does not match the original")
 
+    if not FREEZE_11_PATH.is_file():
+        raise RuntimeError(f"the 1.1 execution freeze is missing: {FREEZE_11_PATH}")
+    previous_digest = digest_bytes(FREEZE_11_PATH.read_bytes())
+    if not ARCHIVE_11_FREEZE_PATH.is_file():
+        shutil.copy2(FREEZE_11_PATH, ARCHIVE_11_FREEZE_PATH)
+    if digest_bytes(ARCHIVE_11_FREEZE_PATH.read_bytes()) != previous_digest:
+        raise RuntimeError("the archived 1.1 execution freeze does not match the live copy")
+
     document = {
-        "stage": "B-E2A-CLOSURE",
-        "freeze_version": "stage-b-execution/1.1",
+        "stage": "B-E2C-CALIBRATION-RETRY",
+        "freeze_version": "stage-b-execution/1.2",
         "supersedes": {
-            "version": "stage-b-execution/1.0",
-            "live_path": str(E2A_FREEZE_PATH),
-            "archive_path": str(ARCHIVE_FREEZE_PATH),
-            "digest": original_digest,
+            "version": "stage-b-execution/1.1",
+            "live_path": str(FREEZE_11_PATH),
+            "archive_path": str(ARCHIVE_11_FREEZE_PATH),
+            "digest": previous_digest,
         },
+        "history": [
+            {
+                "version": "stage-b-execution/1.0",
+                "archive_path": str(ARCHIVE_FREEZE_PATH),
+                "digest": original_digest,
+            },
+            {
+                "version": "stage-b-execution/1.1",
+                "archive_path": str(ARCHIVE_11_FREEZE_PATH),
+                "digest": previous_digest,
+            },
+        ],
         "frozen_at": datetime.now(UTC).isoformat(),
         "git": stage_runner.git_identity(),
         "source": source_identity(),
@@ -426,16 +473,18 @@ def write_freeze(
         },
         "preflight_digest": preflight_result.get("digest"),
         "analysis": {
-            "execution_analysis_version": "stage-b-execution-analysis/1.0",
+            "execution_analysis_version": "stage-b-execution-analysis/1.1",
             "e1_analyser_unchanged": "stage-b-reconstruct/1.1",
         },
         "calibration": {
             "task": "workgrid",
-            "cell_id": "CALIBRATION.workgrid.c1",
+            "cell_id": "CALIBRATION.workgrid.c2",
+            "previous_attempt": "CALIBRATION.workgrid.c1",
             "in_matrix": False,
             "status": "PREPARED_NOT_RUN",
             "reason_not_run": "this stage may not call the provider",
             "identity": "experiments/stage_s2_prompt_v21/freeze.json",
+            "attempts_authorised": 1,
         },
     }
     FREEZE_PATH.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")

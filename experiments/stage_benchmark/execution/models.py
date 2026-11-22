@@ -129,6 +129,8 @@ class CellRequest:
     host_oracle: Mapping[str, Any] | None = None
     #: The evidence root dedicated to calibration. Live calls must supply it explicitly.
     calibration: bool = False
+    #: Test seam for the sandbox health probe. The live default is the real runtime client.
+    sandbox_probe: Callable[[], Mapping[str, Any]] | None = None
 
 
 @dataclass(frozen=True)
@@ -149,6 +151,8 @@ class CellResult:
     delegation_diagnostics: str = "NOT_APPLICABLE"
     oracle_agreement: str = "UNKNOWN"
     host_oracle_source: str = "UNKNOWN"
+    #: Failures that happened *after* the primary one (collector, aggregation). Never overwrite it.
+    secondary_failures: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -166,4 +170,5 @@ class CellResult:
             "delegation_diagnostics": self.delegation_diagnostics,
             "oracle_agreement": self.oracle_agreement,
             "host_oracle_source": self.host_oracle_source,
+            "secondary_failures": list(self.secondary_failures),
         }

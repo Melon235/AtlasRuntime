@@ -24,6 +24,7 @@ from experiments.stage_benchmark import protocol, reconstruct, schema  # noqa: E
 from experiments.stage_benchmark.execution import (  # noqa: E402
     admission,
     collector,
+    network,
     offline,
     provision,
     runner,
@@ -277,6 +278,13 @@ async def test_live_execution_without_authorization_never_claims(tmp_path: Path)
         runs_root=tmp_path / "runs",
         evidence_root=tmp_path / "evidence",
         live=True,
+        sandbox_probe=lambda: {
+            "ok": True,
+            "code": "SANDBOX_HEALTH_READY",
+            "endpoint": "fake:8080",
+            "status_code": 200,
+            "detail": "healthy",
+        },
     )
     with pytest.raises(ExecutionBlocked, match="not authorized"):
         await runner.execute_cell(request)
@@ -433,11 +441,26 @@ def test_runner_cli_has_no_run_flag_and_refuses_live_without_authorization(tmp_p
     assert result == 3
 
 
-def test_preflight_cli_writes_a_report(tmp_path: Path) -> None:
+def test_preflight_cli_writes_a_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        network,
+        "probe_runtime_health",
+        lambda: {
+            "ok": True,
+            "code": "SANDBOX_HEALTH_READY",
+            "endpoint": "fake:8080",
+            "status_code": 200,
+            "detail": "healthy",
+            "bypass": "fake",
+            "host": "fake",
+        },
+    )
     result = runner.main(["--preflight", "--evidence-root", str(tmp_path / "evidence")])
     assert result == 0
     payload = admission.read_json(admission.PREFLIGHT_PATH)
     assert payload["status"] == "READY"
+    assert payload["sandbox"]["probed"] is True
+    assert payload["sandbox"]["code"] == "SANDBOX_HEALTH_READY"
 
 
 def test_offline_suite_covers_every_named_case() -> None:
@@ -451,13 +474,16 @@ def test_offline_suite_covers_every_named_case() -> None:
 def test_execution_freeze_is_independent_of_the_e1_freeze() -> None:
     e1 = admission.read_json(admission.EXECUTION_DIR.parent / "freeze.json")
     frozen = admission.read_json(admission.FREEZE_PATH)
-    assert frozen["freeze_version"] in {"stage-b-execution/1.0", "stage-b-execution/1.1"}
-    if frozen["freeze_version"] == "stage-b-execution/1.1":
-        archived = admission.read_json(admission.ARCHIVE_FREEZE_PATH)
-        assert archived["freeze_version"] == "stage-b-execution/1.0"
-        assert frozen["supersedes"]["digest"] == admission.digest_bytes(
-            admission.E2A_FREEZE_PATH.read_bytes()
-        )
+    assert frozen["freeze_version"] in {
+        "stage-b-execution/1.0",
+        "stage-b-execution/1.1",
+        "stage-b-execution/1.2",
+    }
+    archived_digests = {
+        path.name: admission.digest_bytes(path.read_bytes())
+        for path in admission.ARCHIVE_DIR.glob("freeze-*.json")
+    }
+    assert frozen["supersedes"]["digest"] in archived_digests.values()
     assert frozen["protocol"]["digest"] == e1["protocol"]["digest"]
     assert frozen["plan_digest"] == e1["plan"]["digest"]
     assert frozen["calibration"]["in_matrix"] is False
@@ -507,6 +533,10 @@ def test_freeze_never_clears_prior_cell_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze.json")
+    # Keep the archive copies in the temp tree: a test must not add files to the repository.
+    monkeypatch.setattr(admission, "ARCHIVE_DIR", tmp_path / "archive")
+    monkeypatch.setattr(admission, "ARCHIVE_FREEZE_PATH", tmp_path / "archive/freeze-1.0.json")
+    monkeypatch.setattr(admission, "ARCHIVE_11_FREEZE_PATH", tmp_path / "archive/freeze-1.1.json")
     cell = _cell("cascade.P2.r1")
     directory = admission.cell_dir(tmp_path / "evidence", cell)
     admission.claim_attempt(

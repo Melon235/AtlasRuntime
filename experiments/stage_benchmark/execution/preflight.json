@@ -51,7 +51,7 @@
       "ok": true
     },
     {
-      "detail": "current=sha256:2ad509933456e14eecaa37d892872b4d0b5b7e362076ad3b4095835f3fc85d59 frozen=sha256:2ad509933456e14eecaa37d892872b4d0b5b7e362076ad3b4095835f3fc85d59 (not binding offline)",
+      "detail": "current=sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0 frozen=None (not binding offline)",
       "label": "runner_source_digest_matches_freeze",
       "ok": true
     },
@@ -66,8 +66,18 @@
       "ok": true
     },
     {
+      "detail": "SANDBOX_HEALTH_READY endpoint=fake:8080 status=200 detail=healthy",
+      "label": "sandbox_health",
+      "ok": true
+    },
+    {
       "detail": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.0.json",
       "label": "e2a_freeze_preserved",
+      "ok": true
+    },
+    {
+      "detail": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.1.json",
+      "label": "e2a_freeze_1_1_preserved",
       "ok": true
     },
     {
@@ -76,14 +86,24 @@
       "ok": true
     }
   ],
-  "digest": "sha256:62016b0f97a8461c87591f76cf78abf10e6d6b5a1ca914f1e57989a21d2e8cfa",
+  "digest": "sha256:7dec6f4e50cb983bb3f6c870fd588f8348f56cc803f63164a28f75bb1f87a131",
   "live": false,
-  "offline_report_digest": "sha256:38b8a873e49ce29f0d666af175140c119c64d655e419aa6d6fb6b7ae67ed268c",
+  "offline_report_digest": "sha256:a2acbc16933eb4d8911064acb88c8d7b8659e12eda26c27c69cc2dbab5d9ca0a",
   "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
   "problems": [],
   "protocol_digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
   "protocol_version": "1.1.0",
-  "runner_source_digest": "sha256:2ad509933456e14eecaa37d892872b4d0b5b7e362076ad3b4095835f3fc85d59",
+  "runner_source_digest": "sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0",
   "runtime_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
+  "sandbox": {
+    "bypass": "fake",
+    "code": "SANDBOX_HEALTH_READY",
+    "detail": "healthy",
+    "endpoint": "fake:8080",
+    "host": "fake",
+    "ok": true,
+    "probed": true,
+    "status_code": 200
+  },
   "status": "READY"
 }

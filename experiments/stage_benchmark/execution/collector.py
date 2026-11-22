@@ -216,20 +216,73 @@ def analyze(
     evidence_gaps: list[str],
     document: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Regenerate the v1.1 record plus the versioned execution overlay."""
+    """Regenerate the v1.1 record plus the versioned execution overlay.
+
+    A run that died before the model loop has no conversation and no workspace patch. That is an
+    explained absence, not a corrupt bundle: the analysis is written as INCOMPLETE with the stage
+    and the missing artefacts, and it never pretends the run reached the agent.
+    """
 
     if not (bundle / "session.json").is_file():
         raise RuntimeError(f"cannot analyse a bundle without session.json: {bundle}")
     document = document or protocol.read_protocol()
+    session = json.loads((bundle / "session.json").read_text(encoding="utf-8"))
+    gaps = list(evidence_gaps)
+    oracle_path = bundle / "oracle.json"
+    oracle = json.loads(oracle_path.read_text(encoding="utf-8")) if oracle_path.is_file() else None
+
+    conversation = bundle / "tool_conversations.json"
+    patch = bundle / "workspace.patch"
+    if not conversation.is_file():
+        stage = adapter.execution_stage(session)
+        not_applicable = [
+            name
+            for name, present in (
+                ("tool_conversations.json", False),
+                ("workspace.patch", patch.is_file()),
+            )
+            if not present
+        ]
+        gaps.append(
+            f"no agent conversation was produced: the run ended in {stage} before the model loop"
+        )
+        view = adapter.build_view(session, oracle=oracle, gaps=gaps)
+        payload = {
+            "schema_version": schema.SCHEMA_VERSION,
+            "analyzer_version": reconstruct.ANALYZER_VERSION,
+            "reconstruct_version": reconstruct.ANALYZER_VERSION,
+            "execution_analysis_version": adapter.ANALYSIS_VERSION,
+            "harness_source_digest": source_digest,
+            "protocol_version": document["protocol_version"],
+            "cell": cell.to_dict(),
+            "generated_at": datetime.now(UTC).isoformat(),
+            "status": "INCOMPLETE",
+            "degraded": {
+                "reason": "the run ended before the agent loop produced a conversation",
+                "stage": stage,
+                "session_status": session.get("status"),
+                "session_failure": session.get("failure"),
+                "not_applicable": not_applicable,
+                "missing_raw": [str(conversation.name)] if not conversation.is_file() else [],
+            },
+            "consistency_checks": {
+                "schema_problems": ["record not reconstructed: pre-agent failure"],
+                "oracle_agreement": view["goal_correctness"]["oracle_agreement"],
+            },
+            "evidence_gaps": gaps,
+            "valid": False,
+            "record": None,
+            "execution_view": view,
+        }
+        _write_json(bundle / ANALYSIS, payload)
+        return payload
+
     record = reconstruct.reconstruct(bundle)
     record = reconstruct.annotate(
         record, task_id=cell.task_id, arm_id=cell.arm_id, repetition=cell.repetition
     )
     problems = schema.validate_record(record)
-    gaps = list(evidence_gaps)
     gaps.extend(record["consistency"].get("gaps") or [])
-    oracle_path = bundle / "oracle.json"
-    oracle = json.loads(oracle_path.read_text(encoding="utf-8")) if oracle_path.is_file() else None
     view = adapter.build_view(record, oracle=oracle, gaps=gaps)
     record["execution_view"] = view
     payload = {
@@ -241,6 +294,7 @@ def analyze(
         "protocol_version": document["protocol_version"],
         "cell": cell.to_dict(),
         "generated_at": datetime.now(UTC).isoformat(),
+        "status": "COMPLETE" if not problems else "INVALID",
         "consistency_checks": {
             "schema_problems": problems,
             "cache_split_state": record["consistency"].get("cache_split_state"),
@@ -310,9 +364,27 @@ def manifest(bundle: Path, *, redactions: tuple[str, ...] = ()) -> dict[str, Any
     return payload
 
 
+def not_applicable(bundle: Path) -> list[str]:
+    """Artefacts a pre-agent failure cannot produce. They are explained, never synthesised."""
+
+    if not (bundle / "session.json").is_file():
+        return []
+    session = json.loads((bundle / "session.json").read_text(encoding="utf-8"))
+    if adapter.execution_stage(session) != "PRE_AGENT":
+        return []
+    return [
+        name
+        for name in ("tool_conversations.json", "workspace.patch")
+        if not (bundle / name).is_file()
+    ]
+
+
 def completeness(bundle: Path) -> list[str]:
+    explained = set(not_applicable(bundle))
     missing: list[str] = []
     for name in provision.evidence_contract()["required"]:
+        if name in explained:
+            continue
         target = bundle / name
         if name.endswith("/"):
             if not target.is_dir() or not any(target.iterdir()):
@@ -343,9 +415,12 @@ def collect(
     redactions = tuple(scrub_evidence(bundle))
     payload = manifest(bundle, redactions=redactions)
     missing = completeness(bundle)
+    explained = not_applicable(bundle)
     return {
         "ok": not missing and bool(analysis["valid"]),
+        "status": analysis.get("status", "COMPLETE" if analysis["valid"] else "INVALID"),
         "missing": missing,
+        "not_applicable": explained,
         "evidence_gaps": analysis["evidence_gaps"],
         "analysis": analysis,
         "manifest": payload,
@@ -359,21 +434,21 @@ def recover_evidence(bundle: Path, *, cell: CellIdentity, source_digest: str) ->
     if not bundle.is_dir():
         raise RuntimeError(f"no evidence bundle to recover: {bundle}")
     raw = bundle / RAW_DIR
-    raw_required = (
-        "session.json",
-        "tool_conversations.json",
-        "workspace.patch",
-        "transcript.jsonl",
-    )
     source = raw if raw.is_dir() else bundle
-    raw_missing = [name for name in raw_required if not (source / name).is_file()]
-    if raw_missing:
+    # Only the session is indispensable. A pre-agent failure legitimately has no conversation and
+    # no workspace patch; those stay explained absences, not fabricated files.
+    if not (source / "session.json").is_file():
         return {
             "ok": False,
             "status": "BLOCKED",
-            "missing_raw": raw_missing,
-            "reason": "raw evidence is incomplete; nothing may be inferred",
+            "missing_raw": ["session.json"],
+            "reason": "the session record is missing; nothing may be inferred",
         }
+    raw_missing = [
+        name
+        for name in ("tool_conversations.json", "workspace.patch", "transcript.jsonl")
+        if not (source / name).is_file()
+    ]
 
     raw_digests_before = {
         str(path.relative_to(source)).replace("\\", "/"): digest_bytes(path.read_bytes())
@@ -392,10 +467,14 @@ def recover_evidence(bundle: Path, *, cell: CellIdentity, source_digest: str) ->
         if path.is_file()
     }
     missing = completeness(bundle)
+    degraded = analysis.get("status") == "INCOMPLETE"
     return {
         "ok": not missing and bool(analysis["valid"]),
-        "status": "RECOVERED" if not missing else "INCOMPLETE",
+        "status": "INCOMPLETE" if (missing or degraded) else "RECOVERED",
+        "degraded": degraded,
         "missing": missing,
+        "missing_raw_optional": raw_missing,
+        "not_applicable": not_applicable(bundle),
         "evidence_gaps": analysis["evidence_gaps"],
         "analysis_path": bundle / ANALYSIS,
         "analysis_version": adapter.ANALYSIS_VERSION,

@@ -10,7 +10,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -31,6 +30,7 @@ from .. import protocol
 from ..tasks import BY_ID
 from ..tasks import base as task_base
 from ..tasks.base import TaskSpec
+from . import network
 from .models import CellIdentity
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -48,8 +48,11 @@ CALIBRATION = {
     "source": "experiments/fixtures/stage_s2_workgrid",
     "in_matrix": False,
     "arm_id": "P1",
+    #: The first attempt (c1) is consumed and preserved. A retry gets a new identity.
+    "attempt": 2,
     "status": "PREPARED_NOT_RUN",
     "reason_not_run": "this stage may not call the provider",
+    "previous_attempt": "CALIBRATION.workgrid.c1",
 }
 
 
@@ -88,7 +91,7 @@ def calibration_cell() -> CellIdentity:
         task_id=CALIBRATION["task"],
         arm_id=CALIBRATION["arm_id"],
         repetition=0,
-        cell_id="CALIBRATION.workgrid.c1",
+        cell_id=f"CALIBRATION.workgrid.c{CALIBRATION['attempt']}",
         in_matrix=False,
     )
 
@@ -360,7 +363,7 @@ def build_options(
     sandbox_config = SandboxConfig(
         enabled=True,
         provider=provider_name,
-        endpoint=os.environ.get("OPEN_SANDBOX_ENDPOINT", "localhost:8080"),
+        endpoint=network.sandbox_endpoint()[0],
         image=config["image"],
         workspace_root=WORKSPACE_ROOT,
         network=config["network"],
