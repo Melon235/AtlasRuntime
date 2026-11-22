@@ -66,7 +66,7 @@
       "ok": true
     },
     {
-      "detail": "SANDBOX_HEALTH_READY endpoint=fake:8080 status=200 detail=healthy",
+      "detail": "SANDBOX_HEALTH_READY endpoint=172.28.248.27:8080 status=200 detail=healthy",
       "label": "sandbox_health",
       "ok": true
     },
@@ -86,7 +86,7 @@
       "ok": true
     }
   ],
-  "digest": "sha256:0edb0902cc9063cf4f0a302089e1835d286cef7158bfac682cf15bcce086b430",
+  "digest": "sha256:995efeed51ef44184ae9acdfab0e9d6a039c14ecf80933580ef239234759a6e9",
   "live": false,
   "offline_report_digest": "sha256:a2acbc16933eb4d8911064acb88c8d7b8659e12eda26c27c69cc2dbab5d9ca0a",
   "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
@@ -96,14 +96,29 @@
   "runner_source_digest": "sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0",
   "runtime_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
   "sandbox": {
-    "bypass": "fake",
+    "added": [],
+    "bypass": "172.28.248.27,localhost,127.0.0.1,::1",
     "code": "SANDBOX_HEALTH_READY",
     "detail": "healthy",
-    "endpoint": "fake:8080",
-    "host": "fake",
+    "endpoint": "172.28.248.27:8080",
+    "endpoint_source": "argument",
+    "host": "172.28.248.27",
     "ok": true,
+    "preserved_existing": [
+      "172.28.248.27",
+      "localhost",
+      "127.0.0.1",
+      "::1"
+    ],
     "probed": true,
-    "status_code": 200
+    "proxy_env": {
+      "HTTPS_PROXY": null,
+      "HTTP_PROXY": null,
+      "http_proxy": null,
+      "https_proxy": null
+    },
+    "status_code": 200,
+    "used_proxy_bypass": true
   },
   "status": "READY"
 }

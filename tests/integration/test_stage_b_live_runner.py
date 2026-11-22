@@ -442,6 +442,8 @@ def test_runner_cli_has_no_run_flag_and_refuses_live_without_authorization(tmp_p
 
 
 def test_preflight_cli_writes_a_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The CLI writes the tracked preflight artifact; keep this test's report in the temp tree.
+    monkeypatch.setattr(admission, "PREFLIGHT_PATH", tmp_path / "preflight.json")
     monkeypatch.setattr(
         network,
         "probe_runtime_health",
