@@ -539,3 +539,77 @@ def test_a_required_command_with_an_unobserved_exit_code_fails(tmp_path: Path) -
     assert pwd["exit_ok"] is False
     assert result["checks"]["commands"] is False
     assert result["verdict"] == "SANDBOX_SMOKE_FAILED"
+
+
+# --------------------------------------------------------------------------- 19. cancellation
+#
+# ``CancelledError`` is not an ``Exception``, so it is not one of the guarded step failures. It ends
+# the smoke, but a container that already exists still has to be destroyed, the cancellation still
+# has to reach the caller, and it must never be reported as a pass.
+
+
+class CancellingProvider(FakeProvider):
+    """Cancels the smoke while a required command is in flight."""
+
+    def __init__(self, *, cancel_on: str = "pwd", **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.cancel_on = cancel_on
+
+    async def execute(self, handle: Any, command: Any) -> Any:
+        if self.cancel_on and self.cancel_on in command.command:
+            raise asyncio.CancelledError
+        return await super().execute(handle, command)
+
+
+class CancelOnDestroyProvider(FakeProvider):
+    """Cancels during cleanup, after a successful create."""
+
+    async def destroy(self, handle: Any) -> Any:
+        self.destroy_calls += 1
+        raise asyncio.CancelledError
+
+
+def _written_smoke(tmp_path: Path) -> dict[str, Any]:
+    return json.loads((tmp_path / "smoke" / "smoke-result.json").read_text("utf-8"))
+
+
+def test_a_cancelled_command_still_destroys_and_never_passes(tmp_path: Path) -> None:
+    provider = CancellingProvider()
+    with pytest.raises(asyncio.CancelledError):
+        _run(tmp_path, provider)
+    assert provider.create_calls == 1
+    assert provider.destroy_calls == 1
+    payload = _written_smoke(tmp_path)
+    assert payload["verdict"] == "SANDBOX_SMOKE_FAILED"
+    assert payload["status"] == "FAILED"
+    assert payload["cancellations"][0]["step"] == "run"
+    assert payload["primary_failure"].startswith("cancelled during the smoke")
+    assert payload["cleanup"]["state"] == "DESTROYED"
+
+
+def test_a_cancellation_and_a_cleanup_failure_are_both_recorded(tmp_path: Path) -> None:
+    provider = CancellingProvider(destroy_error=RuntimeError("destroy channel closed"))
+    with pytest.raises(asyncio.CancelledError):
+        _run(tmp_path, provider)
+    payload = _written_smoke(tmp_path)
+    assert payload["primary_failure"].startswith("cancelled during the smoke")
+    assert any("destroy channel closed" in item for item in payload["secondary_failures"])
+    # the destroy failed and the handle still answered, so the honest state is RESIDUAL
+    assert payload["cleanup"]["state"] == "RESIDUAL"
+    assert payload["cleanup"]["residual"] is True
+    assert payload["verdict"] == "SANDBOX_SMOKE_FAILED"
+    assert payload["cancellations"] == [{"step": "run", "type": "CancelledError"}]
+
+
+def test_a_cancellation_during_cleanup_is_recorded_and_re_raised(tmp_path: Path) -> None:
+    provider = CancelOnDestroyProvider()
+    with pytest.raises(asyncio.CancelledError):
+        _run(tmp_path, provider)
+    assert provider.create_calls == 1
+    assert provider.destroy_calls == 1
+    payload = _written_smoke(tmp_path)
+    assert payload["cancellations"] == [{"step": "cleanup", "type": "CancelledError"}]
+    assert payload["cleanup"]["state"] == "UNKNOWN"
+    assert payload["cleanup"]["residual"] is None
+    assert payload["verdict"] == "SANDBOX_SMOKE_FAILED"
+    assert "cleanup_residual" in payload["unconfirmed"]

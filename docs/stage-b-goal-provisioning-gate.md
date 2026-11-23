@@ -74,6 +74,11 @@ claim holds across processes, not only across `asyncio` tasks. The claim is writ
 provider call, is never deleted, and its state only moves forward (`CLAIMED` → `COMPLETED` /
 `FAILED`). A second process fails **before** `create`.
 
+The claim root is harness policy, not a run parameter: there is no `--claim-root` on the CLI, and a
+`ProvisioningRequest` that supplies one without declaring `test_isolation=True` is refused with
+`claim_namespace` before anything is contacted. Otherwise one authorization could obtain a second,
+independent claim simply by pointing at another directory.
+
 ---
 
 ## C. Authorization
@@ -89,7 +94,7 @@ The record the Owner would have to issue:
 | `smoke_id` | `SANDBOX.SMOKE.stage-b-e2f-provisioning` |
 | `approved_by`, `approved_at`, `approval_commit` | present and non-empty |
 | `allow_container_create`, `allow_container_destroy` | `true` |
-| `deepseek_requests_allowed`, `agent_runner_allowed`, `calibration_allowed`, `benchmark_cells_allowed` | not `true` |
+| `deepseek_requests_allowed`, `agent_runner_allowed`, `calibration_allowed`, `benchmark_cells_allowed` | explicitly `false` (a missing field is not a licence) |
 | `max_sandboxes` | `1` (a scope; the claim is what enforces one attempt) |
 | `consumed` | not `true` |
 | `approved_digests` | must equal the eight digests below |
@@ -126,20 +131,22 @@ tree.
 
 ```text
 authorization_gate(record, identity)          no record -> BLOCKED, nothing is contacted
+  -> claim namespace (harness-owned)          a request-supplied root is refused -> BLOCKED
   -> identity_checks(...)                     protocol / plan / runtime / fixture / resources / oracle
   -> claim_once(...)                          durable, atomic, before any provider call
-  -> evidence root + run directory            unwritable -> FAILED before create
+  -> attempt directory + run directory        per authorization; unwritable -> FAILED before create
   -> materialize the frozen WorkGrid fixture  fresh temp git repo, verified against the S2 bytes
-  -> provision.sandbox_config()               the frozen cpu/memory/image/network values
+  -> provision.sandbox_config(endpoint=...)   frozen cpu/memory/image/network, pinned endpoint
+  -> endpoint consistency check               config != probe endpoint -> BLOCKED before create
   -> health probe                             through the runtime adapter, never a raw socket
   -> GoalSandbox(options, config, run_dir).start(task_id, context, worker_id)
-       -> build_sandbox_provider("opensandbox")
+       -> build_sandbox_provider("opensandbox")   same endpoint as the probe
        -> GitProjectProvisioner.inspect(fixture)
        -> ProjectSandboxManager.ensure_binding()   create, inspect, upload, clone, verify HEAD
        -> probe_network_none / probe_host_separation
-  -> workspace checks (fixed, read-only, Host-owned commands)
+  -> workspace checks (fixed, read-only, Host-owned commands, exit code required)
   -> GoalSandbox.close() + residual probe
-  -> provisioning-result.json
+  -> attempts/<attempt>/provisioning-result.json   written once, O_EXCL
 ```
 
 `require_real=True` is enforced by `GoalSandboxOptions`; `provider="fake"` cannot be combined with
@@ -179,36 +186,51 @@ the `atlas_run_id` label to look for, and refuses to claim `residual=false`.
 
 ## E. Evidence
 
-`experiments/stage_b_smoke/e2f-provisioning/provisioning-result.json`:
+Each attempt owns a directory, named by the authorization that produced it:
 
 ```text
-smoke_id, smoke_version, started_at, finished_at
+experiments/stage_b_smoke/e2f-provisioning/attempts/attempt-<16 hex>/provisioning-result.json
+```
+
+The canonical file is written once, with `O_CREAT | O_EXCL`. A second run of the same authorization
+— typically the duplicate-claim refusal — writes `provisioning-result.<utc>-<pid>-<n>.json` next to
+it and never touches the first file's bytes. A run that never reached an authorization gets a
+disjoint `blocked-<utc>-<pid>-<hex>/` directory instead. The attempt directory also holds
+`sandbox/`, the runtime's own run directory, so two authorizations cannot share a binding store, an
+ownership lock or a fixture checkout. The scratch root is per attempt for the same reason.
+
+```text
+smoke_id, smoke_version, attempt, started_at, finished_at
 authorization{ready, problems, digest, approved_by, approval_commit, approved_at}
 identity{smoke, git, harness_source, gate_source, runtime, protocol, plan, fixture}
 gate_checks[]
 claim{created, path, digest, state}
 environment{endpoint, endpoint_source, bypass, proxy_env}
-create_request{provider, endpoint, image, cpu, memory, network, workspace_root, require_real}
+create_request{provider, endpoint, image, cpu, memory, network, workspace_root, require_real,
+               run_id, task_id}
 fixture{materialized, root, source, source_commit, clean, files, digest, problems}
 health{}
 sandbox{started, provider_is_real, capabilities, capabilities_digest, binding_id, sandbox_id,
         binding_state, workspace_root, network_probe, host_separation, created, destroyed, ...}
-workspace{root, checks[], summary{}, verdict{}}
+workspace{root, checks[], summary{}, exit_ok{}, verdict{}}
 isolation{network_probe, host_separation}
 cleanup{attempted, destroyed, residual, state, probe, error, detail}
 checks{}, unconfirmed[], primary_failure, secondary_failures[]
 model_requests, calibration_attempts, benchmark_cells, not_run[]
-verdict, status, failure_kind, detail
+verdict, status, failure_kind, detail, evidence_path
 ```
 
 Verdicts: `PROVISIONING_SMOKE_PASS`, `..._FAILED`, `..._UNKNOWN`, `..._BLOCKED`. `status` is
 `PASSED|FAILED|UNKNOWN|BLOCKED`, or `EVIDENCE_NOT_WRITTEN` when the result file itself could not be
-written — a run whose evidence cannot be stored is not allowed to look successful.
+written. That last case fails closed: the verdict becomes `UNKNOWN`, the gate's own conclusion is
+preserved under `gate_conclusion`, and the CLI exits non-zero — a run whose evidence cannot be
+stored is never allowed to look successful, and its claim is never rolled back.
 
-Failure kinds are named by layer (`authorization`, `identity`, `duplicate_claim`, `claim_write`,
-`fixture`, `sandbox_environment`, `sandbox_capability`, `sandbox_create`, `sandbox_binding`,
-`fixture_upload`, `git_clone`, `workspace`, `isolation`, `cleanup`, `evidence_write`, `unexpected`).
-A provisioning failure is never reported as a coding-goal failure.
+Failure kinds are named by layer (`authorization`, `identity`, `claim_namespace`, `duplicate_claim`,
+`claim_write`, `endpoint_mismatch`, `fixture`, `sandbox_environment`, `sandbox_capability`,
+`sandbox_create`, `sandbox_binding`, `fixture_upload`, `git_clone`, `workspace`, `isolation`,
+`cleanup`, `evidence_write`, `unexpected`). A provisioning failure is never reported as a
+coding-goal failure.
 
 ---
 
@@ -283,3 +305,18 @@ re-authorise c3.
 
    Exposure today is low: the OpenSandbox adapter coerces a missing exit code to `0` before
    returning, so a live run cannot reach that branch.
+
+---
+
+## J. Independent review fixes (PR #4)
+
+| Finding | Fix | Regression test |
+|---|---|---|
+| P0-A workspace verdict ignored exit codes | every required check needs `ok and exit_code == 0`; facts are only derived from output whose command succeeded, and `workspace_exit_codes` joins the gate checks | `test_a_required_check_with_a_non_zero_exit_code_is_not_a_pass`, `..._unobserved_...`, `..._transport_failed_...` |
+| P0-B evidence could be overwritten | per-attempt directory, `O_CREAT \| O_EXCL` canonical file, differently named file for later runs of the same identity, per-attempt run dir and scratch | `test_a_replayed_authorization_cannot_touch_the_first_result`, `test_a_run_without_authorization_cannot_overwrite_a_successful_result`, `test_two_authorizations_do_not_share_run_state` |
+| P0-C evidence write failure still looked like a pass | verdict degrades to `UNKNOWN`, gate conclusion kept in `gate_conclusion`, CLI exits non-zero, cleanup already ran, claim kept | `test_an_evidence_write_failure_is_never_reported_as_a_pass`, `test_a_primary_failure_and_an_evidence_failure_are_both_kept`, `test_the_cli_does_not_exit_zero_when_the_evidence_was_not_written` |
+| P0-D claim root could be redirected | no `--claim-root`; a request-supplied root needs `test_isolation=True`, otherwise `BLOCKED / claim_namespace` | `test_the_cli_offers_no_way_to_move_the_claim_namespace`, `test_a_request_supplied_claim_root_is_refused_without_a_declared_test_isolation`, `test_a_replay_from_another_evidence_root_is_still_refused` |
+| P1-A health endpoint and create endpoint could differ | the resolved endpoint is passed into `provision.sandbox_config(endpoint=...)`, so the probe, the provider options and the create share it; a config that disagrees is refused before create | `test_the_health_probe_and_the_create_use_the_same_endpoint`, `test_a_resource_config_that_ignores_the_resolved_endpoint_blocks_before_create` |
+| P1-B post-destroy probe turned transport failures into "no residual" | `residual` is only `false` when the provider confirmed the destroy; a raised probe, `ok=False`, a non-zero exit or an unobserved exit all stay `UNKNOWN` | `test_a_confirmed_destroy_with_a_broken_probe_is_destroyed`, `test_a_failed_destroy_with_a_broken_probe_is_unknown`, `..._refused_...`, `..._unobserved_...`, `..._reachable_...` |
+| P1-C cancellation skipped the destroy | the destroy moved into a `finally` that also runs for `CancelledError`; the cancellation is re-raised after the evidence is written and can never be reported as a pass | `test_a_cancelled_command_still_destroys_and_never_passes`, `test_a_cancellation_and_a_cleanup_failure_are_both_recorded`, `test_a_cancellation_during_cleanup_is_recorded_and_re_raised` |
+| P2 forbidden permissions accepted a missing field | each of the four must be explicitly `False` | `test_a_missing_forbidden_permission_blocks` (4 cases) |

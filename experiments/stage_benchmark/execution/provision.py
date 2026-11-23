@@ -352,11 +352,18 @@ def _acceptance(spec: TaskSpec) -> GoalAcceptance:
     )
 
 
-def sandbox_config(document: Mapping[str, Any] | None = None, *, offline: bool = False):
+def sandbox_config(
+    document: Mapping[str, Any] | None = None,
+    *,
+    offline: bool = False,
+    endpoint: str | None = None,
+):
     """The single place that turns the frozen run config into a ``SandboxConfig``.
 
     Both the goal run and the smoke test read the sandbox settings from here, so a preflight audit
-    and a real provider call cannot drift apart.
+    and a real provider call cannot drift apart. ``endpoint`` lets a caller that already resolved
+    the address (a gate that probed it) pin the same one instead of resolving the environment a
+    second time.
     """
 
     document = document or protocol.read_protocol()
@@ -365,7 +372,7 @@ def sandbox_config(document: Mapping[str, Any] | None = None, *, offline: bool =
     return SandboxConfig(
         enabled=True,
         provider=provider_name,
-        endpoint=network.sandbox_endpoint()[0],
+        endpoint=endpoint or network.sandbox_endpoint()[0],
         image=config["image"],
         workspace_root=WORKSPACE_ROOT,
         network=config["network"],

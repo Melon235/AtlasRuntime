@@ -12,11 +12,13 @@ E2E smoke.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -61,15 +63,17 @@ class GateProvider(FakeSandboxProvider):
         #: ``FakeSandboxProvider.fail_clone`` matches the literal ``git clone``, and the runtime
         #: clones with ``git -c core.autocrlf=false clone``. This flag matches any clone command.
         self.fail_clone_commands = False
+        #: Every ``build_sandbox_provider`` call, so a test can see which endpoint was bound.
+        self.provider_calls: list[dict[str, Any]] = []
 
     async def execute(self, handle: Any, command: Any) -> Any:
+        override = self.command_overrides.get(command.command)
+        if override is not None:
+            return override
         if command.command == "pwd":
             return SandboxCommandResult(ok=True, exit_code=0, stdout=f"{self.pwd_output}\n")
         if self.fail_clone_commands and "clone" in command.command:
             return SandboxCommandResult(ok=False, exit_code=1, stderr="clone failed")
-        override = self.command_overrides.get(command.command)
-        if override is not None:
-            return override
         return await super().execute(handle, command)
 
 
@@ -88,11 +92,12 @@ def provider(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> GateProvider:
     """Install the fake as the provider the goal sandbox would have built."""
 
     fake = GateProvider(tmp_path / "sandboxes")
-    monkeypatch.setattr(
-        goal_sandbox_module,
-        "build_sandbox_provider",
-        lambda name, **_kwargs: fake,
-    )
+
+    def _factory(name: str, **kwargs: Any) -> GateProvider:
+        fake.provider_calls.append({"name": name, **kwargs})
+        return fake
+
+    monkeypatch.setattr(goal_sandbox_module, "build_sandbox_provider", _factory)
 
     async def network_pass(_provider: Any, _handle: Any) -> str:
         return "PASS"
@@ -144,6 +149,8 @@ def _request(
         "authorization": authorization,
         "evidence_dir": tmp_path / "evidence",
         "claim_root": tmp_path / "claims",
+        # The claim root is production-owned; only a declared test isolation may move it.
+        "test_isolation": True,
         "endpoint": "127.0.0.1:9",
         "scratch_root": tmp_path / "scratch",
         "health_probe": _healthy,
@@ -180,7 +187,8 @@ def test_no_authorization_blocks_before_any_provider_call(tmp_path: Path, provid
     assert result["authorization"]["digest"] is None
     assert provider.create_count == 0
     assert _claims(tmp_path) == []
-    assert (tmp_path / "evidence" / "provisioning-result.json").is_file()
+    assert Path(result["evidence_path"]).is_file()
+    assert result["status"] == "BLOCKED"
 
 
 def test_an_unapproved_record_blocks(tmp_path: Path, provider: Any, identity_digests: Any) -> None:
@@ -358,10 +366,8 @@ def test_the_gate_provisions_the_workspace_and_destroys_the_sandbox(
 def test_the_evidence_records_the_whole_contract(
     tmp_path: Path, provider: GateProvider, identity_digests: Any
 ) -> None:
-    _run(_request(tmp_path, authorization=_authorization(identity_digests)))
-    payload = json.loads(
-        (tmp_path / "evidence" / "provisioning-result.json").read_text(encoding="utf-8")
-    )
+    result = _run(_request(tmp_path, authorization=_authorization(identity_digests)))
+    payload = json.loads(Path(result["evidence_path"]).read_text(encoding="utf-8"))
     for key in (
         "smoke_id",
         "authorization",
@@ -770,8 +776,6 @@ def test_an_unwritable_evidence_root_blocks_before_create(
     reason="frozen runtime: run_public_command reports an unobserved exit status as PASS",
 )
 async def test_an_unobserved_exit_status_is_not_reported_as_a_pass(tmp_path: Path) -> None:
-    from types import SimpleNamespace
-
     from atlasos.app.goal_sandbox import GoalSandbox, GoalSandboxOptions
     from atlasos.config import AtlasConfig, ToolsConfig
 
@@ -818,9 +822,374 @@ def test_the_cli_blocks_without_an_authorization_file(
     monkeypatch.setenv("OPEN_SANDBOX_ENDPOINT", "127.0.0.1:9")
     code = runner.main(["--goal-provisioning-smoke"])
     assert code == 1
-    payload = json.loads(
-        (tmp_path / "evidence" / "provisioning-result.json").read_text(encoding="utf-8")
+    written = sorted(
+        (tmp_path / "evidence" / "attempts").glob("blocked-*/provisioning-result.json")
     )
+    assert len(written) == 1
+    payload = json.loads(written[0].read_text(encoding="utf-8"))
     assert payload["verdict"] == e2f.VERDICT_BLOCKED
     assert payload["failure_kind"] == "authorization"
     assert not (tmp_path / "claims").exists()
+
+
+def test_the_cli_offers_no_way_to_move_the_claim_namespace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A flag that redirects the claim root would hand one authorization a second claim."""
+
+    monkeypatch.setattr(e2f, "CLAIM_DIR", tmp_path / "claims")
+    with pytest.raises(SystemExit) as exit_info:
+        e2f.main(["--claim-root", str(tmp_path / "elsewhere")])
+    assert exit_info.value.code == 2
+    assert not (tmp_path / "elsewhere").exists()
+
+
+# --------------------------------------------------------------------------- 10. workspace verdict
+#
+# The check text is not the verdict. A required command only counts when its transport succeeded
+# *and* it reported exit 0; otherwise the expected stdout must not be read as a pass.
+
+
+def _override(provider: GateProvider, name: str, **kwargs: Any) -> None:
+    provider.command_overrides[_workspace_command_map()[name]] = SandboxCommandResult(**kwargs)
+
+
+def test_a_required_check_with_a_non_zero_exit_code_is_not_a_pass(
+    tmp_path: Path, provider: GateProvider, identity_digests: Any
+) -> None:
+    _override(provider, "pwd", ok=True, exit_code=2, stdout=f"{WORKSPACE}\n")
+    result = _run(_request(tmp_path, authorization=_authorization(identity_digests)))
+    assert result["verdict"] != e2f.VERDICT_PASS
+    assert result["workspace"]["exit_ok"]["pwd"] is False
+    assert result["checks"]["workspace_exit_codes"] is False
+    assert result["checks"]["workspace_cwd"] is False
+    assert result["failure_kind"] == "workspace"
+    assert provider.create_count == 1
+    assert provider.destroy_count == 1
+
+
+def test_a_required_check_with_an_unobserved_exit_code_is_not_a_pass(
+    tmp_path: Path, provider: GateProvider, identity_digests: Any
+) -> None:
+    _override(provider, "files", ok=True, exit_code=None, stdout="ALL_PRESENT\n")
+    result = _run(_request(tmp_path, authorization=_authorization(identity_digests)))
+    assert result["verdict"] != e2f.VERDICT_PASS
+    assert result["workspace"]["exit_ok"]["files"] is False
+    assert result["checks"]["workspace_files"] is False
+    assert result["checks"]["workspace_exit_codes"] is False
+    assert result["failure_kind"] == "workspace"
+
+
+def test_a_required_check_whose_transport_failed_is_not_a_pass(
+    tmp_path: Path, provider: GateProvider, identity_digests: Any
+) -> None:
+    _override(provider, "status", ok=False, exit_code=0, stdout="")
+    result = _run(_request(tmp_path, authorization=_authorization(identity_digests)))
+    assert result["verdict"] != e2f.VERDICT_PASS
+    assert result["workspace"]["exit_ok"]["status"] is False
+    assert result["checks"]["workspace_clean"] is False
+    assert result["failure_kind"] == "workspace"
+
+
+# --------------------------------------------------------------------------- 11. immutable evidence
+
+
+def _attempt_results(tmp_path: Path) -> list[Path]:
+    root = tmp_path / "evidence" / "attempts"
+    return sorted(root.glob("*/provisioning-result*.json")) if root.is_dir() else []
+
+
+def _sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_a_replayed_authorization_cannot_touch_the_first_result(
+    tmp_path: Path, provider: GateProvider, identity_digests: Any
+) -> None:
+    record = _authorization(identity_digests)
+    first = _run(_request(tmp_path, authorization=record))
+    assert first["verdict"] == e2f.VERDICT_PASS
+    original = Path(first["evidence_path"])
+    before = _sha(original)
+
+    second = _run(_request(tmp_path, authorization=record))
+    assert second["verdict"] == e2f.VERDICT_BLOCKED
+    assert second["failure_kind"] == "duplicate_claim"
+    assert provider.create_count == 1
+    assert _sha(original) == before
+    assert Path(second["evidence_path"]) != original
+    assert Path(second["evidence_path"]).is_file()
+    # the replay is recorded next to the original, never on top of it
+    assert original.parent == Path(second["evidence_path"]).parent
+
+
+def test_a_run_without_authorization_cannot_overwrite_a_successful_result(
+    tmp_path: Path, provider: GateProvider, identity_digests: Any
+) -> None:
+    first = _run(_request(tmp_path, authorization=_authorization(identity_digests)))
+    assert first["verdict"] == e2f.VERDICT_PASS
+    original = Path(first["evidence_path"])
+    before = _sha(original)
+
+    blocked = _run(_request(tmp_path, authorization=None))
+    assert blocked["verdict"] == e2f.VERDICT_BLOCKED
+    assert _sha(original) == before
+    assert Path(blocked["evidence_path"]) != original
+
+
+def test_two_authorizations_do_not_share_run_state(
+    tmp_path: Path, provider: GateProvider, identity_digests: Any
+) -> None:
+    one = _run(_request(tmp_path, authorization=_authorization(identity_digests)))
+    two = _run(
+        _request(tmp_path, authorization=_authorization(identity_digests, approved_by="Owner #2"))
+    )
+    assert one["verdict"] == e2f.VERDICT_PASS
+    assert two["verdict"] == e2f.VERDICT_PASS
+    assert one["attempt"] != two["attempt"]
+    assert one["evidence_path"] != two["evidence_path"]
+    assert one["create_request"]["run_id"] != two["create_request"]["run_id"]
+    assert one["create_request"]["task_id"] != two["create_request"]["task_id"]
+    run_one = Path(one["evidence_dir"]) / "sandbox"
+    run_two = Path(two["evidence_dir"]) / "sandbox"
+    assert run_one != run_two
+    assert (run_one / "sandbox_bindings.db").is_file()
+    assert (run_two / "sandbox_bindings.db").is_file()
+    assert provider.create_count == 2
+
+
+# --------------------------------------------------------------------------- 12. fail closed
+
+
+def test_an_evidence_write_failure_is_never_reported_as_a_pass(
+    tmp_path: Path,
+    provider: GateProvider,
+    identity_digests: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _broken(_directory: Path, _payload: dict[str, Any]) -> tuple[str | None, Path | None]:
+        return "OSError: the evidence volume is read-only", None
+
+    monkeypatch.setattr(e2f, "_write_evidence_exclusive", _broken)
+    result = _run(_request(tmp_path, authorization=_authorization(identity_digests)))
+
+    assert result["verdict"] == e2f.VERDICT_UNKNOWN
+    assert result["status"] == "EVIDENCE_NOT_WRITTEN"
+    assert result["failure_kind"] == "evidence_write"
+    assert result["gate_conclusion"] == e2f.VERDICT_PASS
+    assert result["evidence_error"].startswith("OSError")
+    # the sandbox was still provisioned and still destroyed
+    assert provider.create_count == 1
+    assert provider.destroy_count == 1
+    assert result["cleanup"]["state"] == "DESTROYED"
+    # the claim is not rolled back to make a retry possible
+    assert len(_claims(tmp_path)) == 1
+
+
+def test_a_primary_failure_and_an_evidence_failure_are_both_kept(
+    tmp_path: Path,
+    provider: GateProvider,
+    identity_digests: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _override(provider, "pwd", ok=True, exit_code=2, stdout=f"{WORKSPACE}\n")
+    monkeypatch.setattr(
+        e2f,
+        "_write_evidence_exclusive",
+        lambda _directory, _payload: ("OSError: disk full", None),
+    )
+    result = _run(_request(tmp_path, authorization=_authorization(identity_digests)))
+    assert result["primary_failure"]["kind"] == "workspace"
+    assert result["gate_failure_kind"] == "workspace"
+    assert result["failure_kind"] == "evidence_write"
+    assert result["status"] == "EVIDENCE_NOT_WRITTEN"
+    assert provider.destroy_count == 1
+
+
+def test_the_cli_does_not_exit_zero_when_the_evidence_was_not_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _unknown(_request: e2f.ProvisioningRequest) -> dict[str, Any]:
+        return {"verdict": e2f.VERDICT_UNKNOWN, "status": "EVIDENCE_NOT_WRITTEN"}
+
+    monkeypatch.setattr(e2f, "run_provisioning_smoke", _unknown)
+    assert e2f.main([]) == 1
+
+    async def _passed(_request: e2f.ProvisioningRequest) -> dict[str, Any]:
+        return {"verdict": e2f.VERDICT_PASS, "status": "PASSED"}
+
+    monkeypatch.setattr(e2f, "run_provisioning_smoke", _passed)
+    assert e2f.main([]) == 0
+
+
+# --------------------------------------------------------------------------- 13. claim namespace
+
+
+def test_a_request_supplied_claim_root_is_refused_without_a_declared_test_isolation(
+    tmp_path: Path, provider: GateProvider, identity_digests: Any
+) -> None:
+    request = _request(
+        tmp_path,
+        authorization=_authorization(identity_digests),
+        test_isolation=False,
+    )
+    result = _run(request)
+    assert result["verdict"] == e2f.VERDICT_BLOCKED
+    assert result["failure_kind"] == "claim_namespace"
+    assert provider.create_count == 0
+    assert _claims(tmp_path) == []
+
+
+def test_a_replay_from_another_evidence_root_is_still_refused(
+    tmp_path: Path, provider: GateProvider, identity_digests: Any
+) -> None:
+    record = _authorization(identity_digests)
+    first = _run(_request(tmp_path, authorization=record))
+    assert first["verdict"] == e2f.VERDICT_PASS
+
+    second = _run(_request(tmp_path, authorization=record, evidence_dir=tmp_path / "elsewhere"))
+    assert second["verdict"] == e2f.VERDICT_BLOCKED
+    assert second["failure_kind"] == "duplicate_claim"
+    assert provider.create_count == 1
+
+
+# --------------------------------------------------------------------------- 14. endpoint binding
+
+
+def test_the_health_probe_and_the_create_use_the_same_endpoint(
+    tmp_path: Path,
+    provider: GateProvider,
+    identity_digests: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPEN_SANDBOX_ENDPOINT", "10.20.30.40:8080")
+    result = _run(
+        _request(
+            tmp_path,
+            authorization=_authorization(identity_digests),
+            endpoint="127.0.0.1:9",
+        )
+    )
+    assert result["verdict"] == e2f.VERDICT_PASS
+    assert result["environment"]["endpoint"] == "127.0.0.1:9"
+    assert result["create_request"]["endpoint"] == "127.0.0.1:9"
+    assert result["checks"]["endpoint_consistent"] is True
+    options = provider.provider_calls[0]["opensandbox_options"]
+    assert options.endpoint == "127.0.0.1:9"
+
+
+def test_a_resource_config_that_ignores_the_resolved_endpoint_blocks_before_create(
+    tmp_path: Path,
+    provider: GateProvider,
+    identity_digests: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real = provision.sandbox_config
+    monkeypatch.setattr(
+        provision,
+        "sandbox_config",
+        lambda *_args, **_kwargs: real(endpoint="10.9.9.9:8080"),
+    )
+    result = _run(_request(tmp_path, authorization=_authorization(identity_digests)))
+    assert result["verdict"] == e2f.VERDICT_BLOCKED
+    assert result["failure_kind"] == "endpoint_mismatch"
+    assert provider.create_count == 0
+
+
+# --------------------------------------------------------------------------- 15. residual states
+
+
+class _ClosingSandbox:
+    """The three attributes ``_close`` reads, with a scripted destroy and probe."""
+
+    def __init__(self, *, destroyed: bool, created: bool = True, probe: Any = None) -> None:
+        self.destroyed = destroyed
+        self.ready = True
+        self.evidence = SimpleNamespace(created=created)
+        self.probe = probe
+        self.close_calls = 0
+
+    async def close(self, *, failed: bool = False) -> bool:
+        self.close_calls += 1
+        return self.destroyed
+
+    async def run_public_command(
+        self, _command: str, *, timeout_seconds: int = 120
+    ) -> dict[str, Any]:
+        if isinstance(self.probe, BaseException):
+            raise self.probe
+        return dict(self.probe or {})
+
+
+def _close(sandbox: _ClosingSandbox) -> dict[str, Any]:
+    import asyncio
+
+    return asyncio.run(e2f._close(sandbox, started=True))  # type: ignore[arg-type]
+
+
+def test_a_confirmed_destroy_with_a_broken_probe_is_destroyed() -> None:
+    cleanup = _close(_ClosingSandbox(destroyed=True, probe=RuntimeError("record not found")))
+    assert cleanup["destroyed"] is True
+    assert cleanup["residual"] is False
+    assert cleanup["state"] == "DESTROYED"
+
+
+def test_a_failed_destroy_with_a_broken_probe_is_unknown() -> None:
+    cleanup = _close(_ClosingSandbox(destroyed=False, probe=RuntimeError("timeout")))
+    assert cleanup["residual"] is None
+    assert cleanup["state"] == "UNKNOWN"
+
+
+def test_a_failed_destroy_with_a_refused_probe_is_unknown() -> None:
+    cleanup = _close(_ClosingSandbox(destroyed=False, probe={"ok": False, "exit_code": 1}))
+    assert cleanup["residual"] is None
+    assert cleanup["state"] == "UNKNOWN"
+
+
+def test_a_failed_destroy_with_an_unobserved_exit_status_is_unknown() -> None:
+    cleanup = _close(_ClosingSandbox(destroyed=False, probe={"ok": True, "exit_code": None}))
+    assert cleanup["residual"] is None
+    assert cleanup["state"] == "UNKNOWN"
+
+
+def test_a_failed_destroy_with_a_reachable_sandbox_is_residual() -> None:
+    cleanup = _close(_ClosingSandbox(destroyed=False, probe={"ok": True, "exit_code": 0}))
+    assert cleanup["residual"] is True
+    assert cleanup["state"] == "RESIDUAL"
+
+
+def test_a_confirmed_destroy_of_a_still_reachable_sandbox_is_residual() -> None:
+    cleanup = _close(_ClosingSandbox(destroyed=True, probe={"ok": True, "exit_code": 0}))
+    assert cleanup["residual"] is True
+    assert cleanup["state"] == "RESIDUAL"
+
+
+def test_no_handle_means_no_residual_claim() -> None:
+    cleanup = _close(_ClosingSandbox(destroyed=False, created=False))
+    assert cleanup["residual"] is None
+    assert cleanup["state"] == "UNKNOWN"
+
+
+def test_the_cleanup_hint_names_the_attempt_run_id() -> None:
+    import asyncio
+
+    sandbox = _ClosingSandbox(destroyed=False)
+    cleanup = asyncio.run(
+        e2f._close(sandbox, started=True, run_id="SANDBOX.X.abc")  # type: ignore[arg-type]
+    )
+    assert "SANDBOX.X.abc" in cleanup["detail"]
+
+
+# --------------------------------------------------------------------------- 16. forbidden perms
+
+
+@pytest.mark.parametrize("name", e2f.FORBIDDEN_PERMISSIONS)
+def test_a_missing_forbidden_permission_blocks(
+    tmp_path: Path, provider: GateProvider, identity_digests: Any, name: str
+) -> None:
+    record = _authorization(identity_digests)
+    record.pop(name)
+    result = _run(_request(tmp_path, authorization=record))
+    assert result["verdict"] == e2f.VERDICT_BLOCKED
+    assert any(f"forbidden_permission:{name}" in p for p in result["authorization"]["problems"])
+    assert provider.create_count == 0

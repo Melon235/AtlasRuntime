@@ -223,48 +223,61 @@ async def run_smoke(request: SmokeRequest) -> dict[str, Any]:
         }
 
     # Every step after a usable handle is guarded: a broken command, file transfer or probe is
-    # evidence about the smoke, never a reason to skip the destroy below.
+    # evidence about the smoke, never a reason to skip the destroy below. Cancellation is *not*
+    # one of those guarded failures: it stops the smoke, but the destroy still has to happen.
     evidence["step_failures"] = []
-    if created_ok and handle is not None:
-        evidence["commands"] = await _guarded(
-            evidence,
-            "commands",
-            lambda: _run_commands(provider, handle, request.evidence_dir),
-            lambda _detail: [],
-        )
-        evidence["file_round_trip"] = await _guarded(
-            evidence,
-            "file_round_trip",
-            lambda: _file_round_trip(provider, handle),
-            lambda detail: {
-                "path": "/tmp/atlas-smoke-probe.txt",
-                "write_ok": False,
-                "read_ok": False,
-                "readback_matches": False,
-                "error": detail,
-            },
-        )
-        probe = request.isolation_probe or _default_isolation_probe
-        evidence["isolation"] = await _guarded(
-            evidence,
-            "isolation",
-            lambda: probe(provider, handle),
-            lambda detail: f"NOT_RUN:{detail}",
-        )
-
+    evidence["cancellations"] = []
+    cancellation: BaseException | None = None
     try:
-        evidence["cleanup"] = await _destroy(provider, handle, create_state=create_state)
-    except Exception as error:  # noqa: BLE001 - cleanup must never replace the recorded evidence
-        detail = f"cleanup: {type(error).__name__}: {error}"
-        evidence["step_failures"].append({"step": "cleanup", "detail": detail})
-        evidence["cleanup"] = {
-            "attempted": handle is not None,
-            "destroyed": False,
-            "residual": None,
-            "state": "UNKNOWN",
-            "error": detail,
-            "detail": "cleanup raised before a result was recorded; residual state is UNKNOWN",
-        }
+        if created_ok and handle is not None:
+            evidence["commands"] = await _guarded(
+                evidence,
+                "commands",
+                lambda: _run_commands(provider, handle, request.evidence_dir),
+                lambda _detail: [],
+            )
+            evidence["file_round_trip"] = await _guarded(
+                evidence,
+                "file_round_trip",
+                lambda: _file_round_trip(provider, handle),
+                lambda detail: {
+                    "path": "/tmp/atlas-smoke-probe.txt",
+                    "write_ok": False,
+                    "read_ok": False,
+                    "readback_matches": False,
+                    "error": detail,
+                },
+            )
+            probe = request.isolation_probe or _default_isolation_probe
+            evidence["isolation"] = await _guarded(
+                evidence,
+                "isolation",
+                lambda: probe(provider, handle),
+                lambda detail: f"NOT_RUN:{detail}",
+            )
+    except BaseException as error:  # noqa: BLE001 - includes CancelledError, which _guarded skips
+        cancellation = error
+        evidence["cancellations"].append({"step": "run", "type": type(error).__name__})
+        evidence["step_failures"].append(
+            {"step": "cancelled", "detail": f"cancelled during the smoke: {type(error).__name__}"}
+        )
+    finally:
+        try:
+            evidence["cleanup"] = await _destroy(provider, handle, create_state=create_state)
+        except BaseException as error:  # noqa: BLE001 - a cancel during cleanup is still recorded
+            if cancellation is None:
+                cancellation = error
+            evidence["cancellations"].append({"step": "cleanup", "type": type(error).__name__})
+            detail = f"cleanup: {type(error).__name__}: {error}"
+            evidence["step_failures"].append({"step": "cleanup", "detail": detail})
+            evidence["cleanup"] = {
+                "attempted": handle is not None,
+                "destroyed": False,
+                "residual": None,
+                "state": "UNKNOWN",
+                "error": detail,
+                "detail": "cleanup raised before a result was recorded; residual state is UNKNOWN",
+            }
 
     # A cleanup that left a container behind (or could not be confirmed) is a failure of the smoke.
     # It is appended last, so it can never become the primary failure of an earlier step.
@@ -282,9 +295,20 @@ async def run_smoke(request: SmokeRequest) -> dict[str, Any]:
     evidence["primary_failure"] = failures[0]["detail"] if failures else None
     evidence["secondary_failures"] = [item["detail"] for item in failures[1:]]
     evidence["finished_at"] = _now()
-    evidence["verdict"] = _verdict(evidence)
+    # ``_verdict`` always runs: a cancelled smoke still has to say which checks it could confirm.
+    computed = _verdict(evidence)
+    # A cancelled smoke is never a pass, whatever the steps managed to record before the cancel.
+    evidence["verdict"] = "SANDBOX_SMOKE_FAILED" if cancellation is not None else computed
     evidence["status"] = "PASSED" if evidence["verdict"] == "SANDBOX_SMOKE_PASS" else "FAILED"
-    _write(request.evidence_dir / "smoke-result.json", evidence)
+    try:
+        _write(request.evidence_dir / "smoke-result.json", evidence)
+    except BaseException as error:  # noqa: BLE001 - a broken write must not hide the cancel
+        if cancellation is None:
+            raise
+        evidence["evidence_error"] = f"{type(error).__name__}: {error}"
+    if cancellation is not None:
+        # The caller still sees the cancellation; the destroy above has already run.
+        raise cancellation
     return evidence
 
 
