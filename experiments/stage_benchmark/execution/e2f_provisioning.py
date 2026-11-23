@@ -411,10 +411,9 @@ class ProvisioningRequest:
     authorization: Mapping[str, Any] | None = None
     #: ``None`` means the module default, resolved when the gate runs (never at import time).
     evidence_dir: Path | None = None
-    #: Unit-test seam only. The production claim namespace is ``CLAIM_DIR``; a request that
-    #: supplies a different root without ``test_isolation`` is refused before anything runs.
-    claim_root: Path | None = None
-    test_isolation: bool = False
+    #: There is deliberately no claim-root field. The one-shot namespace is harness state, not
+    #: request data: a caller that could move it could obtain a second claim for one authorization.
+    #: Offline tests isolate it by monkeypatching ``CLAIM_DIR``, which no production request needs.
     #: Resolved from the environment when omitted; never a hard-coded address.
     endpoint: str | None = None
     #: Scratch root for the fixture repository. A fresh directory is allocated when omitted.
@@ -743,30 +742,13 @@ def _provision_fixture(factory: Callable[[Path], Path] | None, scratch: Path) ->
     }
 
 
-def _resolve_claim_root(request: ProvisioningRequest) -> tuple[Path, str | None]:
-    """The production claim namespace is fixed; a request-supplied root is a test seam only.
-
-    Redirecting the claim root would let one authorization obtain a second, independent claim, which
-    is exactly the one-shot property this gate exists to keep. So a non-default root is honoured
-    only inside an explicitly declared test isolation, and refused otherwise.
-    """
-
-    if request.claim_root is None:
-        return CLAIM_DIR, None
-    if request.test_isolation:
-        return Path(request.claim_root), None
-    return CLAIM_DIR, (
-        "a request-supplied claim root is a unit-test seam; the production claim namespace is "
-        f"{CLAIM_DIR}"
-    )
-
-
 async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]:
     """One authorization, one claim, at most one real container, always a destroy attempt."""
 
     evidence_dir = Path(request.evidence_dir or EVIDENCE_DIR)
     identity = experiment_identity()
-    claim_root, claim_problem = _resolve_claim_root(request)
+    # Harness state, read at call time: no request field can move the one-shot namespace.
+    claim_root = CLAIM_DIR
     evidence: dict[str, Any] = {
         "smoke_id": SMOKE_ID,
         "smoke_version": SMOKE_VERSION,
@@ -812,17 +794,10 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
         "approval_commit": gate["approval_commit"],
         "approved_at": gate["approved_at"],
     }
-    attempt = attempt_identity(gate["digest"])
+    # Until this process wins the claim it owns nothing, so it must not be able to occupy the
+    # canonical result file of the attempt that does win it. Blocked runs get their own name.
+    attempt = attempt_identity(None)
     evidence["attempt"] = attempt
-    if claim_problem is not None:
-        return _finish(
-            evidence,
-            evidence_dir,
-            attempt=attempt,
-            verdict=VERDICT_BLOCKED,
-            failure_kind="claim_namespace",
-            detail=f"{claim_problem}; no claim was attempted and no provider was contacted",
-        )
     if not gate["ready"]:
         return _finish(
             evidence,
@@ -833,11 +808,21 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
             detail="no usable provisioning authorization; no provider was contacted",
         )
 
-    checks = identity_checks(
-        protocol.read_protocol(),
-        runtime=identity["runtime_identity"],
-        fixture=identity["fixture_identity"],
-    )
+    try:
+        checks = identity_checks(
+            protocol.read_protocol(),
+            runtime=identity["runtime_identity"],
+            fixture=identity["fixture_identity"],
+        )
+    except BaseException as error:  # noqa: BLE001 - a broken audit still leaves a refusal
+        return _finish(
+            evidence,
+            evidence_dir,
+            attempt=attempt,
+            verdict=VERDICT_BLOCKED,
+            failure_kind="identity",
+            detail=f"the identity audit raised: {type(error).__name__}: {error}",
+        )
     evidence["gate_checks"] = checks
     problems = [f"{item['label']}: {item['detail']}" for item in checks if not item["ok"]]
     if problems:
@@ -852,6 +837,7 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
 
     # -- the claim is durable before the first provider call --------------------------------
     assert gate["digest"] is not None
+    owner_attempt = attempt_identity(str(gate["digest"]))
     try:
         marker = claim_once(
             claim_root=claim_root,
@@ -862,6 +848,7 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
                 "state": "CLAIMED",
                 "claimed_at": _now(),
                 "authorization_digest": gate["digest"],
+                "attempt": owner_attempt,
                 "identity": approved_digests(identity),
                 "retries_allowed": False,
                 "max_sandboxes": MAX_SANDBOXES,
@@ -893,6 +880,10 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
         "digest": _digest_bytes(marker.read_bytes()),
         "state": "CLAIMED",
     }
+    # Only now does this process own the attempt, and with it the canonical result file.
+    attempt = owner_attempt
+    evidence["attempt"] = attempt
+    evidence["create"] = {"attempted": False, "state": "NOT_ATTEMPTED"}
 
     # The run directory holds the binding store, the ownership lock and the Host-only sentinel.
     # It is per attempt, so a second authorization can never resume or pollute the first one.
@@ -911,41 +902,73 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
             detail=f"the evidence root is not writable: {type(error).__name__}: {error}",
         )
 
-    endpoint, endpoint_source = (
-        (request.endpoint, "argument") if request.endpoint else network.sandbox_endpoint()
-    )
-    bypass = network.apply_proxy_bypass(endpoint)
     evidence["environment"] = {
-        "endpoint": endpoint,
-        "endpoint_source": "argument" if request.endpoint else endpoint_source,
-        "bypass": bypass["bypass"],
-        "added": bypass["added"],
+        "endpoint": None,
+        "endpoint_source": "unresolved",
+        "bypass": None,
+        "added": [],
         "proxy_env": {
             name: bool(os.environ.get(name))
             for name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
         },
     }
+    try:
+        endpoint, endpoint_source = (
+            (request.endpoint, "argument") if request.endpoint else network.sandbox_endpoint()
+        )
+        bypass = network.apply_proxy_bypass(endpoint)
+    except BaseException as error:  # noqa: BLE001 - the claim is already spent; record it
+        return _terminate(
+            evidence,
+            evidence_dir,
+            attempt=attempt,
+            marker=marker,
+            error=error,
+            verdict=VERDICT_FAILED,
+            kind="environment",
+            detail=f"the sandbox endpoint could not be resolved: {type(error).__name__}: {error}",
+        )
+    evidence["environment"] = {
+        "endpoint": endpoint,
+        "endpoint_source": "argument" if request.endpoint else endpoint_source,
+        "bypass": bypass["bypass"],
+        "added": bypass["added"],
+        "proxy_env": evidence["environment"]["proxy_env"],
+    }
 
     # Per attempt too: two authorizations must not materialise a fixture into the same directory.
-    scratch = (
-        Path(request.scratch_root) / attempt
-        if request.scratch_root is not None
-        else Path(tempfile.mkdtemp(prefix="atlas-e2f-provisioning-"))
-    )
-    scratch.mkdir(parents=True, exist_ok=True)
+    try:
+        scratch = (
+            Path(request.scratch_root) / attempt
+            if request.scratch_root is not None
+            else Path(tempfile.mkdtemp(prefix="atlas-e2f-provisioning-"))
+        )
+        scratch.mkdir(parents=True, exist_ok=True)
+    except BaseException as error:  # noqa: BLE001 - a claim without a scratch is still a record
+        return _terminate(
+            evidence,
+            evidence_dir,
+            attempt=attempt,
+            marker=marker,
+            error=error,
+            verdict=VERDICT_FAILED,
+            kind="environment",
+            detail=f"the scratch directory is not usable: {type(error).__name__}: {error}",
+        )
     evidence["scratch"] = str(scratch)
 
     try:
         fixture = _provision_fixture(request.fixture_factory, scratch)
-    except Exception as error:  # noqa: BLE001 - a broken fixture is evidence, not a crash
+    except BaseException as error:  # noqa: BLE001 - a broken fixture is evidence, not a crash
         evidence["fixture"] = {"materialized": False, "error": f"{type(error).__name__}: {error}"}
-        _safe_mark(marker, "FAILED")
-        return _finish(
+        return _terminate(
             evidence,
             evidence_dir,
             attempt=attempt,
+            marker=marker,
+            error=error,
             verdict=VERDICT_FAILED,
-            failure_kind="fixture",
+            kind="fixture",
             detail=f"{type(error).__name__}: {error}",
         )
     evidence["fixture"] = {"materialized": True, **fixture}
@@ -963,7 +986,22 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
     # The resolved endpoint is passed *into* the frozen resource config, so the health probe, the
     # provider options and the create all speak to the same host. A config that ignores it would be
     # a silent health(host A) -> create(host B), so it is checked rather than assumed.
-    sandbox_settings = provision.sandbox_config(endpoint=endpoint)
+    try:
+        sandbox_settings = provision.sandbox_config(endpoint=endpoint)
+    except BaseException as error:  # noqa: BLE001 - the claim is spent even if the config is not
+        return _terminate(
+            evidence,
+            evidence_dir,
+            attempt=attempt,
+            marker=marker,
+            error=error,
+            verdict=VERDICT_FAILED,
+            kind="sandbox_environment",
+            detail=(
+                "the frozen sandbox resource configuration could not be built: "
+                f"{type(error).__name__}: {error}"
+            ),
+        )
     suffix = attempt.removeprefix("attempt-").removeprefix("blocked-")[:16]
     run_id = f"{SMOKE_ID}.{suffix}"
     task_id = f"{TASK_ID}.{suffix}"
@@ -995,9 +1033,25 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
             ),
         )
 
-    health = (
-        request.health_probe() if request.health_probe else network.probe_runtime_health(endpoint)
-    )
+    try:
+        health = (
+            request.health_probe()
+            if request.health_probe
+            else network.probe_runtime_health(endpoint)
+        )
+    except BaseException as error:  # noqa: BLE001 - an unanswered probe blocks before create
+        evidence["health"] = {"ok": False, "error": f"{type(error).__name__}: {error}"}
+        return _terminate(
+            evidence,
+            evidence_dir,
+            attempt=attempt,
+            marker=marker,
+            error=error,
+            verdict=VERDICT_BLOCKED,
+            kind="sandbox_environment",
+            detail=f"the OpenSandbox health probe raised: {type(error).__name__}: {error}",
+            marker_state="BLOCKED",
+        )
     evidence["health"] = dict(health)
     if not health.get("ok"):
         _safe_mark(marker, "BLOCKED")
@@ -1015,6 +1069,7 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
     evidence["cleanup"] = {"attempted": False, "destroyed": False, "residual": None}
     sandbox: GoalSandbox | None = None
     started = False
+    cancellation: BaseException | None = None
     primary: dict[str, Any] | None = None
     secondary: list[dict[str, Any]] = []
 
@@ -1041,11 +1096,18 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
                 worker_id=worker,
             )
             started = True
-        except Exception as error:  # noqa: BLE001 - classified, never re-raised as a crash
-            primary = {
-                "kind": classify_failure(error),
-                "detail": f"{type(error).__name__}: {error}",
-            }
+        except BaseException as error:  # noqa: BLE001 - a cancellation is a terminal state too
+            if isinstance(error, Exception):
+                primary = {
+                    "kind": classify_failure(error),
+                    "detail": f"{type(error).__name__}: {error}",
+                }
+            else:
+                cancellation = error
+                primary = {
+                    "kind": "cancelled",
+                    "detail": f"{type(error).__name__} during the sandbox start",
+                }
 
         if sandbox is not None:
             evidence["sandbox"] = {
@@ -1056,6 +1118,7 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
                 "network_probe": sandbox.evidence.network_probe,
                 "host_separation": dict(sandbox.evidence.host_separation),
             }
+            evidence["create"] = _create_state(sandbox, started=started)
 
         if started and sandbox is not None:
             expected_files = tuple(sorted(identity["fixture_identity"]["files"]))
@@ -1070,11 +1133,18 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
                         results, summary, expected_commit=str(fixture["source_commit"])
                     ),
                 }
-            except Exception as error:  # noqa: BLE001
-                primary = primary or {
-                    "kind": "workspace",
-                    "detail": f"{type(error).__name__}: {error}",
-                }
+            except BaseException as error:  # noqa: BLE001 - cancellation included
+                if isinstance(error, Exception):
+                    primary = primary or {
+                        "kind": "workspace",
+                        "detail": f"{type(error).__name__}: {error}",
+                    }
+                else:
+                    cancellation = cancellation or error
+                    primary = primary or {
+                        "kind": "cancelled",
+                        "detail": f"{type(error).__name__} during the workspace checks",
+                    }
                 evidence["workspace"]["error"] = primary["detail"]
     finally:
         if sandbox is None:
@@ -1090,9 +1160,24 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
                 "detail": "the goal sandbox was never constructed; no container was requested",
             }
         else:
-            cleanup = await _close(
-                sandbox, started=started, failed=primary is not None, run_id=run_id
-            )
+            try:
+                cleanup = await _close(
+                    sandbox, started=started, failed=primary is not None, run_id=run_id
+                )
+            except BaseException as error:  # noqa: BLE001 - a cancel during teardown is no excuse
+                cancellation = cancellation or error
+                cleanup = {
+                    "attempted": True,
+                    "destroyed": False,
+                    "residual": None,
+                    "state": "UNKNOWN",
+                    "probe": "the teardown was interrupted",
+                    "error": f"{type(error).__name__}: {error}",
+                    "detail": (
+                        "the teardown was interrupted before it could confirm anything; the remote "
+                        "container state is unconfirmed"
+                    ),
+                }
             evidence["cleanup"] = cleanup
             if cleanup.get("error"):
                 secondary.append({"kind": "cleanup", "detail": str(cleanup["error"])})
@@ -1119,6 +1204,22 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
     evidence["primary_failure"] = primary
     evidence["secondary_failures"] = secondary
     _safe_mark(marker, "COMPLETED" if ok else "FAILED")
+
+    if cancellation is not None:
+        # Record the terminal state first, then let the cancellation keep its meaning: the caller
+        # must not be able to mistake a cancelled smoke for a finished one.
+        _finish(
+            evidence,
+            evidence_dir,
+            attempt=attempt,
+            verdict=VERDICT_FAILED,
+            failure_kind="cancelled",
+            detail=(
+                f"the smoke was cancelled ({type(cancellation).__name__}); the terminal record was "
+                "written after the cleanup attempt"
+            ),
+        )
+        raise cancellation
 
     if ok:
         return _finish(
@@ -1150,6 +1251,27 @@ async def run_provisioning_smoke(request: ProvisioningRequest) -> dict[str, Any]
         failure_kind=str(primary["kind"]),
         detail=str(primary["detail"]),
     )
+
+
+def _create_state(sandbox: GoalSandbox, *, started: bool) -> dict[str, Any]:
+    """Whether a container was asked for, without changing the runtime.
+
+    ``started`` is proof that a container exists. Otherwise only one thing is certain: if the
+    runtime never built its manager, no provider call could have happened. Once the manager exists
+    the provider may have created a container that the runtime never recorded — the counter only
+    increments after ``create`` returns — so the honest answer is ``UNKNOWN``, never
+    ``NOT_ATTEMPTED``.
+    """
+
+    if started:
+        return {"attempted": True, "state": "CREATED"}
+    manager = getattr(sandbox, "_manager", None)
+    if manager is None:
+        return {"attempted": False, "state": "NOT_ATTEMPTED"}
+    count = getattr(manager, "create_count", 0)
+    if isinstance(count, int) and count > 0:
+        return {"attempted": True, "state": "UNKNOWN"}
+    return {"attempted": None, "state": "UNKNOWN"}
 
 
 async def _close(
@@ -1320,6 +1442,40 @@ def _safe_mark(marker: Path, state: str) -> None:
     # The claim itself is durable; the state field is a convenience, never a precondition.
     with contextlib.suppress(Exception):
         mark_claim(marker, state)
+
+
+def _terminate(
+    evidence: dict[str, Any],
+    evidence_dir: Path,
+    *,
+    attempt: str,
+    marker: Path,
+    error: BaseException,
+    verdict: str,
+    kind: str,
+    detail: str,
+    marker_state: str = "FAILED",
+) -> dict[str, Any]:
+    """Record a terminal state for an error raised after the claim, then re-raise a cancellation.
+
+    The claim is already spent at this point, so a run that dies between the claim and the create
+    must still leave a record naming what happened and stating that no create was attempted.
+    """
+
+    _safe_mark(marker, marker_state)
+    evidence["primary_failure"] = {"kind": kind, "detail": detail}
+    result = _finish(
+        evidence,
+        evidence_dir,
+        attempt=attempt,
+        verdict=verdict,
+        failure_kind=kind,
+        detail=detail,
+    )
+    if not isinstance(error, Exception):
+        # A cancellation keeps its meaning, but only after the terminal record exists.
+        raise error
+    return result
 
 
 def _finish(
