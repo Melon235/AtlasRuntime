@@ -35,7 +35,9 @@ ARCHIVE_DIR = EXECUTION_DIR / "archive"
 ARCHIVE_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.0.json"
 FREEZE_11_PATH = EXECUTION_DIR / "freeze-1.1.json"
 ARCHIVE_11_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.1.json"
-FREEZE_PATH = EXECUTION_DIR / "freeze-1.2.json"
+FREEZE_12_PATH = EXECUTION_DIR / "freeze-1.2.json"
+ARCHIVE_12_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.2.json"
+FREEZE_PATH = EXECUTION_DIR / "freeze-1.3.json"
 OFFLINE_PATH = EXECUTION_DIR / "offline.json"
 PREFLIGHT_PATH = EXECUTION_DIR / "preflight.json"
 
@@ -308,6 +310,7 @@ def preflight(
     for label, live_path, archived_path in (
         ("e2a_freeze_preserved", E2A_FREEZE_PATH, ARCHIVE_FREEZE_PATH),
         ("e2a_freeze_1_1_preserved", FREEZE_11_PATH, ARCHIVE_11_FREEZE_PATH),
+        ("e2c_freeze_1_2_preserved", FREEZE_12_PATH, ARCHIVE_12_FREEZE_PATH),
     ):
         if live_path.is_file() and archived_path.is_file():
             archived_ok = digest_bytes(archived_path.read_bytes()) == digest_bytes(
@@ -429,19 +432,27 @@ def write_freeze(
 
     if not FREEZE_11_PATH.is_file():
         raise RuntimeError(f"the 1.1 execution freeze is missing: {FREEZE_11_PATH}")
-    previous_digest = digest_bytes(FREEZE_11_PATH.read_bytes())
+    v11_digest = digest_bytes(FREEZE_11_PATH.read_bytes())
     if not ARCHIVE_11_FREEZE_PATH.is_file():
         shutil.copy2(FREEZE_11_PATH, ARCHIVE_11_FREEZE_PATH)
-    if digest_bytes(ARCHIVE_11_FREEZE_PATH.read_bytes()) != previous_digest:
+    if digest_bytes(ARCHIVE_11_FREEZE_PATH.read_bytes()) != v11_digest:
         raise RuntimeError("the archived 1.1 execution freeze does not match the live copy")
 
+    if not FREEZE_12_PATH.is_file():
+        raise RuntimeError(f"the 1.2 execution freeze is missing: {FREEZE_12_PATH}")
+    previous_digest = digest_bytes(FREEZE_12_PATH.read_bytes())
+    if not ARCHIVE_12_FREEZE_PATH.is_file():
+        shutil.copy2(FREEZE_12_PATH, ARCHIVE_12_FREEZE_PATH)
+    if digest_bytes(ARCHIVE_12_FREEZE_PATH.read_bytes()) != previous_digest:
+        raise RuntimeError("the archived 1.2 execution freeze does not match the live copy")
+
     document = {
-        "stage": "B-E2C-CALIBRATION-RETRY",
-        "freeze_version": "stage-b-execution/1.2",
+        "stage": "B-E2C-CLOSURE",
+        "freeze_version": "stage-b-execution/1.3",
         "supersedes": {
-            "version": "stage-b-execution/1.1",
-            "live_path": str(FREEZE_11_PATH),
-            "archive_path": str(ARCHIVE_11_FREEZE_PATH),
+            "version": "stage-b-execution/1.2",
+            "live_path": str(FREEZE_12_PATH),
+            "archive_path": str(ARCHIVE_12_FREEZE_PATH),
             "digest": previous_digest,
         },
         "history": [
@@ -453,6 +464,11 @@ def write_freeze(
             {
                 "version": "stage-b-execution/1.1",
                 "archive_path": str(ARCHIVE_11_FREEZE_PATH),
+                "digest": v11_digest,
+            },
+            {
+                "version": "stage-b-execution/1.2",
+                "archive_path": str(ARCHIVE_12_FREEZE_PATH),
                 "digest": previous_digest,
             },
         ],
@@ -481,10 +497,12 @@ def write_freeze(
             "cell_id": "CALIBRATION.workgrid.c2",
             "previous_attempt": "CALIBRATION.workgrid.c1",
             "in_matrix": False,
-            "status": "PREPARED_NOT_RUN",
-            "reason_not_run": "this stage may not call the provider",
+            "status": "CONSUMED_FAILED",
+            "attempts_authorised_total": 2,
+            "authorised_this_stage": 0,
+            "reason_not_run": "no attempt is authorised for this harness version",
+            "next_identity_required": True,
             "identity": "experiments/stage_s2_prompt_v21/freeze.json",
-            "attempts_authorised": 1,
         },
     }
     FREEZE_PATH.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")

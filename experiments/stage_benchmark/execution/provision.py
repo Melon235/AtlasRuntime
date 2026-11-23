@@ -96,6 +96,20 @@ def calibration_cell() -> CellIdentity:
     )
 
 
+def memory_quantity(gib: float) -> str:
+    """Render a memory limit the way OpenSandbox accepts it: ``1Gi``, never ``1.0Gi``.
+
+    The frozen experiment parameter is a float (1.0 GiB). The server parses resource quantities as
+    integers, so the decimal suffix must not leak from the Python type into the wire value.
+    """
+
+    value = float(gib)
+    if value <= 0:
+        raise ValueError(f"memory_gib must be positive, got {gib!r}")
+    text = f"{value:.3f}".rstrip("0").rstrip(".")
+    return f"{text}Gi"
+
+
 def _hexdigest(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -368,7 +382,7 @@ def build_options(
         workspace_root=WORKSPACE_ROOT,
         network=config["network"],
         cpu=str(config["cpu"]),
-        memory=f"{config['memory_gib']}Gi",
+        memory=memory_quantity(config["memory_gib"]),
         use_server_proxy=True,
         retain_on_failure=False,
     )

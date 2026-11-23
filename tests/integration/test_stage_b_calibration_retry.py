@@ -124,12 +124,56 @@ def test_no_proxy_merges_existing_entries(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_provider_proxy_entries_are_not_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:12000")
+    # A documentation address: the test must not imply any particular local port is free.
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
     network.apply_proxy_bypass("172.30.1.9:8080")
     import os
 
-    assert os.environ["HTTPS_PROXY"] == "http://127.0.0.1:12000"
+    assert os.environ["HTTPS_PROXY"] == "http://proxy.invalid:3128"
     assert "172.30.1.9" in os.environ["NO_PROXY"]
+
+
+def test_the_execution_layer_never_mentions_a_vpn_port() -> None:
+    """12000 belongs to the user's VPN. The harness may not bind, close or special-case it."""
+
+    offenders = [
+        path.name
+        for path in (Path(provision.__file__).parent).glob("*.py")
+        if "12000" in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
+
+
+def test_memory_quantity_renders_an_integer_without_a_decimal() -> None:
+    assert provision.memory_quantity(1.0) == "1Gi"
+    assert provision.memory_quantity(1) == "1Gi"
+    assert provision.memory_quantity(2.0) == "2Gi"
+    assert provision.memory_quantity(0.5) == "0.5Gi"
+
+
+def test_memory_quantity_rejects_a_non_positive_limit() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        provision.memory_quantity(0)
+    with pytest.raises(ValueError, match="positive"):
+        provision.memory_quantity(-1.0)
+
+
+def test_built_options_carry_the_integer_memory_quantity(tmp_path: Path) -> None:
+    document = _document()
+    cell = provision.calibration_cell()
+    fixture = provision.materialize_calibration_fixture(tmp_path / "fixture")
+    options = provision.build_options(
+        cell=cell,
+        fixture_repo=fixture,
+        runs_root=tmp_path / "runs",
+        run_id="test",
+        document=document,
+        offline=True,
+        provider_factory=offline.FakeProvider().build,
+        sandbox_factory=lambda _root: offline.FakeProvider(),
+    )
+    assert options.config.sandbox.memory == "1Gi"
+    assert options.config.sandbox.cpu == "1"
 
 
 def test_a_changed_wsl_address_updates_the_bypass(monkeypatch: pytest.MonkeyPatch) -> None:
