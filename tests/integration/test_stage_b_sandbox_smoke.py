@@ -356,3 +356,186 @@ def test_smoke_evidence_records_no_model_and_no_calibration(tmp_path: Path) -> N
     assert payload["calibration_attempts"] == 0
     assert payload["benchmark_cells"] == 0
     assert result["status"] == "PASSED"
+
+
+# --------------------------------------------------------------------------- 18+. cleanup safety
+#
+# Once a handle exists, the destroy path is mandatory: a broken command, file transfer or probe is
+# evidence about the smoke, not a reason to leave a container running. Every case below uses the
+# fake provider; none of them creates a real container.
+
+
+class FaultyProvider(FakeProvider):
+    """One provider that can break exactly one step, so the cleanup path is what is under test."""
+
+    def __init__(
+        self,
+        *,
+        execute_error: Exception | None = None,
+        fail_command: str | None = None,
+        write_error: Exception | None = None,
+        read_error: Exception | None = None,
+        create_error: Exception | None = None,
+        destroy_error: Exception | None = None,
+        exit_codes: dict[str, int | None] | None = None,
+    ) -> None:
+        super().__init__(create_error=create_error, destroy_error=destroy_error)
+        self.execute_error = execute_error
+        self.fail_command = fail_command
+        self.write_error = write_error
+        self.read_error = read_error
+        self.exit_codes = exit_codes or {}
+
+    async def execute(self, handle: Any, command: Any) -> Any:
+        if self.execute_error is not None:
+            raise self.execute_error
+        if self.fail_command and self.fail_command in command.command:
+            raise RuntimeError(f"command channel broke on {command.command!r}")
+        result = await super().execute(handle, command)
+        if command.command in self.exit_codes:
+            result.exit_code = self.exit_codes[command.command]
+            result.ok = True
+        return result
+
+    async def write_file(self, handle: Any, path: str, data: bytes) -> Any:
+        if self.write_error is not None:
+            raise self.write_error
+        return await super().write_file(handle, path, data)
+
+    async def read_file(self, handle: Any, path: str) -> Any:
+        if self.read_error is not None:
+            raise self.read_error
+        return await super().read_file(handle, path)
+
+
+def test_a_command_exception_still_destroys_the_sandbox(tmp_path: Path) -> None:
+    provider = FaultyProvider(fail_command="pwd")
+    result = _run(tmp_path, provider)
+    assert provider.create_calls == 1
+    assert provider.destroy_calls == 1
+    assert result["commands"] == []
+    assert result["step_failures"][0]["step"] == "commands"
+    assert "command channel broke" in result["primary_failure"]
+    assert result["verdict"] == "SANDBOX_SMOKE_FAILED"
+
+
+def test_a_file_write_exception_still_destroys_the_sandbox(tmp_path: Path) -> None:
+    provider = FaultyProvider(write_error=RuntimeError("disk quota on the upload path"))
+    result = _run(tmp_path, provider)
+    assert provider.destroy_calls == 1
+    assert result["file_round_trip"]["write_ok"] is False
+    assert result["step_failures"][0]["step"] == "file_round_trip"
+    assert "disk quota" in result["primary_failure"]
+    assert result["checks"]["files"] is False
+    assert result["verdict"] == "SANDBOX_SMOKE_FAILED"
+
+
+def test_a_file_read_exception_still_destroys_the_sandbox(tmp_path: Path) -> None:
+    provider = FaultyProvider(read_error=RuntimeError("read-back channel closed"))
+    result = _run(tmp_path, provider)
+    assert provider.destroy_calls == 1
+    assert result["file_round_trip"]["read_ok"] is False
+    assert "read-back channel closed" in result["primary_failure"]
+    assert result["verdict"] == "SANDBOX_SMOKE_FAILED"
+
+
+def test_an_isolation_probe_exception_still_destroys_the_sandbox(tmp_path: Path) -> None:
+    async def broken_probe(_provider: Any, _handle: Any) -> str:
+        raise RuntimeError("probe socket closed")
+
+    provider = FakeProvider()
+    result = _run(tmp_path, provider, isolation_probe=broken_probe)
+    assert provider.destroy_calls == 1
+    assert result["isolation"].startswith("NOT_RUN:")
+    assert result["step_failures"][0]["step"] == "isolation"
+    assert result["checks"]["isolation"] is False
+    assert result["verdict"] == "SANDBOX_SMOKE_FAILED"
+
+
+def test_an_unanswered_destroy_probe_is_not_reported_as_no_residual(tmp_path: Path) -> None:
+    """A destroy that fails and a probe that cannot answer leave the remote state unknown."""
+
+    provider = FaultyProvider(
+        destroy_error=RuntimeError("docker daemon busy"),
+        execute_error=RuntimeError("connection reset while probing"),
+    )
+    result = _run(tmp_path, provider)
+    assert provider.destroy_calls == 1
+    assert result["cleanup"]["destroyed"] is False
+    assert result["cleanup"]["residual"] is None
+    assert result["cleanup"]["state"] == "UNKNOWN"
+    assert "docker daemon busy" in result["cleanup"]["error"]
+    assert "cleanup_residual" in result["unconfirmed"]
+    assert result["verdict"] == "SANDBOX_SMOKE_FAILED"
+
+
+def test_destroy_failure_never_replaces_the_primary_failure(tmp_path: Path) -> None:
+    provider = FaultyProvider(
+        fail_command="pwd",
+        destroy_error=RuntimeError("docker daemon busy"),
+    )
+    result = _run(tmp_path, provider)
+    assert "command channel broke" in result["primary_failure"]
+    assert any("docker daemon busy" in item for item in result["secondary_failures"])
+    assert result["cleanup"]["attempted"] is True
+    assert result["verdict"] == "SANDBOX_SMOKE_FAILED"
+
+
+def test_a_create_exception_leaves_the_remote_state_unconfirmed(tmp_path: Path) -> None:
+    """No handle is not proof that no container exists: the verdict must say unknown."""
+
+    provider = FaultyProvider(create_error=RuntimeError("transport reset after send"))
+    result = _run(tmp_path, provider)
+    assert provider.create_calls == 1
+    assert provider.destroy_calls == 0
+    assert result["create"]["state"] == "UNKNOWN"
+    assert result["cleanup"]["attempted"] is False
+    assert result["cleanup"]["residual"] is None
+    assert result["cleanup"]["state"] == "UNKNOWN"
+    assert "atlas_run_id" in result["cleanup"]["detail"]
+    assert "create_outcome" in result["unconfirmed"]
+    assert result["verdict"] == "SANDBOX_SMOKE_FAILED"
+
+
+def test_a_rejected_create_reports_no_residual(tmp_path: Path) -> None:
+    class RejectedProvider(FakeProvider):
+        async def create(self, spec: Any) -> Any:
+            self.create_calls += 1
+            return SimpleNamespace(ok=False, handle=None, error="invalid resourceLimits.memory")
+
+    provider = RejectedProvider()
+    result = _run(tmp_path, provider)
+    assert result["create"]["state"] == "REJECTED"
+    assert result["cleanup"]["residual"] is False
+    assert result["cleanup"]["state"] == "NOT_APPLICABLE"
+    assert result["unconfirmed"] == []
+
+
+def test_a_create_that_reports_ok_without_a_handle_is_unconfirmed(tmp_path: Path) -> None:
+    """``ok=True`` with no handle is a contract violation, not proof that nothing exists."""
+
+    class HandlelessProvider(FakeProvider):
+        async def create(self, spec: Any) -> Any:
+            self.create_calls += 1
+            return SimpleNamespace(ok=True, handle=None, error=None)
+
+    provider = HandlelessProvider()
+    result = _run(tmp_path, provider)
+    assert result["create"]["ok"] is True
+    assert result["create"]["state"] == "UNKNOWN"
+    assert result["cleanup"]["residual"] is None
+    assert "create_outcome" in result["unconfirmed"]
+    assert result["verdict"] == "SANDBOX_SMOKE_FAILED"
+
+
+def test_a_required_command_with_an_unobserved_exit_code_fails(tmp_path: Path) -> None:
+    """``ok=True, exit_code=None`` is an unobserved outcome, never a success."""
+
+    provider = FaultyProvider(exit_codes={"pwd": None})
+    result = _run(tmp_path, provider)
+    pwd = next(item for item in result["commands"] if item["name"] == "pwd")
+    assert pwd["ok"] is True
+    assert pwd["exit_code"] is None
+    assert pwd["exit_ok"] is False
+    assert result["checks"]["commands"] is False
+    assert result["verdict"] == "SANDBOX_SMOKE_FAILED"

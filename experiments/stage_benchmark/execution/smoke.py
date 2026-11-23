@@ -192,7 +192,7 @@ async def run_smoke(request: SmokeRequest) -> dict[str, Any]:
 
     handle = None
     created_ok = False
-    create_error: str | None = None
+    create_state = "NOT_ATTEMPTED"
     started = _now()
     try:
         created = await provider.create(_spec())
@@ -205,31 +205,103 @@ async def run_smoke(request: SmokeRequest) -> dict[str, Any]:
         }
         created_ok = bool(created.ok) and getattr(created, "handle", None) is not None
         handle = getattr(created, "handle", None)
+        # ``ok`` without a handle is a provider contract violation, not a rejected create: the
+        # remote outcome is unconfirmed, exactly like a raised exception.
+        create_state = "CREATED" if created_ok else ("UNKNOWN" if created.ok else "REJECTED")
+        evidence["create"]["state"] = create_state
     except Exception as error:  # noqa: BLE001 - a failed create is evidence, not a crash
-        create_error = f"{type(error).__name__}: {error}"
+        # The provider raised without returning a handle. The remote side effect is unconfirmed:
+        # a container that was created but never reported must not be assumed absent.
+        create_state = "UNKNOWN"
         evidence["create"] = {
             "ok": False,
             "sandbox_id": None,
-            "error": create_error,
+            "state": create_state,
+            "error": f"{type(error).__name__}: {error}",
             "started_at": started,
             "finished_at": _now(),
         }
 
+    # Every step after a usable handle is guarded: a broken command, file transfer or probe is
+    # evidence about the smoke, never a reason to skip the destroy below.
+    evidence["step_failures"] = []
     if created_ok and handle is not None:
-        evidence["commands"] = await _run_commands(provider, handle, request.evidence_dir)
-        evidence["file_round_trip"] = await _file_round_trip(provider, handle)
+        evidence["commands"] = await _guarded(
+            evidence,
+            "commands",
+            lambda: _run_commands(provider, handle, request.evidence_dir),
+            lambda _detail: [],
+        )
+        evidence["file_round_trip"] = await _guarded(
+            evidence,
+            "file_round_trip",
+            lambda: _file_round_trip(provider, handle),
+            lambda detail: {
+                "path": "/tmp/atlas-smoke-probe.txt",
+                "write_ok": False,
+                "read_ok": False,
+                "readback_matches": False,
+                "error": detail,
+            },
+        )
         probe = request.isolation_probe or _default_isolation_probe
-        try:
-            evidence["isolation"] = await probe(provider, handle)
-        except Exception as error:  # noqa: BLE001
-            evidence["isolation"] = f"ERROR:{type(error).__name__}: {error}"
+        evidence["isolation"] = await _guarded(
+            evidence,
+            "isolation",
+            lambda: probe(provider, handle),
+            lambda detail: f"NOT_RUN:{detail}",
+        )
 
-    evidence["cleanup"] = await _destroy(provider, handle)
+    try:
+        evidence["cleanup"] = await _destroy(provider, handle, create_state=create_state)
+    except Exception as error:  # noqa: BLE001 - cleanup must never replace the recorded evidence
+        detail = f"cleanup: {type(error).__name__}: {error}"
+        evidence["step_failures"].append({"step": "cleanup", "detail": detail})
+        evidence["cleanup"] = {
+            "attempted": handle is not None,
+            "destroyed": False,
+            "residual": None,
+            "state": "UNKNOWN",
+            "error": detail,
+            "detail": "cleanup raised before a result was recorded; residual state is UNKNOWN",
+        }
+
+    # A cleanup that left a container behind (or could not be confirmed) is a failure of the smoke.
+    # It is appended last, so it can never become the primary failure of an earlier step.
+    cleanup = evidence["cleanup"]
+    if cleanup.get("attempted") and cleanup.get("state") in {"RESIDUAL", "UNKNOWN"}:
+        evidence["step_failures"].append(
+            {
+                "step": "cleanup",
+                "detail": f"cleanup: {cleanup.get('error') or cleanup.get('detail')}",
+            }
+        )
+
+    # The first failure in execution order is the primary one; nothing recorded later replaces it.
+    failures = evidence["step_failures"]
+    evidence["primary_failure"] = failures[0]["detail"] if failures else None
+    evidence["secondary_failures"] = [item["detail"] for item in failures[1:]]
     evidence["finished_at"] = _now()
     evidence["verdict"] = _verdict(evidence)
     evidence["status"] = "PASSED" if evidence["verdict"] == "SANDBOX_SMOKE_PASS" else "FAILED"
     _write(request.evidence_dir / "smoke-result.json", evidence)
     return evidence
+
+
+async def _guarded(
+    evidence: dict[str, Any],
+    step: str,
+    factory: Callable[[], Awaitable[Any]],
+    on_error: Callable[[str], Any],
+) -> Any:
+    """Run one evidence step. A failure is recorded and shaped like a negative result."""
+
+    try:
+        return await factory()
+    except Exception as error:  # noqa: BLE001 - a broken step is evidence, not a crash
+        detail = f"{step}: {type(error).__name__}: {error}"
+        evidence["step_failures"].append({"step": step, "detail": detail})
+        return on_error(detail)
 
 
 def _real_provider(options: Any) -> Any:
@@ -282,13 +354,30 @@ async def _file_round_trip(provider: Any, handle: Any) -> dict[str, Any]:
     }
 
 
-async def _destroy(provider: Any, handle: Any) -> dict[str, Any]:
+async def _destroy(provider: Any, handle: Any, *, create_state: str = "CREATED") -> dict[str, Any]:
+    """Destroy the container and classify what is actually known about the remote state.
+
+    ``residual`` is three-valued on purpose. ``False`` means "no container answered and the destroy
+    itself was confirmed"; ``None`` means the remote state is unconfirmed. A failed destroy is never
+    corrected by an unreachable handle, because a transport failure and an absent container look
+    identical from here.
+    """
+
     if handle is None:
+        unconfirmed = create_state == "UNKNOWN"
         return {
             "attempted": False,
             "destroyed": False,
-            "residual": False,
-            "detail": "no handle was created; nothing to destroy",
+            "residual": None if unconfirmed else False,
+            "state": "UNKNOWN" if unconfirmed else "NOT_APPLICABLE",
+            "error": None,
+            "detail": (
+                "create raised without returning a handle; the remote container state is UNKNOWN. "
+                "Check the OpenSandbox server for a container labelled "
+                f"atlas_run_id={SMOKE_ID!r} before assuming it is absent."
+                if unconfirmed
+                else "no handle was created; the create was rejected, nothing to destroy"
+            ),
         }
     result = None
     error: str | None = None
@@ -297,21 +386,44 @@ async def _destroy(provider: Any, handle: Any) -> dict[str, Any]:
     except Exception as failure:  # noqa: BLE001 - cleanup failure is recorded, never hidden
         error = f"{type(failure).__name__}: {failure}"
     destroyed = bool(getattr(result, "ok", False))
-    residual = None
-    try:
-        probe = await provider.execute(handle, _probe_command())
-        residual = bool(getattr(probe, "ok", False))
-    except Exception:  # noqa: BLE001 - a dead handle is the expected post-destroy state
+    residual, probe_detail = await _residual_probe(provider, handle)
+    if not destroyed and residual is False:
+        # An unreachable handle after a failed destroy does not prove the container is gone.
+        residual = None
+    if destroyed and residual is None:
+        # The destroy was answered explicitly; the probe merely corroborates it.
         residual = False
+        probe_detail += " (destroy confirmed; probe inconclusive)"
+    if residual is True:
+        state = "RESIDUAL"
+    elif residual is False and destroyed:
+        state = "DESTROYED"
+    else:
+        state = "UNKNOWN"
     return {
         "attempted": True,
         "destroyed": destroyed,
         "residual": residual,
+        "state": state,
+        "probe": probe_detail,
         "error": error,
-        "detail": "verify probe after destroy: reachable"
-        if residual
-        else "handle unreachable after destroy",
+        "detail": {
+            "RESIDUAL": "the sandbox still answers after destroy; a container may be left behind",
+            "DESTROYED": "handle unreachable after a confirmed destroy",
+            "UNKNOWN": "the remote state could not be confirmed; verify manually",
+        }[state],
     }
+
+
+async def _residual_probe(provider: Any, handle: Any) -> tuple[bool | None, str]:
+    """Return ``(reachable, detail)``. ``None`` means the probe itself did not answer."""
+
+    try:
+        probe = await provider.execute(handle, _probe_command())
+    except Exception as error:  # noqa: BLE001 - an unanswered probe is not proof of absence
+        return None, f"probe raised {type(error).__name__}: {error}"
+    reachable = bool(getattr(probe, "ok", False))
+    return reachable, ("probe reachable" if reachable else "probe refused by the provider")
 
 
 def _probe_command() -> Any:
@@ -344,6 +456,13 @@ def _verdict(evidence: dict[str, Any]) -> str:
         "no_calibration": evidence.get("calibration_attempts") == 0,
     }
     evidence["checks"] = checks
+    # Name what is unconfirmed instead of letting a False quietly stand in for "unknown".
+    unknown: list[str] = []
+    if create.get("state") == "UNKNOWN":
+        unknown.append("create_outcome")
+    if cleanup.get("residual") is None and cleanup.get("state") == "UNKNOWN":
+        unknown.append("cleanup_residual")
+    evidence["unconfirmed"] = unknown
     return "SANDBOX_SMOKE_PASS" if all(checks.values()) else "SANDBOX_SMOKE_FAILED"
 
 

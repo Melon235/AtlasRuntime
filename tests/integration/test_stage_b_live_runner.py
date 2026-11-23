@@ -286,7 +286,10 @@ async def test_live_execution_without_authorization_never_claims(tmp_path: Path)
             "detail": "healthy",
         },
     )
-    with pytest.raises(ExecutionBlocked, match="not authorized"):
+    # Refused before any claim. After the Stage B-E2F harness edit, freeze 1.4 no longer describes
+    # the live tree, so a live run is refused by preflight before it reaches the authorization gate;
+    # both refusals happen before a marker and before a provider call.
+    with pytest.raises(ExecutionBlocked, match="preflight blocked|not authorized"):
         await runner.execute_cell(request)
     assert not admission.attempt_path(
         admission.cell_dir(request.evidence_root, request.cell)
@@ -492,7 +495,16 @@ def test_execution_freeze_is_independent_of_the_e1_freeze() -> None:
     assert frozen["plan_digest"] == e1["plan"]["digest"]
     assert frozen["calibration"]["in_matrix"] is False
     assert frozen["offline"]["passed"] is True
-    assert frozen["source"]["digest"] == admission.source_identity()["digest"]
+    # Freeze 1.4 is the historical record of the harness that ran before Stage B-E2F.
+    # ``source_identity`` digests smoke.py, which the provisioning gate changed, so the recorded
+    # digest no longer equals the live tree and must not be rewritten to make it equal. What the
+    # record still has to satisfy is its own tamper-evidence; the live mismatch is what makes
+    # ``runner_source_digest_matches_freeze`` block a live cell run until a new freeze is written.
+    recorded = frozen["source"]
+    payload = json.dumps(recorded["files"], sort_keys=True, separators=(",", ":"))
+    assert recorded["digest"] == admission.digest_text(payload)
+    assert set(recorded["files"]) == set(admission.SOURCE_FILES)
+    assert recorded["file_count"] == len(recorded["files"])
 
 
 # --------------------------------------------------------------------------- real composition
