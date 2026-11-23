@@ -333,6 +333,7 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument("--execute-cell", metavar="CELL_ID")
     group.add_argument("--execute-calibration", action="store_true")
     group.add_argument("--sandbox-smoke", action="store_true")
+    group.add_argument("--goal-provisioning-smoke", action="store_true")
     group.add_argument("--recover-evidence", metavar="CELL_ID")
     group.add_argument("--recover-calibration", action="store_true")
     parser.add_argument("--runs-root", type=Path, default=Path.cwd() / ".stage-b-runs")
@@ -346,6 +347,11 @@ def main(argv: list[str] | None = None) -> int:
         help="set OPEN_SANDBOX_ENDPOINT for this process; the host is added to NO_PROXY",
     )
     parser.add_argument("--smoke-authorization", type=Path)
+    parser.add_argument(
+        "--provisioning-authorization",
+        type=Path,
+        help="Stage B-E2F: the one-shot approval for the goal provisioning smoke",
+    )
     args = parser.parse_args(argv)
     if args.sandbox_endpoint:
         os.environ["OPEN_SANDBOX_ENDPOINT"] = args.sandbox_endpoint
@@ -414,6 +420,34 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0 if smoke.get("verdict") == "SANDBOX_SMOKE_PASS" else 1
+
+    if args.goal_provisioning_smoke:
+        from . import e2f_provisioning
+
+        # No authorization file is not a default approval: the gate blocks before any provider call.
+        authorization = e2f_provisioning.read_authorization(args.provisioning_authorization)
+        result = asyncio.run(
+            e2f_provisioning.run_provisioning_smoke(
+                e2f_provisioning.ProvisioningRequest(
+                    authorization=authorization,
+                    endpoint=args.sandbox_endpoint or os.environ.get("OPEN_SANDBOX_ENDPOINT"),
+                )
+            )
+        )
+        print(
+            json.dumps(
+                {
+                    "status": result.get("status"),
+                    "verdict": result.get("verdict"),
+                    "failure_kind": result.get("failure_kind"),
+                    "detail": result.get("detail"),
+                    "claim": result.get("claim"),
+                    "checks": result.get("checks"),
+                    "unconfirmed": result.get("unconfirmed"),
+                }
+            )
+        )
+        return 0 if result.get("verdict") == e2f_provisioning.VERDICT_PASS else 1
 
     if args.execute_cell or args.execute_calibration:
         if not (args.live and args.confirm_live and args.authorization):

@@ -123,7 +123,9 @@ def test_no_authorization_cannot_enter_live_path(tmp_path: Path) -> None:
     code = runner.main(["--execute-calibration", "--evidence-root", str(tmp_path)])
     assert code == 3
     cell = provision.calibration_cell()
-    with pytest.raises(ExecutionBlocked, match="not authorized"):
+    # The refusal now happens at preflight (freeze 1.4 predates the Stage B-E2F harness edit) or at
+    # the authorization gate; either way no claim is written and no provider call is made.
+    with pytest.raises(ExecutionBlocked, match="preflight blocked|not authorized"):
         asyncio.run(
             runner.execute_cell(
                 CellRequest(
