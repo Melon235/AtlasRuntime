@@ -271,9 +271,14 @@ re-authorise c3.
    `exit_code` itself. Suggested one-line patch, pending Owner approval:
 
    ```python
-   status = ("ERROR" if not ok
-             else "UNKNOWN" if exit_code is None
-             else "PASS" if int(exit_code) == 0 else "FAIL")
+   if not ok:
+       status = "ERROR"
+   elif exit_code is None:
+       status = "UNKNOWN"
+   elif int(exit_code) == 0:
+       status = "PASS"
+   else:
+       status = "FAIL"
    ```
 
    Exposure today is low: the OpenSandbox adapter coerces a missing exit code to `0` before
