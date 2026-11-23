@@ -29,18 +29,59 @@ from ..tasks.base import (
 from .models import Attempt, AttemptAlreadyStarted, CellIdentity
 
 EXECUTION_DIR = Path(__file__).resolve().parent
-#: The original E2A freeze is archived byte-for-byte; it is never overwritten.
-E2A_FREEZE_PATH = EXECUTION_DIR / "freeze.json"
 ARCHIVE_DIR = EXECUTION_DIR / "archive"
-ARCHIVE_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.0.json"
-FREEZE_11_PATH = EXECUTION_DIR / "freeze-1.1.json"
-ARCHIVE_11_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.1.json"
-FREEZE_12_PATH = EXECUTION_DIR / "freeze-1.2.json"
-ARCHIVE_12_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.2.json"
-FREEZE_13_PATH = EXECUTION_DIR / "freeze-1.3.json"
-ARCHIVE_13_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.3.json"
-FREEZE_PATH = EXECUTION_DIR / "freeze-1.4.json"
+
+#: Every execution freeze already spent, oldest first: version, live file, content digest.
+#: The digest is the identity of the file, so a later stage may append a version but must never
+#: rewrite one of these: :func:`preflight` and :func:`write_freeze` both refuse on a mismatch.
+#: It is computed over LF-normalised bytes: this repository checks text out with ``eol=lf`` but
+#: older worktrees render some directories as CRLF, and a rendering difference is not a content
+#: difference. Any edit, including a trailing byte, still changes the digest.
+FROZEN_CHAIN: tuple[tuple[str, Path, str], ...] = (
+    (
+        "stage-b-execution/1.0",
+        EXECUTION_DIR / "freeze.json",
+        "sha256:48acad3ee7adbcff2e635b9ee6101c52dad9d6cd636146bf85dfb39e96e0bd23",
+    ),
+    (
+        "stage-b-execution/1.1",
+        EXECUTION_DIR / "freeze-1.1.json",
+        "sha256:437df8c480bdcb1631163741b32368584cffbf9ccfe90ea919165cd211170fb9",
+    ),
+    (
+        "stage-b-execution/1.2",
+        EXECUTION_DIR / "freeze-1.2.json",
+        "sha256:5a0718b3c2354aa8fb44491b0943962725a4e5cbd202a9fa6def505d8b272751",
+    ),
+    (
+        "stage-b-execution/1.3",
+        EXECUTION_DIR / "freeze-1.3.json",
+        "sha256:d177f8f99c311e790a8571b25129194e77d7c6f9e9071deb01edb4f740c7702e",
+    ),
+    (
+        "stage-b-execution/1.4",
+        EXECUTION_DIR / "freeze-1.4.json",
+        "sha256:eaee6d8662c89fcd7c473430c6a74a17b60f67b87836439be1bb0cfff79de9c7",
+    ),
+)
+#: The freeze a live cell or calibration is authorized against. Moving this pointer is a new
+#: version, never a rewrite: the previous file keeps its bytes and its place in the chain.
+FREEZE_VERSION = "stage-b-execution/1.5"
+FREEZE_PATH = EXECUTION_DIR / "freeze-1.5.json"
+
 SMOKE_EVIDENCE_DIR = EXECUTION_DIR.parents[1] / "stage_b_smoke"
+#: The one E2F provisioning attempt. It ran once and its claim is spent, so the path is a record,
+#: never a default: a missing file stays NOT_RUN and never becomes a pass.
+PROVISIONING_EVIDENCE_PATH = (
+    SMOKE_EVIDENCE_DIR
+    / "e2f-provisioning"
+    / "attempts"
+    / "attempt-a22c2b7650af7e33"
+    / "provisioning-result.json"
+)
+PROVISIONING_REVIEW_PATH = (
+    SMOKE_EVIDENCE_DIR / "e2f-provisioning" / "reviews" / "s03-evidence-review.json"
+)
 OFFLINE_PATH = EXECUTION_DIR / "offline.json"
 PREFLIGHT_PATH = EXECUTION_DIR / "preflight.json"
 
@@ -67,6 +108,64 @@ def digest_text(text: str) -> str:
     return digest_bytes(text.encode("utf-8"))
 
 
+def content_digest(path: Path) -> str:
+    """The digest of a freeze's content, independent of CRLF/LF rendering by ``core.autocrlf``."""
+
+    return digest_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
+
+
+def version_suffix(version: str) -> str:
+    """``stage-b-execution/1.4`` -> ``1.4``."""
+
+    return version.rsplit("/", 1)[-1]
+
+
+def archive_path(version: str) -> Path:
+    """The archived duplicate of a freeze. A duplicate is written once and never rewritten."""
+
+    return ARCHIVE_DIR / f"freeze-{version_suffix(version)}.json"
+
+
+def frozen_chain_problems() -> list[str]:
+    """Re-derive every spent freeze from bytes. A missing or moved file is a hard failure."""
+
+    problems: list[str] = []
+    for version, path, expected in FROZEN_CHAIN:
+        if not path.is_file():
+            problems.append(f"{version}: missing {path.name}")
+            continue
+        actual = content_digest(path)
+        if actual != expected:
+            problems.append(f"{version}: {path.name} digest {actual} != {expected}")
+    return problems
+
+
+def freeze_history_problems(payload: Mapping[str, Any]) -> list[str]:
+    """The active freeze must name the chain it supersedes, with the real historical digests."""
+
+    problems: list[str] = []
+    if payload.get("freeze_version") != FREEZE_VERSION:
+        problems.append(f"freeze_version={payload.get('freeze_version')!r} != {FREEZE_VERSION!r}")
+    previous_version, previous_path, previous_digest = FROZEN_CHAIN[-1]
+    supersedes = payload.get("supersedes") or {}
+    if supersedes.get("version") != previous_version:
+        problems.append(f"supersedes.version={supersedes.get('version')!r} != {previous_version!r}")
+    if supersedes.get("content_digest") != previous_digest:
+        problems.append(
+            f"supersedes.content_digest={supersedes.get('content_digest')!r} != {previous_digest!r}"
+        )
+    if str(supersedes.get("live_path") or "") != str(previous_path):
+        problems.append(f"supersedes.live_path={supersedes.get('live_path')!r} != {previous_path}")
+    history = {
+        str(item.get("version")): item.get("content_digest")
+        for item in payload.get("history") or ()
+    }
+    for version, _path, digest in FROZEN_CHAIN:
+        if history.get(version) != digest:
+            problems.append(f"history[{version}]={history.get(version)!r} != {digest!r}")
+    return problems
+
+
 def source_identity() -> dict[str, Any]:
     """Digest the execution harness itself, independently of the frozen analysis harness."""
 
@@ -86,6 +185,19 @@ def read_json(path: Path) -> dict[str, Any]:
 
 def canonical_digest(payload: Mapping[str, Any]) -> str:
     return digest_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str))
+
+
+def active_freeze_document() -> dict[str, Any]:
+    """The freeze a live run is authorized against.
+
+    Until 1.5 is written, that is the last spent version: a reader must not crash merely because
+    the next freeze is still being reviewed. ``preflight`` decides readiness separately, and a live
+    cell is refused by ``active_execution_freeze_present`` while the pointer has no file.
+    """
+
+    if FREEZE_PATH.is_file():
+        return read_json(FREEZE_PATH)
+    return read_json(FROZEN_CHAIN[-1][1])
 
 
 def cell_dir(evidence_root: Path, cell: CellIdentity) -> Path:
@@ -260,9 +372,8 @@ def preflight(
     )
 
     source = source_identity()
-    freeze_source = None
-    if FREEZE_PATH.is_file():
-        freeze_source = read_json(FREEZE_PATH).get("source", {}).get("digest")
+    active: dict[str, Any] = read_json(FREEZE_PATH) if FREEZE_PATH.is_file() else {}
+    freeze_source = (active.get("source") or {}).get("digest")
     # The source-freeze binding is a live-authorization rule. An offline suite must be able to
     # re-run after a harness edit in order to produce the report a new freeze is written from.
     checks.append(
@@ -275,6 +386,33 @@ def preflight(
             + ("" if require_offline_report else " (not binding offline)"),
         )
     )
+    # A live cell needs a written, current freeze. Offline this is the state a new freeze is
+    # written from, so absence is expected rather than a failure.
+    checks.append(
+        _check(
+            bool(active) or not require_offline_report,
+            "active_execution_freeze_present",
+            f"{FREEZE_PATH.name} ({FREEZE_VERSION})"
+            + ("" if require_offline_report else " (not binding offline)"),
+        )
+    )
+    chain_problems = frozen_chain_problems()
+    checks.append(
+        _check(
+            not chain_problems,
+            "execution_freeze_chain_intact",
+            "; ".join(chain_problems) or f"{len(FROZEN_CHAIN)} frozen versions",
+        )
+    )
+    if active:
+        history_problems = freeze_history_problems(active)
+        checks.append(
+            _check(
+                not history_problems,
+                "execution_freeze_supersedes_history",
+                "; ".join(history_problems) or FREEZE_VERSION,
+            )
+        )
 
     report = (
         offline_report
@@ -319,19 +457,19 @@ def preflight(
             )
         )
 
-    for label, live_path, archived_path in (
-        ("e2a_freeze_preserved", E2A_FREEZE_PATH, ARCHIVE_FREEZE_PATH),
-        ("e2a_freeze_1_1_preserved", FREEZE_11_PATH, ARCHIVE_11_FREEZE_PATH),
-        ("e2c_freeze_1_2_preserved", FREEZE_12_PATH, ARCHIVE_12_FREEZE_PATH),
-        ("e2c_freeze_1_3_preserved", FREEZE_13_PATH, ARCHIVE_13_FREEZE_PATH),
-    ):
-        if live_path.is_file() and archived_path.is_file():
-            archived_ok = digest_bytes(archived_path.read_bytes()) == digest_bytes(
-                live_path.read_bytes()
+    # The archive is a duplicate of each spent freeze, so it must never disagree with the live file.
+    for version, _live_path, expected in FROZEN_CHAIN:
+        archived = archive_path(version)
+        archived_ok = not archived.is_file() or (
+            archived.is_file() and content_digest(archived) == expected
+        )
+        checks.append(
+            _check(
+                archived_ok,
+                f"freeze_{version_suffix(version).replace('.', '_')}_archived",
+                str(archived),
             )
-        else:
-            archived_ok = not archived_path.is_file()
-        checks.append(_check(archived_ok, label, str(archived_path)))
+        )
 
     if cell is not None:
         cells = {item["cell_id"] for item in plan["plan"]["cells"]}
@@ -432,72 +570,44 @@ def authorization_gate(
 def write_freeze(
     *, offline_report: Mapping[str, Any], preflight_result: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Write a versioned execution freeze. Neither E1 nor the E2A original is overwritten."""
+    """Write the next versioned execution freeze. No earlier freeze is ever rewritten."""
 
-    if not E2A_FREEZE_PATH.is_file():
-        raise RuntimeError(f"original E2A freeze is missing: {E2A_FREEZE_PATH}")
-    original_digest = digest_bytes(E2A_FREEZE_PATH.read_bytes())
+    if FREEZE_PATH.exists():
+        raise RuntimeError(f"{FREEZE_VERSION} already exists and is never rewritten: {FREEZE_PATH}")
+    problems = frozen_chain_problems()
+    if problems:
+        raise RuntimeError("the execution freeze chain is broken: " + "; ".join(problems))
+
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-    if not ARCHIVE_FREEZE_PATH.is_file():
-        shutil.copy2(E2A_FREEZE_PATH, ARCHIVE_FREEZE_PATH)
-    if digest_bytes(ARCHIVE_FREEZE_PATH.read_bytes()) != original_digest:
-        raise RuntimeError("the archived E2A freeze does not match the original")
+    history: list[dict[str, Any]] = []
+    for version, live_path, expected in FROZEN_CHAIN:
+        archived = archive_path(version)
+        if not archived.is_file():
+            shutil.copy2(live_path, archived)
+        if content_digest(archived) != expected:
+            raise RuntimeError(f"the archived {version} freeze does not match the live copy")
+        history.append(
+            {
+                "version": version,
+                "archive_path": str(archived),
+                # Both are recorded: the bytes this worktree rendered, and the rendering-free pin.
+                "digest": digest_bytes(live_path.read_bytes()),
+                "content_digest": expected,
+            }
+        )
 
-    if not FREEZE_11_PATH.is_file():
-        raise RuntimeError(f"the 1.1 execution freeze is missing: {FREEZE_11_PATH}")
-    v11_digest = digest_bytes(FREEZE_11_PATH.read_bytes())
-    if not ARCHIVE_11_FREEZE_PATH.is_file():
-        shutil.copy2(FREEZE_11_PATH, ARCHIVE_11_FREEZE_PATH)
-    if digest_bytes(ARCHIVE_11_FREEZE_PATH.read_bytes()) != v11_digest:
-        raise RuntimeError("the archived 1.1 execution freeze does not match the live copy")
-
-    if not FREEZE_12_PATH.is_file():
-        raise RuntimeError(f"the 1.2 execution freeze is missing: {FREEZE_12_PATH}")
-    v12_digest = digest_bytes(FREEZE_12_PATH.read_bytes())
-    if not ARCHIVE_12_FREEZE_PATH.is_file():
-        shutil.copy2(FREEZE_12_PATH, ARCHIVE_12_FREEZE_PATH)
-    if digest_bytes(ARCHIVE_12_FREEZE_PATH.read_bytes()) != v12_digest:
-        raise RuntimeError("the archived 1.2 execution freeze does not match the live copy")
-
-    if not FREEZE_13_PATH.is_file():
-        raise RuntimeError(f"the 1.3 execution freeze is missing: {FREEZE_13_PATH}")
-    previous_digest = digest_bytes(FREEZE_13_PATH.read_bytes())
-    if not ARCHIVE_13_FREEZE_PATH.is_file():
-        shutil.copy2(FREEZE_13_PATH, ARCHIVE_13_FREEZE_PATH)
-    if digest_bytes(ARCHIVE_13_FREEZE_PATH.read_bytes()) != previous_digest:
-        raise RuntimeError("the archived 1.3 execution freeze does not match the live copy")
-
+    previous_version, previous_path, previous_digest = FROZEN_CHAIN[-1]
     document = {
-        "stage": "B-E2E-SANDBOX-SMOKE",
-        "freeze_version": "stage-b-execution/1.4",
+        "stage": "B-E2F-PROVISIONING-GATE",
+        "freeze_version": FREEZE_VERSION,
         "supersedes": {
-            "version": "stage-b-execution/1.3",
-            "live_path": str(FREEZE_13_PATH),
-            "archive_path": str(ARCHIVE_13_FREEZE_PATH),
-            "digest": previous_digest,
+            "version": previous_version,
+            "live_path": str(previous_path),
+            "archive_path": str(archive_path(previous_version)),
+            "digest": digest_bytes(previous_path.read_bytes()),
+            "content_digest": previous_digest,
         },
-        "history": [
-            {
-                "version": "stage-b-execution/1.0",
-                "archive_path": str(ARCHIVE_FREEZE_PATH),
-                "digest": original_digest,
-            },
-            {
-                "version": "stage-b-execution/1.1",
-                "archive_path": str(ARCHIVE_11_FREEZE_PATH),
-                "digest": v11_digest,
-            },
-            {
-                "version": "stage-b-execution/1.2",
-                "archive_path": str(ARCHIVE_12_FREEZE_PATH),
-                "digest": v12_digest,
-            },
-            {
-                "version": "stage-b-execution/1.3",
-                "archive_path": str(ARCHIVE_13_FREEZE_PATH),
-                "digest": previous_digest,
-            },
-        ],
+        "history": history,
         "frozen_at": datetime.now(UTC).isoformat(),
         "git": stage_runner.git_identity(),
         "source": source_identity(),
@@ -529,11 +639,59 @@ def write_freeze(
             "reason_not_run": "no attempt is authorised for this harness version",
             "next_identity_required": False,
             "identity": "experiments/stage_s2_prompt_v21/freeze.json",
+            "authorization": "PENDING_OWNER_APPROVAL",
+            "authorization_path": "experiments/stage_b_calibration/authorization-c3.json",
         },
+        "provisioning_gate": _provisioning_gate_summary(),
         "smoke_test": _smoke_summary(),
     }
     FREEZE_PATH.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return document
+
+
+def _provisioning_gate_summary() -> dict[str, Any]:
+    """Record the single E2F attempt as it stands. A missing record is NOT_RUN, never a pass."""
+
+    summary: dict[str, Any] = {
+        "status": "NOT_RUN",
+        "verdict": None,
+        "evidence": str(PROVISIONING_EVIDENCE_PATH),
+        "digest": None,
+        "attempt": None,
+        "review": "ABSENT",
+        "process_exit_code": "UNOBSERVED",
+        "retry": "FORBIDDEN",
+    }
+    if PROVISIONING_EVIDENCE_PATH.is_file():
+        payload = read_json(PROVISIONING_EVIDENCE_PATH)
+        cleanup = payload.get("cleanup") or {}
+        summary.update(
+            {
+                "status": payload.get("status"),
+                "verdict": payload.get("verdict"),
+                "digest": digest_bytes(PROVISIONING_EVIDENCE_PATH.read_bytes()),
+                "attempt": payload.get("attempt"),
+                "sandbox_created": bool((payload.get("create") or {}).get("attempted")),
+                "sandbox_destroyed": bool(cleanup.get("destroyed")),
+                "residual": cleanup.get("residual"),
+                "checks_true": sum(
+                    1 for value in (payload.get("checks") or {}).values() if value is True
+                ),
+                "checks_total": len(payload.get("checks") or {}),
+                "unconfirmed": list(payload.get("unconfirmed") or ()),
+                "model_requests": payload.get("model_requests"),
+                "calibration_attempts": payload.get("calibration_attempts"),
+                "benchmark_cells": payload.get("benchmark_cells"),
+            }
+        )
+    if PROVISIONING_REVIEW_PATH.is_file():
+        record = read_json(PROVISIONING_REVIEW_PATH)
+        review = record.get("review") or record
+        summary["review"] = review.get("review_disposition")
+        summary["process_exit_code"] = review.get("process_exit_code")
+        summary["review_digest"] = digest_bytes(PROVISIONING_REVIEW_PATH.read_bytes())
+        summary["review_path"] = str(PROVISIONING_REVIEW_PATH)
+    return summary
 
 
 def _smoke_summary() -> dict[str, Any]:

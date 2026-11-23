@@ -231,7 +231,7 @@ def identity_checks(
 
     # The runtime digest lives in the E1 freeze; the protocol and plan digests live in the
     # execution freeze. Both are read, neither is rewritten.
-    execution_frozen = admission.read_json(admission.FREEZE_PATH)
+    execution_frozen = admission.active_freeze_document()
     e1_frozen = admission.read_json(stage_runner.FREEZE_PATH)
     checks = [
         _check(
