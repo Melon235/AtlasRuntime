@@ -338,7 +338,7 @@ Root cause is in this stage's own execution layer, not in the runtime:
 
 ```python
 # experiments/stage_benchmark/execution/provision.py:371
-memory=f"{config['memory_gib']}Gi",   # 1.0 -> "1.0Gi"
+memory = (f"{config['memory_gib']}Gi",)  # 1.0 -> "1.0Gi"
 ```
 
 `memory_gib` is a float, so the rendered quantity is `1.0Gi`. This OpenSandbox server accepts an
@@ -401,7 +401,27 @@ layer this stage owns. Under the one-attempt rule the retry was not repeated.
 
 ---
 
-## Q. Remaining Risks
+## Q. Network Policy (port 12000 is reserved)
+
+`127.0.0.1:12000` belongs to the user's VPN client. The harness treats it as read-only external
+state:
+
+| Rule | Enforcement |
+|---|---|
+| never bind, close or rebind 12000 | no listener is created; `test_the_execution_layer_never_mentions_a_vpn_port` asserts the literal never appears in the harness |
+| never change Windows system proxy / VPN config | the harness only writes process-level `NO_PROXY` / `no_proxy` |
+| never disable proxying globally | `HTTP_PROXY` / `HTTPS_PROXY` are untouched and `trust_env` is never set to `False` |
+| sandbox traffic goes direct | the WSL address is added to `NO_PROXY` per process, before the probe |
+| DeepSeek traffic keeps its proxy | the provider client continues to read the existing proxy configuration |
+| WSL address is re-read every run | `sandbox_endpoint()` reads `OPEN_SANDBOX_ENDPOINT` (or accepts `--sandbox-endpoint`) on each call; no historical address is compiled in |
+| an unreachable VPN is reported, not repaired | the probe classifies the failure; no restart or reconfiguration is attempted |
+
+A port scan is never used to decide what the harness may occupy; 12000 being idle would not make it
+available.
+
+---
+
+## R. Remaining Risks
 
 1. **The memory rendering must be fixed in `execution/provision.py`** (`str(int(...))` or an integer
    contract), then the harness re-frozen and a new authorization granted. This is a one-line
