@@ -171,11 +171,11 @@ refuses it as written: `status`, `approved_by`, `approval_commit`, `approved_at`
 
 | Check | Result |
 | --- | --- |
-| `pytest` (full offline suite) | 1786 passed, 46 failed, 7 skipped, 1 deselected, 1 xfailed |
+| `pytest` (full offline suite) | 1788 passed, 45 failed, 7 skipped, 1 deselected, 1 xfailed |
 | `pyright` | 0 errors, 0 warnings |
 | `ruff check` / `ruff format --check` on the touched files | clean |
 
-The 46 failures are **not** assertions in this stage's code. Every one is
+The 45 failures are **not** assertions in this stage's code. Every one is
 `[safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED]`, raised by this host's delete guard inside
 `tests/helpers/fake_sandbox_provider.py` when a fake sandbox workspace is destroyed; the log
 contains 88 occurrences and the guard aborts the test process with `SystemExit(1)`.
