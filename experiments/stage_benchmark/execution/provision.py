@@ -13,6 +13,7 @@ import json
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
@@ -48,11 +49,12 @@ CALIBRATION = {
     "source": "experiments/fixtures/stage_s2_workgrid",
     "in_matrix": False,
     "arm_id": "P1",
-    #: The first attempt (c1) is consumed and preserved. A retry gets a new identity.
-    "attempt": 2,
+    #: c1 and c2 are consumed and preserved. Each new attempt gets its own identity.
+    "attempt": 3,
     "status": "PREPARED_NOT_RUN",
     "reason_not_run": "this stage may not call the provider",
-    "previous_attempt": "CALIBRATION.workgrid.c1",
+    "previous_attempt": "CALIBRATION.workgrid.c2",
+    "previous_attempts": ("CALIBRATION.workgrid.c1", "CALIBRATION.workgrid.c2"),
 }
 
 
@@ -99,14 +101,28 @@ def calibration_cell() -> CellIdentity:
 def memory_quantity(gib: float) -> str:
     """Render a memory limit the way OpenSandbox accepts it: ``1Gi``, never ``1.0Gi``.
 
-    The frozen experiment parameter is a float (1.0 GiB). The server parses resource quantities as
-    integers, so the decimal suffix must not leak from the Python type into the wire value.
+    The frozen experiment parameter is a float (1.0 GiB), but the wire value must not inherit the
+    Python type's decimal suffix. The conversion is deliberately strict: a value that cannot be
+    expressed to the milligit without changing it is rejected rather than silently rounded, and a
+    positive value that would render as ``0Gi`` is an error, not a clamp.
     """
 
-    value = float(gib)
+    if isinstance(gib, bool):
+        raise ValueError(f"memory_gib must be a number, got {gib!r}")
+    try:
+        value = Decimal(str(gib))
+    except (InvalidOperation, ValueError) as error:
+        raise ValueError(f"memory_gib must be a number, got {gib!r}") from error
+    if not value.is_finite():
+        raise ValueError(f"memory_gib must be finite, got {gib!r}")
     if value <= 0:
         raise ValueError(f"memory_gib must be positive, got {gib!r}")
-    text = f"{value:.3f}".rstrip("0").rstrip(".")
+    quantized = value.quantize(Decimal("0.001"))
+    if quantized != value:
+        raise ValueError(f"memory_gib would lose precision: {gib!r}")
+    if quantized <= 0:
+        raise ValueError(f"memory_gib would render as 0Gi: {gib!r}")
+    text = format(quantized.normalize(), "f")
     return f"{text}Gi"
 
 
@@ -336,6 +352,78 @@ def _acceptance(spec: TaskSpec) -> GoalAcceptance:
     )
 
 
+def sandbox_config(document: Mapping[str, Any] | None = None, *, offline: bool = False):
+    """The single place that turns the frozen run config into a ``SandboxConfig``.
+
+    Both the goal run and the smoke test read the sandbox settings from here, so a preflight audit
+    and a real provider call cannot drift apart.
+    """
+
+    document = document or protocol.read_protocol()
+    config = document["run_config"]
+    provider_name = "fake" if offline else config["sandbox_provider"]
+    return SandboxConfig(
+        enabled=True,
+        provider=provider_name,
+        endpoint=network.sandbox_endpoint()[0],
+        image=config["image"],
+        workspace_root=WORKSPACE_ROOT,
+        network=config["network"],
+        cpu=str(config["cpu"]),
+        memory=memory_quantity(config["memory_gib"]),
+        use_server_proxy=True,
+        retain_on_failure=False,
+    )
+
+
+def sandbox_resource_audit(document: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Validate the real sandbox resources without creating anything or calling a model."""
+
+    document = document or protocol.read_protocol()
+    config = document["run_config"]
+    problems: list[str] = []
+    try:
+        expected_memory = memory_quantity(config["memory_gib"])
+    except ValueError as error:
+        return {
+            "ok": False,
+            "problems": [f"memory_gib invalid: {error}"],
+            "config": {"memory": None},
+        }
+    sandbox = sandbox_config(document)
+    expected = {
+        "provider": str(config["sandbox_provider"]),
+        "image": str(config["image"]),
+        "cpu": str(config["cpu"]),
+        "memory": expected_memory,
+        "network": str(config["network"]),
+        "workspace_root": WORKSPACE_ROOT,
+    }
+    for field, value in expected.items():
+        actual = getattr(sandbox, field, None)
+        if actual != value:
+            problems.append(f"{field}={actual!r} expected {value!r}")
+    if not sandbox.endpoint:
+        problems.append("sandbox endpoint is empty")
+    if sandbox.memory != "1Gi" or sandbox.cpu != "1":
+        problems.append(f"resource quantity changed: cpu={sandbox.cpu!r} memory={sandbox.memory!r}")
+    if config["memory_gib"] != 1.0:
+        problems.append(f"frozen memory_gib changed: {config['memory_gib']!r}")
+    return {
+        "ok": not problems,
+        "problems": problems,
+        "config": {
+            "provider": sandbox.provider,
+            "endpoint": sandbox.endpoint,
+            "image": sandbox.image,
+            "cpu": sandbox.cpu,
+            "memory": sandbox.memory,
+            "network": sandbox.network,
+            "workspace_root": sandbox.workspace_root,
+        },
+    }
+
+
 def build_options(
     *,
     cell: CellIdentity,
@@ -373,19 +461,8 @@ def build_options(
         acceptance_contract = s2_contract.acceptance()
         public_contract = s2_contract.PUBLIC_TESTS
     prompt = protocol.prompt_spec(cell.arm_id)
-    provider_name = "fake" if offline else config["sandbox_provider"]
-    sandbox_config = SandboxConfig(
-        enabled=True,
-        provider=provider_name,
-        endpoint=network.sandbox_endpoint()[0],
-        image=config["image"],
-        workspace_root=WORKSPACE_ROOT,
-        network=config["network"],
-        cpu=str(config["cpu"]),
-        memory=memory_quantity(config["memory_gib"]),
-        use_server_proxy=True,
-        retain_on_failure=False,
-    )
+    sandbox_settings = sandbox_config(document, offline=offline)
+    provider_name = sandbox_settings.provider
     delegation = DelegationConfig(
         enabled=config["delegation"] == "enabled",
         max_parallel_children=int(config["max_concurrent_children"]),
@@ -399,7 +476,7 @@ def build_options(
         goal=goal_text,
         runs_root=runs_root,
         workspace_root=runs_root / "host-workspace",
-        config=AtlasConfig(tools=ToolsConfig(mode="progressive"), sandbox=sandbox_config),
+        config=AtlasConfig(tools=ToolsConfig(mode="progressive"), sandbox=sandbox_settings),
         delegation=delegation,
         provider="fake" if offline else config["provider"],
         model=config["model"],

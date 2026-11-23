@@ -412,7 +412,7 @@ async def test_a_marker_write_failure_keeps_the_original_diagnostic(
 
 def test_the_retry_identity_is_new_and_outside_the_plan() -> None:
     cell = provision.calibration_cell()
-    assert cell.cell_id == "CALIBRATION.workgrid.c2"
+    assert cell.cell_id == "CALIBRATION.workgrid.c3"
     assert cell.cell_id != provision.CALIBRATION["previous_attempt"]
     assert cell.cell_id not in {item["cell_id"] for item in _document()["plan"]["cells"]}
     assert provision.verify_calibration_identity() == []

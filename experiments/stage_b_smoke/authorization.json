@@ -1,0 +1,15 @@
+{
+  "agent_runner_allowed": false,
+  "allow_container_create": true,
+  "allow_container_destroy": true,
+  "approval_commit": "0f80180d01377ed7290bf13184ba52be6e0ca970",
+  "approved_at": "2026-11-23T06:04:18.583867+00:00",
+  "approved_by": "Owner (Melon235)",
+  "benchmark_cells_allowed": false,
+  "calibration_allowed": false,
+  "deepseek_requests_allowed": false,
+  "max_sandboxes": 1,
+  "note": "one temporary container; no model, no agent, no calibration, no benchmark cell",
+  "smoke_id": "SANDBOX.SMOKE.stage-b-e2e",
+  "status": "APPROVED"
+}

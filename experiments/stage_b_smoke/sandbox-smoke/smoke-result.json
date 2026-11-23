@@ -1,0 +1,133 @@
+{
+  "authorization": {
+    "digest": "sha256:f24cc3635fd40fd1b295b1f38becd3355a2a6438a7a6da11d2cf7997b3235ebe",
+    "problems": [],
+    "ready": true
+  },
+  "benchmark_cells": 0,
+  "calibration_attempts": 0,
+  "checks": {
+    "cleanup": true,
+    "commands": true,
+    "create": true,
+    "files": true,
+    "health": true,
+    "isolation": true,
+    "no_calibration": true,
+    "no_model": true,
+    "resources": true
+  },
+  "cleanup": {
+    "attempted": true,
+    "destroyed": true,
+    "detail": "handle unreachable after destroy",
+    "error": null,
+    "residual": false
+  },
+  "commands": [
+    {
+      "command": "pwd",
+      "exit_code": 0,
+      "name": "pwd",
+      "ok": true,
+      "stderr": "",
+      "stdout": "/"
+    },
+    {
+      "command": "python3 --version",
+      "exit_code": 0,
+      "name": "python",
+      "ok": true,
+      "stderr": "",
+      "stdout": "Python 3.12.16"
+    },
+    {
+      "command": "id",
+      "exit_code": 0,
+      "name": "identity",
+      "ok": true,
+      "stderr": "",
+      "stdout": "uid=0(root) gid=0(root) groups=0(root)"
+    },
+    {
+      "command": "ls -la /workspace",
+      "exit_code": 2,
+      "name": "workspace",
+      "ok": true,
+      "stderr": "ls: cannot access '/workspace': No such file or directory",
+      "stdout": ""
+    }
+  ],
+  "create": {
+    "error": null,
+    "finished_at": "2026-11-23T06:04:44.658989+00:00",
+    "ok": true,
+    "sandbox_id": "7b3edc91-6e8d-4473-a21a-39b8f642957b",
+    "started_at": "2026-11-23T06:04:41.212332+00:00"
+  },
+  "create_request": {
+    "cpu": "1",
+    "endpoint": "172.21.123.198:8080",
+    "image": "atlas-uat-python:3.12",
+    "memory": "1Gi",
+    "network": "none",
+    "provider": "opensandbox",
+    "sandbox_id": "SANDBOX.SMOKE.stage-b-e2e",
+    "workspace_root": "/workspace/project"
+  },
+  "environment": {
+    "bypass": "172.21.123.198,localhost,127.0.0.1,::1",
+    "endpoint": "172.21.123.198:8080",
+    "endpoint_source": "argument",
+    "proxy_env": {
+      "HTTPS_PROXY": false,
+      "HTTP_PROXY": false,
+      "http_proxy": false,
+      "https_proxy": false
+    }
+  },
+  "file_round_trip": {
+    "path": "/tmp/atlas-smoke-probe.txt",
+    "read_ok": true,
+    "readback_matches": true,
+    "write_ok": true
+  },
+  "finished_at": "2026-11-23T06:04:53.306785+00:00",
+  "health": {
+    "added": [],
+    "bypass": "172.21.123.198,localhost,127.0.0.1,::1",
+    "code": "SANDBOX_HEALTH_READY",
+    "detail": "healthy",
+    "endpoint": "172.21.123.198:8080",
+    "endpoint_source": "argument",
+    "host": "172.21.123.198",
+    "ok": true,
+    "preserved_existing": [
+      "172.21.123.198",
+      "localhost",
+      "127.0.0.1",
+      "::1"
+    ],
+    "proxy_env": {
+      "HTTPS_PROXY": null,
+      "HTTP_PROXY": null,
+      "http_proxy": null,
+      "https_proxy": null
+    },
+    "status_code": 200,
+    "used_proxy_bypass": true
+  },
+  "isolation": "PASS",
+  "model_requests": 0,
+  "provider_options": {
+    "cpu": "1",
+    "endpoint": "172.21.123.198:8080",
+    "memory": "1Gi",
+    "use_server_proxy": true
+  },
+  "smoke_id": "SANDBOX.SMOKE.stage-b-e2e",
+  "smoke_version": "stage-b-sandbox-smoke/1.0",
+  "started_at": "2026-11-23T06:04:41.082331+00:00",
+  "status": "PASSED",
+  "verdict": "SANDBOX_SMOKE_PASS"
+}

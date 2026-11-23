@@ -481,6 +481,7 @@ def test_execution_freeze_is_independent_of_the_e1_freeze() -> None:
         "stage-b-execution/1.1",
         "stage-b-execution/1.2",
         "stage-b-execution/1.3",
+        "stage-b-execution/1.4",
     }
     archived_digests = {
         path.name: admission.digest_bytes(path.read_bytes())

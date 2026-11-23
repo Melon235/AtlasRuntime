@@ -51,7 +51,7 @@
       "ok": true
     },
     {
-      "detail": "current=sha256:0355da165f60727b2b99d72d5840465829e817e4f293d4f1d095c850ea67fdf8 frozen=sha256:0355da165f60727b2b99d72d5840465829e817e4f293d4f1d095c850ea67fdf8 (not binding offline)",
+      "detail": "current=sha256:d52eeb34641cfed7b3d263abb21961fec8737ebc9df0b0bf950a8855424005e6 frozen=None (not binding offline)",
       "label": "runner_source_digest_matches_freeze",
       "ok": true
     },
@@ -63,6 +63,11 @@
     {
       "detail": "",
       "label": "host_oracle_isolated",
+      "ok": true
+    },
+    {
+      "detail": "{'provider': 'opensandbox', 'endpoint': '172.21.123.198:8080', 'image': 'atlas-uat-python:3.12', 'cpu': '1', 'memory': '1Gi', 'network': 'none', 'workspace_root': '/workspace/project'}",
+      "label": "sandbox_resource_configuration",
       "ok": true
     },
     {
@@ -86,19 +91,24 @@
       "ok": true
     },
     {
+      "detail": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.3.json",
+      "label": "e2c_freeze_1_3_preserved",
+      "ok": true
+    },
+    {
       "detail": "clear",
       "label": "no_existing_cell_markers",
       "ok": true
     }
   ],
-  "digest": "sha256:4a57d8a3b2a7f9272e66e47942ca4f61c74b51efa3adcaa5e51c4ab684af1ab0",
+  "digest": "sha256:1cba7cd0eee4682c5b1aff1ce4adc16195ee8550b25be1882a95495bc5fd5ded",
   "live": false,
-  "offline_report_digest": "sha256:26f58c188f11c713a0f1bb97f5ef49437d284b9f91485b402b3c9673614b016d",
+  "offline_report_digest": "sha256:d60ac24cb095141a28aeca24fe7a0fac1835e596167bfacb0dd90094e50960da",
   "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
   "problems": [],
   "protocol_digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
   "protocol_version": "1.1.0",
-  "runner_source_digest": "sha256:0355da165f60727b2b99d72d5840465829e817e4f293d4f1d095c850ea67fdf8",
+  "runner_source_digest": "sha256:d52eeb34641cfed7b3d263abb21961fec8737ebc9df0b0bf950a8855424005e6",
   "runtime_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
   "sandbox": {
     "added": [],

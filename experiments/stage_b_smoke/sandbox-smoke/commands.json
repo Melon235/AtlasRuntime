@@ -1,0 +1,36 @@
+{
+  "commands": [
+    {
+      "command": "pwd",
+      "exit_code": 0,
+      "name": "pwd",
+      "ok": true,
+      "stderr": "",
+      "stdout": "/"
+    },
+    {
+      "command": "python3 --version",
+      "exit_code": 0,
+      "name": "python",
+      "ok": true,
+      "stderr": "",
+      "stdout": "Python 3.12.16"
+    },
+    {
+      "command": "id",
+      "exit_code": 0,
+      "name": "identity",
+      "ok": true,
+      "stderr": "",
+      "stdout": "uid=0(root) gid=0(root) groups=0(root)"
+    },
+    {
+      "command": "ls -la /workspace",
+      "exit_code": 2,
+      "name": "workspace",
+      "ok": true,
+      "stderr": "ls: cannot access '/workspace': No such file or directory",
+      "stdout": ""
+    }
+  ]
+}

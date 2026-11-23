@@ -1,0 +1,79 @@
+{
+  "analysis": {
+    "e1_analyser_unchanged": "stage-b-reconstruct/1.1",
+    "execution_analysis_version": "stage-b-execution-analysis/1.1"
+  },
+  "calibration": {
+    "attempts_authorised_total": 2,
+    "authorised_this_stage": 0,
+    "cell_id": "CALIBRATION.workgrid.c2",
+    "identity": "experiments/stage_s2_prompt_v21/freeze.json",
+    "in_matrix": false,
+    "next_identity_required": true,
+    "previous_attempt": "CALIBRATION.workgrid.c1",
+    "reason_not_run": "no attempt is authorised for this harness version",
+    "status": "CONSUMED_FAILED",
+    "task": "workgrid"
+  },
+  "e1_freeze": "sha256:a8dac818908da6c86f3b33008bb01e8a8a931136b5e03aa2c33a974979150c01",
+  "freeze_version": "stage-b-execution/1.3",
+  "frozen_at": "2026-11-23T05:16:45.866320+00:00",
+  "git": {
+    "dirty_paths": [],
+    "git_branch": "fix/stage-b-calibration-retry",
+    "git_head": "55d4fdb426cc9afbec204d1afd08d6f3973f8170",
+    "git_status": ""
+  },
+  "history": [
+    {
+      "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.0.json",
+      "digest": "sha256:7bf630e55dfd1cb8fbf15bd8a2a40cb0ee001987d6bf3c68ad527144c8e5a7e6",
+      "version": "stage-b-execution/1.0"
+    },
+    {
+      "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.1.json",
+      "digest": "sha256:606c7d4c1d9019cd2f89d0c846b438d15e94eb3a00ffaa7d33fece7355e6a05f",
+      "version": "stage-b-execution/1.1"
+    },
+    {
+      "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.2.json",
+      "digest": "sha256:7b262d89c2782442286940c9705601982f9c1fe79ea449b0cd8fc9b3ddfb6b18",
+      "version": "stage-b-execution/1.2"
+    }
+  ],
+  "offline": {
+    "cases": 23,
+    "digest": "sha256:26f58c188f11c713a0f1bb97f5ef49437d284b9f91485b402b3c9673614b016d",
+    "passed": true
+  },
+  "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+  "preflight_digest": "sha256:14c8c839d4162fa520b1f24ca1d19e288784b934a403a417e58c6e32c5681d17",
+  "protocol": {
+    "analysis_schema_version": "stage-b-result/1.1",
+    "digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+    "version": "1.1.0"
+  },
+  "source": {
+    "digest": "sha256:0355da165f60727b2b99d72d5840465829e817e4f293d4f1d095c850ea67fdf8",
+    "file_count": 9,
+    "files": {
+      "__init__.py": "sha256:a56e969e84b502e80b3c56faa5af50d3b88f3836a21e11dceed054fb0f7628dc",
+      "adapter.py": "sha256:ff6b82ad5997a25530940e6d5cd1daa630a17f4481089eafed92afab82fcc7d1",
+      "admission.py": "sha256:087bc599e91bb528b6f31c131877bfd07680e0756ec6e6df25ccec5ac1e37689",
+      "collector.py": "sha256:6e2ea6d02db9ee12ee9da11d73eb5e1a6065e3b77485c07df131d788884cf10c",
+      "models.py": "sha256:317d0dbe13f5609d6a30c4933f46370026b2ebae66d62a8700e2689f12365450",
+      "network.py": "sha256:2423973bb8f61bfc28b8bf4836c038dda2d866dafd15140eb7c94924cad8a83e",
+      "offline.py": "sha256:6dc70e6388c64b92b12921e142c63b89baa87f1e11a62b7ed09ac231ef6d253e",
+      "provision.py": "sha256:62140e0973270c39f98e99f8f129bc1a40650b343cd5f93fbfc703c07da46a25",
+      "runner.py": "sha256:e737e60b5acb19f9060255d5da651b9848530d380ec58a73395ca1b80cc84dca"
+    },
+    "root": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution"
+  },
+  "stage": "B-E2C-CLOSURE",
+  "supersedes": {
+    "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.2.json",
+    "digest": "sha256:7b262d89c2782442286940c9705601982f9c1fe79ea449b0cd8fc9b3ddfb6b18",
+    "live_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\freeze-1.2.json",
+    "version": "stage-b-execution/1.2"
+  }
+}

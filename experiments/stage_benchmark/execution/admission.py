@@ -37,7 +37,10 @@ FREEZE_11_PATH = EXECUTION_DIR / "freeze-1.1.json"
 ARCHIVE_11_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.1.json"
 FREEZE_12_PATH = EXECUTION_DIR / "freeze-1.2.json"
 ARCHIVE_12_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.2.json"
-FREEZE_PATH = EXECUTION_DIR / "freeze-1.3.json"
+FREEZE_13_PATH = EXECUTION_DIR / "freeze-1.3.json"
+ARCHIVE_13_FREEZE_PATH = ARCHIVE_DIR / "freeze-1.3.json"
+FREEZE_PATH = EXECUTION_DIR / "freeze-1.4.json"
+SMOKE_EVIDENCE_DIR = EXECUTION_DIR.parents[1] / "stage_b_smoke"
 OFFLINE_PATH = EXECUTION_DIR / "offline.json"
 PREFLIGHT_PATH = EXECUTION_DIR / "preflight.json"
 
@@ -52,6 +55,7 @@ SOURCE_FILES = (
     "offline.py",
     "adapter.py",
     "network.py",
+    "smoke.py",
 )
 
 
@@ -291,6 +295,14 @@ def preflight(
     isolation = isolation_checks(document)
     checks.append(_check(isolation["ok"], "host_oracle_isolated", "; ".join(isolation["problems"])))
 
+    from .provision import sandbox_resource_audit
+
+    resources = sandbox_resource_audit(document)
+    detail = str(resources["config"])
+    if not resources["ok"]:
+        detail += " | " + "; ".join(resources["problems"])
+    checks.append(_check(resources["ok"], "sandbox_resource_configuration", detail))
+
     sandbox: dict[str, Any] = {
         "probed": bool(probe_sandbox),
         "endpoint": network.sandbox_endpoint()[0],
@@ -311,6 +323,7 @@ def preflight(
         ("e2a_freeze_preserved", E2A_FREEZE_PATH, ARCHIVE_FREEZE_PATH),
         ("e2a_freeze_1_1_preserved", FREEZE_11_PATH, ARCHIVE_11_FREEZE_PATH),
         ("e2c_freeze_1_2_preserved", FREEZE_12_PATH, ARCHIVE_12_FREEZE_PATH),
+        ("e2c_freeze_1_3_preserved", FREEZE_13_PATH, ARCHIVE_13_FREEZE_PATH),
     ):
         if live_path.is_file() and archived_path.is_file():
             archived_ok = digest_bytes(archived_path.read_bytes()) == digest_bytes(
@@ -440,19 +453,27 @@ def write_freeze(
 
     if not FREEZE_12_PATH.is_file():
         raise RuntimeError(f"the 1.2 execution freeze is missing: {FREEZE_12_PATH}")
-    previous_digest = digest_bytes(FREEZE_12_PATH.read_bytes())
+    v12_digest = digest_bytes(FREEZE_12_PATH.read_bytes())
     if not ARCHIVE_12_FREEZE_PATH.is_file():
         shutil.copy2(FREEZE_12_PATH, ARCHIVE_12_FREEZE_PATH)
-    if digest_bytes(ARCHIVE_12_FREEZE_PATH.read_bytes()) != previous_digest:
+    if digest_bytes(ARCHIVE_12_FREEZE_PATH.read_bytes()) != v12_digest:
         raise RuntimeError("the archived 1.2 execution freeze does not match the live copy")
 
+    if not FREEZE_13_PATH.is_file():
+        raise RuntimeError(f"the 1.3 execution freeze is missing: {FREEZE_13_PATH}")
+    previous_digest = digest_bytes(FREEZE_13_PATH.read_bytes())
+    if not ARCHIVE_13_FREEZE_PATH.is_file():
+        shutil.copy2(FREEZE_13_PATH, ARCHIVE_13_FREEZE_PATH)
+    if digest_bytes(ARCHIVE_13_FREEZE_PATH.read_bytes()) != previous_digest:
+        raise RuntimeError("the archived 1.3 execution freeze does not match the live copy")
+
     document = {
-        "stage": "B-E2C-CLOSURE",
-        "freeze_version": "stage-b-execution/1.3",
+        "stage": "B-E2E-SANDBOX-SMOKE",
+        "freeze_version": "stage-b-execution/1.4",
         "supersedes": {
-            "version": "stage-b-execution/1.2",
-            "live_path": str(FREEZE_12_PATH),
-            "archive_path": str(ARCHIVE_12_FREEZE_PATH),
+            "version": "stage-b-execution/1.3",
+            "live_path": str(FREEZE_13_PATH),
+            "archive_path": str(ARCHIVE_13_FREEZE_PATH),
             "digest": previous_digest,
         },
         "history": [
@@ -469,6 +490,11 @@ def write_freeze(
             {
                 "version": "stage-b-execution/1.2",
                 "archive_path": str(ARCHIVE_12_FREEZE_PATH),
+                "digest": v12_digest,
+            },
+            {
+                "version": "stage-b-execution/1.3",
+                "archive_path": str(ARCHIVE_13_FREEZE_PATH),
                 "digest": previous_digest,
             },
         ],
@@ -494,19 +520,45 @@ def write_freeze(
         },
         "calibration": {
             "task": "workgrid",
-            "cell_id": "CALIBRATION.workgrid.c2",
-            "previous_attempt": "CALIBRATION.workgrid.c1",
+            "cell_id": "CALIBRATION.workgrid.c3",
+            "previous_attempts": ["CALIBRATION.workgrid.c1", "CALIBRATION.workgrid.c2"],
             "in_matrix": False,
-            "status": "CONSUMED_FAILED",
+            "status": "PREPARED_NOT_RUN",
             "attempts_authorised_total": 2,
             "authorised_this_stage": 0,
             "reason_not_run": "no attempt is authorised for this harness version",
-            "next_identity_required": True,
+            "next_identity_required": False,
             "identity": "experiments/stage_s2_prompt_v21/freeze.json",
         },
+        "smoke_test": _smoke_summary(),
     }
     FREEZE_PATH.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return document
+
+
+def _smoke_summary() -> dict[str, Any]:
+    """Read the last smoke result if one exists. A missing result is NOT_RUN, never PASS."""
+
+    path = SMOKE_EVIDENCE_DIR / "sandbox-smoke" / "smoke-result.json"
+    if not path.is_file():
+        return {
+            "status": "NOT_RUN",
+            "verdict": "SANDBOX_SMOKE_BLOCKED",
+            "evidence": str(path),
+            "digest": None,
+        }
+    payload = read_json(path)
+    relevant = {
+        key: payload.get(key)
+        for key in ("status", "verdict", "model_requests", "calibration_attempts", "checks")
+    }
+    return {
+        **relevant,
+        "evidence": str(path),
+        "digest": digest_bytes(path.read_bytes()),
+        "sandbox_created": bool((payload.get("create") or {}).get("ok")),
+        "sandbox_destroyed": bool((payload.get("cleanup") or {}).get("destroyed")),
+    }
 
 
 def write_preflight(result: Mapping[str, Any]) -> Path:

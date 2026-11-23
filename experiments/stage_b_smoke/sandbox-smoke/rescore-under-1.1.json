@@ -1,0 +1,25 @@
+{
+  "checks": {
+    "cleanup": true,
+    "commands": true,
+    "create": true,
+    "files": true,
+    "health": true,
+    "isolation": true,
+    "no_calibration": true,
+    "no_model": true,
+    "resources": true
+  },
+  "derived_from": "smoke-result.json",
+  "derived_from_digest": "sha256:19caf46eb605183c7793243a4e7a677f2470a37dc1e19361d7eae5807509def9",
+  "note": "the 1.0 verdict used transport ok; 1.1 requires a zero exit for required commands. workspace is informational because a bare sandbox has no workspace yet.",
+  "raw_evidence_modified": false,
+  "raw_smoke_version": "stage-b-sandbox-smoke/1.0",
+  "required_commands": {
+    "identity": true,
+    "pwd": true,
+    "python": true
+  },
+  "rescored_with": "stage-b-sandbox-smoke/1.1",
+  "verdict": "SANDBOX_SMOKE_PASS"
+}

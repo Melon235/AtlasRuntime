@@ -332,6 +332,7 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument("--freeze", action="store_true")
     group.add_argument("--execute-cell", metavar="CELL_ID")
     group.add_argument("--execute-calibration", action="store_true")
+    group.add_argument("--sandbox-smoke", action="store_true")
     group.add_argument("--recover-evidence", metavar="CELL_ID")
     group.add_argument("--recover-calibration", action="store_true")
     parser.add_argument("--runs-root", type=Path, default=Path.cwd() / ".stage-b-runs")
@@ -344,6 +345,7 @@ def main(argv: list[str] | None = None) -> int:
         metavar="HOST:PORT",
         help="set OPEN_SANDBOX_ENDPOINT for this process; the host is added to NO_PROXY",
     )
+    parser.add_argument("--smoke-authorization", type=Path)
     args = parser.parse_args(argv)
     if args.sandbox_endpoint:
         os.environ["OPEN_SANDBOX_ENDPOINT"] = args.sandbox_endpoint
@@ -384,6 +386,35 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
+    if args.sandbox_smoke:
+        from .smoke import SmokeRequest, run_smoke
+
+        if not args.smoke_authorization or not args.smoke_authorization.is_file():
+            print(json.dumps({"status": "BLOCKED", "reason": "SMOKE_AUTHORIZATION_REQUIRED"}))
+            return 3
+        authorization = json.loads(args.smoke_authorization.read_text(encoding="utf-8"))
+        smoke = asyncio.run(
+            run_smoke(
+                SmokeRequest(
+                    evidence_dir=args.evidence_root / "sandbox-smoke",
+                    authorization=authorization,
+                    endpoint=args.sandbox_endpoint or os.environ.get("OPEN_SANDBOX_ENDPOINT"),
+                )
+            )
+        )
+        print(
+            json.dumps(
+                {
+                    "status": smoke.get("status"),
+                    "verdict": smoke.get("verdict"),
+                    "model_requests": smoke.get("model_requests"),
+                    "calibration_attempts": smoke.get("calibration_attempts"),
+                    "checks": smoke.get("checks"),
+                }
+            )
+        )
+        return 0 if smoke.get("verdict") == "SANDBOX_SMOKE_PASS" else 1
+
     if args.execute_cell or args.execute_calibration:
         if not (args.live and args.confirm_live and args.authorization):
             print(
@@ -411,8 +442,6 @@ def main(argv: list[str] | None = None) -> int:
             authorization_digest=admission.canonical_digest(authorization),
             protocol_document=document,
         )
-        import asyncio
-
         result = asyncio.run(execute_cell(request))
         _write(evidence_root / "last-result.json", result.to_dict())
         print(json.dumps(result.to_dict()))

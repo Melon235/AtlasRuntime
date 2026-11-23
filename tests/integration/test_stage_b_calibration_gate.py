@@ -89,7 +89,7 @@ def _view(result: Any) -> dict[str, Any]:
 
 def test_calibration_entry_builds_the_right_cell() -> None:
     cell = provision.calibration_cell()
-    assert cell.cell_id == "CALIBRATION.workgrid.c2"
+    assert cell.cell_id == "CALIBRATION.workgrid.c3"
     assert cell.arm_id == "P1"
     assert cell.in_matrix is False
     help_text = (
