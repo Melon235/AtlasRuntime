@@ -51,7 +51,7 @@
       "ok": true
     },
     {
-      "detail": "current=sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0 frozen=sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0 (not binding offline)",
+      "detail": "current=sha256:0355da165f60727b2b99d72d5840465829e817e4f293d4f1d095c850ea67fdf8 frozen=sha256:0355da165f60727b2b99d72d5840465829e817e4f293d4f1d095c850ea67fdf8 (not binding offline)",
       "label": "runner_source_digest_matches_freeze",
       "ok": true
     },
@@ -66,7 +66,7 @@
       "ok": true
     },
     {
-      "detail": "SANDBOX_HEALTH_READY endpoint=172.28.248.27:8080 status=200 detail=healthy",
+      "detail": "SANDBOX_HEALTH_READY endpoint=172.21.123.198:8080 status=200 detail=healthy",
       "label": "sandbox_health",
       "ok": true
     },
@@ -81,31 +81,36 @@
       "ok": true
     },
     {
+      "detail": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.2.json",
+      "label": "e2c_freeze_1_2_preserved",
+      "ok": true
+    },
+    {
       "detail": "clear",
       "label": "no_existing_cell_markers",
       "ok": true
     }
   ],
-  "digest": "sha256:995efeed51ef44184ae9acdfab0e9d6a039c14ecf80933580ef239234759a6e9",
+  "digest": "sha256:4a57d8a3b2a7f9272e66e47942ca4f61c74b51efa3adcaa5e51c4ab684af1ab0",
   "live": false,
-  "offline_report_digest": "sha256:a2acbc16933eb4d8911064acb88c8d7b8659e12eda26c27c69cc2dbab5d9ca0a",
+  "offline_report_digest": "sha256:26f58c188f11c713a0f1bb97f5ef49437d284b9f91485b402b3c9673614b016d",
   "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
   "problems": [],
   "protocol_digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
   "protocol_version": "1.1.0",
-  "runner_source_digest": "sha256:bd1276746da7e747e7ace1700bc8b44dd79ab8bdd3fcfa7c9ec5d099eca1bcc0",
+  "runner_source_digest": "sha256:0355da165f60727b2b99d72d5840465829e817e4f293d4f1d095c850ea67fdf8",
   "runtime_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
   "sandbox": {
     "added": [],
-    "bypass": "172.28.248.27,localhost,127.0.0.1,::1",
+    "bypass": "172.21.123.198,localhost,127.0.0.1,::1",
     "code": "SANDBOX_HEALTH_READY",
     "detail": "healthy",
-    "endpoint": "172.28.248.27:8080",
+    "endpoint": "172.21.123.198:8080",
     "endpoint_source": "argument",
-    "host": "172.28.248.27",
+    "host": "172.21.123.198",
     "ok": true,
     "preserved_existing": [
-      "172.28.248.27",
+      "172.21.123.198",
       "localhost",
       "127.0.0.1",
       "::1"

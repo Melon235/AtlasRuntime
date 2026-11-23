@@ -11,7 +11,8 @@ The Phase A engineering outcome stands: the proxy conflict is fixed, the preflig
 on a real SDK probe, a pre-agent failure produces an INCOMPLETE analysis instead of a crash, the
 primary failure survives downstream faults, and the marker reaches a terminal state. What failed is
 one layer further in: the execution layer renders the 1 GiB memory limit as `1.0Gi`, which this
-OpenSandbox server rejects.
+OpenSandbox server rejects. That rendering is fixed in harness **1.3** (section R); no live attempt
+is authorised for 1.3 yet.
 
 ---
 
@@ -421,7 +422,56 @@ available.
 
 ---
 
-## R. Remaining Risks
+## R. Harness 1.3 — resource quantity closure
+
+The one-line cause of the c2 failure is fixed in the execution layer:
+
+| Before | After |
+|---|---|
+| `memory=f"{config['memory_gib']}Gi"` → `1.0Gi` | `provision.memory_quantity(1.0)` → `1Gi` |
+
+`memory_quantity()` renders a whole number without a decimal suffix, keeps fractional values as
+`0.5Gi`, and raises on a non-positive limit. The frozen 1 GiB experiment parameter is unchanged.
+
+New tests: `test_memory_quantity_renders_an_integer_without_a_decimal`,
+`test_memory_quantity_rejects_a_non_positive_limit`,
+`test_built_options_carry_the_integer_memory_quantity`, and
+`test_the_execution_layer_never_mentions_a_vpn_port` (the reserved 12000 port never appears in the
+harness).
+
+Freeze `stage-b-execution/1.3`, written on a clean worktree (HEAD `55d4fdb`, `git_status: ""`,
+0 dirty paths):
+
+| Field | Value |
+|---|---|
+| harness source (9 files) | `sha256:0355da165f60727b2b99d72d5840465829e817e4f293d4f1d095c850ea67fdf8` |
+| supersedes | `1.2`, `sha256:7b262d89c2782442286940c9705601982f9c1fe79ea449b0cd8fc9b3ddfb6b18` |
+| history | 1.0 `7bf630e5…`, 1.1 `606c7d4c…`, 1.2 `7b262d89…` |
+| runtime / protocol / plan | unchanged (`4eebcf1e…` / `937f9253…` / `c6914474…`) |
+| calibration | `CONSUMED_FAILED`, `authorised_this_stage: 0`, `next_identity_required: true` |
+
+The WSL host had restarted between stages, which changed the address from `172.28.248.27` to
+`172.21.123.198` and stopped the server. That is the case the design expects: the endpoint was
+re-read, the server was started on its own 8080 port, and the runtime probe then reported
+
+```text
+READY 18 checks
+SANDBOX_HEALTH_READY endpoint=172.21.123.198:8080 status=200
+bypass=172.21.123.198,localhost,127.0.0.1,::1  used_proxy_bypass=true
+```
+
+No historical address was reused, and port 12000 was neither touched nor probed for availability.
+
+Regression for 1.3: execution `--offline` 23/23; execution-layer suites 70 passed; full `pytest`
+**1721 passed, 0 failed, 7 skipped** (354.8 s); `pyright` 0 errors; changed files Ruff/format clean;
+repository-wide Ruff still the pre-existing 66 / 11.
+
+**No attempt is authorised for this harness version.** The c2 marker forbids reuse, so a further
+live run requires a new identity (c3), a fresh authorization record and a new owner decision.
+
+---
+
+## S. Remaining Risks
 
 1. **The memory rendering must be fixed in `execution/provision.py`** (`str(int(...))` or an integer
    contract), then the harness re-frozen and a new authorization granted. This is a one-line
