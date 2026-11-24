@@ -31,7 +31,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-EXECUTOR_VERSION = "stage-b-matrix-executor/1.2.0"
+EXECUTOR_VERSION = "stage-b-matrix-executor/1.2.1"
 POLICY_MEASURED_CONTINUE = "MEASURED_AGENT_FAILURE_CONTINUE"
 LOCK_NAME = ".matrix-executor.lock"
 REPORT_NAME = "matrix-report.json"
@@ -334,6 +334,21 @@ def verify_evidence_contract(evidence: Path) -> list[str]:
     return [f"required evidence is missing: {name}" for name in collector.completeness(evidence)]
 
 
+def _final_public_status(public_tests: Mapping[str, Any] | None) -> str:
+    """The final suite's verdict, which is the only run the frozen analyser judges.
+
+    ``adapter.public_status`` reads ``public_test_statuses[-1]``, so an earlier failing attempt that
+    the Main repaired is history, not the cell's public-test outcome.
+    """
+
+    runs = list((public_tests or {}).get("runs") or [])
+    if not runs:
+        return "UNKNOWN"
+    last = runs[-1]
+    status = last.get("status") if isinstance(last, Mapping) else None
+    return str(status or "UNKNOWN").upper()
+
+
 def verify_observation(
     *,
     cell: Mapping[str, Any],
@@ -364,12 +379,14 @@ def verify_observation(
     stop_reason = main.get("stop_reason")
     session_status = session.get("status")
 
-    view = ((analysis or {}).get("record") or {}).get("execution_view") or {}
+    # Resolved the way the frozen runner resolves it: a degraded analysis keeps the view top-level.
+    view = (analysis or {}).get("execution_view") or (
+        ((analysis or {}).get("record") or {}).get("execution_view") or {}
+    )
     goal_view = view.get("goal_correctness") or {}
     analysis_goal = goal_view.get("status")
     host, host_source = adapter.host_status(oracle)
-    public_runs = (public_tests or {}).get("runs") or []
-    public_passed = bool(public_runs) and all(run.get("status") == "PASS" for run in public_runs)
+    final_public = _final_public_status(public_tests)
 
     builtin = result.get("cell") or {}
     for key in ("cell_id", "task_id", "arm_id", "repetition"):
@@ -403,8 +420,8 @@ def verify_observation(
             problems.append(
                 f"COMPLETED but the authoritative host oracle is {host} ({host_source})"
             )
-        if not public_passed:
-            problems.append("COMPLETED but the public test evidence is not a clean pass")
+        if final_public != "PASS":
+            problems.append(f"COMPLETED but the final public test run is {final_public}")
         return problems
 
     if status != "FAILED":
@@ -425,8 +442,10 @@ def verify_observation(
         if kind == "public_tests_failed":
             if host != "PASS":
                 problems.append(f"public_tests_failed but the authoritative host oracle is {host}")
-            if public_passed:
-                problems.append("public_tests_failed without a failing public run")
+            if final_public != "FAIL":
+                problems.append(
+                    f"public_tests_failed but the final public test run is {final_public}"
+                )
     elif kind == "budget_exhaustion":
         if integrity != "FAILED":
             problems.append(f"budget_exhaustion carries execution_integrity={integrity!r}")

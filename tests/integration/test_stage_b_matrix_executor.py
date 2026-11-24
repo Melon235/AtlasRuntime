@@ -229,8 +229,11 @@ def _write_cell(
     (evidence / "router_decisions.json").write_text(json.dumps({"decisions": []}), encoding="utf-8")
     (evidence / "worker_outcomes.json").write_text(json.dumps({"workers": []}), encoding="utf-8")
     (evidence / "handoff_references.json").write_text(json.dumps({"refs": {}}), encoding="utf-8")
+    # ``runs`` is the ordered history of every call; ``public_runs`` exercises a repaired suite.
+    statuses = scenario.get("public_runs") or [scenario["public_status"]]
     (evidence / "public_tests.json").write_text(
-        json.dumps({"calls": 1, "runs": [{"status": scenario["public_status"]}]}), encoding="utf-8"
+        json.dumps({"calls": len(statuses), "runs": [{"status": item} for item in statuses]}),
+        encoding="utf-8",
     )
     oracle = {
         "ok": scenario["oracle_ok"],
@@ -524,6 +527,42 @@ def test_a_public_failure_without_a_failing_run_is_a_contradiction(tmp_path: Pat
     scenario = {**_failure("public_tests_failed"), "public_status": "PASS"}
     report, _calls = _run(tmp_path, config, plans={config["order"][0]: {"scenario": scenario}})
     assert report["stop_reason"] == mx.STOP_OBSERVATION_CONTRADICTION
+
+
+def test_a_completed_cell_with_a_repaired_public_suite_is_accepted(tmp_path: Path) -> None:
+    """The frozen analyser judges the last suite; two repaired failures are history, not a stop."""
+
+    config = _config(tmp_path)
+    repaired = {"scenario": {"public_runs": ["FAIL", "FAIL", "PASS"]}}
+    report, _calls = _run(tmp_path, config, plans={config["order"][0]: repaired})
+    assert report["stop_reason"] is None
+    assert report["cells"][0]["verdict"] == mx.VERDICT_PASSED
+
+
+def test_a_completed_cell_whose_final_public_run_fails_is_a_contradiction(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    regressed = {"scenario": {"public_runs": ["PASS", "FAIL"]}}
+    report, _calls = _run(tmp_path, config, plans={config["order"][0]: regressed})
+    assert report["stop_reason"] == mx.STOP_OBSERVATION_CONTRADICTION
+    assert any("final public test run" in problem for problem in report["cells"][0]["problems"])
+
+
+def test_a_public_failure_whose_final_run_passes_is_a_contradiction(tmp_path: Path) -> None:
+    """``public_tests_failed`` is only consistent with a failing *final* suite."""
+
+    config = _config(tmp_path)
+    scenario = {**_failure("public_tests_failed"), "public_runs": ["FAIL", "PASS"]}
+    report, _calls = _run(tmp_path, config, plans={config["order"][0]: {"scenario": scenario}})
+    assert report["stop_reason"] == mx.STOP_OBSERVATION_CONTRADICTION
+
+
+def test_a_public_failure_after_an_earlier_pass_continues(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    scenario = {**_failure("public_tests_failed"), "public_runs": ["PASS", "FAIL"]}
+    report, _calls = _run(tmp_path, config, plans={config["order"][0]: {"scenario": scenario}})
+    assert report["stop_reason"] is None
+    assert report["cells"][0]["verdict"] == mx.VERDICT_FAILED
+    assert report["cells"][0]["failure_kind"] == "public_tests_failed"
 
 
 def test_an_internal_claim_snapshot_may_still_be_running(tmp_path: Path) -> None:
