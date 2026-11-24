@@ -163,6 +163,8 @@ def test_a_missing_1_5_cannot_reach_live_ready(
     live = admission.preflight(evidence_root=tmp_path / "evidence", live=True)
     assert live["status"] == "BLOCKED"
     assert _labels(live)["active_execution_freeze_present"]["ok"] is False
+    # No freeze means no recorded binding either: absence is never a pass.
+    assert _labels(live)["runner_source_digest_matches_freeze"]["ok"] is False
     # The same tree is good enough to write the freeze from.
     offline = admission.preflight(
         evidence_root=tmp_path / "evidence",
@@ -185,6 +187,69 @@ def test_a_wrong_source_digest_cannot_reach_live_ready(
     blocked = admission.preflight(evidence_root=tmp_path / "evidence", live=True)
     assert blocked["status"] == "BLOCKED"
     assert _labels(blocked)["runner_source_digest_matches_freeze"]["ok"] is False
+
+
+def _drop_source(document: dict[str, Any]) -> None:
+    document.pop("source")
+
+
+def _drop_source_digest(document: dict[str, Any]) -> None:
+    document["source"].pop("digest")
+
+
+def _null_source_digest(document: dict[str, Any]) -> None:
+    document["source"]["digest"] = None
+
+
+def _empty_source_digest(document: dict[str, Any]) -> None:
+    document["source"]["digest"] = ""
+
+
+def _non_string_source_digest(document: dict[str, Any]) -> None:
+    document["source"]["digest"] = 0
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(_drop_source, id="source-missing"),
+        pytest.param(_drop_source_digest, id="digest-missing"),
+        pytest.param(_null_source_digest, id="digest-null"),
+        pytest.param(_empty_source_digest, id="digest-empty"),
+        pytest.param(_non_string_source_digest, id="digest-not-a-string"),
+    ],
+)
+def test_a_freeze_without_a_real_source_digest_cannot_reach_live_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutate: Any
+) -> None:
+    """A written freeze that records no binding must not authorize a live cell."""
+
+    target, document = _write(monkeypatch, tmp_path)
+    mutate(document)
+    target.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    blocked = admission.preflight(evidence_root=tmp_path / "evidence", live=True)
+    assert blocked["status"] == "BLOCKED"
+    assert _labels(blocked)["runner_source_digest_matches_freeze"]["ok"] is False
+    # The file is present and well formed: the binding is the only reason to refuse.
+    assert _labels(blocked)["active_execution_freeze_present"]["ok"] is True
+
+
+def test_an_unbound_freeze_still_allows_the_offline_suite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Offline runs are how the report a new freeze is built from gets produced."""
+
+    target, document = _write(monkeypatch, tmp_path)
+    _null_source_digest(document)
+    target.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    offline = admission.preflight(
+        evidence_root=tmp_path / "evidence",
+        offline_report=admission.read_json(admission.OFFLINE_PATH),
+        require_offline_report=False,
+    )
+    assert offline["status"] == "READY", offline["problems"]
 
 
 def test_a_broken_history_chain_cannot_reach_live_ready(

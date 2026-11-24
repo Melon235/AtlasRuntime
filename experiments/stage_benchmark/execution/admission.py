@@ -374,13 +374,15 @@ def preflight(
     source = source_identity()
     active: dict[str, Any] = read_json(FREEZE_PATH) if FREEZE_PATH.is_file() else {}
     freeze_source = (active.get("source") or {}).get("digest")
-    # The source-freeze binding is a live-authorization rule. An offline suite must be able to
-    # re-run after a harness edit in order to produce the report a new freeze is written from.
+    # A live cell is authorized against the exact harness bytes it will run. Missing, null, empty
+    # and stale digests all fail closed: "no recorded binding" is never a pass. Only the offline
+    # suite may run before the next freeze is written, because that run produces the report the
+    # freeze is built from, so absence is not binding there.
+    bound = isinstance(freeze_source, str) and bool(freeze_source)
+    source_ok = (bound and freeze_source == source["digest"]) if require_offline_report else True
     checks.append(
         _check(
-            (not require_offline_report)
-            or freeze_source is None
-            or freeze_source == source["digest"],
+            source_ok,
             "runner_source_digest_matches_freeze",
             f"current={source['digest']} frozen={freeze_source}"
             + ("" if require_offline_report else " (not binding offline)"),

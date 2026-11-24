@@ -135,7 +135,7 @@ pin).
 
 ## 5. Proving the negatives
 
-`tests/integration/test_stage_b_freeze_1_5.py` (14 tests, offline):
+`tests/integration/test_stage_b_freeze_1_5.py` (20 tests, offline):
 
 | Property | Test |
 | --- | --- |
@@ -145,6 +145,8 @@ pin).
 | a written freeze is immutable | `test_an_existing_active_freeze_is_never_rewritten` |
 | missing 1.5 is not live-ready | `test_a_missing_1_5_cannot_reach_live_ready` |
 | a wrong source digest is refused | `test_a_wrong_source_digest_cannot_reach_live_ready` |
+| a freeze without a real source digest is refused live | `test_a_freeze_without_a_real_source_digest_cannot_reach_live_ready` (5 parametrisations) |
+| an unbound freeze still allows the offline suite | `test_an_unbound_freeze_still_allows_the_offline_suite` |
 | a broken history chain is refused | `test_a_broken_history_chain_cannot_reach_live_ready` |
 | 1.5 declares 1.4's real digest | `test_the_written_freeze_declares_1_5_and_supersedes_1_4_by_its_real_digest` |
 | 1.5 does not authorize c3 | `test_the_new_freeze_does_not_authorize_c3`, `test_the_prepared_c3_request_is_not_an_approval` |
@@ -171,7 +173,7 @@ refuses it as written: `status`, `approved_by`, `approval_commit`, `approved_at`
 
 | Check | Result |
 | --- | --- |
-| `pytest` (full offline suite) | 1788 passed, 45 failed, 7 skipped, 1 deselected, 1 xfailed |
+| `pytest` (full offline suite) | 1794 passed, 45 failed, 7 skipped, 1 deselected, 1 xfailed, exit 1 |
 | `pyright` | 0 errors, 0 warnings |
 | `ruff check` / `ruff format --check` on the touched files | clean |
 
@@ -193,7 +195,28 @@ Also pre-existing and unrelated: `ruff check .` reports 66 findings and `ruff fo
 toolchain is ruff 0.17.4 while those artifacts were formatted with the 0.9 line, and the fixture
 bytes are part of frozen fixture digests, so they are deliberately not reformatted here.
 
-## 8. What is still open
+## 8. Review round 1
+
+Two findings were raised against `6b7db1f`; both are addressed here.
+
+**P1 — a freeze without a source digest was live-ready.** `runner_source_digest_matches_freeze`
+read `(not require_offline_report) or freeze_source is None or freeze_source == current`, so a
+written freeze whose `source` block was missing, `null`, empty or non-string sailed through in live
+mode. The rule is now: live requires a non-empty string digest equal to the tree on disk, and
+absence is never a pass; offline is not binding, because that run is what produces the report a
+new freeze is built from. Five parametrised negatives pin the live side (`source` missing, `digest`
+missing / `null` / `""` / non-string), one pins that an unbound freeze still allows the offline
+suite, and `test_a_missing_1_5_cannot_reach_live_ready` now also asserts the binding check fails.
+On the real tree the live preflight reports exactly two problems and no others:
+`runner_source_digest_matches_freeze` (`frozen=None`) and `active_execution_freeze_present`.
+
+**P2 — the 45 full-suite failures were unattributed.** They are recorded, one node id per line,
+in `docs/stage-b-offline-guard-failures.txt`, together with the batch matrix. All 45 were re-run
+from their node ids in seven fresh processes and **all 45 passed** (6+6+6+6+8+7+6, every batch
+exit 0). The guard is not disabled, not bypassed and not modified anywhere in this branch; the
+full-run result stays `45 failed` and is never reported as a pass.
+
+## 9. What is still open
 
 1. **Freeze 1.5 is not written.** It must be generated from a reviewed, merged tree, on a clean
    worktree, through the versioned writer — not before.
