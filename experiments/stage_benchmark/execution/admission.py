@@ -77,6 +77,15 @@ FREEZE_VERSION = "stage-b-execution/1.6"
 FREEZE_PATH = EXECUTION_DIR / "freeze-1.6.json"
 
 SMOKE_EVIDENCE_DIR = EXECUTION_DIR.parents[1] / "stage_b_smoke"
+#: The sealed, tracked provenance of the one completed calibration attempt. Its raw bundle is
+#: host-local; this index is what a later freeze is allowed to quote.
+CALIBRATION_INDEX_PATH = (
+    EXECUTION_DIR.parents[1] / "stage_b_calibration" / "c3-evidence-index.json"
+)
+CALIBRATION_CELL_ID = "CALIBRATION.workgrid.c3"
+#: The freeze the completed attempt was authorised and executed under. Never re-attributed.
+CALIBRATION_RUN_FREEZE = "stage-b-execution/1.5"
+REPO_ROOT = EXECUTION_DIR.parents[2]
 #: The one E2F provisioning attempt. It ran once and its claim is spent, so the path is a record,
 #: never a default: a missing file stays NOT_RUN and never becomes a pass.
 PROVISIONING_EVIDENCE_PATH = (
@@ -613,6 +622,8 @@ def write_freeze(
     problems = frozen_chain_problems()
     if problems:
         raise RuntimeError("the execution freeze chain is broken: " + "; ".join(problems))
+    # Refuse before writing anything if the completed calibration cannot be evidenced.
+    calibration = calibration_history()
 
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     history: list[dict[str, Any]] = []
@@ -666,25 +677,158 @@ def write_freeze(
             "execution_analysis_version": _execution_analysis_version(),
             "e1_analyser_unchanged": "stage-b-reconstruct/1.1",
         },
-        "calibration": {
-            "task": "workgrid",
-            "cell_id": "CALIBRATION.workgrid.c3",
-            "previous_attempts": ["CALIBRATION.workgrid.c1", "CALIBRATION.workgrid.c2"],
-            "in_matrix": False,
-            "status": "PREPARED_NOT_RUN",
-            "attempts_authorised_total": 2,
-            "authorised_this_stage": 0,
-            "reason_not_run": "no attempt is authorised for this harness version",
-            "next_identity_required": False,
-            "identity": "experiments/stage_s2_prompt_v21/freeze.json",
-            "authorization": "PENDING_OWNER_APPROVAL",
-            "authorization_path": "experiments/stage_b_calibration/authorization-c3.json",
-        },
+        "calibration": calibration,
         "provisioning_gate": _provisioning_gate_summary(),
         "smoke_test": _smoke_summary(),
     }
     FREEZE_PATH.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return document
+
+
+def _repo_relative(path: Path) -> str:
+    """A path recorded in a freeze: repository-relative when possible, absolute otherwise."""
+
+    try:
+        return str(path.relative_to(REPO_ROOT)).replace("\\", "/")
+    except ValueError:
+        return str(path)
+
+
+def calibration_history() -> dict[str, Any]:
+    """Provenance of the completed calibration, read from the sealed evidence index.
+
+    A freeze must never invent a completion it cannot point at, and it must never demote a completed
+    run back to ``PREPARED_NOT_RUN``. A missing, unreadable or inconsistent index refuses a freeze.
+    The bundle itself is host-local, so its digests are verified only where the files are present.
+    """
+
+    path = CALIBRATION_INDEX_PATH
+    if not path.is_file():
+        raise RuntimeError(f"calibration provenance is missing: {path}")
+    try:
+        index = read_json(path)
+    except (OSError, ValueError) as error:
+        raise RuntimeError(f"calibration index cannot be read: {path}: {error}") from error
+    if not isinstance(index, dict):
+        raise RuntimeError(f"calibration index is not an object: {path}")
+
+    problems: list[str] = []
+
+    def expect(condition: bool, message: str) -> None:
+        if not condition:
+            problems.append(message)
+
+    claim = index.get("claim") or {}
+    verdicts = index.get("verdicts") or {}
+    entries = index.get("files") or []
+    recorded = {
+        str(entry.get("path")): str(entry.get("sha256"))
+        for entry in entries
+        if isinstance(entry, dict)
+    }
+
+    expect(index.get("cell") == CALIBRATION_CELL_ID, f"cell != {CALIBRATION_CELL_ID}")
+    expect(
+        index.get("execution_freeze") == CALIBRATION_RUN_FREEZE,
+        f"execution_freeze != {CALIBRATION_RUN_FREEZE}",
+    )
+    expect(bool(index.get("git_commit")), "git_commit is missing")
+    expect(claim.get("state") == "COLLECTED", f"claim.state={claim.get('state')!r}")
+    expect(claim.get("retries_allowed") is False, "claim.retries_allowed is not False")
+    expect(bool(claim.get("sha256")), "claim.sha256 is missing")
+    expect(
+        verdicts.get("cell_status") == "COMPLETED",
+        f"cell_status={verdicts.get('cell_status')!r}",
+    )
+    expect(
+        verdicts.get("execution_integrity") == "OK",
+        f"execution_integrity={verdicts.get('execution_integrity')!r}",
+    )
+    expect(
+        verdicts.get("goal_correctness") == "PASS",
+        f"goal_correctness={verdicts.get('goal_correctness')!r}",
+    )
+    expect(
+        verdicts.get("oracle_agreement") == "AGREE",
+        f"oracle_agreement={verdicts.get('oracle_agreement')!r}",
+    )
+    expect(len(entries) > 0, "the index lists no files")
+    expect(all(recorded.values()), "an indexed file has no digest")
+
+    present = 0
+    mismatched: list[str] = []
+    for relative, digest in sorted(recorded.items()):
+        local = REPO_ROOT / relative
+        if not local.is_file():
+            continue
+        present += 1
+        if digest_bytes(local.read_bytes()) != digest:
+            mismatched.append(relative)
+    if mismatched:
+        problems.append("indexed evidence changed: " + ", ".join(mismatched))
+
+    if problems:
+        raise RuntimeError(f"calibration provenance is inconsistent: {'; '.join(problems)}")
+
+    def digest_of(suffix: str) -> str | None:
+        for relative, digest in recorded.items():
+            if relative.replace("\\", "/").endswith(suffix):
+                return digest
+        return None
+
+    return {
+        "task": "workgrid",
+        "cell_id": CALIBRATION_CELL_ID,
+        "in_matrix": False,
+        "status": "COMPLETED",
+        "verdict": verdicts.get("goal_correctness"),
+        "executed_under_freeze": index.get("execution_freeze"),
+        "executed_commit": index.get("git_commit"),
+        "previous_attempts": ["CALIBRATION.workgrid.c1", "CALIBRATION.workgrid.c2"],
+        "attempts_authorised_total": 3,
+        "authorised_this_stage": 0,
+        "authorises_new_calibration": False,
+        "reason_not_run": None,
+        "retry": "FORBIDDEN",
+        "claim": {
+            "sha256": claim.get("sha256"),
+            "state": claim.get("state"),
+            "retries_allowed": claim.get("retries_allowed"),
+            "claimed_at": claim.get("claimed_at"),
+            "runner_source_digest": claim.get("runner_source_digest"),
+            "preflight_digest": claim.get("preflight_digest"),
+        },
+        "verdicts": {
+            "cell_status": verdicts.get("cell_status"),
+            "execution_integrity": verdicts.get("execution_integrity"),
+            "goal_correctness": verdicts.get("goal_correctness"),
+            "oracle_agreement": verdicts.get("oracle_agreement"),
+            "host_oracle_source": verdicts.get("host_oracle_source"),
+        },
+        "public_tests": {"sha256": digest_of("evidence/public_tests.json")},
+        "host_oracle": {
+            "sha256": digest_of("evidence/oracle.json"),
+            "verdict": verdicts.get("goal_correctness"),
+            "agreement": verdicts.get("oracle_agreement"),
+            "source": verdicts.get("host_oracle_source"),
+        },
+        "evidence_index": {
+            "path": _repo_relative(path),
+            "sha256": digest_bytes(path.read_bytes()),
+            "files": len(recorded),
+        },
+        "evidence_bundle": {
+            "present_files": present,
+            "missing_files": len(recorded) - present,
+            "digests_verified": present,
+            "digests_mismatched": 0,
+        },
+        "usage": index.get("usage"),
+        "note": (
+            "historical record of the single attempt that already ran; this freeze authorises no "
+            "calibration attempt"
+        ),
+    }
 
 
 def _execution_analysis_version() -> str:

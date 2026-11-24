@@ -604,12 +604,35 @@ def test_evidence_is_scrubbed_before_publication(tmp_path: Path) -> None:
     )
 
 
+def _synthetic_c3_index(tmp_path: Path) -> Path:
+    """A minimal sealed c3 index: a freeze may only be written with provenance present."""
+
+    payload = {
+        "cell": "CALIBRATION.workgrid.c3",
+        "git_commit": "7a84cb7b39a18162082b9bd69284b87eef245532",
+        "execution_freeze": "stage-b-execution/1.5",
+        "claim": {"sha256": "sha256:" + "a" * 64, "state": "COLLECTED", "retries_allowed": False},
+        "verdicts": {
+            "cell_status": "COMPLETED",
+            "execution_integrity": "OK",
+            "goal_correctness": "PASS",
+            "oracle_agreement": "AGREE",
+            "host_oracle_source": "host:tests",
+        },
+        "files": [{"path": "absent/x.json", "bytes": 1, "sha256": "sha256:" + "b" * 64}],
+    }
+    path = tmp_path / "c3-evidence-index.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
 def test_freeze_never_clears_prior_cell_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze.json")
     # Keep the archive copies in the temp tree: a test must not add files to the repository.
     monkeypatch.setattr(admission, "ARCHIVE_DIR", tmp_path / "archive")
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", _synthetic_c3_index(tmp_path))
     cell = _cell("cascade.P2.r1")
     directory = admission.cell_dir(tmp_path / "evidence", cell)
     admission.claim_attempt(

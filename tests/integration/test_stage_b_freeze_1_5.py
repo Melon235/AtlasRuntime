@@ -35,11 +35,58 @@ def _digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _c3_index(tmp_path: Path, **overrides: Any) -> Path:
+    """A synthetic sealed c3 index. Its file paths point nowhere real, so nothing is verified."""
+
+    payload: dict[str, Any] = {
+        "stage": "B-C3-CALIBRATION",
+        "cell": "CALIBRATION.workgrid.c3",
+        "repetition": 0,
+        "git_commit": "7a84cb7b39a18162082b9bd69284b87eef245532",
+        "execution_freeze": "stage-b-execution/1.5",
+        "runner_source_digest": "sha256:" + "8" * 64,
+        "claim": {
+            "sha256": "sha256:" + "a" * 64,
+            "state": "COLLECTED",
+            "claimed_at": "2026-11-24T03:12:56+00:00",
+            "retries_allowed": False,
+            "runner_source_digest": "sha256:" + "8" * 64,
+            "preflight_digest": "sha256:" + "9" * 64,
+        },
+        "verdicts": {
+            "cell_status": "COMPLETED",
+            "execution_integrity": "OK",
+            "goal_correctness": "PASS",
+            "oracle_agreement": "AGREE",
+            "host_oracle_source": "host:experiments/stage_s2_prompt_v21/s2_contract",
+        },
+        "usage": {"requests": 12, "system_total_tokens": 167986},
+        "files": [
+            {
+                "path": "calibration/SYNTHETIC/evidence/public_tests.json",
+                "bytes": 10,
+                "sha256": "sha256:" + "b" * 64,
+            },
+            {
+                "path": "calibration/SYNTHETIC/evidence/oracle.json",
+                "bytes": 10,
+                "sha256": "sha256:" + "c" * 64,
+            },
+        ],
+    }
+    payload.update(overrides)
+    path = tmp_path / "c3-index" / "c3-evidence-index.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
 def _isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point the active freeze and the archive at the temp tree. The chain stays the real one."""
+    """Point the active freeze, the archive and the c3 provenance at the temp tree."""
 
     monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze-1.6.json")
     monkeypatch.setattr(admission, "ARCHIVE_DIR", tmp_path / "archive")
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", _c3_index(tmp_path))
     return tmp_path / "freeze-1.6.json"
 
 
@@ -308,10 +355,10 @@ def test_the_freeze_cli_targets_1_6_and_leaves_1_5_alone(
     assert admission.read_json(target)["freeze_version"] == "stage-b-execution/1.6"
 
 
-# --------------------------------------------------------------------------- c3 stays unauthorized
+# --------------------------------------------------------------------------- c3 provenance
 
 
-def test_the_new_freeze_does_not_authorize_c3(
+def test_the_new_freeze_records_the_completed_calibration(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _target, document = _write(monkeypatch, tmp_path)
@@ -319,23 +366,128 @@ def test_the_new_freeze_does_not_authorize_c3(
     assert (
         calibration["cell_id"] == provision.calibration_cell().cell_id == "CALIBRATION.workgrid.c3"
     )
-    assert calibration["status"] == "PREPARED_NOT_RUN"
-    assert calibration["attempts_authorised_total"] == 2
-    assert calibration["authorised_this_stage"] == 0
-    assert calibration["authorization"] == "PENDING_OWNER_APPROVAL"
-    # c1 and c2 stay named exactly where the earlier stages left them.
+    # The attempt already ran under 1.5. A new freeze records it; it never demotes it.
+    assert calibration["status"] == "COMPLETED"
+    assert calibration["verdict"] == "PASS"
+    assert calibration["executed_under_freeze"] == "stage-b-execution/1.5"
+    assert calibration["executed_commit"] == "7a84cb7b39a18162082b9bd69284b87eef245532"
+    assert calibration["claim"]["state"] == "COLLECTED"
+    assert calibration["claim"]["retries_allowed"] is False
+    assert calibration["retry"] == "FORBIDDEN"
     assert calibration["previous_attempts"] == [
         "CALIBRATION.workgrid.c1",
         "CALIBRATION.workgrid.c2",
     ]
+    assert calibration["attempts_authorised_total"] == 3
+    # The new freeze authorises nothing new.
+    assert calibration["authorised_this_stage"] == 0
+    assert calibration["authorises_new_calibration"] is False
+    assert "PREPARED_NOT_RUN" not in json.dumps(calibration)
+    # The historical rulings and evidence digests travel with the record.
+    assert calibration["verdicts"]["goal_correctness"] == "PASS"
+    assert calibration["verdicts"]["oracle_agreement"] == "AGREE"
+    assert calibration["public_tests"]["sha256"].startswith("sha256:")
+    assert calibration["host_oracle"]["sha256"].startswith("sha256:")
+    assert calibration["evidence_index"]["sha256"].startswith("sha256:")
+    assert calibration["evidence_index"]["files"] == 2
     assert provision.CALIBRATION["attempt"] == 3
-    assert provision.CALIBRATION["status"] == "PREPARED_NOT_RUN"
+    assert provision.CALIBRATION["status"] == "COMPLETED"
     # Writing a freeze is not an approval: the gate still refuses the cell without a record.
     gate = admission.authorization_gate(
         None, cell=provision.calibration_cell(), preflight_result={"digest": "x"}, live=True
     )
     assert gate["ready"] is False
     assert "no_authorization_record" in gate["problems"]
+
+
+def test_a_missing_calibration_index_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = _isolate(tmp_path, monkeypatch)
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", tmp_path / "absent.json")
+    with pytest.raises(RuntimeError, match="calibration provenance is missing"):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
+    assert not target.exists()
+
+
+def test_a_calibration_that_was_never_completed_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = _isolate(tmp_path, monkeypatch)
+    index = _c3_index(
+        tmp_path,
+        verdicts={
+            "cell_status": "FAILED",
+            "execution_integrity": "FAILED",
+            "goal_correctness": "UNKNOWN",
+            "oracle_agreement": "UNKNOWN",
+            "host_oracle_source": "UNKNOWN",
+        },
+    )
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    with pytest.raises(RuntimeError, match="calibration provenance is inconsistent"):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
+    assert not target.exists()
+
+
+def test_an_indexed_evidence_digest_that_moved_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = _isolate(tmp_path, monkeypatch)
+    artifact = tmp_path / "public_tests.json"
+    artifact.write_text("{}", encoding="utf-8")
+    index = _c3_index(
+        tmp_path,
+        files=[
+            {
+                "path": str(artifact).replace("\\", "/"),
+                "bytes": len(artifact.read_bytes()),
+                "sha256": "sha256:" + "0" * 64,
+            }
+        ],
+    )
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    with pytest.raises(RuntimeError, match="indexed evidence changed"):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
+    assert not target.exists()
+
+
+def test_a_retryable_claim_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(
+        tmp_path,
+        claim={
+            "sha256": "sha256:" + "a" * 64,
+            "state": "CLAIMED",
+            "claimed_at": "2026-11-24T03:12:56+00:00",
+            "retries_allowed": True,
+        },
+    )
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    with pytest.raises(RuntimeError, match="calibration provenance is inconsistent"):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
 
 
 def test_the_prepared_c3_request_is_not_an_approval() -> None:
