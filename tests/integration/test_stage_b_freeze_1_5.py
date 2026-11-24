@@ -323,7 +323,7 @@ def test_the_new_freeze_does_not_authorize_c3(
 
 
 def test_the_prepared_c3_request_is_not_an_approval() -> None:
-    """The Owner package is a request. Only the pending fields stand between it and the gate."""
+    """The Owner package is a request. Only the signature fields stand between it and the gate."""
 
     path = REPO_ROOT / "experiments/stage_b_calibration/authorization-c3.json"
     record = admission.read_json(path)
@@ -331,12 +331,13 @@ def test_the_prepared_c3_request_is_not_an_approval() -> None:
     assert record["consumed"] is False
     assert record["cells"] == ["CALIBRATION.workgrid.c3"]
     assert record["cost_ceiling_usd"] > 0
-    assert record["approved_digests"]["runner_source"] == "PENDING_FREEZE_1_5"
+    # runner_source is bound to the freeze, not left as a placeholder.
+    assert record["approved_digests"]["runner_source"] == admission.source_identity()["digest"]
 
     preflight = {
         "protocol_digest": admission.digest_bytes(protocol.PROTOCOL_PATH.read_bytes()),
         "plan_digest": admission.read_json(protocol.PLAN_PATH)["plan"]["digest"],
-        "runtime_digest": admission.source_identity()["digest"],
+        "runtime_digest": admission.stage_runner.source_identity()["tree_digest"],
         "runner_source_digest": admission.source_identity()["digest"],
     }
     gate = admission.authorization_gate(
@@ -345,7 +346,8 @@ def test_the_prepared_c3_request_is_not_an_approval() -> None:
     assert gate["ready"] is False
     assert "status='PENDING_OWNER_APPROVAL'" in gate["problems"]
     assert "missing_approved_by" in gate["problems"]
-    assert "digest_mismatch:runner_source" in gate["problems"]
+    # The digests themselves no longer block: only the Owner's signature does.
+    assert not any(problem.startswith("digest_mismatch") for problem in gate["problems"])
     # c3 has never run: no marker, no evidence, no claim for this cell.
     assert not (REPO_ROOT / "experiments/stage_b_calibration/calibration").exists()
 
