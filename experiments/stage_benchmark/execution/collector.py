@@ -367,7 +367,104 @@ def scrub_evidence(bundle: Path, *, task_id: str | None = None) -> list[str]:
     return redacted
 
 
-def manifest(bundle: Path, *, redactions: tuple[str, ...] = ()) -> dict[str, Any]:
+PUBLISHABLE_SUFFIXES = frozenset({".json", ".jsonl", ".txt", ".log", ".py", ".patch"})
+
+
+def published_files(bundle: Path) -> list[Path]:
+    """Every file that may leave the host. The private raw bundle is never in this set."""
+
+    return [
+        path
+        for path in sorted(bundle.rglob("*"))
+        if path.is_file() and path.relative_to(bundle).parts[0] != RAW_DIR
+    ]
+
+
+def publication_audit(bundle: Path, *, task_id: str | None = None) -> dict[str, Any]:
+    """Publication-time acceptance, run after the scrub and before the manifest.
+
+    Three things must hold before a bundle may leave the host: the raw directory is not part of the
+    published set, no published file still carries the hidden oracle in any textual form, and the
+    published analysis can still back the statistics the contract requires. A failure is recorded
+    as a problem and makes the bundle non-publishable; nothing is deleted or rewritten here.
+    """
+
+    problems: list[str] = []
+    published = published_files(bundle)
+    raw_dir = bundle / RAW_DIR
+    raw_files = [path for path in raw_dir.rglob("*") if path.is_file()] if raw_dir.is_dir() else []
+
+    leaked_into_published = [
+        str(path.relative_to(bundle)).replace("\\", "/")
+        for path in published
+        if str(path.relative_to(bundle)).replace("\\", "/").startswith(f"{RAW_DIR}/")
+    ]
+    if leaked_into_published:
+        problems.append(f"raw files in the published set: {', '.join(leaked_into_published)}")
+
+    secrets = _oracle_texts(task_id)
+    scanned = 0
+    for path in published:
+        if path.suffix not in PUBLISHABLE_SUFFIXES:
+            continue
+        scanned += 1
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for secret in secrets:
+            if secret in text:
+                problems.append(
+                    "hidden oracle material in a published file: "
+                    + str(path.relative_to(bundle)).replace("\\", "/")
+                )
+                break
+
+    statistics_ok = False
+    analysis_path = bundle / ANALYSIS
+    if not analysis_path.is_file():
+        problems.append("analysis.json is missing from the published set")
+    else:
+        try:
+            analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            problems.append(f"published analysis.json does not parse: {error}")
+        else:
+            record = analysis.get("record") or {}
+            usage = record.get("usage") or {}
+            statistics_ok = bool(
+                analysis.get("status")
+                and record.get("execution_view")
+                and usage
+                and usage.get("sum_matches_system_total") is not False
+            )
+            if not statistics_ok:
+                problems.append("the published analysis cannot back the required statistics")
+
+    for name in ("session.json", "provider_usage.json", "public_tests.json", "oracle.json"):
+        path = bundle / name
+        if not path.is_file():
+            continue
+        try:
+            json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            problems.append(f"published {name} does not parse after redaction: {error}")
+
+    return {
+        "ok": not problems,
+        "problems": problems,
+        "published_files": len(published),
+        "raw_files": len(raw_files),
+        "scanned_files": scanned,
+        "raw_dir_published": bool(leaked_into_published),
+        "statistics_from_published": statistics_ok,
+        "policy": "raw never published; no oracle material in any textual form in a published file",
+    }
+
+
+def manifest(
+    bundle: Path,
+    *,
+    redactions: tuple[str, ...] = (),
+    publication: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     published: dict[str, str] = {}
     raw: dict[str, str] = {}
     for path in sorted(bundle.rglob("*")):
@@ -388,6 +485,7 @@ def manifest(bundle: Path, *, redactions: tuple[str, ...] = ()) -> dict[str, Any
         "raw_dir": RAW_DIR,
         "immutable_raw": True,
         "redactions": list(redactions),
+        "publication": dict(publication or {}),
         "contract": provision.evidence_contract(),
     }
     _write_json(bundle / MANIFEST, payload)
@@ -443,17 +541,19 @@ def collect(
         bundle, cell=cell, source_digest=source_digest, evidence_gaps=gaps, document=document
     )
     redactions = tuple(scrub_evidence(bundle, task_id=cell.task_id))
-    payload = manifest(bundle, redactions=redactions)
+    publication = publication_audit(bundle, task_id=cell.task_id)
+    payload = manifest(bundle, redactions=redactions, publication=publication)
     missing = completeness(bundle)
     explained = not_applicable(bundle)
     return {
-        "ok": not missing and bool(analysis["valid"]),
+        "ok": not missing and bool(analysis["valid"]) and bool(publication["ok"]),
         "status": analysis.get("status", "COMPLETE" if analysis["valid"] else "INVALID"),
         "missing": missing,
         "not_applicable": explained,
         "evidence_gaps": analysis["evidence_gaps"],
         "analysis": analysis,
         "manifest": payload,
+        "publication": publication,
         "analysis_path": bundle / ANALYSIS,
     }
 
@@ -490,7 +590,8 @@ def recover_evidence(bundle: Path, *, cell: CellIdentity, source_digest: str) ->
     gaps = list(restored)
     analysis = analyze(bundle, cell=cell, source_digest=source_digest, evidence_gaps=gaps)
     redactions = tuple(scrub_evidence(bundle, task_id=cell.task_id))
-    payload = manifest(bundle, redactions=redactions)
+    publication = publication_audit(bundle, task_id=cell.task_id)
+    payload = manifest(bundle, redactions=redactions, publication=publication)
     raw_digests_after = {
         str(path.relative_to(source)).replace("\\", "/"): digest_bytes(path.read_bytes())
         for path in source.rglob("*")
@@ -499,9 +600,10 @@ def recover_evidence(bundle: Path, *, cell: CellIdentity, source_digest: str) ->
     missing = completeness(bundle)
     degraded = analysis.get("status") == "INCOMPLETE"
     return {
-        "ok": not missing and bool(analysis["valid"]),
-        "status": "INCOMPLETE" if (missing or degraded) else "RECOVERED",
+        "ok": not missing and bool(analysis["valid"]) and bool(publication["ok"]),
+        "status": "INCOMPLETE" if (missing or degraded or not publication["ok"]) else "RECOVERED",
         "degraded": degraded,
+        "publication": publication,
         "missing": missing,
         "missing_raw_optional": raw_missing,
         "not_applicable": not_applicable(bundle),
