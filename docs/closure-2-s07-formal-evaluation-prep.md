@@ -171,8 +171,9 @@ half a module, and the host would have to grant it the same single path the Main
 task set therefore contains no natural parallel decomposition, which is exactly the condition the
 prompt v2.1 checkpoint describes as "work directly".
 
-Corroborating numbers: 12.0 mean turns of a 20-turn cap, 33/36 cells stopping at `success`, and only
-`cascade` needing 17–20 turns. Nothing in the runs suggests a Main that was short of capacity.
+Corroborating numbers: 12.0 mean turns of a 20-turn cap, 33/36 cells stopping at `success`, and both
+turn-cap failures were `cascade` (the only two-file task). Nothing in the runs suggests a Main that was
+short of capacity.
 
 ### D.3 Worker capability (the second independent cause)
 
