@@ -1,10 +1,14 @@
-"""Stage B-E2F closure: the versioned execution freeze, 1.5.
+"""Stage B-E2F closure: the versioned execution freeze chain, now pointing at 1.6.
 
 The defect these tests exist for is narrow and was real: ``write_freeze`` hard-coded
 ``stage-b-execution/1.4`` and wrote it to ``freeze-1.4.json``, so ``runner --freeze`` would have
 overwritten a freeze that a completed live run was authorized against. Every test here is offline:
 no provider, no sandbox, no calibration, no benchmark cell. Nothing writes inside the repository:
 the archive and the active freeze are redirected into ``tmp_path`` before a writer runs.
+
+S05 moved the pointer to ``1.6`` to prepare the writer for the analysis-1.2 harness, and appended
+``1.5`` to the immutable chain. Writing 1.6 is a separate, reviewed step: without the file no live
+cell can start, which the last tests in this module assert.
 """
 
 from __future__ import annotations
@@ -34,9 +38,9 @@ def _digest(path: Path) -> str:
 def _isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Point the active freeze and the archive at the temp tree. The chain stays the real one."""
 
-    monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze-1.5.json")
+    monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze-1.6.json")
     monkeypatch.setattr(admission, "ARCHIVE_DIR", tmp_path / "archive")
-    return tmp_path / "freeze-1.5.json"
+    return tmp_path / "freeze-1.6.json"
 
 
 def _write(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, dict[str, Any]]:
@@ -56,28 +60,40 @@ def _labels(result: dict[str, Any]) -> dict[str, dict[str, Any]]:
 # --------------------------------------------------------------------------- the version pointer
 
 
-def test_the_active_freeze_is_1_5_and_1_4_is_the_last_spent_version() -> None:
-    assert admission.FREEZE_VERSION == "stage-b-execution/1.5"
-    assert admission.FREEZE_PATH.name == "freeze-1.5.json"
+def test_the_active_pointer_is_1_6_and_1_5_is_the_last_spent_version() -> None:
+    assert admission.FREEZE_VERSION == "stage-b-execution/1.6"
+    assert admission.FREEZE_PATH.name == "freeze-1.6.json"
     assert [version for version, _path, _digest in admission.FROZEN_CHAIN] == [
         "stage-b-execution/1.0",
         "stage-b-execution/1.1",
         "stage-b-execution/1.2",
         "stage-b-execution/1.3",
         "stage-b-execution/1.4",
+        "stage-b-execution/1.5",
     ]
-    assert admission.FROZEN_CHAIN[-1][1].name == "freeze-1.4.json"
-    # The one bug this stage fixes: writing must not aim at 1.4.
+    assert admission.FROZEN_CHAIN[-1][1].name == "freeze-1.5.json"
+    # The one bug this stage fixes: writing must not aim at a spent version.
     assert admission.FROZEN_CHAIN[-1][1] != admission.FREEZE_PATH
 
 
-def test_the_written_freeze_declares_1_5_and_supersedes_1_4_by_its_real_digest(
+def test_the_next_freeze_is_prepared_but_not_written() -> None:
+    """Moving the pointer is preparation. Without the file, no live cell may start."""
+
+    assert not admission.FREEZE_PATH.is_file()
+    live = admission.preflight(evidence_root=Path("unused"), cell=None, live=True)
+    assert live["status"] == "BLOCKED"
+    assert _labels(live)["active_execution_freeze_present"]["ok"] is False
+    assert _labels(live)["runner_source_digest_matches_freeze"]["ok"] is False
+    assert admission.frozen_chain_problems() == []
+
+
+def test_the_written_freeze_declares_1_6_and_supersedes_1_5_by_its_real_digest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     target, document = _write(monkeypatch, tmp_path)
     assert target.is_file()
-    assert document["freeze_version"] == "stage-b-execution/1.5"
-    assert document["supersedes"]["version"] == "stage-b-execution/1.4"
+    assert document["freeze_version"] == "stage-b-execution/1.6"
+    assert document["supersedes"]["version"] == "stage-b-execution/1.5"
     # The real SHA-256 of the bytes this worktree has, plus the rendering-free pin.
     assert document["supersedes"]["digest"] == _digest(admission.FROZEN_CHAIN[-1][1])
     assert document["supersedes"]["content_digest"] == admission.FROZEN_CHAIN[-1][2]
@@ -89,10 +105,10 @@ def test_the_written_freeze_declares_1_5_and_supersedes_1_4_by_its_real_digest(
     assert document["source"]["digest"] == admission.source_identity()["digest"]
 
 
-# --------------------------------------------------------------------------- 1.4 is never rewritten
+# --------------------------------------------------------------------------- 1.5 is never rewritten
 
 
-def test_writing_1_5_never_touches_the_bytes_of_1_4(
+def test_writing_1_6_never_touches_the_bytes_of_1_5(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     frozen_14 = admission.FROZEN_CHAIN[-1][1]
@@ -111,10 +127,10 @@ def test_writing_1_5_never_touches_the_bytes_of_1_4(
         assert admission.archive_path(version).read_bytes() == payload
 
 
-def test_a_moved_1_4_blocks_the_writer_and_the_live_preflight(
+def test_a_moved_1_5_blocks_the_writer_and_the_live_preflight(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    tampered = tmp_path / "freeze-1.4.json"
+    tampered = tmp_path / "freeze-1.5.json"
     tampered.write_bytes(admission.FROZEN_CHAIN[-1][1].read_bytes() + b" ")
     chain = (
         *admission.FROZEN_CHAIN[:-1],
@@ -130,7 +146,7 @@ def test_a_moved_1_4_blocks_the_writer_and_the_live_preflight(
                 evidence_root=tmp_path / "evidence", require_offline_report=False
             ),
         )
-    assert not (tmp_path / "freeze-1.5.json").exists()
+    assert not (tmp_path / "freeze-1.6.json").exists()
 
     blocked = admission.preflight(evidence_root=tmp_path / "evidence", live=True)
     assert blocked["status"] == "BLOCKED"
@@ -266,7 +282,7 @@ def test_a_broken_history_chain_cannot_reach_live_ready(
 
     payload = admission.read_json(target)
     payload["supersedes"]["content_digest"] = admission.FROZEN_CHAIN[-1][2]
-    payload["freeze_version"] = "stage-b-execution/1.4"
+    payload["freeze_version"] = "stage-b-execution/1.5"
     target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     mismatched = admission.preflight(evidence_root=tmp_path / "evidence", live=True)
     assert mismatched["status"] == "BLOCKED"
@@ -276,20 +292,20 @@ def test_a_broken_history_chain_cannot_reach_live_ready(
 # --------------------------------------------------------------------------- the CLI target
 
 
-def test_the_freeze_cli_targets_1_5_and_leaves_1_4_alone(
+def test_the_freeze_cli_targets_1_6_and_leaves_1_5_alone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     target = _isolate(tmp_path, monkeypatch)
     monkeypatch.setattr(admission, "PREFLIGHT_PATH", tmp_path / "preflight.json")
-    frozen_14 = admission.FROZEN_CHAIN[-1][1]
-    before = frozen_14.read_bytes()
+    frozen_15 = admission.FROZEN_CHAIN[-1][1]
+    before = frozen_15.read_bytes()
 
     code = runner.main(["--freeze", "--evidence-root", str(tmp_path / "evidence")])
 
     assert code == 0
     assert target.is_file()
-    assert frozen_14.read_bytes() == before
-    assert admission.read_json(target)["freeze_version"] == "stage-b-execution/1.5"
+    assert frozen_15.read_bytes() == before
+    assert admission.read_json(target)["freeze_version"] == "stage-b-execution/1.6"
 
 
 # --------------------------------------------------------------------------- c3 stays unauthorized

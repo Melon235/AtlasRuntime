@@ -63,11 +63,18 @@ FROZEN_CHAIN: tuple[tuple[str, Path, str], ...] = (
         EXECUTION_DIR / "freeze-1.4.json",
         "sha256:eaee6d8662c89fcd7c473430c6a74a17b60f67b87836439be1bb0cfff79de9c7",
     ),
+    (
+        "stage-b-execution/1.5",
+        EXECUTION_DIR / "freeze-1.5.json",
+        "sha256:b08ea2b5754a1d49197300b588f8753ef1fa680391cfd567018eb2be9848dc8f",
+    ),
 )
 #: The freeze a live cell or calibration is authorized against. Moving this pointer is a new
 #: version, never a rewrite: the previous file keeps its bytes and its place in the chain.
-FREEZE_VERSION = "stage-b-execution/1.5"
-FREEZE_PATH = EXECUTION_DIR / "freeze-1.5.json"
+#: 1.6 is prepared but not written: the writer, the chain and the supersedes rule are in place, and
+#: no live cell can start until the file exists (``active_execution_freeze_present``).
+FREEZE_VERSION = "stage-b-execution/1.6"
+FREEZE_PATH = EXECUTION_DIR / "freeze-1.6.json"
 
 SMOKE_EVIDENCE_DIR = EXECUTION_DIR.parents[1] / "stage_b_smoke"
 #: The one E2F provisioning attempt. It ran once and its claim is spent, so the path is a record,
@@ -166,16 +173,43 @@ def freeze_history_problems(payload: Mapping[str, Any]) -> list[str]:
     return problems
 
 
+def normalise_line_endings(data: bytes) -> bytes:
+    """A worktree's CRLF rendering is not a content difference.
+
+    ``core.autocrlf`` rewrites files on checkout and on ``git add``, so a raw-byte digest of the
+    harness changes without a single character of code changing (measured: the same commit produced
+    two digests across a ``git add``). Identity is content, not carriage returns.
+    """
+
+    return data.replace(b"\r\n", b"\n")
+
+
+def source_file_digests(contents: Mapping[str, bytes]) -> dict[str, str]:
+    """Per-file digests after line-ending normalisation. One place, so nothing can diverge."""
+
+    return {
+        name: digest_bytes(normalise_line_endings(data)) for name, data in contents.items()
+    }
+
+
+def source_files_digest(contents: Mapping[str, bytes]) -> str:
+    """The identity digest of a ``name -> bytes`` mapping."""
+
+    payload = json.dumps(source_file_digests(contents), sort_keys=True, separators=(",", ":"))
+    return digest_text(payload)
+
+
 def source_identity() -> dict[str, Any]:
     """Digest the execution harness itself, independently of the frozen analysis harness."""
 
-    files = {name: digest_bytes((EXECUTION_DIR / name).read_bytes()) for name in SOURCE_FILES}
-    payload = json.dumps(files, sort_keys=True, separators=(",", ":"))
+    contents = {name: (EXECUTION_DIR / name).read_bytes() for name in SOURCE_FILES}
+    files = source_file_digests(contents)
     return {
         "root": str(EXECUTION_DIR),
         "file_count": len(files),
         "files": files,
-        "digest": digest_text(payload),
+        "digest": source_files_digest(contents),
+        "line_endings": "crlf-normalised",
     }
 
 

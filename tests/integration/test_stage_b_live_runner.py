@@ -498,12 +498,13 @@ def test_execution_freeze_is_independent_of_the_e1_freeze() -> None:
         "stage-b-execution/1.3",
         "stage-b-execution/1.4",
         "stage-b-execution/1.5",
+        "stage-b-execution/1.6",
     }
-    # The next freeze is 1.5 and 1.4 stays the last spent version: a version is appended, never
+    # The next freeze is 1.6 and 1.5 stays the last spent version: a version is appended, never
     # rewritten, so no live cell can be authorized against a file whose bytes moved.
-    assert admission.FREEZE_VERSION == "stage-b-execution/1.5"
-    assert admission.FREEZE_PATH.name == "freeze-1.5.json"
-    assert admission.FROZEN_CHAIN[-1][0] == "stage-b-execution/1.4"
+    assert admission.FREEZE_VERSION == "stage-b-execution/1.6"
+    assert admission.FREEZE_PATH.name == "freeze-1.6.json"
+    assert admission.FROZEN_CHAIN[-1][0] == "stage-b-execution/1.5"
     assert admission.frozen_chain_problems() == []
     archived_digests = {
         path.name: admission.digest_bytes(path.read_bytes())
