@@ -31,7 +31,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-EXECUTOR_VERSION = "stage-b-matrix-executor/1.0.0"
+EXECUTOR_VERSION = "stage-b-matrix-executor/1.1.0"
 POLICY_MEASURED_CONTINUE = "MEASURED_AGENT_FAILURE_CONTINUE"
 LOCK_NAME = ".matrix-executor.lock"
 REPORT_NAME = "matrix-report.json"
@@ -47,18 +47,8 @@ VERDICT_INVALID = "INVALID"
 CONTINUABLE_FAILURE_KINDS = frozenset(
     {"oracle_failed", "public_tests_failed", "budget_exhaustion", "main_max_turns"}
 )
-#: Evidence a cell must have produced before any verdict may be trusted.
-REQUIRED_EVIDENCE = (
-    "session.json",
-    "attempt-1.json",
-    "transcript.jsonl",
-    "provider_usage.json",
-    "public_tests.json",
-    "oracle.json",
-    "sandbox_lifecycle.json",
-    "analysis.json",
-    "evidence_manifest.json",
-)
+MANIFEST = "evidence_manifest.json"
+RAW_DIR = "_raw"
 
 STOP_CELL_INVALID = "cell_invalid"
 STOP_INFRASTRUCTURE = "infrastructure_failure"
@@ -78,6 +68,7 @@ STOP_EVIDENCE_DRIFT = "evidence_digest_mismatch"
 STOP_PUBLICATION_REFUSED = "publication_refused"
 STOP_SECONDARY_FAILURE = "secondary_failure"
 STOP_IDENTITY_MISMATCH = "identity_mismatch"
+STOP_OBSERVATION_CONTRADICTION = "observation_contradiction"
 STOP_AUTHORIZATION_CHANGED = "authorization_changed"
 STOP_COST_REACHED = "cost_stop_reached"
 STOP_TOKENS_REACHED = "token_stop_reached"
@@ -242,43 +233,187 @@ def cost_of(usage: Mapping[str, Any], pricing: Mapping[str, Any]) -> dict[str, A
 # --------------------------------------------------------------------------- evidence audit
 
 
-def verify_manifest(evidence: Path) -> list[str]:
-    """Recompute every digest the manifest declares. Read-only."""
+def _safe_relative(name: Any) -> Path | None:
+    """A declared path must stay inside its own root. Absolute paths and ``..`` are refused."""
 
-    manifest = _read_json(evidence / "evidence_manifest.json")
+    text = str(name).replace("\\", "/").strip()
+    if not text or text.startswith("/") or ":" in text.split("/")[0]:
+        return None
+    parts = [part for part in text.split("/") if part not in {"", "."}]
+    if not parts or ".." in parts:
+        return None
+    return Path(*parts)
+
+
+def verify_manifest(evidence: Path) -> list[str]:
+    """The manifest must describe exactly the files on disk, and every digest must hold.
+
+    The manifest never lists itself, which is the frozen collector's convention: the set of
+    published files is every file outside ``_raw`` except the manifest.
+    """
+
+    manifest = _read_json(evidence / MANIFEST)
     if manifest is None:
-        return ["evidence_manifest.json is missing or unreadable"]
+        return [f"{MANIFEST} is missing or unreadable"]
     problems: list[str] = []
     files = manifest.get("files")
     raw = manifest.get("raw_digests")
     if not isinstance(files, dict) or not files:
         problems.append("the manifest declares no published files")
         files = {}
-    if not isinstance(raw, dict):
+    if not isinstance(raw, dict) or not raw:
         problems.append("the manifest declares no raw digests")
         raw = {}
 
-    for name, declared in sorted(files.items()):
-        path = evidence / str(name).replace("/", "\\")
-        if not path.is_file():
-            problems.append(f"declared file is missing: {name}")
-            continue
-        if digest_file(path) != declared:
-            problems.append(f"declared digest does not match: {name}")
+    published_actual = {
+        str(path.relative_to(evidence)).replace("\\", "/")
+        for path in evidence.rglob("*")
+        if path.is_file()
+        and path.relative_to(evidence).parts[0] != RAW_DIR
+        and path.name != MANIFEST
+    }
+    raw_root = evidence / RAW_DIR
+    raw_actual = (
+        {
+            str(path.relative_to(raw_root)).replace("\\", "/")
+            for path in raw_root.rglob("*")
+            if path.is_file()
+        }
+        if raw_root.is_dir()
+        else set()
+    )
 
-    for name, declared in sorted(raw.items()):
-        path = evidence / "_raw" / str(name).replace("/", "\\")
-        if not path.is_file():
-            problems.append(f"declared raw file is missing: {name}")
+    declared_published: set[str] = set()
+    for name in files:
+        relative = _safe_relative(name)
+        if relative is None:
+            problems.append(f"declared path escapes the bundle: {name}")
             continue
-        if digest_file(path) != declared:
+        declared_published.add(str(relative).replace("\\", "/"))
+
+    declared_raw: set[str] = set()
+    for name in raw:
+        relative = _safe_relative(name)
+        if relative is None:
+            problems.append(f"declared raw path escapes the bundle: {name}")
+            continue
+        declared_raw.add(str(relative).replace("\\", "/"))
+
+    for name in sorted(declared_published - published_actual):
+        problems.append(f"declared file is missing: {name}")
+    for name in sorted(published_actual - declared_published):
+        problems.append(f"published file is not covered by the manifest: {name}")
+    for name in sorted(declared_raw - raw_actual):
+        problems.append(f"declared raw file is missing: {name}")
+    for name in sorted(raw_actual - declared_raw):
+        problems.append(f"raw file is not covered by the manifest: {name}")
+
+    for name, declared in sorted(files.items()):
+        relative = _safe_relative(name)
+        if relative is None or str(relative).replace("\\", "/") not in published_actual:
+            continue
+        if digest_file(evidence / relative) != declared:
+            problems.append(f"declared digest does not match: {name}")
+    for name, declared in sorted(raw.items()):
+        relative = _safe_relative(name)
+        if relative is None or str(relative).replace("\\", "/") not in raw_actual:
+            continue
+        if digest_file(raw_root / relative) != declared:
             problems.append(f"declared raw digest does not match: {name}")
     return problems
 
 
-def verify_required_evidence(evidence: Path) -> list[str]:
-    return [f"required evidence is missing: {name}" for name in REQUIRED_EVIDENCE
-            if not (evidence / name).is_file()]
+def verify_evidence_contract(evidence: Path) -> list[str]:
+    """Reuse the frozen evidence contract and the frozen completeness rule."""
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from experiments.stage_benchmark.execution import collector
+
+    if not evidence.is_dir():
+        return ["the evidence directory is missing"]
+    return [f"required evidence is missing: {name}" for name in collector.completeness(evidence)]
+
+
+def verify_observation(
+    *,
+    cell: Mapping[str, Any],
+    result: Mapping[str, Any],
+    claim: Mapping[str, Any],
+    session: Mapping[str, Any],
+    manifest_claim: Mapping[str, Any] | None,
+    oracle: Mapping[str, Any] | None,
+    public_tests: Mapping[str, Any] | None,
+) -> list[str]:
+    """Cross-check the frozen CellResult, the claim and the raw session. Contradiction stops."""
+
+    problems: list[str] = []
+    status = result.get("status")
+    kind = result.get("failure_kind")
+    integrity = result.get("execution_integrity")
+    claim_state = claim.get("state")
+    main = session.get("main") or {}
+    budget = session.get("budget") or {}
+    stop_reason = main.get("stop_reason")
+    session_status = session.get("status")
+
+    builtin = result.get("cell") or {}
+    for key in ("cell_id", "task_id", "arm_id", "repetition"):
+        if builtin.get(key) != cell.get(key):
+            problems.append(f"result cell {key}={builtin.get(key)!r} != plan {cell.get(key)!r}")
+
+    if manifest_claim is not None:
+        # The collector copies the marker before the terminal state is written, so the internal
+        # snapshot may say RUNNING. Only the immutable bindings are comparable.
+        for key in ("cell", "runner_source_digest", "authorization_digest", "preflight_digest"):
+            if key in manifest_claim and manifest_claim.get(key) != claim.get(key):
+                problems.append(f"the claim snapshot disagrees on {key}")
+
+    if status == "COMPLETED":
+        if kind not in {None, "none"}:
+            problems.append(f"COMPLETED carries failure_kind={kind!r}")
+        if integrity != "OK":
+            problems.append(f"COMPLETED carries execution_integrity={integrity!r}")
+        if claim_state != "COLLECTED":
+            problems.append(f"COMPLETED carries claim state {claim_state!r}")
+        if session_status != "succeeded":
+            problems.append(f"COMPLETED carries session status {session_status!r}")
+        return problems
+
+    if status != "FAILED":
+        problems.append(f"result status {status!r} is neither COMPLETED nor FAILED")
+        return problems
+    if claim_state != "FAILED":
+        problems.append(f"FAILED carries claim state {claim_state!r}")
+
+    if kind in {"oracle_failed", "public_tests_failed"}:
+        if integrity != "OK":
+            problems.append(f"{kind} carries execution_integrity={integrity!r}")
+        if result.get("goal_correctness") != "FAIL":
+            problems.append(f"{kind} carries goal_correctness={result.get('goal_correctness')!r}")
+        oracle_ok = (oracle or {}).get("ok")
+        if kind == "oracle_failed" and oracle_ok is not False:
+            problems.append(f"oracle_failed but the oracle record says ok={oracle_ok!r}")
+        if kind == "public_tests_failed":
+            if oracle_ok is not True:
+                problems.append("public_tests_failed but the oracle did not pass")
+            runs = (public_tests or {}).get("runs") or []
+            if not any(run.get("status") != "PASS" for run in runs):
+                problems.append("public_tests_failed without a failing public run")
+    elif kind == "budget_exhaustion":
+        if integrity != "FAILED":
+            problems.append(f"budget_exhaustion carries execution_integrity={integrity!r}")
+        if stop_reason != "budget_exceeded" and budget.get("rejection_code") != "budget_exhausted":
+            problems.append(
+                f"budget_exhaustion without a budget stop in the session ({stop_reason!r})"
+            )
+    elif kind == "main_max_turns":
+        if integrity != "FAILED":
+            problems.append(f"main_max_turns carries execution_integrity={integrity!r}")
+        if stop_reason != "max_turns":
+            problems.append(f"main_max_turns without stop_reason='max_turns' ({stop_reason!r})")
+    else:
+        problems.append(f"failure kind {kind!r} has no registered observation")
+    return problems
 
 
 # --------------------------------------------------------------------------- cell audit
@@ -288,9 +423,7 @@ def audit_cell(
     *,
     repo_root: Path,
     cell_root: Path,
-    cell_id: str,
-    task_id: str,
-    repetition: int,
+    cell: Mapping[str, Any],
     exit_code: int | None,
     timed_out: bool,
     harness_source_digest: str,
@@ -301,6 +434,8 @@ def audit_cell(
     sys.path.insert(0, str(repo_root))
     from experiments.stage_benchmark.execution import collector
 
+    cell_id = str(cell["cell_id"])
+    task_id = str(cell["task_id"])
     outcome = CellOutcome(order=0, cell_id=cell_id, task_id=task_id, evidence_dir=str(cell_root))
     evidence = cell_root / "evidence"
 
@@ -323,7 +458,10 @@ def audit_cell(
             outcome.stops.append(STOP_CLAIM_INVALID)
             outcome.problems.append("the claim allows a retry")
         claimed_cell = claim.get("cell") or {}
-        if claimed_cell.get("cell_id") != cell_id or claimed_cell.get("repetition") != repetition:
+        if (
+            claimed_cell.get("cell_id") != cell_id
+            or claimed_cell.get("repetition") != cell["repetition"]
+        ):
             outcome.stops.append(STOP_IDENTITY_MISMATCH)
             outcome.problems.append("the claim names a different cell")
         if claim.get("runner_source_digest") != harness_source_digest:
@@ -357,9 +495,7 @@ def audit_cell(
             outcome.stops.append(STOP_SECONDARY_FAILURE)
             outcome.problems.extend(f"secondary failure: {item}" for item in secondary)
 
-    evidence_problems = verify_required_evidence(evidence) if evidence.is_dir() else [
-        "the evidence directory is missing"
-    ]
+    evidence_problems = verify_evidence_contract(evidence)
     if evidence_problems:
         outcome.stops.append(STOP_EVIDENCE_MISSING)
         outcome.problems.extend(evidence_problems)
@@ -394,6 +530,20 @@ def audit_cell(
         outcome.problems.extend(usage_problems)
     else:
         outcome.usage = usage
+
+    session = _read_json(evidence / "session.json") or {}
+    observation_problems = verify_observation(
+        cell=cell,
+        result=result,
+        claim=claim or {},
+        session=session,
+        manifest_claim=_read_json(evidence / "attempt-1.json"),
+        oracle=_read_json(evidence / "oracle.json"),
+        public_tests=_read_json(evidence / "public_tests.json"),
+    )
+    if observation_problems:
+        outcome.stops.append(STOP_OBSERVATION_CONTRADICTION)
+        outcome.problems.extend(observation_problems)
 
     # Verdict: only a clean result or a pre-registered failure is a usable observation.
     status = result.get("status")
@@ -541,6 +691,8 @@ def authorization_problems(
             problems.append(f"missing {name}")
     if authorization.get("consumed") is True:
         problems.append("the authorization is already consumed")
+    if head is None or authorization.get("approval_commit") != head:
+        problems.append("approval commit does not name the approved HEAD")
     approved_cells = set(authorization.get("cells") or ())
     planned = {cell["cell_id"] for cell in config["cells"]}
     if approved_cells != planned:
@@ -592,6 +744,19 @@ def _append_jsonl(path: Path, payload: Mapping[str, Any]) -> None:
         handle.write(json.dumps(payload, sort_keys=True) + "\n")
         handle.flush()
         os.fsync(handle.fileno())
+
+
+def _authorization_changed(
+    path: Path, expected_sha: str, expected_record: Mapping[str, Any]
+) -> bool:
+    """True when the file no longer is the record that passed the gate."""
+
+    if not path.is_file() or digest_file(path) != expected_sha:
+        return True
+    try:
+        return json.loads(path.read_text(encoding="utf-8")) != dict(expected_record)
+    except ValueError:
+        return True
 
 
 def _fresh_log(path: Path) -> None:
@@ -701,6 +866,12 @@ def run_matrix(
     _fresh_log(ledger_path)
 
     authorization_file = Path(config["authorization_path"])
+    if not authorization_file.is_file():
+        raise ExecutorError(f"the authorization file is missing: {authorization_file}")
+    if json.loads(authorization_file.read_text(encoding="utf-8")) != dict(authorization):
+        raise ExecutorError(
+            "the authorization object does not match the file at the configured path"
+        )
     authorization_sha = digest_file(authorization_file)
     authorization_digest = admission.canonical_digest(dict(authorization))
 
@@ -718,6 +889,10 @@ def run_matrix(
             existing = admission.prior_attempt(cell_root)
             if existing is not None:
                 stop_reason, stopped_at_order = STOP_CLAIM_CONSUMED, cell["order"]
+                break
+
+            if _authorization_changed(authorization_file, authorization_sha, authorization):
+                stop_reason, stopped_at_order = STOP_AUTHORIZATION_CHANGED, cell["order"]
                 break
 
             log_dir = evidence_root / LOG_DIR / cell["cell_id"]
@@ -770,9 +945,7 @@ def run_matrix(
             outcome = audit_cell(
                 repo_root=repo_root,
                 cell_root=cell_root,
-                cell_id=cell["cell_id"],
-                task_id=cell["task_id"],
-                repetition=cell["repetition"],
+                cell=cell,
                 exit_code=launch.returncode,
                 timed_out=launch.timed_out,
                 harness_source_digest=config["harness_source_digest"],
@@ -814,7 +987,7 @@ def run_matrix(
                 },
             )
 
-            if digest_file(authorization_file) != authorization_sha:
+            if _authorization_changed(authorization_file, authorization_sha, authorization):
                 stop_reason, stopped_at_order = STOP_AUTHORIZATION_CHANGED, cell["order"]
                 break
             if outcome.stops:
@@ -884,13 +1057,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--authorization", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
-    parser.add_argument("--no-verify-pr", action="store_true")
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
+    configured = Path(config["authorization_path"]).resolve()
     authorization = None
-    if args.authorization and args.authorization.is_file():
-        authorization = json.loads(args.authorization.read_text(encoding="utf-8"))
+    if args.authorization is not None:
+        if args.authorization.resolve() != configured:
+            print(
+                json.dumps(
+                    {
+                        "status": "BLOCKED",
+                        "reason": (
+                            f"--authorization {args.authorization.resolve()} is not the configured "
+                            f"authorization {configured}"
+                        ),
+                    }
+                )
+            )
+            return 3
+        if args.authorization.is_file():
+            authorization = json.loads(args.authorization.read_text(encoding="utf-8"))
     try:
         report = run_matrix(
             config,
@@ -899,7 +1086,7 @@ def main(argv: list[str] | None = None) -> int:
             config_digest=digest_file(args.config),
             executor_digest=digest_file(Path(__file__)),
             lock_label=str(args.config),
-            verify_pr=not args.no_verify_pr,
+            verify_pr=True,
         )
     except (ExecutorError, MatrixLocked) as error:
         print(json.dumps({"status": "BLOCKED", "reason": str(error)}))
