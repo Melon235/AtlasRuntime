@@ -398,10 +398,11 @@ def publication_audit(bundle: Path, *, task_id: str | None = None) -> dict[str, 
     """Publication-time acceptance, run after the scrub and before the manifest.
 
     The publish set is the scrubbed public copies: the raw bundle is not a candidate, and no
-    candidate is published without being examined. A candidate that cannot be read, that is a
-    symlink, that resolves outside the bundle or back into ``_raw``, or that is binary/unknown
-    encoding cannot be proven clean, so it is refused rather than passed. A refusal is recorded and
-    makes the bundle non-publishable; nothing is deleted or rewritten here.
+    candidate is published without being examined. A candidate is refused when it cannot be read,
+    when it is a symlink, when it resolves outside the bundle or back into ``_raw``, when it
+    contains NUL bytes, or when it is not valid UTF-8: a file this pipeline cannot decode is a file
+    whose cleanliness cannot be proven, so it never reaches ``ok``. A refusal is recorded and makes
+    the bundle non-publishable; nothing is deleted or rewritten here.
     """
 
     problems: list[str] = []
@@ -447,6 +448,18 @@ def publication_audit(bundle: Path, *, task_id: str | None = None) -> dict[str, 
             problems.append(
                 "published file is binary or in an unknown encoding and cannot be proven clean: "
                 + relative
+            )
+            continue
+        # A file must be text this pipeline produced. Undecodable bytes without NUL (a truncated
+        # sequence, a latin-1 copy, a binary blob that happens to avoid 0x00) cannot be proven free
+        # of oracle material, so it is refused rather than byte-searched and passed.
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError as error:
+            unscannable.append(relative)
+            problems.append(
+                f"published file is not valid UTF-8 ({error.reason} at byte {error.start}) and "
+                f"cannot be proven clean: {relative}"
             )
             continue
         scanned += 1

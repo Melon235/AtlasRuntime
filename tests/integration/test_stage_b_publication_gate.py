@@ -194,6 +194,22 @@ def test_a_file_that_cannot_be_scanned_is_refused_not_passed(tmp_path: Path) -> 
     assert any("cannot be proven clean" in problem for problem in audit["problems"])
 
 
+def test_a_file_that_is_not_valid_utf8_is_refused(tmp_path: Path) -> None:
+    """No NUL bytes, but undecodable: the cleanliness of this file cannot be proven either."""
+
+    result = asyncio.run(_run_cell(tmp_path))
+    bundle = result.evidence_dir
+    assert bundle is not None
+    blob = bundle / "payload.latin1"
+    blob.write_bytes(b"caf\xe9 not utf-8 and no nul")
+
+    audit = collector.publication_audit(bundle, task_id="slugkit")
+    assert audit["ok"] is False
+    assert "payload.latin1" in audit["unscannable_files"]
+    assert any("not valid UTF-8" in problem for problem in audit["problems"])
+    assert audit["scanned_files"] < audit["published_files"]
+
+
 def test_a_symlink_in_the_bundle_is_refused(tmp_path: Path, monkeypatch) -> None:
     result = asyncio.run(_run_cell(tmp_path))
     bundle = result.evidence_dir

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -86,6 +87,8 @@ CALIBRATION_CELL_ID = "CALIBRATION.workgrid.c3"
 #: The freeze the completed attempt was authorised and executed under. Never re-attributed.
 CALIBRATION_RUN_FREEZE = "stage-b-execution/1.5"
 REPO_ROOT = EXECUTION_DIR.parents[2]
+#: A digest a freeze is allowed to quote: the only shape this harness ever writes.
+_SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
 #: The one E2F provisioning attempt. It ran once and its claim is spent, so the path is a record,
 #: never a default: a missing file stays NOT_RUN and never becomes a pass.
 PROVISIONING_EVIDENCE_PATH = (
@@ -767,14 +770,32 @@ def calibration_history() -> dict[str, Any]:
     if mismatched:
         problems.append("indexed evidence changed: " + ", ".join(mismatched))
 
+    # The two artefacts a freeze quotes must be bound to this cell and carry a real digest. A
+    # missing entry, an empty digest or one recorded under another attempt is a broken provenance,
+    # not a gap to note.
+    repetition = index.get("repetition")
+    expect(isinstance(repetition, int), f"repetition={repetition!r}")
+    bound: dict[str, dict[str, str]] = {}
+    for name in ("public_tests.json", "oracle.json"):
+        suffix = f"/{CALIBRATION_CELL_ID}/r{repetition}/evidence/{name}"
+        matches = [
+            (relative, digest)
+            for relative, digest in recorded.items()
+            if relative.replace("\\", "/").endswith(suffix)
+        ]
+        if len(matches) != 1:
+            problems.append(
+                f"{name} is not bound to {CALIBRATION_CELL_ID}/r{repetition} in the index"
+            )
+            continue
+        relative, digest = matches[0]
+        if not _SHA256.fullmatch(digest or ""):
+            problems.append(f"{name} has no valid sha256 in the index: {digest!r}")
+            continue
+        bound[name] = {"path": relative, "sha256": digest}
+
     if problems:
         raise RuntimeError(f"calibration provenance is inconsistent: {'; '.join(problems)}")
-
-    def digest_of(suffix: str) -> str | None:
-        for relative, digest in recorded.items():
-            if relative.replace("\\", "/").endswith(suffix):
-                return digest
-        return None
 
     return {
         "task": "workgrid",
@@ -805,9 +826,9 @@ def calibration_history() -> dict[str, Any]:
             "oracle_agreement": verdicts.get("oracle_agreement"),
             "host_oracle_source": verdicts.get("host_oracle_source"),
         },
-        "public_tests": {"sha256": digest_of("evidence/public_tests.json")},
+        "public_tests": dict(bound["public_tests.json"]),
         "host_oracle": {
-            "sha256": digest_of("evidence/oracle.json"),
+            **bound["oracle.json"],
             "verdict": verdicts.get("goal_correctness"),
             "agreement": verdicts.get("oracle_agreement"),
             "source": verdicts.get("host_oracle_source"),

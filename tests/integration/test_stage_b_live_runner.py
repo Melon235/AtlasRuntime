@@ -607,8 +607,10 @@ def test_evidence_is_scrubbed_before_publication(tmp_path: Path) -> None:
 def _synthetic_c3_index(tmp_path: Path) -> Path:
     """A minimal sealed c3 index: a freeze may only be written with provenance present."""
 
+    cell_id = "CALIBRATION.workgrid.c3"
     payload = {
-        "cell": "CALIBRATION.workgrid.c3",
+        "cell": cell_id,
+        "repetition": 0,
         "git_commit": "7a84cb7b39a18162082b9bd69284b87eef245532",
         "execution_freeze": "stage-b-execution/1.5",
         "claim": {"sha256": "sha256:" + "a" * 64, "state": "COLLECTED", "retries_allowed": False},
@@ -619,7 +621,14 @@ def _synthetic_c3_index(tmp_path: Path) -> Path:
             "oracle_agreement": "AGREE",
             "host_oracle_source": "host:tests",
         },
-        "files": [{"path": "absent/x.json", "bytes": 1, "sha256": "sha256:" + "b" * 64}],
+        "files": [
+            {
+                "path": f"calibration/{cell_id}/r0/evidence/{name}",
+                "bytes": 1,
+                "sha256": "sha256:" + fill * 64,
+            }
+            for name, fill in (("public_tests.json", "b"), ("oracle.json", "c"))
+        ],
     }
     path = tmp_path / "c3-evidence-index.json"
     path.write_text(json.dumps(payload), encoding="utf-8")

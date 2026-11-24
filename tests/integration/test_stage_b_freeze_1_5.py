@@ -63,12 +63,12 @@ def _c3_index(tmp_path: Path, **overrides: Any) -> Path:
         "usage": {"requests": 12, "system_total_tokens": 167986},
         "files": [
             {
-                "path": "calibration/SYNTHETIC/evidence/public_tests.json",
+                "path": "calibration/CALIBRATION.workgrid.c3/r0/evidence/public_tests.json",
                 "bytes": 10,
                 "sha256": "sha256:" + "b" * 64,
             },
             {
-                "path": "calibration/SYNTHETIC/evidence/oracle.json",
+                "path": "calibration/CALIBRATION.workgrid.c3/r0/evidence/oracle.json",
                 "bytes": 10,
                 "sha256": "sha256:" + "c" * 64,
             },
@@ -465,6 +465,78 @@ def test_an_indexed_evidence_digest_that_moved_refuses_the_freeze(
             ),
         )
     assert not target.exists()
+
+
+def _c3_files(
+    *, drop: str = "", digest: str | None = None, cell: str = ""
+) -> list[dict[str, Any]]:
+    """The two artefacts a freeze quotes, tweakable to break one binding at a time."""
+
+    entries = []
+    for name, fill in (("public_tests.json", "b"), ("oracle.json", "c")):
+        owner = cell if (cell and name == "oracle.json") else "CALIBRATION.workgrid.c3"
+        if name == drop:
+            continue
+        default = "sha256:" + fill * 64
+        recorded = digest if (digest is not None and name == "public_tests.json") else default
+        entries.append(
+            {
+                "path": f"calibration/{owner}/r0/evidence/{name}",
+                "bytes": 10,
+                "sha256": recorded,
+            }
+        )
+    return entries
+
+
+def _refused(tmp_path: Path, expected: str) -> None:
+    """The writer must refuse before a single byte reaches the active freeze path."""
+
+    target = admission.FREEZE_PATH
+    with pytest.raises(RuntimeError, match=expected):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
+    assert not target.exists()
+
+
+def test_a_missing_public_tests_binding_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(tmp_path, files=_c3_files(drop="public_tests.json"))
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    _refused(tmp_path, "public_tests.json is not bound")
+
+
+def test_a_missing_oracle_binding_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(tmp_path, files=_c3_files(drop="oracle.json"))
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    _refused(tmp_path, "oracle.json is not bound")
+
+
+def test_an_empty_evidence_digest_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(tmp_path, files=_c3_files(digest=""))
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    _refused(tmp_path, "public_tests.json has no valid sha256")
+
+
+def test_evidence_bound_to_another_attempt_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(tmp_path, files=_c3_files(cell="CALIBRATION.workgrid.c2"))
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    _refused(tmp_path, "oracle.json is not bound")
 
 
 def test_a_retryable_claim_refuses_the_freeze(
