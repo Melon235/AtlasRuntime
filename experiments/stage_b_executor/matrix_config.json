@@ -1,0 +1,337 @@
+{
+  "authorization_path": "D:\\Work\\AtlasRuntime-approvals\\stage-b-s06-36cell.json",
+  "cell_timeout_seconds": 3600,
+  "cells": [
+    {
+      "arm_id": "P1",
+      "cell_id": "zonelint.P1.r1",
+      "order": 1,
+      "repetition": 1,
+      "task_id": "zonelint"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "slugkit.P2.r1",
+      "order": 2,
+      "repetition": 1,
+      "task_id": "slugkit"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "pager.P3.r1",
+      "order": 3,
+      "repetition": 1,
+      "task_id": "pager"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "cascade.P1.r1",
+      "order": 4,
+      "repetition": 1,
+      "task_id": "cascade"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "retrygate.P2.r1",
+      "order": 5,
+      "repetition": 1,
+      "task_id": "retrygate"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "ledgerclose.P3.r1",
+      "order": 6,
+      "repetition": 1,
+      "task_id": "ledgerclose"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "zonelint.P2.r1",
+      "order": 7,
+      "repetition": 1,
+      "task_id": "zonelint"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "slugkit.P3.r1",
+      "order": 8,
+      "repetition": 1,
+      "task_id": "slugkit"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "pager.P1.r1",
+      "order": 9,
+      "repetition": 1,
+      "task_id": "pager"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "cascade.P2.r1",
+      "order": 10,
+      "repetition": 1,
+      "task_id": "cascade"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "retrygate.P3.r1",
+      "order": 11,
+      "repetition": 1,
+      "task_id": "retrygate"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "ledgerclose.P1.r1",
+      "order": 12,
+      "repetition": 1,
+      "task_id": "ledgerclose"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "zonelint.P3.r1",
+      "order": 13,
+      "repetition": 1,
+      "task_id": "zonelint"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "slugkit.P1.r1",
+      "order": 14,
+      "repetition": 1,
+      "task_id": "slugkit"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "pager.P2.r1",
+      "order": 15,
+      "repetition": 1,
+      "task_id": "pager"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "cascade.P3.r1",
+      "order": 16,
+      "repetition": 1,
+      "task_id": "cascade"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "retrygate.P1.r1",
+      "order": 17,
+      "repetition": 1,
+      "task_id": "retrygate"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "ledgerclose.P2.r1",
+      "order": 18,
+      "repetition": 1,
+      "task_id": "ledgerclose"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "ledgerclose.P2.r2",
+      "order": 19,
+      "repetition": 2,
+      "task_id": "ledgerclose"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "slugkit.P3.r2",
+      "order": 20,
+      "repetition": 2,
+      "task_id": "slugkit"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "cascade.P1.r2",
+      "order": 21,
+      "repetition": 2,
+      "task_id": "cascade"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "zonelint.P2.r2",
+      "order": 22,
+      "repetition": 2,
+      "task_id": "zonelint"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "pager.P3.r2",
+      "order": 23,
+      "repetition": 2,
+      "task_id": "pager"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "retrygate.P1.r2",
+      "order": 24,
+      "repetition": 2,
+      "task_id": "retrygate"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "ledgerclose.P3.r2",
+      "order": 25,
+      "repetition": 2,
+      "task_id": "ledgerclose"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "slugkit.P1.r2",
+      "order": 26,
+      "repetition": 2,
+      "task_id": "slugkit"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "cascade.P2.r2",
+      "order": 27,
+      "repetition": 2,
+      "task_id": "cascade"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "zonelint.P3.r2",
+      "order": 28,
+      "repetition": 2,
+      "task_id": "zonelint"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "pager.P1.r2",
+      "order": 29,
+      "repetition": 2,
+      "task_id": "pager"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "retrygate.P2.r2",
+      "order": 30,
+      "repetition": 2,
+      "task_id": "retrygate"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "ledgerclose.P1.r2",
+      "order": 31,
+      "repetition": 2,
+      "task_id": "ledgerclose"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "slugkit.P2.r2",
+      "order": 32,
+      "repetition": 2,
+      "task_id": "slugkit"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "cascade.P3.r2",
+      "order": 33,
+      "repetition": 2,
+      "task_id": "cascade"
+    },
+    {
+      "arm_id": "P1",
+      "cell_id": "zonelint.P1.r2",
+      "order": 34,
+      "repetition": 2,
+      "task_id": "zonelint"
+    },
+    {
+      "arm_id": "P2",
+      "cell_id": "pager.P2.r2",
+      "order": 35,
+      "repetition": 2,
+      "task_id": "pager"
+    },
+    {
+      "arm_id": "P3",
+      "cell_id": "retrygate.P3.r2",
+      "order": 36,
+      "repetition": 2,
+      "task_id": "retrygate"
+    }
+  ],
+  "cost_stop_note": "Owner-selected cumulative stop target; it gates the next dispatch and is not a live hard cutoff on the provider side",
+  "cost_stop_usd": 3.0,
+  "evidence_root": "D:\\Work\\AtlasRuntime\\experiments\\stage_b_benchmark\\cells",
+  "executor_version": "stage-b-matrix-executor/1.2.1",
+  "freeze_content_digest": "sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45",
+  "freeze_raw_sha256": "sha256:004d4b776f944ea0a6c21b8f019eeed311527fb5198c0a7b10ba079b407dbdbc",
+  "freeze_version": "stage-b-execution/1.6",
+  "harness_source_digest": "sha256:eb14ea4eef7b83af253de0ab045d42c9d51ee9163a06ff09f95784e6cb661c78",
+  "order": [
+    "zonelint.P1.r1",
+    "slugkit.P2.r1",
+    "pager.P3.r1",
+    "cascade.P1.r1",
+    "retrygate.P2.r1",
+    "ledgerclose.P3.r1",
+    "zonelint.P2.r1",
+    "slugkit.P3.r1",
+    "pager.P1.r1",
+    "cascade.P2.r1",
+    "retrygate.P3.r1",
+    "ledgerclose.P1.r1",
+    "zonelint.P3.r1",
+    "slugkit.P1.r1",
+    "pager.P2.r1",
+    "cascade.P3.r1",
+    "retrygate.P1.r1",
+    "ledgerclose.P2.r1",
+    "ledgerclose.P2.r2",
+    "slugkit.P3.r2",
+    "cascade.P1.r2",
+    "zonelint.P2.r2",
+    "pager.P3.r2",
+    "retrygate.P1.r2",
+    "ledgerclose.P3.r2",
+    "slugkit.P1.r2",
+    "cascade.P2.r2",
+    "zonelint.P3.r2",
+    "pager.P1.r2",
+    "retrygate.P2.r2",
+    "ledgerclose.P1.r2",
+    "slugkit.P2.r2",
+    "cascade.P3.r2",
+    "zonelint.P1.r2",
+    "pager.P2.r2",
+    "retrygate.P3.r2"
+  ],
+  "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+  "plan_path": "experiments/stage_benchmark/s06-36cell-plan.json",
+  "pricing": {
+    "basis": "frozen config; the file itself labels it an upper bound for deepseek-chat",
+    "cache_hit_input_per_million": 0.006,
+    "cache_miss_input_per_million": 0.3,
+    "output_per_million": 1.2,
+    "snapshot_date": "2026-11-06",
+    "source": "experiments/configs/eval-benchmark.yaml"
+  },
+  "protocol_digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+  "pull_request": {
+    "base_branch": "fix/stage-b-execution-freeze-1-5",
+    "base_sha": "7a84cb7b39a18162082b9bd69284b87eef245532",
+    "head_branch": "feat/stage-b-s05-freeze-1-6",
+    "number": 6,
+    "url": "https://github.com/Melon235/AtlasRuntime/pull/6"
+  },
+  "python": "D:\\Work\\AtlasRuntime\\.venv\\Scripts\\python.exe",
+  "runs_root": "D:\\Work\\AtlasRuntime-scratch\\s06-runs",
+  "runtime_digest": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae",
+  "sandbox_endpoint": "localhost:8080",
+  "sandbox_resources": {
+    "cpu": "1",
+    "image": "atlas-uat-python:3.12",
+    "memory": "1Gi",
+    "network": "none",
+    "provider": "opensandbox"
+  },
+  "stage": "B-36CELL",
+  "stop_policy": "MEASURED_AGENT_FAILURE_CONTINUE",
+  "token_budget_per_cell": 500000,
+  "token_budget_total": 18000000
+}

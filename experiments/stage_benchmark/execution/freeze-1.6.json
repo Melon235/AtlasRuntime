@@ -1,0 +1,206 @@
+{
+  "analysis": {
+    "e1_analyser_unchanged": "stage-b-reconstruct/1.1",
+    "execution_analysis_version": "stage-b-execution-analysis/1.2"
+  },
+  "calibration": {
+    "attempts_authorised_total": 3,
+    "authorised_this_stage": 0,
+    "authorises_new_calibration": false,
+    "cell_id": "CALIBRATION.workgrid.c3",
+    "claim": {
+      "claimed_at": "2026-11-24T03:12:56.645872+00:00",
+      "preflight_digest": "sha256:d45c801e7aeaa88f6df6bd2407821ddca9c2176950ff27dd99d03a1fb1749f05",
+      "retries_allowed": false,
+      "runner_source_digest": "sha256:85440673c0cdf46e249e9f79823731145047720140bf83baf542e39dc7e9fbe3",
+      "sha256": "sha256:efc7a8e5c39a2bba673d84520b48f1ac6c1034d07a12002a40174b6bb7ae979e",
+      "state": "COLLECTED"
+    },
+    "evidence_bundle": {
+      "digests_mismatched": 0,
+      "digests_verified": 28,
+      "missing_files": 0,
+      "present_files": 28
+    },
+    "evidence_index": {
+      "files": 28,
+      "path": "experiments/stage_b_calibration/c3-evidence-index.json",
+      "sha256": "sha256:2e7bfa51e9abcde73ce4ca05121db41f35b561100c230ae3731bb5410f6eb37c"
+    },
+    "executed_commit": "7a84cb7b39a18162082b9bd69284b87eef245532",
+    "executed_under_freeze": "stage-b-execution/1.5",
+    "host_oracle": {
+      "agreement": "AGREE",
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/oracle.json",
+      "sha256": "sha256:cd861df4979f0e38762969cf72eb8ad418c209a43af35e78af242662d507affc",
+      "source": "host:experiments/stage_s2_prompt_v21/s2_contract",
+      "verdict": "PASS"
+    },
+    "in_matrix": false,
+    "note": "historical record of the single attempt that already ran; this freeze authorises no calibration attempt",
+    "previous_attempts": [
+      "CALIBRATION.workgrid.c1",
+      "CALIBRATION.workgrid.c2"
+    ],
+    "public_tests": {
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/public_tests.json",
+      "sha256": "sha256:58a49612ebe8af8fb3ada74fc02d3ef79ff32655a9468e1cda9868f84bf9b6c1"
+    },
+    "reason_not_run": null,
+    "retry": "FORBIDDEN",
+    "status": "COMPLETED",
+    "task": "workgrid",
+    "usage": {
+      "budget_limit_tokens": 500000,
+      "cache_hit_ratio": 0.892349,
+      "completion_tokens": 3315,
+      "estimated_cost_usd": 0.010178,
+      "pricing_source": "experiments/stage_benchmark/estimate.json (frozen, 2026-11-06)",
+      "prompt_cache_hit_tokens": 146944,
+      "prompt_cache_miss_tokens": 17727,
+      "requests": 12,
+      "system_total_tokens": 167986
+    },
+    "verdict": "PASS",
+    "verdicts": {
+      "cell_status": "COMPLETED",
+      "execution_integrity": "OK",
+      "goal_correctness": "PASS",
+      "host_oracle_source": "host:experiments/stage_s2_prompt_v21/s2_contract",
+      "oracle_agreement": "AGREE"
+    }
+  },
+  "e1_freeze": "sha256:a8dac818908da6c86f3b33008bb01e8a8a931136b5e03aa2c33a974979150c01",
+  "freeze_version": "stage-b-execution/1.6",
+  "frozen_at": "2026-11-24T05:39:33.031822+00:00",
+  "git": {
+    "dirty_paths": [
+      "M .gitignore",
+      " M experiments/stage_benchmark/execution/offline.json",
+      " M tests/integration/test_stage_b_freeze_1_5.py",
+      " M tests/integration/test_stage_b_s06_plan.py",
+      "?? experiments/stage_benchmark/execution/archive/freeze-1.5.json"
+    ],
+    "git_branch": "feat/stage-b-s05-freeze-1-6",
+    "git_head": "40e1a80e99855955cca766a8330b997d59d0dfc1",
+    "git_status": "M .gitignore\n M experiments/stage_benchmark/execution/offline.json\n M tests/integration/test_stage_b_freeze_1_5.py\n M tests/integration/test_stage_b_s06_plan.py\n?? experiments/stage_benchmark/execution/archive/freeze-1.5.json"
+  },
+  "history": [
+    {
+      "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.0.json",
+      "content_digest": "sha256:48acad3ee7adbcff2e635b9ee6101c52dad9d6cd636146bf85dfb39e96e0bd23",
+      "digest": "sha256:7bf630e55dfd1cb8fbf15bd8a2a40cb0ee001987d6bf3c68ad527144c8e5a7e6",
+      "version": "stage-b-execution/1.0"
+    },
+    {
+      "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.1.json",
+      "content_digest": "sha256:437df8c480bdcb1631163741b32368584cffbf9ccfe90ea919165cd211170fb9",
+      "digest": "sha256:606c7d4c1d9019cd2f89d0c846b438d15e94eb3a00ffaa7d33fece7355e6a05f",
+      "version": "stage-b-execution/1.1"
+    },
+    {
+      "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.2.json",
+      "content_digest": "sha256:5a0718b3c2354aa8fb44491b0943962725a4e5cbd202a9fa6def505d8b272751",
+      "digest": "sha256:7b262d89c2782442286940c9705601982f9c1fe79ea449b0cd8fc9b3ddfb6b18",
+      "version": "stage-b-execution/1.2"
+    },
+    {
+      "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.3.json",
+      "content_digest": "sha256:d177f8f99c311e790a8571b25129194e77d7c6f9e9071deb01edb4f740c7702e",
+      "digest": "sha256:37506684d630daf2fdd664cb87e9aa353bef6f848cb1fbaad5d4b7129ecbfee1",
+      "version": "stage-b-execution/1.3"
+    },
+    {
+      "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.4.json",
+      "content_digest": "sha256:eaee6d8662c89fcd7c473430c6a74a17b60f67b87836439be1bb0cfff79de9c7",
+      "digest": "sha256:b54d2650552a14758bfca91425a2eaf07ff0798c1834a39720d035877efb7679",
+      "version": "stage-b-execution/1.4"
+    },
+    {
+      "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.5.json",
+      "content_digest": "sha256:b08ea2b5754a1d49197300b588f8753ef1fa680391cfd567018eb2be9848dc8f",
+      "digest": "sha256:f4eebd205ee40849e59df30caa6c36058cf333371d7795e150ffde4bcc52cefd",
+      "version": "stage-b-execution/1.5"
+    }
+  ],
+  "offline": {
+    "cases": 23,
+    "digest": "sha256:6bdb3885867ef6e5555a9e5fee71139410a8d70eb578a29293686da4a56d3c5c",
+    "passed": true
+  },
+  "plan_digest": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+  "preflight_digest": "sha256:c607a6dbcba5a67c6cdf94f74dbf4babdd84354610be28d6329a9cf751486561",
+  "protocol": {
+    "analysis_schema_version": "stage-b-result/1.1",
+    "digest": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+    "version": "1.1.0"
+  },
+  "provisioning_gate": {
+    "attempt": "attempt-a22c2b7650af7e33",
+    "benchmark_cells": 0,
+    "calibration_attempts": 0,
+    "checks_total": 22,
+    "checks_true": 22,
+    "digest": "sha256:6ab3455472c212c5d20bd9ce4319c69a113ae3cd09801c63d8dfc67fd5313ae9",
+    "evidence": "D:\\Work\\AtlasRuntime\\experiments\\stage_b_smoke\\e2f-provisioning\\attempts\\attempt-a22c2b7650af7e33\\provisioning-result.json",
+    "model_requests": 0,
+    "process_exit_code": "UNOBSERVED",
+    "residual": false,
+    "retry": "FORBIDDEN",
+    "review": "ACCEPTED_WITH_OBSERVATION_EXCEPTION",
+    "review_digest": "sha256:554ebb889f9fe9fb890134a377663270b6e6be5704114c8a17cf7bfd6baace51",
+    "review_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_b_smoke\\e2f-provisioning\\reviews\\s03-evidence-review.json",
+    "sandbox_created": true,
+    "sandbox_destroyed": true,
+    "status": "PASSED",
+    "unconfirmed": [],
+    "verdict": "PROVISIONING_SMOKE_PASS"
+  },
+  "smoke_test": {
+    "calibration_attempts": 0,
+    "checks": {
+      "cleanup": true,
+      "commands": true,
+      "create": true,
+      "files": true,
+      "health": true,
+      "isolation": true,
+      "no_calibration": true,
+      "no_model": true,
+      "resources": true
+    },
+    "digest": "sha256:19caf46eb605183c7793243a4e7a677f2470a37dc1e19361d7eae5807509def9",
+    "evidence": "D:\\Work\\AtlasRuntime\\experiments\\stage_b_smoke\\sandbox-smoke\\smoke-result.json",
+    "model_requests": 0,
+    "sandbox_created": true,
+    "sandbox_destroyed": true,
+    "status": "PASSED",
+    "verdict": "SANDBOX_SMOKE_PASS"
+  },
+  "source": {
+    "digest": "sha256:eb14ea4eef7b83af253de0ab045d42c9d51ee9163a06ff09f95784e6cb661c78",
+    "file_count": 10,
+    "files": {
+      "__init__.py": "sha256:bb8e0730871775854dad7d086d969f1392c0cc28150d5cc7e4304f4ecaff7065",
+      "adapter.py": "sha256:fe0a477f07a82c648d21a5d31e4a87ddc945ed531eeb8a47f9b9045183b94022",
+      "admission.py": "sha256:740fff4dd4864e9dd99e2ad5199a05fc90eb4def7ee475aa1b3fa5cee965fed5",
+      "collector.py": "sha256:a263babdab8753bc3499c34577d16df5e1af779a52e4b86994a014836ba6a665",
+      "models.py": "sha256:3b720733445f4b60521f9fca4230df183bdc942d5b337168515ca236768a00e5",
+      "network.py": "sha256:01a641fd42c9b388e755de9af1c0a55e5f821f3e70e6fdfa96c9c2214f0a9060",
+      "offline.py": "sha256:d38703deaec23e6fa16c413c69eb1e041e59c5f6766f372570a86481ebca923e",
+      "provision.py": "sha256:4336a8e2d6f2425161f68c68a0d2c1b1bcaa3237957b027226e8bdcc1f6ccccd",
+      "runner.py": "sha256:ec903d85904143266092b324613cd041dcc4c93697580d89d78a5d6c4d37459e",
+      "smoke.py": "sha256:a882cac1c12d8730d788e9de38c53218c22a2e5a2515df10e59cc83f73b58eda"
+    },
+    "line_endings": "crlf-normalised",
+    "root": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution"
+  },
+  "stage": "B-E2F-PROVISIONING-GATE",
+  "supersedes": {
+    "archive_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\archive\\freeze-1.5.json",
+    "content_digest": "sha256:b08ea2b5754a1d49197300b588f8753ef1fa680391cfd567018eb2be9848dc8f",
+    "digest": "sha256:f4eebd205ee40849e59df30caa6c36058cf333371d7795e150ffde4bcc52cefd",
+    "live_path": "D:\\Work\\AtlasRuntime\\experiments\\stage_benchmark\\execution\\freeze-1.5.json",
+    "version": "stage-b-execution/1.5"
+  }
+}

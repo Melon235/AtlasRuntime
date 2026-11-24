@@ -6,6 +6,7 @@ built from it, never the other way round. A missing artefact is recorded as a ga
 
 from __future__ import annotations
 
+import base64
 import json
 import shutil
 from collections.abc import Mapping
@@ -283,7 +284,8 @@ def analyze(
     )
     problems = schema.validate_record(record)
     gaps.extend(record["consistency"].get("gaps") or [])
-    view = adapter.build_view(record, oracle=oracle, gaps=gaps)
+    # The raw session is the only place the sandbox lifecycle and the session status survive.
+    view = adapter.build_view(record, oracle=oracle, gaps=gaps, session=session)
     record["execution_view"] = view
     payload = {
         "schema_version": schema.SCHEMA_VERSION,
@@ -310,34 +312,221 @@ def analyze(
     return payload
 
 
-def scrub_evidence(bundle: Path) -> list[str]:
-    """Redact the *published* copies only. The private raw bundle is never written."""
+def _oracle_texts(task_id: str | None) -> list[str]:
+    """Every textual form of this cell's hidden oracle that must not reach a published copy.
 
-    secrets = [
-        variant
-        for spec in BY_ID.values()
-        for text in (spec.oracle_source, *spec.reference.values())
-        if text and len(text) > 40
-        for variant in (text, json.dumps(text)[1:-1])
-    ]
+    The dynamic acceptance command embeds ``base64(oracle_source)``, so redacting the plaintext
+    alone left the hidden program recoverable from every published ``session.json``. The encoded
+    form is therefore a secret in its own right. ``task_id=None`` keeps the pre-1.2 behaviour and
+    covers all six benchmark tasks.
+    """
+
+    sources: list[str] = []
+    if task_id is None:
+        for spec in BY_ID.values():
+            sources.append(spec.oracle_source)
+            sources.extend(spec.reference.values())
+    elif task_id in BY_ID:
+        spec = BY_ID[task_id]
+        sources.append(spec.oracle_source)
+        sources.extend(spec.reference.values())
+    else:
+        # A calibration cell runs the S2 contract task, which is not in the benchmark matrix.
+        from experiments.stage_s2_prompt_v21 import s2_contract
+
+        sources.append(s2_contract.HIDDEN_PROGRAM)
+
+    texts: list[str] = []
+    for text in sources:
+        if not text or len(text) <= 40:
+            continue
+        texts.append(text)
+        texts.append(json.dumps(text)[1:-1])
+        texts.append(base64.b64encode(text.encode("utf-8")).decode("ascii"))
+    return texts
+
+
+def _relative(path: Path, bundle: Path) -> str:
+    return str(path.relative_to(bundle)).replace("\\", "/")
+
+
+def scrub_evidence(bundle: Path, *, task_id: str | None = None) -> list[str]:
+    """Redact the *published* copies only. The private raw bundle is never written.
+
+    Every published file that decodes as UTF-8 is considered, whatever its extension: an oracle
+    copied into ``notes.md`` or an extension-less file must not survive because of its name. Files
+    that do not decode are left byte-identical here; the publication audit then refuses them unless
+    it can prove they are clean.
+    """
+
+    secrets = _oracle_texts(task_id)
     redacted: list[str] = []
     for path in sorted(bundle.rglob("*")):
-        if not path.is_file() or RAW_DIR in path.relative_to(bundle).parts:
+        if not path.is_file() or path.is_symlink():
             continue
-        if path.suffix not in {".json", ".jsonl", ".txt", ".log", ".py", ".patch"}:
+        if RAW_DIR in path.relative_to(bundle).parts:
             continue
-        original = path.read_text(encoding="utf-8", errors="replace")
+        try:
+            original = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
         cleaned = original
         for secret in secrets:
             if secret in cleaned:
                 cleaned = cleaned.replace(secret, "[REDACTED_HOST_ORACLE]")
         if cleaned != original:
             path.write_text(cleaned, encoding="utf-8")
-            redacted.append(str(path.relative_to(bundle)).replace("\\", "/"))
+            redacted.append(_relative(path, bundle))
     return redacted
 
 
-def manifest(bundle: Path, *, redactions: tuple[str, ...] = ()) -> dict[str, Any]:
+def published_files(bundle: Path) -> list[Path]:
+    """The candidate publish set: the public copies only, never the raw evidence.
+
+    This is deliberately a candidate set. Being listed here does not make a file publishable; see
+    :func:`publication_audit`, which examines every candidate and refuses what it cannot prove safe.
+    """
+
+    return [
+        path
+        for path in sorted(bundle.rglob("*"))
+        if (path.is_file() or path.is_symlink()) and path.relative_to(bundle).parts[0] != RAW_DIR
+    ]
+
+
+def publication_audit(bundle: Path, *, task_id: str | None = None) -> dict[str, Any]:
+    """Publication-time acceptance, run after the scrub and before the manifest.
+
+    The publish set is the scrubbed public copies: the raw bundle is not a candidate, and no
+    candidate is published without being examined. A candidate is refused when it cannot be read,
+    when it is a symlink, when it resolves outside the bundle or back into ``_raw``, when it
+    contains NUL bytes, or when it is not valid UTF-8: a file this pipeline cannot decode is a file
+    whose cleanliness cannot be proven, so it never reaches ``ok``. A refusal is recorded and makes
+    the bundle non-publishable; nothing is deleted or rewritten here.
+    """
+
+    problems: list[str] = []
+    root = bundle.resolve()
+    raw_root = (bundle / RAW_DIR).resolve()
+    published = published_files(bundle)
+    raw_dir = bundle / RAW_DIR
+    raw_files = [path for path in raw_dir.rglob("*") if path.is_file()] if raw_dir.is_dir() else []
+
+    leaked_into_published = [
+        _relative(path, bundle)
+        for path in published
+        if _relative(path, bundle).startswith(f"{RAW_DIR}/")
+    ]
+    if leaked_into_published:
+        problems.append(f"raw files in the published set: {', '.join(leaked_into_published)}")
+
+    secrets = [secret.encode("utf-8") for secret in _oracle_texts(task_id)]
+    scanned = 0
+    unscannable: list[str] = []
+    symlinks: list[str] = []
+    for path in published:
+        relative = _relative(path, bundle)
+        if path.is_symlink():
+            symlinks.append(relative)
+            problems.append(f"symlink in the evidence bundle: {relative}")
+            continue
+        resolved = path.resolve()
+        if not resolved.is_relative_to(root):
+            problems.append(f"published file escapes the bundle: {relative}")
+            continue
+        if resolved.is_relative_to(raw_root):
+            problems.append(f"published file resolves into the raw bundle: {relative}")
+            continue
+        try:
+            data = path.read_bytes()
+        except OSError as error:
+            unscannable.append(relative)
+            problems.append(f"published file cannot be read ({error}): {relative}")
+            continue
+        if b"\x00" in data:
+            unscannable.append(relative)
+            problems.append(
+                "published file is binary or in an unknown encoding and cannot be proven clean: "
+                + relative
+            )
+            continue
+        # A file must be text this pipeline produced. Undecodable bytes without NUL (a truncated
+        # sequence, a latin-1 copy, a binary blob that happens to avoid 0x00) cannot be proven free
+        # of oracle material, so it is refused rather than byte-searched and passed.
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError as error:
+            unscannable.append(relative)
+            problems.append(
+                f"published file is not valid UTF-8 ({error.reason} at byte {error.start}) and "
+                f"cannot be proven clean: {relative}"
+            )
+            continue
+        scanned += 1
+        for secret in secrets:
+            if secret in data:
+                problems.append(f"hidden oracle material in a published file: {relative}")
+                break
+
+    statistics_ok = False
+    analysis_path = bundle / ANALYSIS
+    if not analysis_path.is_file():
+        problems.append("analysis.json is missing from the published set")
+    else:
+        try:
+            analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            problems.append(f"published analysis.json does not parse: {error}")
+        else:
+            record = analysis.get("record") or {}
+            usage = record.get("usage") or {}
+            statistics_ok = bool(
+                analysis.get("status")
+                and record.get("execution_view")
+                and usage
+                and usage.get("sum_matches_system_total") is not False
+            )
+            if not statistics_ok:
+                problems.append("the published analysis cannot back the required statistics")
+
+    for name in ("session.json", "provider_usage.json", "public_tests.json", "oracle.json"):
+        path = bundle / name
+        if not path.is_file():
+            continue
+        try:
+            json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            problems.append(f"published {name} does not parse after redaction: {error}")
+
+    every_candidate_examined = scanned + len(unscannable) + len(symlinks) == len(published)
+    if not every_candidate_examined:
+        problems.append("a candidate publish file was neither scanned nor refused")
+
+    return {
+        "ok": not problems,
+        "problems": problems,
+        "published_files": len(published),
+        "raw_files": len(raw_files),
+        "scanned_files": scanned,
+        "unscannable_files": unscannable,
+        "symlinks": len(symlinks),
+        "every_candidate_examined": every_candidate_examined,
+        "raw_dir_published": bool(leaked_into_published),
+        "statistics_from_published": statistics_ok,
+        "policy": (
+            "the publish set is the scrubbed public copies only; the raw bundle is never a "
+            "candidate, every candidate is examined, and anything that cannot be proven clean is "
+            "refused"
+        ),
+    }
+
+
+def manifest(
+    bundle: Path,
+    *,
+    redactions: tuple[str, ...] = (),
+    publication: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     published: dict[str, str] = {}
     raw: dict[str, str] = {}
     for path in sorted(bundle.rglob("*")):
@@ -358,6 +547,7 @@ def manifest(bundle: Path, *, redactions: tuple[str, ...] = ()) -> dict[str, Any
         "raw_dir": RAW_DIR,
         "immutable_raw": True,
         "redactions": list(redactions),
+        "publication": dict(publication or {}),
         "contract": provision.evidence_contract(),
     }
     _write_json(bundle / MANIFEST, payload)
@@ -412,18 +602,20 @@ def collect(
     analysis = analyze(
         bundle, cell=cell, source_digest=source_digest, evidence_gaps=gaps, document=document
     )
-    redactions = tuple(scrub_evidence(bundle))
-    payload = manifest(bundle, redactions=redactions)
+    redactions = tuple(scrub_evidence(bundle, task_id=cell.task_id))
+    publication = publication_audit(bundle, task_id=cell.task_id)
+    payload = manifest(bundle, redactions=redactions, publication=publication)
     missing = completeness(bundle)
     explained = not_applicable(bundle)
     return {
-        "ok": not missing and bool(analysis["valid"]),
+        "ok": not missing and bool(analysis["valid"]) and bool(publication["ok"]),
         "status": analysis.get("status", "COMPLETE" if analysis["valid"] else "INVALID"),
         "missing": missing,
         "not_applicable": explained,
         "evidence_gaps": analysis["evidence_gaps"],
         "analysis": analysis,
         "manifest": payload,
+        "publication": publication,
         "analysis_path": bundle / ANALYSIS,
     }
 
@@ -459,8 +651,9 @@ def recover_evidence(bundle: Path, *, cell: CellIdentity, source_digest: str) ->
     # The existing Host Oracle publication is authoritative; recovery never re-runs it or edits it.
     gaps = list(restored)
     analysis = analyze(bundle, cell=cell, source_digest=source_digest, evidence_gaps=gaps)
-    redactions = tuple(scrub_evidence(bundle))
-    payload = manifest(bundle, redactions=redactions)
+    redactions = tuple(scrub_evidence(bundle, task_id=cell.task_id))
+    publication = publication_audit(bundle, task_id=cell.task_id)
+    payload = manifest(bundle, redactions=redactions, publication=publication)
     raw_digests_after = {
         str(path.relative_to(source)).replace("\\", "/"): digest_bytes(path.read_bytes())
         for path in source.rglob("*")
@@ -469,9 +662,10 @@ def recover_evidence(bundle: Path, *, cell: CellIdentity, source_digest: str) ->
     missing = completeness(bundle)
     degraded = analysis.get("status") == "INCOMPLETE"
     return {
-        "ok": not missing and bool(analysis["valid"]),
-        "status": "INCOMPLETE" if (missing or degraded) else "RECOVERED",
+        "ok": not missing and bool(analysis["valid"]) and bool(publication["ok"]),
+        "status": "INCOMPLETE" if (missing or degraded or not publication["ok"]) else "RECOVERED",
         "degraded": degraded,
+        "publication": publication,
         "missing": missing,
         "missing_raw_optional": raw_missing,
         "not_applicable": not_applicable(bundle),

@@ -1,10 +1,14 @@
-"""Stage B-E2F closure: the versioned execution freeze, 1.5.
+"""Stage B-E2F closure: the versioned execution freeze chain, now pointing at 1.6.
 
 The defect these tests exist for is narrow and was real: ``write_freeze`` hard-coded
 ``stage-b-execution/1.4`` and wrote it to ``freeze-1.4.json``, so ``runner --freeze`` would have
 overwritten a freeze that a completed live run was authorized against. Every test here is offline:
 no provider, no sandbox, no calibration, no benchmark cell. Nothing writes inside the repository:
 the archive and the active freeze are redirected into ``tmp_path`` before a writer runs.
+
+S05 moved the pointer to ``1.6`` to prepare the writer for the analysis-1.2 harness, and appended
+``1.5`` to the immutable chain. Writing 1.6 is a separate, reviewed step: without the file no live
+cell can start, which the last tests in this module assert.
 """
 
 from __future__ import annotations
@@ -31,12 +35,59 @@ def _digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point the active freeze and the archive at the temp tree. The chain stays the real one."""
+def _c3_index(tmp_path: Path, **overrides: Any) -> Path:
+    """A synthetic sealed c3 index. Its file paths point nowhere real, so nothing is verified."""
 
-    monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze-1.5.json")
+    payload: dict[str, Any] = {
+        "stage": "B-C3-CALIBRATION",
+        "cell": "CALIBRATION.workgrid.c3",
+        "repetition": 0,
+        "git_commit": "7a84cb7b39a18162082b9bd69284b87eef245532",
+        "execution_freeze": "stage-b-execution/1.5",
+        "runner_source_digest": "sha256:" + "8" * 64,
+        "claim": {
+            "sha256": "sha256:" + "a" * 64,
+            "state": "COLLECTED",
+            "claimed_at": "2026-11-24T03:12:56+00:00",
+            "retries_allowed": False,
+            "runner_source_digest": "sha256:" + "8" * 64,
+            "preflight_digest": "sha256:" + "9" * 64,
+        },
+        "verdicts": {
+            "cell_status": "COMPLETED",
+            "execution_integrity": "OK",
+            "goal_correctness": "PASS",
+            "oracle_agreement": "AGREE",
+            "host_oracle_source": "host:experiments/stage_s2_prompt_v21/s2_contract",
+        },
+        "usage": {"requests": 12, "system_total_tokens": 167986},
+        "files": [
+            {
+                "path": "calibration/CALIBRATION.workgrid.c3/r0/evidence/public_tests.json",
+                "bytes": 10,
+                "sha256": "sha256:" + "b" * 64,
+            },
+            {
+                "path": "calibration/CALIBRATION.workgrid.c3/r0/evidence/oracle.json",
+                "bytes": 10,
+                "sha256": "sha256:" + "c" * 64,
+            },
+        ],
+    }
+    payload.update(overrides)
+    path = tmp_path / "c3-index" / "c3-evidence-index.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def _isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Point the active freeze, the archive and the c3 provenance at the temp tree."""
+
+    monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze-1.6.json")
     monkeypatch.setattr(admission, "ARCHIVE_DIR", tmp_path / "archive")
-    return tmp_path / "freeze-1.5.json"
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", _c3_index(tmp_path))
+    return tmp_path / "freeze-1.6.json"
 
 
 def _write(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, dict[str, Any]]:
@@ -56,28 +107,48 @@ def _labels(result: dict[str, Any]) -> dict[str, dict[str, Any]]:
 # --------------------------------------------------------------------------- the version pointer
 
 
-def test_the_active_freeze_is_1_5_and_1_4_is_the_last_spent_version() -> None:
-    assert admission.FREEZE_VERSION == "stage-b-execution/1.5"
-    assert admission.FREEZE_PATH.name == "freeze-1.5.json"
+def test_the_active_pointer_is_1_6_and_1_5_is_the_last_spent_version() -> None:
+    assert admission.FREEZE_VERSION == "stage-b-execution/1.6"
+    assert admission.FREEZE_PATH.name == "freeze-1.6.json"
     assert [version for version, _path, _digest in admission.FROZEN_CHAIN] == [
         "stage-b-execution/1.0",
         "stage-b-execution/1.1",
         "stage-b-execution/1.2",
         "stage-b-execution/1.3",
         "stage-b-execution/1.4",
+        "stage-b-execution/1.5",
     ]
-    assert admission.FROZEN_CHAIN[-1][1].name == "freeze-1.4.json"
-    # The one bug this stage fixes: writing must not aim at 1.4.
+    assert admission.FROZEN_CHAIN[-1][1].name == "freeze-1.5.json"
+    # The one bug this stage fixes: writing must not aim at a spent version.
     assert admission.FROZEN_CHAIN[-1][1] != admission.FREEZE_PATH
 
 
-def test_the_written_freeze_declares_1_5_and_supersedes_1_4_by_its_real_digest(
+def test_a_missing_active_freeze_blocks_every_live_cell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Writing the file is a separate step. Until it exists, no live cell may start.
+
+    The check is isolated in ``tmp_path`` on purpose: once 1.6 is written the repository no longer
+    has a missing active freeze, and a test that asserted that would have to be deleted rather than
+    keep proving the fail-closed path.
+    """
+
+    monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze-1.6.json")
+    assert not admission.FREEZE_PATH.is_file()
+    live = admission.preflight(evidence_root=tmp_path / "unused", cell=None, live=True)
+    assert live["status"] == "BLOCKED"
+    assert _labels(live)["active_execution_freeze_present"]["ok"] is False
+    assert _labels(live)["runner_source_digest_matches_freeze"]["ok"] is False
+    assert admission.frozen_chain_problems() == []
+
+
+def test_the_written_freeze_declares_1_6_and_supersedes_1_5_by_its_real_digest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     target, document = _write(monkeypatch, tmp_path)
     assert target.is_file()
-    assert document["freeze_version"] == "stage-b-execution/1.5"
-    assert document["supersedes"]["version"] == "stage-b-execution/1.4"
+    assert document["freeze_version"] == "stage-b-execution/1.6"
+    assert document["supersedes"]["version"] == "stage-b-execution/1.5"
     # The real SHA-256 of the bytes this worktree has, plus the rendering-free pin.
     assert document["supersedes"]["digest"] == _digest(admission.FROZEN_CHAIN[-1][1])
     assert document["supersedes"]["content_digest"] == admission.FROZEN_CHAIN[-1][2]
@@ -89,10 +160,10 @@ def test_the_written_freeze_declares_1_5_and_supersedes_1_4_by_its_real_digest(
     assert document["source"]["digest"] == admission.source_identity()["digest"]
 
 
-# --------------------------------------------------------------------------- 1.4 is never rewritten
+# --------------------------------------------------------------------------- 1.5 is never rewritten
 
 
-def test_writing_1_5_never_touches_the_bytes_of_1_4(
+def test_writing_1_6_never_touches_the_bytes_of_1_5(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     frozen_14 = admission.FROZEN_CHAIN[-1][1]
@@ -111,10 +182,10 @@ def test_writing_1_5_never_touches_the_bytes_of_1_4(
         assert admission.archive_path(version).read_bytes() == payload
 
 
-def test_a_moved_1_4_blocks_the_writer_and_the_live_preflight(
+def test_a_moved_1_5_blocks_the_writer_and_the_live_preflight(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    tampered = tmp_path / "freeze-1.4.json"
+    tampered = tmp_path / "freeze-1.5.json"
     tampered.write_bytes(admission.FROZEN_CHAIN[-1][1].read_bytes() + b" ")
     chain = (
         *admission.FROZEN_CHAIN[:-1],
@@ -130,7 +201,7 @@ def test_a_moved_1_4_blocks_the_writer_and_the_live_preflight(
                 evidence_root=tmp_path / "evidence", require_offline_report=False
             ),
         )
-    assert not (tmp_path / "freeze-1.5.json").exists()
+    assert not (tmp_path / "freeze-1.6.json").exists()
 
     blocked = admission.preflight(evidence_root=tmp_path / "evidence", live=True)
     assert blocked["status"] == "BLOCKED"
@@ -266,7 +337,7 @@ def test_a_broken_history_chain_cannot_reach_live_ready(
 
     payload = admission.read_json(target)
     payload["supersedes"]["content_digest"] = admission.FROZEN_CHAIN[-1][2]
-    payload["freeze_version"] = "stage-b-execution/1.4"
+    payload["freeze_version"] = "stage-b-execution/1.5"
     target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     mismatched = admission.preflight(evidence_root=tmp_path / "evidence", live=True)
     assert mismatched["status"] == "BLOCKED"
@@ -276,26 +347,26 @@ def test_a_broken_history_chain_cannot_reach_live_ready(
 # --------------------------------------------------------------------------- the CLI target
 
 
-def test_the_freeze_cli_targets_1_5_and_leaves_1_4_alone(
+def test_the_freeze_cli_targets_1_6_and_leaves_1_5_alone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     target = _isolate(tmp_path, monkeypatch)
     monkeypatch.setattr(admission, "PREFLIGHT_PATH", tmp_path / "preflight.json")
-    frozen_14 = admission.FROZEN_CHAIN[-1][1]
-    before = frozen_14.read_bytes()
+    frozen_15 = admission.FROZEN_CHAIN[-1][1]
+    before = frozen_15.read_bytes()
 
     code = runner.main(["--freeze", "--evidence-root", str(tmp_path / "evidence")])
 
     assert code == 0
     assert target.is_file()
-    assert frozen_14.read_bytes() == before
-    assert admission.read_json(target)["freeze_version"] == "stage-b-execution/1.5"
+    assert frozen_15.read_bytes() == before
+    assert admission.read_json(target)["freeze_version"] == "stage-b-execution/1.6"
 
 
-# --------------------------------------------------------------------------- c3 stays unauthorized
+# --------------------------------------------------------------------------- c3 provenance
 
 
-def test_the_new_freeze_does_not_authorize_c3(
+def test_the_new_freeze_records_the_completed_calibration(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _target, document = _write(monkeypatch, tmp_path)
@@ -303,23 +374,200 @@ def test_the_new_freeze_does_not_authorize_c3(
     assert (
         calibration["cell_id"] == provision.calibration_cell().cell_id == "CALIBRATION.workgrid.c3"
     )
-    assert calibration["status"] == "PREPARED_NOT_RUN"
-    assert calibration["attempts_authorised_total"] == 2
-    assert calibration["authorised_this_stage"] == 0
-    assert calibration["authorization"] == "PENDING_OWNER_APPROVAL"
-    # c1 and c2 stay named exactly where the earlier stages left them.
+    # The attempt already ran under 1.5. A new freeze records it; it never demotes it.
+    assert calibration["status"] == "COMPLETED"
+    assert calibration["verdict"] == "PASS"
+    assert calibration["executed_under_freeze"] == "stage-b-execution/1.5"
+    assert calibration["executed_commit"] == "7a84cb7b39a18162082b9bd69284b87eef245532"
+    assert calibration["claim"]["state"] == "COLLECTED"
+    assert calibration["claim"]["retries_allowed"] is False
+    assert calibration["retry"] == "FORBIDDEN"
     assert calibration["previous_attempts"] == [
         "CALIBRATION.workgrid.c1",
         "CALIBRATION.workgrid.c2",
     ]
+    assert calibration["attempts_authorised_total"] == 3
+    # The new freeze authorises nothing new.
+    assert calibration["authorised_this_stage"] == 0
+    assert calibration["authorises_new_calibration"] is False
+    assert "PREPARED_NOT_RUN" not in json.dumps(calibration)
+    # The historical rulings and evidence digests travel with the record.
+    assert calibration["verdicts"]["goal_correctness"] == "PASS"
+    assert calibration["verdicts"]["oracle_agreement"] == "AGREE"
+    assert calibration["public_tests"]["sha256"].startswith("sha256:")
+    assert calibration["host_oracle"]["sha256"].startswith("sha256:")
+    assert calibration["evidence_index"]["sha256"].startswith("sha256:")
+    assert calibration["evidence_index"]["files"] == 2
     assert provision.CALIBRATION["attempt"] == 3
-    assert provision.CALIBRATION["status"] == "PREPARED_NOT_RUN"
+    assert provision.CALIBRATION["status"] == "COMPLETED"
     # Writing a freeze is not an approval: the gate still refuses the cell without a record.
     gate = admission.authorization_gate(
         None, cell=provision.calibration_cell(), preflight_result={"digest": "x"}, live=True
     )
     assert gate["ready"] is False
     assert "no_authorization_record" in gate["problems"]
+
+
+def test_a_missing_calibration_index_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = _isolate(tmp_path, monkeypatch)
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", tmp_path / "absent.json")
+    with pytest.raises(RuntimeError, match="calibration provenance is missing"):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
+    assert not target.exists()
+
+
+def test_a_calibration_that_was_never_completed_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = _isolate(tmp_path, monkeypatch)
+    index = _c3_index(
+        tmp_path,
+        verdicts={
+            "cell_status": "FAILED",
+            "execution_integrity": "FAILED",
+            "goal_correctness": "UNKNOWN",
+            "oracle_agreement": "UNKNOWN",
+            "host_oracle_source": "UNKNOWN",
+        },
+    )
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    with pytest.raises(RuntimeError, match="calibration provenance is inconsistent"):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
+    assert not target.exists()
+
+
+def test_an_indexed_evidence_digest_that_moved_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = _isolate(tmp_path, monkeypatch)
+    artifact = tmp_path / "public_tests.json"
+    artifact.write_text("{}", encoding="utf-8")
+    index = _c3_index(
+        tmp_path,
+        files=[
+            {
+                "path": str(artifact).replace("\\", "/"),
+                "bytes": len(artifact.read_bytes()),
+                "sha256": "sha256:" + "0" * 64,
+            }
+        ],
+    )
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    with pytest.raises(RuntimeError, match="indexed evidence changed"):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
+    assert not target.exists()
+
+
+def _c3_files(
+    *, drop: str = "", digest: str | None = None, cell: str = ""
+) -> list[dict[str, Any]]:
+    """The two artefacts a freeze quotes, tweakable to break one binding at a time."""
+
+    entries = []
+    for name, fill in (("public_tests.json", "b"), ("oracle.json", "c")):
+        owner = cell if (cell and name == "oracle.json") else "CALIBRATION.workgrid.c3"
+        if name == drop:
+            continue
+        default = "sha256:" + fill * 64
+        recorded = digest if (digest is not None and name == "public_tests.json") else default
+        entries.append(
+            {
+                "path": f"calibration/{owner}/r0/evidence/{name}",
+                "bytes": 10,
+                "sha256": recorded,
+            }
+        )
+    return entries
+
+
+def _refused(tmp_path: Path, expected: str) -> None:
+    """The writer must refuse before a single byte reaches the active freeze path."""
+
+    target = admission.FREEZE_PATH
+    with pytest.raises(RuntimeError, match=expected):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
+    assert not target.exists()
+
+
+def test_a_missing_public_tests_binding_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(tmp_path, files=_c3_files(drop="public_tests.json"))
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    _refused(tmp_path, "public_tests.json is not bound")
+
+
+def test_a_missing_oracle_binding_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(tmp_path, files=_c3_files(drop="oracle.json"))
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    _refused(tmp_path, "oracle.json is not bound")
+
+
+def test_an_empty_evidence_digest_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(tmp_path, files=_c3_files(digest=""))
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    _refused(tmp_path, "public_tests.json has no valid sha256")
+
+
+def test_evidence_bound_to_another_attempt_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(tmp_path, files=_c3_files(cell="CALIBRATION.workgrid.c2"))
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    _refused(tmp_path, "oracle.json is not bound")
+
+
+def test_a_retryable_claim_refuses_the_freeze(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate(tmp_path, monkeypatch)
+    index = _c3_index(
+        tmp_path,
+        claim={
+            "sha256": "sha256:" + "a" * 64,
+            "state": "CLAIMED",
+            "claimed_at": "2026-11-24T03:12:56+00:00",
+            "retries_allowed": True,
+        },
+    )
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", index)
+    with pytest.raises(RuntimeError, match="calibration provenance is inconsistent"):
+        admission.write_freeze(
+            offline_report=admission.read_json(admission.OFFLINE_PATH),
+            preflight_result=admission.preflight(
+                evidence_root=tmp_path / "evidence", require_offline_report=False
+            ),
+        )
 
 
 def test_the_prepared_c3_request_is_not_an_approval() -> None:
@@ -331,14 +579,19 @@ def test_the_prepared_c3_request_is_not_an_approval() -> None:
     assert record["consumed"] is False
     assert record["cells"] == ["CALIBRATION.workgrid.c3"]
     assert record["cost_ceiling_usd"] > 0
-    # runner_source is bound to the freeze, not left as a placeholder.
-    assert record["approved_digests"]["runner_source"] == admission.source_identity()["digest"]
+    # runner_source is bound to the freeze the request was prepared against, never to the live tree:
+    # any later harness edit changes the live digest, which is exactly why c3 could only be
+    # authorised against a recorded freeze.
+    version = record["freeze_binding"]["execution_freeze"]
+    freeze_path = admission.EXECUTION_DIR / f"freeze-{admission.version_suffix(version)}.json"
+    freeze = admission.read_json(freeze_path)
+    assert record["approved_digests"]["runner_source"] == freeze["source"]["digest"]
 
     preflight = {
         "protocol_digest": admission.digest_bytes(protocol.PROTOCOL_PATH.read_bytes()),
         "plan_digest": admission.read_json(protocol.PLAN_PATH)["plan"]["digest"],
         "runtime_digest": admission.stage_runner.source_identity()["tree_digest"],
-        "runner_source_digest": admission.source_identity()["digest"],
+        "runner_source_digest": freeze["source"]["digest"],
     }
     gate = admission.authorization_gate(
         record, cell=provision.calibration_cell(), preflight_result=preflight, live=True
@@ -348,8 +601,11 @@ def test_the_prepared_c3_request_is_not_an_approval() -> None:
     assert "missing_approved_by" in gate["problems"]
     # The digests themselves no longer block: only the Owner's signature does.
     assert not any(problem.startswith("digest_mismatch") for problem in gate["problems"])
-    # c3 has never run: no marker, no evidence, no claim for this cell.
-    assert not (REPO_ROOT / "experiments/stage_b_calibration/calibration").exists()
+    # c3 ran once in S04 under an out-of-repo signature; the tracked request was never retroactively
+    # signed, so the repository still carries a request rather than an approval.
+    assert record["approved_by"] is None
+    assert record["approval_commit"] is None
+    assert record["approved_at"] is None
 
 
 # --------------------------------------------------------------------------- E2F evidence survives

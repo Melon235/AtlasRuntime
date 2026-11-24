@@ -1,0 +1,108 @@
+{
+  "approval_commit": null,
+  "approved_at": null,
+  "approved_by": null,
+  "approved_digests": {
+    "plan": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+    "protocol": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+    "runner_source": "sha256:eb14ea4eef7b83af253de0ab045d42c9d51ee9163a06ff09f95784e6cb661c78",
+    "runtime": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae"
+  },
+  "attempts_allowed": 1,
+  "attempts_per_cell": 1,
+  "cells": [
+    "zonelint.P1.r1",
+    "slugkit.P2.r1",
+    "pager.P3.r1",
+    "cascade.P1.r1",
+    "retrygate.P2.r1",
+    "ledgerclose.P3.r1",
+    "zonelint.P2.r1",
+    "slugkit.P3.r1",
+    "pager.P1.r1",
+    "cascade.P2.r1",
+    "retrygate.P3.r1",
+    "ledgerclose.P1.r1",
+    "zonelint.P3.r1",
+    "slugkit.P1.r1",
+    "pager.P2.r1",
+    "cascade.P3.r1",
+    "retrygate.P1.r1",
+    "ledgerclose.P2.r1",
+    "ledgerclose.P2.r2",
+    "slugkit.P3.r2",
+    "cascade.P1.r2",
+    "zonelint.P2.r2",
+    "pager.P3.r2",
+    "retrygate.P1.r2",
+    "ledgerclose.P3.r2",
+    "slugkit.P1.r2",
+    "cascade.P2.r2",
+    "zonelint.P3.r2",
+    "pager.P1.r2",
+    "retrygate.P2.r2",
+    "ledgerclose.P1.r2",
+    "slugkit.P2.r2",
+    "cascade.P3.r2",
+    "zonelint.P1.r2",
+    "pager.P2.r2",
+    "retrygate.P3.r2"
+  ],
+  "consumed": false,
+  "contract": {
+    "benchmark_cells_allowed": 36,
+    "concurrency": 1,
+    "containers_allowed": 1,
+    "evidence_root": "experiments/stage_b_benchmark/cells",
+    "failure_policy": "one attempt per cell, no retry, claims are never removed, the run stops at the first cell that is not COMPLETED",
+    "model_requests_allowed": true,
+    "network": "none",
+    "provider": "opensandbox",
+    "resources": {
+      "cpu": "1",
+      "memory": "1Gi"
+    },
+    "token_budget_per_cell": 500000,
+    "token_budget_total": 18000000
+  },
+  "cost_ceiling_options": {
+    "expected_total_usd": 0.5291,
+    "high_total_usd": 0.8847,
+    "owner_selected": 3.0,
+    "recommended_rationale": "the Owner selected 3.00 USD as the cumulative stop target; it gates the next dispatch and is not a live hard cutoff on the provider side",
+    "worst_case_all_prompt_miss_usd": 5.4
+  },
+  "cost_ceiling_usd": null,
+  "freeze_binding": {
+    "content_digest": "sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45",
+    "raw_sha256": "sha256:004d4b776f944ea0a6c21b8f019eeed311527fb5198c0a7b10ba079b407dbdbc",
+    "source_digest": "sha256:eb14ea4eef7b83af253de0ab045d42c9d51ee9163a06ff09f95784e6cb661c78",
+    "version": "stage-b-execution/1.6",
+    "written": true
+  },
+  "freeze_required": "stage-b-execution/1.6",
+  "gate_requirements": [
+    "approved_by / approval_commit / approved_at",
+    "cells contains every executed cell_id",
+    "approved_digests.protocol/plan/runtime/runner_source equal the live preflight values",
+    "consumed is false",
+    "cost_ceiling_usd > 0"
+  ],
+  "note": "Generated preparation bound to the written freeze 1.6, not an approval: the signature fields and the cost ceiling are empty, so authorization_gate() still refuses it.",
+  "pending_fields": [
+    "approved_by",
+    "approval_commit",
+    "approved_at",
+    "cost_ceiling_usd",
+    "status"
+  ],
+  "request": "Stage B 36-cell live benchmark, one attempt per cell, no retry",
+  "scheduler": {
+    "executor": "experiments/stage_b_executor/matrix_executor.py",
+    "gate": "PROVIDED_BY_HOST_EXECUTOR",
+    "obligation": "the host executor enforces fixed order, one cell at a time, one claim per cell, a global lock, no retry, no resume and the measured-failure policy; the harness itself only refuses a second claim on one cell",
+    "stop_policy": "MEASURED_AGENT_FAILURE_CONTINUE"
+  },
+  "status": "PENDING_OWNER_APPROVAL",
+  "task": "matrix"
+}

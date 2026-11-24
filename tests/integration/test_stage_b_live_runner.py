@@ -498,12 +498,13 @@ def test_execution_freeze_is_independent_of_the_e1_freeze() -> None:
         "stage-b-execution/1.3",
         "stage-b-execution/1.4",
         "stage-b-execution/1.5",
+        "stage-b-execution/1.6",
     }
-    # The next freeze is 1.5 and 1.4 stays the last spent version: a version is appended, never
+    # The next freeze is 1.6 and 1.5 stays the last spent version: a version is appended, never
     # rewritten, so no live cell can be authorized against a file whose bytes moved.
-    assert admission.FREEZE_VERSION == "stage-b-execution/1.5"
-    assert admission.FREEZE_PATH.name == "freeze-1.5.json"
-    assert admission.FROZEN_CHAIN[-1][0] == "stage-b-execution/1.4"
+    assert admission.FREEZE_VERSION == "stage-b-execution/1.6"
+    assert admission.FREEZE_PATH.name == "freeze-1.6.json"
+    assert admission.FROZEN_CHAIN[-1][0] == "stage-b-execution/1.5"
     assert admission.frozen_chain_problems() == []
     archived_digests = {
         path.name: admission.digest_bytes(path.read_bytes())
@@ -603,12 +604,44 @@ def test_evidence_is_scrubbed_before_publication(tmp_path: Path) -> None:
     )
 
 
+def _synthetic_c3_index(tmp_path: Path) -> Path:
+    """A minimal sealed c3 index: a freeze may only be written with provenance present."""
+
+    cell_id = "CALIBRATION.workgrid.c3"
+    payload = {
+        "cell": cell_id,
+        "repetition": 0,
+        "git_commit": "7a84cb7b39a18162082b9bd69284b87eef245532",
+        "execution_freeze": "stage-b-execution/1.5",
+        "claim": {"sha256": "sha256:" + "a" * 64, "state": "COLLECTED", "retries_allowed": False},
+        "verdicts": {
+            "cell_status": "COMPLETED",
+            "execution_integrity": "OK",
+            "goal_correctness": "PASS",
+            "oracle_agreement": "AGREE",
+            "host_oracle_source": "host:tests",
+        },
+        "files": [
+            {
+                "path": f"calibration/{cell_id}/r0/evidence/{name}",
+                "bytes": 1,
+                "sha256": "sha256:" + fill * 64,
+            }
+            for name, fill in (("public_tests.json", "b"), ("oracle.json", "c"))
+        ],
+    }
+    path = tmp_path / "c3-evidence-index.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
 def test_freeze_never_clears_prior_cell_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze.json")
     # Keep the archive copies in the temp tree: a test must not add files to the repository.
     monkeypatch.setattr(admission, "ARCHIVE_DIR", tmp_path / "archive")
+    monkeypatch.setattr(admission, "CALIBRATION_INDEX_PATH", _synthetic_c3_index(tmp_path))
     cell = _cell("cascade.P2.r1")
     directory = admission.cell_dir(tmp_path / "evidence", cell)
     admission.claim_attempt(

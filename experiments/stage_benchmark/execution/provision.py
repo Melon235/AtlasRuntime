@@ -51,8 +51,11 @@ CALIBRATION = {
     "arm_id": "P1",
     #: c1 and c2 are consumed and preserved. Each new attempt gets its own identity.
     "attempt": 3,
-    "status": "PREPARED_NOT_RUN",
-    "reason_not_run": "this stage may not call the provider",
+    #: c3 ran once under freeze 1.5 and passed. The provenance is the sealed index at
+    #: experiments/stage_b_calibration/c3-evidence-index.json; this contract never authorises a
+    #: further attempt, and a freeze must not demote the completed run back to PREPARED_NOT_RUN.
+    "status": "COMPLETED",
+    "reason_not_run": None,
     "previous_attempt": "CALIBRATION.workgrid.c2",
     "previous_attempts": ("CALIBRATION.workgrid.c1", "CALIBRATION.workgrid.c2"),
 }
