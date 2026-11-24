@@ -1,0 +1,100 @@
+Stage B S03 — offline suite failures, reconciled (read-only record)
+==============================================================================
+
+Full offline suite on `fix/stage-b-execution-freeze-1-5` (commit under review, Round 1):
+
+    45 failed, 1794 passed, 7 skipped, 1 deselected, 1 xfailed    exit=1
+
+Every failure was reproduced alone, and every one passed alone. None is an assertion in
+project code; all of them are this host's bulk-delete guard aborting the pytest process
+from inside `shutil.rmtree`:
+
+    [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED]
+    {"count":507,"threshold":500,"scope":"turn", ...}
+    raised at tests/helpers/fake_sandbox_provider.py:333 -> shutil.rmtree
+    -> sitecustomize.py -> SystemExit(1)
+
+The guard counts deletions per tool call and asks for confirmation past ~500. A fake
+sandbox workspace materialised from the frozen fixture holds ~507 entries, so the first
+destroy in a pytest process exhausts the budget and every later destroy is denied. The
+suite is therefore not green in this harness, only reproducible.
+
+Evidence in the full-run log: 45 FAILED headers, 86 lines through `rmtree`, 88 guard
+markers, 215 `sitecustomize.py` frames.
+
+Reconciliation (each batch is one fresh process, node ids given explicitly):
+
+    batch  tests  passed  failed  exit
+    B1         6       6       0     0
+    B2         6       6       0     0
+    B3         6       6       0     0
+    B4         6       6       0     0
+    B5         8       8       0     0
+    B6         7       7       0     0
+    B7         6       6       0     0
+    total     45      45       0     0
+
+Environment block: yes (needs Owner approval of the bulk delete, or a host without the
+guard). Code regression: none identified — every affected test passes unchanged when the
+guard does not fire.
+
+The 45 node ids follow, in batch order.
+
+# B1 (6 node ids, all passed)
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_cancellation_during_the_workspace_checks_is_recorded_and_re_raised
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_dirty_workspace_fails
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_head_that_does_not_match_the_source_commit_fails
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_losing_replay_cannot_occupy_the_winners_result_file
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_missing_fixture_file_fails
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_primary_failure_and_an_evidence_failure_are_both_kept
+
+# B2 (6 node ids, all passed)
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_replay_from_another_evidence_root_is_still_refused
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_replayed_authorization_cannot_touch_the_first_result
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_required_check_whose_transport_failed_is_not_a_pass
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_required_check_with_a_non_zero_exit_code_is_not_a_pass
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_required_check_with_an_unobserved_exit_code_is_not_a_pass
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_run_without_authorization_cannot_overwrite_a_successful_result
+
+# B3 (6 node ids, all passed)
+tests/integration/test_stage_b_e2f_provisioning.py::test_a_workspace_outside_the_declared_root_fails
+tests/integration/test_stage_b_e2f_provisioning.py::test_an_evidence_write_failure_is_never_reported_as_a_pass
+tests/integration/test_stage_b_e2f_provisioning.py::test_an_isolation_failure_stops_after_create_and_still_destroys
+tests/integration/test_stage_b_e2f_provisioning.py::test_an_unknown_egress_probe_is_not_a_pass
+tests/integration/test_stage_b_e2f_provisioning.py::test_the_evidence_records_the_whole_contract
+tests/integration/test_stage_b_e2f_provisioning.py::test_the_gate_never_reaches_the_agent_loop
+
+# B4 (6 node ids, all passed)
+tests/integration/test_stage_b_e2f_provisioning.py::test_the_gate_never_writes_a_calibration_marker
+tests/integration/test_stage_b_e2f_provisioning.py::test_the_gate_provisions_the_workspace_and_destroys_the_sandbox
+tests/integration/test_stage_b_e2f_provisioning.py::test_the_health_probe_and_the_create_use_the_same_endpoint
+tests/integration/test_stage_b_e2f_provisioning.py::test_the_oracle_source_must_not_be_visible_in_the_workspace
+tests/integration/test_stage_b_e2f_provisioning.py::test_the_same_authorization_cannot_create_a_second_container
+tests/integration/test_stage_b_e2f_provisioning.py::test_two_authorizations_do_not_share_run_state
+
+# B5 (8 node ids, all passed)
+tests/integration/test_stage_p_boundaries.py::test_a_budget_rejection_is_reported_not_hidden
+tests/integration/test_stage_p_boundaries.py::test_a_child_cannot_read_a_sibling_result
+tests/integration/test_stage_p_boundaries.py::test_a_child_cannot_read_outside_the_sandbox_workspace
+tests/integration/test_stage_p_boundaries.py::test_a_main_write_outside_its_grant_is_refused_and_the_main_continues
+tests/integration/test_stage_p_boundaries.py::test_a_sandbox_tool_failure_is_reported_instead_of_swallowed
+tests/integration/test_stage_p_boundaries.py::test_a_shared_write_delegation_is_refused_without_side_effects
+tests/integration/test_stage_p_boundaries.py::test_an_interpreter_command_is_refused_and_never_reaches_the_sandbox
+tests/integration/test_stage_p_boundaries.py::test_cancellation_reaps_children_and_destroys_the_sandbox
+
+# B6 (7 node ids, all passed)
+tests/integration/test_sandbox_ownership.py::test_t1_cancel_waiting_coroutine_does_not_release_ownership
+tests/integration/test_sandbox_ownership.py::test_t2_failed_creator_releases_and_waiting_successor_acquires
+tests/integration/test_sandbox_ownership.py::test_t4_two_tools_instances_share_manager_gate
+tests/integration/test_sandbox_ownership.py::test_t5_close_waits_for_inflight_provider_operation
+tests/integration/test_stage_d_recovery_resume.py::test_d2_approved_resume_executes_original_write_once
+tests/integration/test_stage_d_recovery_resume.py::test_d2_policy_relaxation_is_rejected_at_resume
+tests/integration/test_stage_d_recovery_resume.py::test_d2_rejected_resume_has_no_side_effect
+
+# B7 (6 node ids, all passed)
+tests/integration/test_stage_b_live_runner.py::test_options_compose_a_real_run_goal_with_scripted_provider
+tests/integration/test_stage_d_cleanup.py::test_uncertain_execution_is_not_released_by_cleanup
+tests/integration/test_stage_p_pipeline.py::test_a_failed_child_does_not_stop_the_integration
+tests/integration/test_stage_p_pipeline.py::test_the_full_pipeline_passes_an_independent_oracle
+tests/integration/test_stage_p_pipeline.py::test_the_main_repairs_after_a_failing_public_run
+tests/integration/test_verified_reattachment.py::test_b3_closed_never_reattaches

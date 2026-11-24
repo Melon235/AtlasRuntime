@@ -1,0 +1,72 @@
+{
+  "attempt": "attempt-a22c2b7650af7e33",
+  "binding_id": "0061c25390b56ca5180b4a1f7a83fbf05a158792f6e1ed791118148b24aa2fed",
+  "custody": {
+    "copy": "D:\\Work\\AtlasRuntime-scratch\\s03-evidence-archive\\e2f-provisioning (byte-identical copy, 2026-11-24)",
+    "git": "the raw directory is untracked and excluded by .gitignore; this index is the only tracked artefact",
+    "modification": "FORBIDDEN",
+    "rerun": "FORBIDDEN",
+    "retention": "the raw directory stays in place on the host that produced it"
+  },
+  "files": [
+    {
+      "bytes": 18118,
+      "path": "experiments/stage_b_smoke/e2f-provisioning/attempts/attempt-a22c2b7650af7e33/provisioning-result.json",
+      "sha256": "sha256:6ab3455472c212c5d20bd9ce4319c69a113ae3cd09801c63d8dfc67fd5313ae9"
+    },
+    {
+      "bytes": 1144,
+      "path": "experiments/stage_b_smoke/e2f-provisioning/claims/attempt-a22c2b7650af7e33d83df3d74fa7467e145a56abef2a037c92491c3d72e2703b.json",
+      "sha256": "sha256:5057dee83c1fb5357dd161e9d8acefee2d6992abe7a1ca250b51ceda24f1b054"
+    },
+    {
+      "bytes": 24576,
+      "path": "experiments/stage_b_smoke/e2f-provisioning/attempts/attempt-a22c2b7650af7e33/sandbox/sandbox_bindings.db",
+      "sha256": "sha256:f841bcdad93f9e97cc92ccf20431d0cde4dee10259a266b6834c328c7177ca90"
+    },
+    {
+      "bytes": 32,
+      "path": "experiments/stage_b_smoke/e2f-provisioning/attempts/attempt-a22c2b7650af7e33/sandbox/HOST_ONLY_SENTINEL.txt",
+      "sha256": "sha256:c9ff11f7572e7aaadf19ec600ef0cc50c6ef2d80367cea0a9fdf0c963e79f678"
+    },
+    {
+      "bytes": 1,
+      "path": "experiments/stage_b_smoke/e2f-provisioning/attempts/attempt-a22c2b7650af7e33/sandbox/workload-30c1157efec1967e65404242ad23fe1ca33e44bc2da8e5d1ab30d4aadce534d4.lock",
+      "sha256": "sha256:6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+    },
+    {
+      "bytes": 5617,
+      "path": "experiments/stage_b_smoke/e2f-provisioning/reviews/s03-evidence-review.json",
+      "sha256": "sha256:554ebb889f9fe9fb890134a377663270b6e6be5704114c8a17cf7bfd6baace51"
+    }
+  ],
+  "gate": {
+    "checks_failed": 0,
+    "checks_true": 22,
+    "identity_gate_checks_ok": 8,
+    "note": "S02 reported 23/23; the evidence carries 22 named gate checks plus 8 identity gate checks, all true. The count was off by one, not a failed check.",
+    "status": "PASSED",
+    "verdict": "PROVISIONING_SMOKE_PASS"
+  },
+  "git_commit": "022c734546bfa199e5a3a61d59d2058c7991f1a0",
+  "indexed_at": "2026-11-24T18:05:00+00:00",
+  "no_model_or_cell": {
+    "benchmark_cells": 0,
+    "calibration_attempts": 0,
+    "model_requests": 0
+  },
+  "review": {
+    "addendum_path": "experiments/stage_b_smoke/e2f-provisioning/reviews/s03-evidence-review.json",
+    "addendum_sha256": "sha256:554ebb889f9fe9fb890134a377663270b6e6be5704114c8a17cf7bfd6baace51",
+    "gate_verdict": "PASS",
+    "original_s02_status": "STAGE_B_E2F_S02_LIVE_UNKNOWN",
+    "original_status_after_review": "UNCHANGED",
+    "process_exit_code": "UNOBSERVED",
+    "reason": "the process launcher did not capture the OS exit code; there is no evidence of a Gate-level failure",
+    "retry": "FORBIDDEN",
+    "review_disposition": "ACCEPTED_WITH_OBSERVATION_EXCEPTION"
+  },
+  "run_id": "SANDBOX.SMOKE.stage-b-e2f-provisioning.a22c2b7650af7e33",
+  "sandbox_id": "835d554a-b360-420d-a593-e70aa92ee10a",
+  "schema": "stage-b-e2f-provisioning-index/1"
+}

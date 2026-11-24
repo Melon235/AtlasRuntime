@@ -476,16 +476,35 @@ def test_offline_suite_covers_every_named_case() -> None:
     assert len(report["cases"]) == len(offline.CASES)
 
 
+def _active_or_latest_freeze() -> Path:
+    """The active freeze once it has been written; otherwise the last spent version.
+
+    The harness is code-reviewed before freeze 1.5 exists, so the suite must be valid in both
+    states: an unwritten active freeze blocks a live cell and leaves the previous record intact.
+    """
+
+    return (
+        admission.FREEZE_PATH if admission.FREEZE_PATH.is_file() else admission.FROZEN_CHAIN[-1][1]
+    )
+
+
 def test_execution_freeze_is_independent_of_the_e1_freeze() -> None:
     e1 = admission.read_json(admission.EXECUTION_DIR.parent / "freeze.json")
-    frozen = admission.read_json(admission.FREEZE_PATH)
+    frozen = admission.read_json(_active_or_latest_freeze())
     assert frozen["freeze_version"] in {
         "stage-b-execution/1.0",
         "stage-b-execution/1.1",
         "stage-b-execution/1.2",
         "stage-b-execution/1.3",
         "stage-b-execution/1.4",
+        "stage-b-execution/1.5",
     }
+    # The next freeze is 1.5 and 1.4 stays the last spent version: a version is appended, never
+    # rewritten, so no live cell can be authorized against a file whose bytes moved.
+    assert admission.FREEZE_VERSION == "stage-b-execution/1.5"
+    assert admission.FREEZE_PATH.name == "freeze-1.5.json"
+    assert admission.FROZEN_CHAIN[-1][0] == "stage-b-execution/1.4"
+    assert admission.frozen_chain_problems() == []
     archived_digests = {
         path.name: admission.digest_bytes(path.read_bytes())
         for path in admission.ARCHIVE_DIR.glob("freeze-*.json")
@@ -518,7 +537,7 @@ def test_live_preflight_binds_the_harness_source_to_the_freeze(
     "always block" would satisfy it.
     """
 
-    frozen = admission.read_json(admission.FREEZE_PATH)
+    frozen = admission.read_json(_active_or_latest_freeze())
     current = admission.source_identity()["digest"]
     label = "runner_source_digest_matches_freeze"
 
@@ -590,8 +609,6 @@ def test_freeze_never_clears_prior_cell_evidence(
     monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze.json")
     # Keep the archive copies in the temp tree: a test must not add files to the repository.
     monkeypatch.setattr(admission, "ARCHIVE_DIR", tmp_path / "archive")
-    monkeypatch.setattr(admission, "ARCHIVE_FREEZE_PATH", tmp_path / "archive/freeze-1.0.json")
-    monkeypatch.setattr(admission, "ARCHIVE_11_FREEZE_PATH", tmp_path / "archive/freeze-1.1.json")
     cell = _cell("cascade.P2.r1")
     directory = admission.cell_dir(tmp_path / "evidence", cell)
     admission.claim_attempt(

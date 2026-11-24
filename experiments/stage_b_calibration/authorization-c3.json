@@ -1,0 +1,67 @@
+{
+  "approval_commit": null,
+  "approved_at": null,
+  "approved_by": null,
+  "approved_digests": {
+    "plan": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
+    "protocol": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
+    "runner_source": "sha256:85440673c0cdf46e249e9f79823731145047720140bf83baf542e39dc7e9fbe3",
+    "runtime": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae"
+  },
+  "attempts_allowed": 1,
+  "c1_c2_untouched": [
+    "CALIBRATION.workgrid.c1",
+    "CALIBRATION.workgrid.c2"
+  ],
+  "cells": [
+    "CALIBRATION.workgrid.c3"
+  ],
+  "consumed": false,
+  "contract": {
+    "benchmark_cells_allowed": 0,
+    "containers_allowed": 1,
+    "evidence_root": "experiments/stage_b_calibration",
+    "evidence_path_expected": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0",
+    "failure_policy": "one attempt, no retry, the claim marker is never removed",
+    "model_requests_allowed": true,
+    "network": "none",
+    "provider": "opensandbox",
+    "resources": {
+      "cpu": "1",
+      "memory": "1Gi"
+    },
+    "token_budget": 500000
+  },
+  "cost_ceiling_usd": 1.0,
+  "freeze_binding": {
+    "execution_freeze": "stage-b-execution/1.5",
+    "freeze_content_digest": "sha256:b08ea2b5754a1d49197300b588f8753ef1fa680391cfd567018eb2be9848dc8f",
+    "freeze_sha256": "sha256:f4eebd205ee40849e59df30caa6c36058cf333371d7795e150ffde4bcc52cefd",
+    "note": "runner_source is the digest freeze 1.5 recorded, so the record and the freeze cannot drift apart silently"
+  },
+  "freeze_required": "stage-b-execution/1.5",
+  "gate_requirements": [
+    "approved_by",
+    "approval_commit",
+    "approved_at",
+    "cells contains CALIBRATION.workgrid.c3",
+    "approved_digests.protocol/plan/runtime/runner_source equal the live preflight values",
+    "consumed is false",
+    "cost_ceiling_usd > 0"
+  ],
+  "note": "Prepared request, not an approval. runner_source is now bound to freeze 1.5; the record stays PENDING_OWNER_APPROVAL until the Owner signs approved_by, approval_commit and approved_at.",
+  "pending_fields": [
+    "approved_by",
+    "approval_commit",
+    "approved_at",
+    "status"
+  ],
+  "status": "PENDING_OWNER_APPROVAL",
+  "task": "workgrid",
+  "unbound_digests_at_preparation": {
+    "e1_freeze": "sha256:a8dac818908da6c86f3b33008bb01e8a8a931136b5e03aa2c33a974979150c01",
+    "fixture": "sha256:893238efa0d8bb58e835369321d590eafbba2e512add6d41f039b7a394b38828",
+    "note": "computed at preparation time; the binding values are the ones the Owner signs against the freeze above",
+    "runner_source_candidate": "sha256:85440673c0cdf46e249e9f79823731145047720140bf83baf542e39dc7e9fbe3"
+  }
+}
