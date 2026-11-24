@@ -346,75 +346,113 @@ def _oracle_texts(task_id: str | None) -> list[str]:
     return texts
 
 
+def _relative(path: Path, bundle: Path) -> str:
+    return str(path.relative_to(bundle)).replace("\\", "/")
+
+
 def scrub_evidence(bundle: Path, *, task_id: str | None = None) -> list[str]:
-    """Redact the *published* copies only. The private raw bundle is never written."""
+    """Redact the *published* copies only. The private raw bundle is never written.
+
+    Every published file that decodes as UTF-8 is considered, whatever its extension: an oracle
+    copied into ``notes.md`` or an extension-less file must not survive because of its name. Files
+    that do not decode are left byte-identical here; the publication audit then refuses them unless
+    it can prove they are clean.
+    """
 
     secrets = _oracle_texts(task_id)
     redacted: list[str] = []
     for path in sorted(bundle.rglob("*")):
-        if not path.is_file() or RAW_DIR in path.relative_to(bundle).parts:
+        if not path.is_file() or path.is_symlink():
             continue
-        if path.suffix not in {".json", ".jsonl", ".txt", ".log", ".py", ".patch"}:
+        if RAW_DIR in path.relative_to(bundle).parts:
             continue
-        original = path.read_text(encoding="utf-8", errors="replace")
+        try:
+            original = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
         cleaned = original
         for secret in secrets:
             if secret in cleaned:
                 cleaned = cleaned.replace(secret, "[REDACTED_HOST_ORACLE]")
         if cleaned != original:
             path.write_text(cleaned, encoding="utf-8")
-            redacted.append(str(path.relative_to(bundle)).replace("\\", "/"))
+            redacted.append(_relative(path, bundle))
     return redacted
 
 
-PUBLISHABLE_SUFFIXES = frozenset({".json", ".jsonl", ".txt", ".log", ".py", ".patch"})
-
-
 def published_files(bundle: Path) -> list[Path]:
-    """Every file that may leave the host. The private raw bundle is never in this set."""
+    """The candidate publish set: the public copies only, never the raw evidence.
+
+    This is deliberately a candidate set. Being listed here does not make a file publishable; see
+    :func:`publication_audit`, which examines every candidate and refuses what it cannot prove safe.
+    """
 
     return [
         path
         for path in sorted(bundle.rglob("*"))
-        if path.is_file() and path.relative_to(bundle).parts[0] != RAW_DIR
+        if (path.is_file() or path.is_symlink()) and path.relative_to(bundle).parts[0] != RAW_DIR
     ]
 
 
 def publication_audit(bundle: Path, *, task_id: str | None = None) -> dict[str, Any]:
     """Publication-time acceptance, run after the scrub and before the manifest.
 
-    Three things must hold before a bundle may leave the host: the raw directory is not part of the
-    published set, no published file still carries the hidden oracle in any textual form, and the
-    published analysis can still back the statistics the contract requires. A failure is recorded
-    as a problem and makes the bundle non-publishable; nothing is deleted or rewritten here.
+    The publish set is the scrubbed public copies: the raw bundle is not a candidate, and no
+    candidate is published without being examined. A candidate that cannot be read, that is a
+    symlink, that resolves outside the bundle or back into ``_raw``, or that is binary/unknown
+    encoding cannot be proven clean, so it is refused rather than passed. A refusal is recorded and
+    makes the bundle non-publishable; nothing is deleted or rewritten here.
     """
 
     problems: list[str] = []
+    root = bundle.resolve()
+    raw_root = (bundle / RAW_DIR).resolve()
     published = published_files(bundle)
     raw_dir = bundle / RAW_DIR
     raw_files = [path for path in raw_dir.rglob("*") if path.is_file()] if raw_dir.is_dir() else []
 
     leaked_into_published = [
-        str(path.relative_to(bundle)).replace("\\", "/")
+        _relative(path, bundle)
         for path in published
-        if str(path.relative_to(bundle)).replace("\\", "/").startswith(f"{RAW_DIR}/")
+        if _relative(path, bundle).startswith(f"{RAW_DIR}/")
     ]
     if leaked_into_published:
         problems.append(f"raw files in the published set: {', '.join(leaked_into_published)}")
 
-    secrets = _oracle_texts(task_id)
+    secrets = [secret.encode("utf-8") for secret in _oracle_texts(task_id)]
     scanned = 0
+    unscannable: list[str] = []
+    symlinks: list[str] = []
     for path in published:
-        if path.suffix not in PUBLISHABLE_SUFFIXES:
+        relative = _relative(path, bundle)
+        if path.is_symlink():
+            symlinks.append(relative)
+            problems.append(f"symlink in the evidence bundle: {relative}")
+            continue
+        resolved = path.resolve()
+        if not resolved.is_relative_to(root):
+            problems.append(f"published file escapes the bundle: {relative}")
+            continue
+        if resolved.is_relative_to(raw_root):
+            problems.append(f"published file resolves into the raw bundle: {relative}")
+            continue
+        try:
+            data = path.read_bytes()
+        except OSError as error:
+            unscannable.append(relative)
+            problems.append(f"published file cannot be read ({error}): {relative}")
+            continue
+        if b"\x00" in data:
+            unscannable.append(relative)
+            problems.append(
+                "published file is binary or in an unknown encoding and cannot be proven clean: "
+                + relative
+            )
             continue
         scanned += 1
-        text = path.read_text(encoding="utf-8", errors="replace")
         for secret in secrets:
-            if secret in text:
-                problems.append(
-                    "hidden oracle material in a published file: "
-                    + str(path.relative_to(bundle)).replace("\\", "/")
-                )
+            if secret in data:
+                problems.append(f"hidden oracle material in a published file: {relative}")
                 break
 
     statistics_ok = False
@@ -447,15 +485,26 @@ def publication_audit(bundle: Path, *, task_id: str | None = None) -> dict[str, 
         except json.JSONDecodeError as error:
             problems.append(f"published {name} does not parse after redaction: {error}")
 
+    every_candidate_examined = scanned + len(unscannable) + len(symlinks) == len(published)
+    if not every_candidate_examined:
+        problems.append("a candidate publish file was neither scanned nor refused")
+
     return {
         "ok": not problems,
         "problems": problems,
         "published_files": len(published),
         "raw_files": len(raw_files),
         "scanned_files": scanned,
+        "unscannable_files": unscannable,
+        "symlinks": len(symlinks),
+        "every_candidate_examined": every_candidate_examined,
         "raw_dir_published": bool(leaked_into_published),
         "statistics_from_published": statistics_ok,
-        "policy": "raw never published; no oracle material in any textual form in a published file",
+        "policy": (
+            "the publish set is the scrubbed public copies only; the raw bundle is never a "
+            "candidate, every candidate is examined, and anything that cannot be proven clean is "
+            "refused"
+        ),
     }
 
 

@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 from experiments.stage_benchmark import protocol
 from experiments.stage_benchmark.execution import (
     admission,
@@ -145,3 +146,100 @@ def test_the_scrub_still_runs_before_the_manifest_is_written(tmp_path: Path) -> 
             (bundle / name.replace("/", "\\")).read_bytes()
         ).hexdigest()
         assert digest == actual, name
+
+
+# --------------------------------------------------------------------------- fail closed
+
+
+def test_an_unknown_extension_carrying_the_encoded_oracle_is_refused(tmp_path: Path) -> None:
+    """A gate that only looks at known extensions reports PASS on exactly this file."""
+
+    result = asyncio.run(_run_cell(tmp_path))
+    bundle = result.evidence_dir
+    assert bundle is not None
+    secret = base64.b64encode(BY_ID["slugkit"].oracle_source.encode("utf-8")).decode("ascii")
+    notes = bundle / "notes.md"
+    notes.write_text(f"# scratch\n\n{secret}\n", encoding="utf-8")
+
+    audit = collector.publication_audit(bundle, task_id="slugkit")
+    assert audit["ok"] is False
+    assert any("notes.md" in problem for problem in audit["problems"])
+    assert "hidden oracle material" in " ".join(audit["problems"])
+
+
+def test_the_scrub_covers_a_file_whose_extension_is_unknown(tmp_path: Path) -> None:
+    result = asyncio.run(_run_cell(tmp_path))
+    bundle = result.evidence_dir
+    assert bundle is not None
+    plain = BY_ID["slugkit"].oracle_source
+    notes = bundle / "notes"
+    notes.write_text(f"copied: {plain}\n", encoding="utf-8")
+
+    redacted = collector.scrub_evidence(bundle, task_id="slugkit")
+    assert "notes" in redacted
+    assert plain not in notes.read_text(encoding="utf-8")
+    assert "[REDACTED_HOST_ORACLE]" in notes.read_text(encoding="utf-8")
+
+
+def test_a_file_that_cannot_be_scanned_is_refused_not_passed(tmp_path: Path) -> None:
+    result = asyncio.run(_run_cell(tmp_path))
+    bundle = result.evidence_dir
+    assert bundle is not None
+    blob = bundle / "payload.bin"
+    blob.write_bytes(b"\x00\x01\x02binary\x00")
+
+    audit = collector.publication_audit(bundle, task_id="slugkit")
+    assert audit["ok"] is False
+    assert "payload.bin" in audit["unscannable_files"]
+    assert any("cannot be proven clean" in problem for problem in audit["problems"])
+
+
+def test_a_symlink_in_the_bundle_is_refused(tmp_path: Path, monkeypatch) -> None:
+    result = asyncio.run(_run_cell(tmp_path))
+    bundle = result.evidence_dir
+    assert bundle is not None
+    real_is_symlink = Path.is_symlink
+
+    def fake_is_symlink(self: Path) -> bool:
+        if self.name == "session.json" and self.parent == bundle:
+            return True
+        return real_is_symlink(self)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+    audit = collector.publication_audit(bundle, task_id="slugkit")
+    assert audit["ok"] is False
+    assert audit["symlinks"] == 1
+    assert any("symlink" in problem for problem in audit["problems"])
+
+
+def test_a_real_symlink_to_the_raw_bundle_is_refused(tmp_path: Path) -> None:
+    result = asyncio.run(_run_cell(tmp_path))
+    bundle = result.evidence_dir
+    assert bundle is not None
+    link = bundle / "raw-link.json"
+    try:
+        link.symlink_to(bundle / collector.RAW_DIR / "session.json")
+    except (OSError, NotImplementedError) as error:  # pragma: no cover - host privilege
+        pytest.skip(f"this host cannot create symlinks: {error}")
+
+    audit = collector.publication_audit(bundle, task_id="slugkit")
+    assert audit["ok"] is False
+    assert audit["symlinks"] == 1
+
+
+def test_every_candidate_is_examined_and_the_set_matches_the_manifest(tmp_path: Path) -> None:
+    result = asyncio.run(_run_cell(tmp_path))
+    bundle = result.evidence_dir
+    assert bundle is not None
+
+    audit = collector.publication_audit(bundle, task_id="slugkit")
+    assert audit["every_candidate_examined"] is True
+    assert audit["unscannable_files"] == []
+    assert audit["symlinks"] == 0
+    assert audit["scanned_files"] == audit["published_files"]
+
+    payload = _manifest(bundle)
+    candidates = {path.name for path in collector.published_files(bundle)}
+    assert {name for name in payload["files"] if "/" not in name} <= candidates
+    roots = {path.relative_to(bundle).parts[0] for path in collector.published_files(bundle)}
+    assert collector.RAW_DIR not in roots
