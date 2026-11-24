@@ -5,7 +5,7 @@
   "approved_digests": {
     "plan": "sha256:c69144744b14745677fdad9d9cfce69cdc9f777499aa7dabcc804e4b6fe76648",
     "protocol": "sha256:937f925306659ea7c1db194e7083e5234949edc76566a78974bbbc77983a1585",
-    "runner_source": "PENDING_FREEZE_1_6",
+    "runner_source": "sha256:eb14ea4eef7b83af253de0ab045d42c9d51ee9163a06ff09f95784e6cb661c78",
     "runtime": "sha256:4eebcf1e56e7bf786320fda4252b2c584e040a702ae8642b4336cf21432d6dae"
   },
   "attempts_allowed": 1,
@@ -73,6 +73,13 @@
     "worst_case_all_prompt_miss_usd": 5.4
   },
   "cost_ceiling_usd": null,
+  "freeze_binding": {
+    "content_digest": "sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45",
+    "raw_sha256": "sha256:004d4b776f944ea0a6c21b8f019eeed311527fb5198c0a7b10ba079b407dbdbc",
+    "source_digest": "sha256:eb14ea4eef7b83af253de0ab045d42c9d51ee9163a06ff09f95784e6cb661c78",
+    "version": "stage-b-execution/1.6",
+    "written": true
+  },
   "freeze_required": "stage-b-execution/1.6",
   "gate_requirements": [
     "approved_by / approval_commit / approved_at",
@@ -81,12 +88,11 @@
     "consumed is false",
     "cost_ceiling_usd > 0"
   ],
-  "note": "Generated preparation, not an approval. runner_source stays PENDING until freeze 1.6 is written after independent review, so authorization_gate() refuses this record today.",
+  "note": "Generated preparation bound to the written freeze 1.6, not an approval: the signature fields and the cost ceiling are empty, so authorization_gate() still refuses it.",
   "pending_fields": [
     "approved_by",
     "approval_commit",
     "approved_at",
-    "approved_digests.runner_source",
     "cost_ceiling_usd",
     "status"
   ],

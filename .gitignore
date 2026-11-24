@@ -32,6 +32,11 @@ experiments/stage_b_smoke/e2f-provisioning/
 # evidence directly beside it stays in git.
 experiments/stage_b_calibration/calibration/
 
+# Stage B 36-cell benchmark evidence: one directory per cell, host-local and immutable.
+# The raw material is never tracked; what gets published from it is decided per cell, after the
+# publication audit, so nothing under this root can be committed by accident.
+experiments/stage_b_benchmark/cells/
+
 # Experiment outputs
 experiments/runs/
 # Closure-2B-1 connectivity canary: local precheck/evidence output, machine-specific by nature.

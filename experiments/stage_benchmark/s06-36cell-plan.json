@@ -535,11 +535,11 @@
       "stage-b-execution/1.4",
       "stage-b-execution/1.5"
     ],
-    "note": "the pointer moved to 1.6 and 1.5 joined the immutable chain, but the file is not written: no live cell can start until it exists, because preflight reports active_execution_freeze_present=false",
+    "note": "1.6 is written and live preflight is READY; a cell still needs its own signed authorization record, and this plan is not one",
     "required_version": "stage-b-execution/1.6",
-    "status": "PREPARED_NOT_WRITTEN",
-    "superseded_version": "stage-b-execution/1.5",
-    "written": false
+    "status": "WRITTEN",
+    "superseded_version": "stage-b-execution/1.6",
+    "written": true
   },
   "generated_from": {
     "estimate_digest": "sha256:55b826a1f3f70e75cae881ee27e2c2e4366eb55fbcfe62f060bac3e03f07db13",
