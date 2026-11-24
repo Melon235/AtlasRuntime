@@ -538,7 +538,7 @@
     "note": "1.6 is written and live preflight is READY; a cell still needs its own signed authorization record, and this plan is not one",
     "required_version": "stage-b-execution/1.6",
     "status": "WRITTEN",
-    "superseded_version": "stage-b-execution/1.6",
+    "superseded_version": "stage-b-execution/1.5",
     "written": true
   },
   "generated_from": {
