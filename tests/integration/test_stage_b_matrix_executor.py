@@ -95,6 +95,16 @@ def _sha(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _tree_digests(root: Path) -> dict[str, str]:
+    """Every file under a cell, so a read-only grader can be proven read-only."""
+
+    return {
+        str(path.relative_to(root)).replace("\\", "/"): _sha(path)
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
 def _config(tmp_path: Path, **overrides: Any) -> dict[str, Any]:
     base = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     base["evidence_root"] = str(tmp_path / "cells")
@@ -1024,6 +1034,7 @@ def test_the_real_offline_runner_evidence_is_accepted(
     assert result.failure_kind == expect_kind
 
     cell_root = tmp_path / "matrix" / cell.cell_id / f"r{cell.repetition}"
+    before = _tree_digests(cell_root)
     outcome = mx.audit_cell(
         repo_root=REPO_ROOT,
         cell_root=cell_root,
@@ -1049,3 +1060,5 @@ def test_the_real_offline_runner_evidence_is_accepted(
     on_disk = json.loads((cell_root / "result.json").read_text(encoding="utf-8"))
     assert on_disk["status"] == ("COMPLETED" if expect_ok else "FAILED")
     assert on_disk["failure_kind"] == expect_kind
+    # Grading is read-only: not one byte of the cell moved.
+    assert _tree_digests(cell_root) == before
