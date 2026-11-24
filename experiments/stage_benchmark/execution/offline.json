@@ -76,7 +76,7 @@
       "ok": true
     },
     {
-      "detail": "expected=collector_failure got=collector_failure FileNotFoundError: [Errno 2] No such file or directory: 'D:\\\\Work\\\\AtlasRuntime-scratch\\\\s05-offline-runs\\\\offline\\\\collector_crash\\\\evidence\\\\retrygate.P2.r1\\\\r1\\\\evidence\\\\session.json'",
+      "detail": "expected=collector_failure got=collector_failure FileNotFoundError: [Errno 2] No such file or directory: 'D:\\\\Work\\\\AtlasRuntime-scratch\\\\s05z-offline\\\\offline\\\\collector_crash\\\\evidence\\\\retrygate.P2.r1\\\\r1\\\\evidence\\\\session.json'",
       "name": "collector_crash",
       "ok": true
     },
@@ -116,7 +116,7 @@
       "ok": true
     },
     {
-      "detail": "D:\\Work\\AtlasRuntime-scratch\\s05-offline-runs\\offline\\duplicate\\evidence\\cascade.P2.r1\\r1\\attempts\\attempt-1.json",
+      "detail": "D:\\Work\\AtlasRuntime-scratch\\s05z-offline\\offline\\duplicate\\evidence\\cascade.P2.r1\\r1\\attempts\\attempt-1.json",
       "name": "duplicate_cell_start",
       "ok": true
     },
@@ -142,7 +142,7 @@
     }
   ],
   "coverage": true,
-  "generated_at": "2026-11-24T03:53:18.795893+00:00",
+  "generated_at": "2026-11-24T05:38:51.536560+00:00",
   "network_calls": 0,
   "passed": true,
   "provider": "fake",
