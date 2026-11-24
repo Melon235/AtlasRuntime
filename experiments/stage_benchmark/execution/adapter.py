@@ -8,6 +8,11 @@ can never hide a broken collector or sandbox.
 1.1: the input may be a reconstructed record *or* a raw session. ``session.failure`` can be a
 string, so every field access is shape-tolerant; a statistics-layer exception must never replace
 the original sandbox/provider failure.
+
+1.2: lifecycle facts (``status``, ``sandbox.created``, ``sandbox.destroyed``) are read from the raw
+session when the caller supplies one. A reconstructed record keeps ``run.status`` and
+``failure.evidence`` but drops the sandbox block, so reading them off the record reported a created
+and destroyed sandbox as ``false``/``false``/``null``.
 """
 
 from __future__ import annotations
@@ -15,7 +20,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-ANALYSIS_VERSION = "stage-b-execution-analysis/1.1"
+ANALYSIS_VERSION = "stage-b-execution-analysis/1.2"
 
 AUTHORITATIVE_PREFIXES = ("host:", "fake:host")
 
@@ -133,10 +138,20 @@ def execution_stage(record: Mapping[str, Any]) -> str:
 
 
 def build_view(
-    record: Mapping[str, Any], *, oracle: Mapping[str, Any] | None, gaps: list[str]
+    record: Mapping[str, Any],
+    *,
+    oracle: Mapping[str, Any] | None,
+    gaps: list[str],
+    session: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Create the three independent verdicts. ``record`` itself is not modified here."""
+    """Create the three independent verdicts. ``record`` itself is not modified here.
 
+    ``session`` is the raw session when the caller has one. Lifecycle facts are read from it because
+    a reconstructed record does not carry the sandbox block; without it the record remains the only
+    source, which is what the degraded (pre-agent) path relies on.
+    """
+
+    lifecycle = session if isinstance(session, Mapping) else record
     host, source = host_status(oracle)
     sandbox = sandbox_status(record)
     public = public_status(record)
@@ -153,10 +168,10 @@ def build_view(
         gaps.append(f"ORACLE_DISAGREEMENT: host={host} sandbox={sandbox}")
 
     verification = _verification(record)
-    sandbox_info = _mapping(record.get("sandbox"))
+    sandbox_info = _mapping(lifecycle.get("sandbox"))
     integrity = {
-        "stage": execution_stage(record),
-        "session_status": record.get("status"),
+        "stage": execution_stage(lifecycle),
+        "session_status": lifecycle.get("status"),
         "sandbox_created": bool(sandbox_info.get("created")),
         "sandbox_destroyed": bool(sandbox_info.get("destroyed")),
         "provider_requests": provider_requests(record),

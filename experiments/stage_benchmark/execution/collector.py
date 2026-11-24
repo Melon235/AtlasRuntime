@@ -6,6 +6,7 @@ built from it, never the other way round. A missing artefact is recorded as a ga
 
 from __future__ import annotations
 
+import base64
 import json
 import shutil
 from collections.abc import Mapping
@@ -283,7 +284,8 @@ def analyze(
     )
     problems = schema.validate_record(record)
     gaps.extend(record["consistency"].get("gaps") or [])
-    view = adapter.build_view(record, oracle=oracle, gaps=gaps)
+    # The raw session is the only place the sandbox lifecycle and the session status survive.
+    view = adapter.build_view(record, oracle=oracle, gaps=gaps, session=session)
     record["execution_view"] = view
     payload = {
         "schema_version": schema.SCHEMA_VERSION,
@@ -310,16 +312,44 @@ def analyze(
     return payload
 
 
-def scrub_evidence(bundle: Path) -> list[str]:
+def _oracle_texts(task_id: str | None) -> list[str]:
+    """Every textual form of this cell's hidden oracle that must not reach a published copy.
+
+    The dynamic acceptance command embeds ``base64(oracle_source)``, so redacting the plaintext
+    alone left the hidden program recoverable from every published ``session.json``. The encoded
+    form is therefore a secret in its own right. ``task_id=None`` keeps the pre-1.2 behaviour and
+    covers all six benchmark tasks.
+    """
+
+    sources: list[str] = []
+    if task_id is None:
+        for spec in BY_ID.values():
+            sources.append(spec.oracle_source)
+            sources.extend(spec.reference.values())
+    elif task_id in BY_ID:
+        spec = BY_ID[task_id]
+        sources.append(spec.oracle_source)
+        sources.extend(spec.reference.values())
+    else:
+        # A calibration cell runs the S2 contract task, which is not in the benchmark matrix.
+        from experiments.stage_s2_prompt_v21 import s2_contract
+
+        sources.append(s2_contract.HIDDEN_PROGRAM)
+
+    texts: list[str] = []
+    for text in sources:
+        if not text or len(text) <= 40:
+            continue
+        texts.append(text)
+        texts.append(json.dumps(text)[1:-1])
+        texts.append(base64.b64encode(text.encode("utf-8")).decode("ascii"))
+    return texts
+
+
+def scrub_evidence(bundle: Path, *, task_id: str | None = None) -> list[str]:
     """Redact the *published* copies only. The private raw bundle is never written."""
 
-    secrets = [
-        variant
-        for spec in BY_ID.values()
-        for text in (spec.oracle_source, *spec.reference.values())
-        if text and len(text) > 40
-        for variant in (text, json.dumps(text)[1:-1])
-    ]
+    secrets = _oracle_texts(task_id)
     redacted: list[str] = []
     for path in sorted(bundle.rglob("*")):
         if not path.is_file() or RAW_DIR in path.relative_to(bundle).parts:
@@ -412,7 +442,7 @@ def collect(
     analysis = analyze(
         bundle, cell=cell, source_digest=source_digest, evidence_gaps=gaps, document=document
     )
-    redactions = tuple(scrub_evidence(bundle))
+    redactions = tuple(scrub_evidence(bundle, task_id=cell.task_id))
     payload = manifest(bundle, redactions=redactions)
     missing = completeness(bundle)
     explained = not_applicable(bundle)
@@ -459,7 +489,7 @@ def recover_evidence(bundle: Path, *, cell: CellIdentity, source_digest: str) ->
     # The existing Host Oracle publication is authoritative; recovery never re-runs it or edits it.
     gaps = list(restored)
     analysis = analyze(bundle, cell=cell, source_digest=source_digest, evidence_gaps=gaps)
-    redactions = tuple(scrub_evidence(bundle))
+    redactions = tuple(scrub_evidence(bundle, task_id=cell.task_id))
     payload = manifest(bundle, redactions=redactions)
     raw_digests_after = {
         str(path.relative_to(source)).replace("\\", "/"): digest_bytes(path.read_bytes())

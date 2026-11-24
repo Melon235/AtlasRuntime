@@ -60,8 +60,11 @@ def _views(
     record = analysis.get("record") or {}
     view = analysis.get("execution_view") or record.get("execution_view")
     if view is None:
-        # A degraded analysis has no record; the raw session still carries the real failure.
-        view = adapter.build_view(record or session, oracle=host_oracle, gaps=[])
+        # A degraded analysis has no record; the raw session still carries the real failure and the
+        # only trustworthy lifecycle facts.
+        view = adapter.build_view(
+            record or session, oracle=host_oracle, gaps=[], session=session
+        )
     return view
 
 

@@ -627,7 +627,9 @@ def write_freeze(
         },
         "preflight_digest": preflight_result.get("digest"),
         "analysis": {
-            "execution_analysis_version": "stage-b-execution-analysis/1.1",
+            # Versioned with the adapter, never a literal: a freeze must name the view semantics
+            # that produced its evidence.
+            "execution_analysis_version": _execution_analysis_version(),
             "e1_analyser_unchanged": "stage-b-reconstruct/1.1",
         },
         "calibration": {
@@ -649,6 +651,14 @@ def write_freeze(
     }
     FREEZE_PATH.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return document
+
+
+def _execution_analysis_version() -> str:
+    """The adapter owns the view version; importing it here avoids a literal that can drift."""
+
+    from .adapter import ANALYSIS_VERSION
+
+    return ANALYSIS_VERSION
 
 
 def _provisioning_gate_summary() -> dict[str, Any]:

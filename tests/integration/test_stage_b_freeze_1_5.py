@@ -331,14 +331,19 @@ def test_the_prepared_c3_request_is_not_an_approval() -> None:
     assert record["consumed"] is False
     assert record["cells"] == ["CALIBRATION.workgrid.c3"]
     assert record["cost_ceiling_usd"] > 0
-    # runner_source is bound to the freeze, not left as a placeholder.
-    assert record["approved_digests"]["runner_source"] == admission.source_identity()["digest"]
+    # runner_source is bound to the freeze the request was prepared against, never to the live tree:
+    # any later harness edit changes the live digest, which is exactly why c3 could only be
+    # authorised against a recorded freeze.
+    version = record["freeze_binding"]["execution_freeze"]
+    freeze_path = admission.EXECUTION_DIR / f"freeze-{admission.version_suffix(version)}.json"
+    freeze = admission.read_json(freeze_path)
+    assert record["approved_digests"]["runner_source"] == freeze["source"]["digest"]
 
     preflight = {
         "protocol_digest": admission.digest_bytes(protocol.PROTOCOL_PATH.read_bytes()),
         "plan_digest": admission.read_json(protocol.PLAN_PATH)["plan"]["digest"],
         "runtime_digest": admission.stage_runner.source_identity()["tree_digest"],
-        "runner_source_digest": admission.source_identity()["digest"],
+        "runner_source_digest": freeze["source"]["digest"],
     }
     gate = admission.authorization_gate(
         record, cell=provision.calibration_cell(), preflight_result=preflight, live=True
@@ -348,8 +353,11 @@ def test_the_prepared_c3_request_is_not_an_approval() -> None:
     assert "missing_approved_by" in gate["problems"]
     # The digests themselves no longer block: only the Owner's signature does.
     assert not any(problem.startswith("digest_mismatch") for problem in gate["problems"])
-    # c3 has never run: no marker, no evidence, no claim for this cell.
-    assert not (REPO_ROOT / "experiments/stage_b_calibration/calibration").exists()
+    # c3 ran once in S04 under an out-of-repo signature; the tracked request was never retroactively
+    # signed, so the repository still carries a request rather than an approval.
+    assert record["approved_by"] is None
+    assert record["approval_commit"] is None
+    assert record["approved_at"] is None
 
 
 # --------------------------------------------------------------------------- E2F evidence survives
