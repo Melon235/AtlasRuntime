@@ -72,10 +72,12 @@ def test_the_sandbox_resources_use_the_quantity_the_audit_compares() -> None:
     assert plan["config"]["image"] == config["image"]
 
 
-def test_the_plan_states_that_no_scheduler_gate_exists_here() -> None:
+def test_the_plan_names_the_host_executor_as_the_scheduler_gate() -> None:
     plan = _plan()
-    assert plan["execution"]["scheduler_gate"] == "NOT_PROVIDED_BY_THIS_HARNESS"
-    assert "executor obligation" in plan["execution"]["scheduler_note"]
+    assert plan["execution"]["scheduler_gate"] == "PROVIDED_BY_HOST_EXECUTOR"
+    assert plan["execution"]["reference_policy"].endswith("matrix_executor.py")
+    assert "claim hygiene" in plan["execution"]["scheduler_note"]
+    assert "MEASURED_AGENT_FAILURE_CONTINUE" in plan["execution"]["global_stop_loss"]
     assert plan["execution"]["concurrency"] == 1
     assert plan["execution"]["per_cell_attempts"] == 1
 

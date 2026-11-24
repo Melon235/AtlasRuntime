@@ -68,8 +68,8 @@
   "cost_ceiling_options": {
     "expected_total_usd": 0.5291,
     "high_total_usd": 0.8847,
-    "recommended": 2.0,
-    "recommended_rationale": "2.26x the frozen HIGH scenario and 0.35x the theoretical all-miss bound at full budget; the Owner decides",
+    "owner_selected": 3.0,
+    "recommended_rationale": "the Owner selected 3.00 USD as the cumulative stop target; it gates the next dispatch and is not a live hard cutoff on the provider side",
     "worst_case_all_prompt_miss_usd": 5.4
   },
   "cost_ceiling_usd": null,
@@ -98,9 +98,10 @@
   ],
   "request": "Stage B 36-cell live benchmark, one attempt per cell, no retry",
   "scheduler": {
-    "gate": "NOT_PROVIDED_BY_THIS_HARNESS",
-    "obligation": "the S06 executor must enforce fixed order, one cell at a time, one claim per cell, stop at the first cell that is not COMPLETED, no skipping, no claim cleanup and no two processes on one cell; the harness only refuses a second claim",
-    "reference_policy": "tests/integration/test_stage_b_s06_schedule_policy.py"
+    "executor": "experiments/stage_b_executor/matrix_executor.py",
+    "gate": "PROVIDED_BY_HOST_EXECUTOR",
+    "obligation": "the host executor enforces fixed order, one cell at a time, one claim per cell, a global lock, no retry, no resume and the measured-failure policy; the harness itself only refuses a second claim on one cell",
+    "stop_policy": "MEASURED_AGENT_FAILURE_CONTINUE"
   },
   "status": "PENDING_OWNER_APPROVAL",
   "task": "matrix"

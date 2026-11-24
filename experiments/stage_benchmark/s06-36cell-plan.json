@@ -512,7 +512,7 @@
     "command_template": "python -m experiments.stage_benchmark.execution.runner --execute-cell {cell_id} --live --confirm-live --authorization {authorization} --evidence-root experiments/stage_b_benchmark/cells --runs-root D:\\Work\\AtlasRuntime-scratch\\s06-runs --sandbox-endpoint localhost:8080",
     "concurrency": 1,
     "evidence_root": "experiments/stage_b_benchmark/cells",
-    "global_stop_loss": "there is no global attempt counter: after the first cell whose result is not COMPLETED, the run stops and no further cell is started",
+    "global_stop_loss": "MEASURED_AGENT_FAILURE_CONTINUE: a measured solve failure (oracle_failed, public_tests_failed, budget_exhaustion, main_max_turns) is recorded as a FAILED sample and the matrix continues; any other failure stops it",
     "must_not_delete": [
       "claims",
       "evidence",
@@ -520,10 +520,11 @@
     ],
     "order": "ascending cell order, one cell at a time",
     "per_cell_attempts": 1,
+    "reference_policy": "experiments/stage_b_executor/matrix_executor.py",
     "retry": "FORBIDDEN",
     "runs_root": "D:\\Work\\AtlasRuntime-scratch\\s06-runs",
-    "scheduler_gate": "NOT_PROVIDED_BY_THIS_HARNESS",
-    "scheduler_note": "runner --execute-cell runs exactly one cell and exits, so ordering, concurrency 1, stop-loss and no-cleanup are an executor obligation, not a gate this repository enforces. The declaration above is not evidence: the executable reference policy lives in tests/integration/test_stage_b_s06_schedule_policy.py and S06 must provide the process that implements it."
+    "scheduler_gate": "PROVIDED_BY_HOST_EXECUTOR",
+    "scheduler_note": "runner --execute-cell runs exactly one cell and exits. Ordering, concurrency 1, claim hygiene and the stop policy are enforced by experiments/stage_b_executor/matrix_executor.py, whose digest the Owner signs; the harness itself only refuses a second claim on one cell."
   },
   "execution_freeze": {
     "active_file": "freeze-1.6.json",
