@@ -1,0 +1,248 @@
+{
+  "authority": "every digest here was recomputed from the bytes on disk in S05; nothing is copied from the S04 report",
+  "cell": "CALIBRATION.workgrid.c3",
+  "claim": {
+    "authorization_canonical_digest": "sha256:f09a401a49c8e097ae1b284fc4d15578a2da506b672fcffd20381bcb567ef969",
+    "claimed_at": "2026-11-24T03:12:56.645872+00:00",
+    "claimed_at_is_utc": true,
+    "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/attempts/attempt-1.json",
+    "preflight_digest": "sha256:d45c801e7aeaa88f6df6bd2407821ddca9c2176950ff27dd99d03a1fb1749f05",
+    "retries_allowed": false,
+    "runner_source_digest": "sha256:85440673c0cdf46e249e9f79823731145047720140bf83baf542e39dc7e9fbe3",
+    "sha256": "sha256:efc7a8e5c39a2bba673d84520b48f1ac6c1034d07a12002a40174b6bb7ae979e",
+    "state": "COLLECTED"
+  },
+  "custody": {
+    "copy": "D:\\Work\\AtlasRuntime-scratch\\s05-c3-evidence-archive (byte-identical duplicate, S05)",
+    "deletion": "FORBIDDEN",
+    "git": "the raw directory is untracked and excluded by one exact .gitignore rule; this index is the only tracked artefact",
+    "modification": "FORBIDDEN",
+    "rerun": "FORBIDDEN",
+    "rerun_guard": "any second attempt is already impossible: the claim marker makes preflight fail with no_cell_marker_or_evidence",
+    "retention": "the raw directory stays in place on the host that produced it"
+  },
+  "execution_freeze": "stage-b-execution/1.5",
+  "files": [
+    {
+      "bytes": 742,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/attempts/attempt-1.json",
+      "sha256": "sha256:efc7a8e5c39a2bba673d84520b48f1ac6c1034d07a12002a40174b6bb7ae979e"
+    },
+    {
+      "bytes": 740,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/_raw/attempt-1.json",
+      "sha256": "sha256:1a745c6ad8bf20629c2ef7033e7a76048278f07296258efe4820157789672414"
+    },
+    {
+      "bytes": 18879,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/_raw/private/tool_payloads.jsonl",
+      "sha256": "sha256:9b5b9a954609c5fe9c980cb8c9bc5bdfd008e2771a6b4fac104b608361309ad3"
+    },
+    {
+      "bytes": 39812,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/_raw/session.json",
+      "sha256": "sha256:8cabfdf49c4d265a5ae1f63069f3fbfccc00ad8c438e31b4aa06b30e7796d049"
+    },
+    {
+      "bytes": 81237,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/_raw/tool_conversations.json",
+      "sha256": "sha256:ab29e3e28894c3ebe8ddd6cc2716fae0dbf7721458b7c3907d3429cbecb4f93b"
+    },
+    {
+      "bytes": 376,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/_raw/trajectory/stage-b-CALIBRATION.workgrid.c3/meta.json",
+      "sha256": "sha256:2388883d4d02e48a9d9f0d05970126d405b01a174178f5bc667b08fe62fc2449"
+    },
+    {
+      "bytes": 125992,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/_raw/trajectory/stage-b-CALIBRATION.workgrid.c3/transcript.jsonl",
+      "sha256": "sha256:d3bba224c8859bfbc1082b66dc4a8d269eb2c0c1709bbb3848db62aaebd53514"
+    },
+    {
+      "bytes": 125992,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/_raw/transcript.jsonl",
+      "sha256": "sha256:d3bba224c8859bfbc1082b66dc4a8d269eb2c0c1709bbb3848db62aaebd53514"
+    },
+    {
+      "bytes": 5689,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/_raw/workspace.patch",
+      "sha256": "sha256:1021c53cd5369d71dbda9f58712991acddb9b96f5fccafa5a2943a3526903f48"
+    },
+    {
+      "bytes": 8266,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/analysis.json",
+      "sha256": "sha256:4fec5bf5ba37a65986a7092cac6cbb4ab123568edad5f0ab6c69f320976a0061"
+    },
+    {
+      "bytes": 740,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/attempt-1.json",
+      "sha256": "sha256:1a745c6ad8bf20629c2ef7033e7a76048278f07296258efe4820157789672414"
+    },
+    {
+      "bytes": 3452,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/evidence_manifest.json",
+      "sha256": "sha256:90c4b62b6827ea87c754615adbd023e279e6a7d563a0b4ddd74b464866cd5ad7"
+    },
+    {
+      "bytes": 119,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/handoff_references.json",
+      "sha256": "sha256:0f3c818f907056d5728825e0efdbbb77bf96927303f6cbbd4cd70e9cd95352e1"
+    },
+    {
+      "bytes": 223,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/oracle.json",
+      "sha256": "sha256:cd861df4979f0e38762969cf72eb8ad418c209a43af35e78af242662d507affc"
+    },
+    {
+      "bytes": 18879,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/private/tool_payloads.jsonl",
+      "sha256": "sha256:9b5b9a954609c5fe9c980cb8c9bc5bdfd008e2771a6b4fac104b608361309ad3"
+    },
+    {
+      "bytes": 296,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/provider_usage.json",
+      "sha256": "sha256:703131034cf5d3b1679141f80d472c2c2554659809698be1d176c6aa4db33806"
+    },
+    {
+      "bytes": 828,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/public_tests.json",
+      "sha256": "sha256:58a49612ebe8af8fb3ada74fc02d3ef79ff32655a9468e1cda9868f84bf9b6c1"
+    },
+    {
+      "bytes": 107,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/router_decisions.json",
+      "sha256": "sha256:c7ba3114b4686073caa3d18b96e1db469b6bb1efda3f3082f4c97a5e35de0f9e"
+    },
+    {
+      "bytes": 1966,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/sandbox_lifecycle.json",
+      "sha256": "sha256:fa069d90fe12a73764e77ad39412fa79d9ee4fc1d22aaf0f404ce9ed86a71512"
+    },
+    {
+      "bytes": 39812,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/session.json",
+      "sha256": "sha256:8cabfdf49c4d265a5ae1f63069f3fbfccc00ad8c438e31b4aa06b30e7796d049"
+    },
+    {
+      "bytes": 81237,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/tool_conversations.json",
+      "sha256": "sha256:ab29e3e28894c3ebe8ddd6cc2716fae0dbf7721458b7c3907d3429cbecb4f93b"
+    },
+    {
+      "bytes": 376,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/trajectory/stage-b-CALIBRATION.workgrid.c3/meta.json",
+      "sha256": "sha256:2388883d4d02e48a9d9f0d05970126d405b01a174178f5bc667b08fe62fc2449"
+    },
+    {
+      "bytes": 125992,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/trajectory/stage-b-CALIBRATION.workgrid.c3/transcript.jsonl",
+      "sha256": "sha256:d3bba224c8859bfbc1082b66dc4a8d269eb2c0c1709bbb3848db62aaebd53514"
+    },
+    {
+      "bytes": 125992,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/transcript.jsonl",
+      "sha256": "sha256:d3bba224c8859bfbc1082b66dc4a8d269eb2c0c1709bbb3848db62aaebd53514"
+    },
+    {
+      "bytes": 23,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/worker_outcomes.json",
+      "sha256": "sha256:5a4d7b39cfea6692fc68e44f71619e1aaf8dcb30d783acc69aae8744a87931d4"
+    },
+    {
+      "bytes": 5689,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/workspace.patch",
+      "sha256": "sha256:1021c53cd5369d71dbda9f58712991acddb9b96f5fccafa5a2943a3526903f48"
+    },
+    {
+      "bytes": 1125,
+      "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/result.json",
+      "sha256": "sha256:c03dcf6d2de2669ccfc64aa499d02f3f58ffe5ed742b93afd7a5ac5b13837cd6"
+    },
+    {
+      "bytes": 1125,
+      "path": "experiments/stage_b_calibration/calibration/last-result.json",
+      "sha256": "sha256:c03dcf6d2de2669ccfc64aa499d02f3f58ffe5ed742b93afd7a5ac5b13837cd6"
+    }
+  ],
+  "git_commit": "7a84cb7b39a18162082b9bd69284b87eef245532",
+  "indexed_at": "2026-11-24T03:35:36.705579+00:00",
+  "integrity": {
+    "all_archive_digests_equal_source": true,
+    "archive_files": 28,
+    "archive_mismatches": [],
+    "bytes": 815706,
+    "files": 28
+  },
+  "manifest": {
+    "immutable_raw": true,
+    "path": "experiments/stage_b_calibration/calibration/CALIBRATION.workgrid.c3/r0/evidence/evidence_manifest.json",
+    "published_files": 16,
+    "raw_digests": 8,
+    "redactions": [],
+    "sha256": "sha256:90c4b62b6827ea87c754615adbd023e279e6a7d563a0b4ddd74b464866cd5ad7"
+  },
+  "redaction": {
+    "finding": "the published session.json carries session.verification.dynamic.command, which embeds base64(HIDDEN_PROGRAM). collector.scrub_evidence searched only plaintext oracle sources of the six benchmark tasks, so this was never redacted and the manifest records redactions=[] . S05 fixes the scrub; this bundle is left exactly as the run produced it and must not be published until that fix ships.",
+    "leak_scan": {
+      "files_scanned": 28,
+      "leaks": [
+        {
+          "file": "CALIBRATION.workgrid.c3/r0/evidence/_raw/session.json",
+          "kind": "hidden_encoded"
+        },
+        {
+          "file": "CALIBRATION.workgrid.c3/r0/evidence/session.json",
+          "kind": "hidden_encoded"
+        }
+      ],
+      "secret_labels": [
+        "hidden_program",
+        "oracle_command",
+        "hidden_encoded",
+        "reference:engine_reference.py",
+        "reference:oracle_program.py",
+        "reference:report_reference.py"
+      ],
+      "secrets_checked": 6,
+      "task": "workgrid"
+    },
+    "manifest_redactions": [],
+    "policy": "the index carries paths, sizes and digests only; no oracle source, reference text or model transcript"
+  },
+  "repetition": 0,
+  "runner_source_digest": "sha256:85440673c0cdf46e249e9f79823731145047720140bf83baf542e39dc7e9fbe3",
+  "sandbox": {
+    "created": true,
+    "destroyed": true,
+    "provider": "opensandbox",
+    "provider_is_real": true,
+    "retained": false,
+    "sandbox_id": "55be50d7-9c7f-42dd-b852-7e2802a244fa"
+  },
+  "stage": "B-C3-CALIBRATION",
+  "usage": {
+    "budget_limit_tokens": 500000,
+    "cache_hit_ratio": 0.892349,
+    "completion_tokens": 3315,
+    "estimated_cost_usd": 0.010178,
+    "pricing_source": "experiments/stage_benchmark/estimate.json (frozen, 2026-11-06)",
+    "prompt_cache_hit_tokens": 146944,
+    "prompt_cache_miss_tokens": 17727,
+    "requests": 12,
+    "system_total_tokens": 167986
+  },
+  "verdicts": {
+    "cell_status": "COMPLETED",
+    "evidence_gaps": [
+      "tool_state.json",
+      "workers.json",
+      "PRIVATE_PAYLOAD_NOTICE.txt"
+    ],
+    "execution_integrity": "OK",
+    "failure_kind": "none",
+    "goal_correctness": "PASS",
+    "host_oracle_source": "host:experiments/stage_s2_prompt_v21/s2_contract",
+    "oracle_agreement": "AGREE",
+    "secondary_failures": []
+  }
+}

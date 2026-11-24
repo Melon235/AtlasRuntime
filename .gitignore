@@ -25,6 +25,13 @@ _debug_run/
 # that one directory and nothing else.
 experiments/stage_b_smoke/e2f-provisioning/
 
+# Stage B c3 calibration evidence: one real calibration attempt, host-local and immutable.
+# The raw directory is never tracked, never cleaned and never re-generated; the tracked artefact is
+# experiments/stage_b_calibration/c3-evidence-index.json, which records every file's byte length and
+# SHA-256. This rule excludes exactly that one directory and nothing else, so the tracked c1/c2
+# evidence directly beside it stays in git.
+experiments/stage_b_calibration/calibration/
+
 # Experiment outputs
 experiments/runs/
 # Closure-2B-1 connectivity canary: local precheck/evidence output, machine-specific by nature.
