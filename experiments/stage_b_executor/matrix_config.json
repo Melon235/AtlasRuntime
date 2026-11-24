@@ -258,7 +258,7 @@
   "cost_stop_note": "Owner-selected cumulative stop target; it gates the next dispatch and is not a live hard cutoff on the provider side",
   "cost_stop_usd": 3.0,
   "evidence_root": "D:\\Work\\AtlasRuntime\\experiments\\stage_b_benchmark\\cells",
-  "executor_version": "stage-b-matrix-executor/1.1.0",
+  "executor_version": "stage-b-matrix-executor/1.2.0",
   "freeze_content_digest": "sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45",
   "freeze_raw_sha256": "sha256:004d4b776f944ea0a6c21b8f019eeed311527fb5198c0a7b10ba079b407dbdbc",
   "freeze_version": "stage-b-execution/1.6",

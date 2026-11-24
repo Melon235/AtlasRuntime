@@ -232,9 +232,13 @@ def _write_cell(
     (evidence / "public_tests.json").write_text(
         json.dumps({"calls": 1, "runs": [{"status": scenario["public_status"]}]}), encoding="utf-8"
     )
-    (evidence / "oracle.json").write_text(
-        json.dumps({"ok": scenario["oracle_ok"]}), encoding="utf-8"
-    )
+    oracle = {
+        "ok": scenario["oracle_ok"],
+        "source": "host:fake:executor-fixture",
+        "executed_after_main_stops": True,
+    }
+    oracle.update(scenario.get("oracle_overrides") or {})
+    (evidence / "oracle.json").write_text(json.dumps(oracle), encoding="utf-8")
     merged_usage = dict(GOOD_USAGE)
     merged_usage.update(usage or {})
     for key in usage_drop:
@@ -246,18 +250,18 @@ def _write_cell(
     }
     merged_lifecycle.update(lifecycle or {})
     (evidence / "sandbox_lifecycle.json").write_text(json.dumps(merged_lifecycle), encoding="utf-8")
-    (evidence / "analysis.json").write_text(
-        json.dumps(
-            {
-                "status": "COMPLETE",
-                "record": {
-                    "execution_view": {"goal_correctness": {"status": "PASS"}},
-                    "usage": {"sum_matches_system_total": True},
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
+    analysis = {
+        "status": "COMPLETE",
+        "record": {
+            "execution_view": {
+                "goal_correctness": {
+                    "status": scenario.get("analysis_goal", scenario["goal_correctness"])
+                }
+            },
+            "usage": {"sum_matches_system_total": True},
+        },
+    }
+    (evidence / "analysis.json").write_text(json.dumps(analysis), encoding="utf-8")
     (raw / "session.json").write_text(json.dumps(session), encoding="utf-8")
     (raw / "workspace.patch").write_text("diff --git a/x b/x\n", encoding="utf-8")
 
@@ -471,6 +475,33 @@ def test_an_oracle_failure_with_a_passing_oracle_is_a_contradiction(tmp_path: Pa
     scenario = {**_failure("oracle_failed"), "oracle_ok": True}
     report, _calls = _run(tmp_path, config, plans={config["order"][0]: {"scenario": scenario}})
     assert report["stop_reason"] == mx.STOP_OBSERVATION_CONTRADICTION
+
+
+def test_a_completed_result_with_a_failing_oracle_is_a_contradiction(tmp_path: Path) -> None:
+    """A pass cannot survive an authoritative host oracle FAIL."""
+
+    config = _config(tmp_path)
+    report, _calls = _run(
+        tmp_path, config, plans={config["order"][0]: {"scenario": {"oracle_ok": False}}}
+    )
+    assert report["stop_reason"] == mx.STOP_OBSERVATION_CONTRADICTION
+    assert any("host oracle" in problem for problem in report["cells"][0]["problems"])
+
+
+def test_a_completed_result_with_a_failing_analysis_is_a_contradiction(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    report, _calls = _run(
+        tmp_path, config, plans={config["order"][0]: {"scenario": {"analysis_goal": "FAIL"}}}
+    )
+    assert report["stop_reason"] == mx.STOP_OBSERVATION_CONTRADICTION
+
+
+def test_a_public_failure_whose_analysis_agrees_continues(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    report, _calls = _run(
+        tmp_path, config, plans={config["order"][0]: {"scenario": _failure("public_tests_failed")}}
+    )
+    assert report["stop_reason"] is None
 
 
 def test_a_budget_failure_without_a_budget_stop_is_a_contradiction(tmp_path: Path) -> None:
@@ -891,14 +922,46 @@ def test_an_order_that_drifts_from_the_cell_list_is_refused(tmp_path: Path) -> N
 # --------------------------------------------------------------------------- real runner
 
 
-def test_evidence_from_the_real_offline_runner_passes_the_audit(tmp_path: Path) -> None:
-    """The one test that does not invent its evidence: the frozen runner produces it."""
+REAL_RUNNER_SCENARIOS = [
+    ("COMPLETED", {}, True, "none", mx.VERDICT_PASSED),
+    ("oracle_failed", {"oracle": "FAIL"}, False, "oracle_failed", mx.VERDICT_FAILED),
+    ("public_tests_failed", {"public": "FAIL"}, False, "public_tests_failed", mx.VERDICT_FAILED),
+    (
+        "budget_exhaustion",
+        {"status": "failed", "stop": "budget_exceeded"},
+        False,
+        "budget_exhaustion",
+        mx.VERDICT_FAILED,
+    ),
+    (
+        "main_max_turns",
+        {"status": "failed", "stop": "max_turns"},
+        False,
+        "main_max_turns",
+        mx.VERDICT_FAILED,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("label", "session_kwargs", "expect_ok", "expect_kind", "expect_verdict"),
+    REAL_RUNNER_SCENARIOS,
+)
+def test_the_real_offline_runner_evidence_is_accepted(
+    tmp_path: Path,
+    label: str,
+    session_kwargs: dict[str, Any],
+    expect_ok: bool,
+    expect_kind: str,
+    expect_verdict: str,
+) -> None:
+    """The frozen runner produces the evidence; the executor only grades it."""
 
     document = protocol.read_protocol()
     cell = provision.cell_from_plan(document, "slugkit.P1.r1")
 
     async def scripted(options: Any) -> dict[str, Any]:
-        payload = offline.synthetic_session(options)
+        payload = offline.synthetic_session(options, **session_kwargs)
         offline.write_synthetic_run(options, payload)
         return payload
 
@@ -911,14 +974,15 @@ def test_evidence_from_the_real_offline_runner_passes_the_audit(tmp_path: Path) 
         sandbox_factory=lambda _root: offline.FakeProvider(),
         run_fn=scripted,
         host_oracle={
-            "source": "fake:host:executor-audit",
+            "source": "host:fake:executor-audit",
             "task_id": cell.task_id,
-            "ok": True,
+            "ok": label != "oracle_failed",
             "executed_after_main_stops": True,
         },
     )
     result = asyncio.run(runner.execute_cell(request))
-    assert result.ok and result.status == "COMPLETED"
+    assert result.ok is expect_ok, (label, result.failure_kind, result.detail)
+    assert result.failure_kind == expect_kind
 
     cell_root = tmp_path / "matrix" / cell.cell_id / f"r{cell.repetition}"
     outcome = mx.audit_cell(
@@ -931,12 +995,18 @@ def test_evidence_from_the_real_offline_runner_passes_the_audit(tmp_path: Path) 
             "arm_id": cell.arm_id,
             "repetition": cell.repetition,
         },
-        exit_code=0,
+        exit_code=0 if result.ok else 1,
         timed_out=False,
         harness_source_digest=admission.source_identity()["digest"],
         authorization_digest="OFFLINE",
     )
-    assert outcome.problems == [], outcome.problems
+    assert outcome.problems == [], (label, outcome.problems)
     assert outcome.stops == []
-    assert outcome.verdict == mx.VERDICT_PASSED
+    assert outcome.verdict == expect_verdict
+    assert outcome.failure_kind == expect_kind
     assert outcome.usage["system_total_tokens"] > 0
+
+    # The frozen verdict is graded, never rewritten.
+    on_disk = json.loads((cell_root / "result.json").read_text(encoding="utf-8"))
+    assert on_disk["status"] == ("COMPLETED" if expect_ok else "FAILED")
+    assert on_disk["failure_kind"] == expect_kind

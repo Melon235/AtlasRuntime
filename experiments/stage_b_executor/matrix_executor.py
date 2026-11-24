@@ -31,7 +31,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-EXECUTOR_VERSION = "stage-b-matrix-executor/1.1.0"
+EXECUTOR_VERSION = "stage-b-matrix-executor/1.2.0"
 POLICY_MEASURED_CONTINUE = "MEASURED_AGENT_FAILURE_CONTINUE"
 LOCK_NAME = ".matrix-executor.lock"
 REPORT_NAME = "matrix-report.json"
@@ -340,11 +340,19 @@ def verify_observation(
     result: Mapping[str, Any],
     claim: Mapping[str, Any],
     session: Mapping[str, Any],
+    analysis: Mapping[str, Any] | None,
     manifest_claim: Mapping[str, Any] | None,
     oracle: Mapping[str, Any] | None,
     public_tests: Mapping[str, Any] | None,
 ) -> list[str]:
-    """Cross-check the frozen CellResult, the claim and the raw session. Contradiction stops."""
+    """Cross-check the frozen CellResult, the claim, the raw session and the analysis view.
+
+    The authoritative oracle verdict is the frozen adapter's, not a re-derived one: ``host_status``
+    only returns PASS/FAIL for a ``host:`` source, and anything else is UNKNOWN.
+    """
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from experiments.stage_benchmark.execution import adapter
 
     problems: list[str] = []
     status = result.get("status")
@@ -355,6 +363,13 @@ def verify_observation(
     budget = session.get("budget") or {}
     stop_reason = main.get("stop_reason")
     session_status = session.get("status")
+
+    view = ((analysis or {}).get("record") or {}).get("execution_view") or {}
+    goal_view = view.get("goal_correctness") or {}
+    analysis_goal = goal_view.get("status")
+    host, host_source = adapter.host_status(oracle)
+    public_runs = (public_tests or {}).get("runs") or []
+    public_passed = bool(public_runs) and all(run.get("status") == "PASS" for run in public_runs)
 
     builtin = result.get("cell") or {}
     for key in ("cell_id", "task_id", "arm_id", "repetition"):
@@ -377,6 +392,19 @@ def verify_observation(
             problems.append(f"COMPLETED carries claim state {claim_state!r}")
         if session_status != "succeeded":
             problems.append(f"COMPLETED carries session status {session_status!r}")
+        # The four verdicts a pass must agree on.
+        if result.get("goal_correctness") != "PASS":
+            problems.append(
+                f"COMPLETED carries goal_correctness={result.get('goal_correctness')!r}"
+            )
+        if analysis_goal != "PASS":
+            problems.append(f"COMPLETED but the analysis says goal_correctness={analysis_goal!r}")
+        if host != "PASS":
+            problems.append(
+                f"COMPLETED but the authoritative host oracle is {host} ({host_source})"
+            )
+        if not public_passed:
+            problems.append("COMPLETED but the public test evidence is not a clean pass")
         return problems
 
     if status != "FAILED":
@@ -390,14 +418,14 @@ def verify_observation(
             problems.append(f"{kind} carries execution_integrity={integrity!r}")
         if result.get("goal_correctness") != "FAIL":
             problems.append(f"{kind} carries goal_correctness={result.get('goal_correctness')!r}")
-        oracle_ok = (oracle or {}).get("ok")
-        if kind == "oracle_failed" and oracle_ok is not False:
-            problems.append(f"oracle_failed but the oracle record says ok={oracle_ok!r}")
+        if analysis_goal != "FAIL":
+            problems.append(f"{kind} but the analysis says goal_correctness={analysis_goal!r}")
+        if kind == "oracle_failed" and host != "FAIL":
+            problems.append(f"oracle_failed but the authoritative host oracle is {host}")
         if kind == "public_tests_failed":
-            if oracle_ok is not True:
-                problems.append("public_tests_failed but the oracle did not pass")
-            runs = (public_tests or {}).get("runs") or []
-            if not any(run.get("status") != "PASS" for run in runs):
+            if host != "PASS":
+                problems.append(f"public_tests_failed but the authoritative host oracle is {host}")
+            if public_passed:
                 problems.append("public_tests_failed without a failing public run")
     elif kind == "budget_exhaustion":
         if integrity != "FAILED":
@@ -537,6 +565,7 @@ def audit_cell(
         result=result,
         claim=claim or {},
         session=session,
+        analysis=_read_json(evidence / "analysis.json"),
         manifest_claim=_read_json(evidence / "attempt-1.json"),
         oracle=_read_json(evidence / "oracle.json"),
         public_tests=_read_json(evidence / "public_tests.json"),
