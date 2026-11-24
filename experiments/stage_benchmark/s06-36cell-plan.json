@@ -490,11 +490,12 @@
   ],
   "config": {
     "child_max_turns": 6,
-    "cpu": 1,
+    "cpu": "1",
     "image": "atlas-uat-python:3.12",
     "main_max_turns": 20,
     "max_concurrent_children": 2,
     "max_delegation_rounds": 3,
+    "memory": "1Gi",
     "memory_gib": 1.0,
     "model": "deepseek-chat",
     "network": "none",
@@ -520,13 +521,25 @@
     "order": "ascending cell order, one cell at a time",
     "per_cell_attempts": 1,
     "retry": "FORBIDDEN",
-    "runs_root": "D:\\Work\\AtlasRuntime-scratch\\s06-runs"
+    "runs_root": "D:\\Work\\AtlasRuntime-scratch\\s06-runs",
+    "scheduler_gate": "NOT_PROVIDED_BY_THIS_HARNESS",
+    "scheduler_note": "runner --execute-cell runs exactly one cell and exits, so ordering, concurrency 1, stop-loss and no-cleanup are an executor obligation, not a gate this repository enforces. The declaration above is not evidence: the executable reference policy lives in tests/integration/test_stage_b_s06_schedule_policy.py and S06 must provide the process that implements it."
   },
   "execution_freeze": {
-    "current_version_is_live": "stage-b-execution/1.5",
-    "current_version_note": "freeze 1.5 cannot authorise a 36-cell run after the S05 harness fix: its recorded source digest no longer matches the worktree, so live preflight blocks on runner_source_digest_matches_freeze until 1.6 is written",
+    "active_file": "freeze-1.6.json",
+    "chained_versions": [
+      "stage-b-execution/1.0",
+      "stage-b-execution/1.1",
+      "stage-b-execution/1.2",
+      "stage-b-execution/1.3",
+      "stage-b-execution/1.4",
+      "stage-b-execution/1.5"
+    ],
+    "note": "the pointer moved to 1.6 and 1.5 joined the immutable chain, but the file is not written: no live cell can start until it exists, because preflight reports active_execution_freeze_present=false",
     "required_version": "stage-b-execution/1.6",
-    "status": "NOT_WRITTEN"
+    "status": "PREPARED_NOT_WRITTEN",
+    "superseded_version": "stage-b-execution/1.5",
+    "written": false
   },
   "generated_from": {
     "estimate_digest": "sha256:55b826a1f3f70e75cae881ee27e2c2e4366eb55fbcfe62f060bac3e03f07db13",

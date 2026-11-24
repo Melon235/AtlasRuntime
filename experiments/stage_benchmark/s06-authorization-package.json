@@ -60,7 +60,7 @@
     "provider": "opensandbox",
     "resources": {
       "cpu": "1",
-      "memory": "1.0Gi"
+      "memory": "1Gi"
     },
     "token_budget_per_cell": 500000,
     "token_budget_total": 18000000
@@ -91,6 +91,11 @@
     "status"
   ],
   "request": "Stage B 36-cell live benchmark, one attempt per cell, no retry",
+  "scheduler": {
+    "gate": "NOT_PROVIDED_BY_THIS_HARNESS",
+    "obligation": "the S06 executor must enforce fixed order, one cell at a time, one claim per cell, stop at the first cell that is not COMPLETED, no skipping, no claim cleanup and no two processes on one cell; the harness only refuses a second claim",
+    "reference_policy": "tests/integration/test_stage_b_s06_schedule_policy.py"
+  },
   "status": "PENDING_OWNER_APPROVAL",
   "task": "matrix"
 }
