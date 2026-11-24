@@ -123,11 +123,19 @@ def test_the_active_pointer_is_1_6_and_1_5_is_the_last_spent_version() -> None:
     assert admission.FROZEN_CHAIN[-1][1] != admission.FREEZE_PATH
 
 
-def test_the_next_freeze_is_prepared_but_not_written() -> None:
-    """Moving the pointer is preparation. Without the file, no live cell may start."""
+def test_a_missing_active_freeze_blocks_every_live_cell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Writing the file is a separate step. Until it exists, no live cell may start.
 
+    The check is isolated in ``tmp_path`` on purpose: once 1.6 is written the repository no longer
+    has a missing active freeze, and a test that asserted that would have to be deleted rather than
+    keep proving the fail-closed path.
+    """
+
+    monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze-1.6.json")
     assert not admission.FREEZE_PATH.is_file()
-    live = admission.preflight(evidence_root=Path("unused"), cell=None, live=True)
+    live = admission.preflight(evidence_root=tmp_path / "unused", cell=None, live=True)
     assert live["status"] == "BLOCKED"
     assert _labels(live)["active_execution_freeze_present"]["ok"] is False
     assert _labels(live)["runner_source_digest_matches_freeze"]["ok"] is False

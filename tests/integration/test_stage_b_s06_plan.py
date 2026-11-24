@@ -11,6 +11,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
@@ -81,8 +83,16 @@ def test_the_plan_states_that_no_scheduler_gate_exists_here() -> None:
 def test_the_package_is_a_request_that_the_gate_still_refuses() -> None:
     package = _package()
     plan = _plan()
+    freeze = admission.read_json(admission.FREEZE_PATH)
     assert package["status"] == "PENDING_OWNER_APPROVAL"
-    assert package["approved_digests"]["runner_source"] == "PENDING_FREEZE_1_6"
+    # The digests are final now, but a record is not an approval.
+    assert package["approved_digests"]["runner_source"] == admission.source_identity()["digest"]
+    assert package["approved_digests"]["runner_source"] == freeze["source"]["digest"]
+    assert package["freeze_binding"]["version"] == "stage-b-execution/1.6"
+    assert package["freeze_binding"]["written"] is True
+    assert package["freeze_binding"]["raw_sha256"] == admission.digest_bytes(
+        admission.FREEZE_PATH.read_bytes()
+    )
     assert package["cost_ceiling_usd"] is None
     assert package["consumed"] is False
     assert set(package["cells"]) == {cell["cell_id"] for cell in plan["cells"]}
@@ -92,7 +102,7 @@ def test_the_package_is_a_request_that_the_gate_still_refuses() -> None:
         "protocol_digest": package["approved_digests"]["protocol"],
         "plan_digest": package["approved_digests"]["plan"],
         "runtime_digest": package["approved_digests"]["runtime"],
-        "runner_source_digest": "sha256:whatever",
+        "runner_source_digest": package["approved_digests"]["runner_source"],
     }
     gate = admission.authorization_gate(
         package,
@@ -101,13 +111,22 @@ def test_the_package_is_a_request_that_the_gate_still_refuses() -> None:
         live=True,
     )
     assert gate["ready"] is False
-    assert "digest_mismatch:runner_source" in gate["problems"]
-    assert "no_cost_ceiling" in gate["problems"]
+    assert gate["problems"] == [
+        "status='PENDING_OWNER_APPROVAL'",
+        "missing_approved_by",
+        "missing_approval_commit",
+        "missing_approved_at",
+        "no_cost_ceiling",
+    ]
 
 
-def test_the_prepared_freeze_is_not_written_so_no_live_cell_can_start() -> None:
+def test_a_missing_active_freeze_blocks_a_live_cell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Isolated in tmp_path: after 1.6 exists the real tree has no missing active freeze."""
+
     assert admission.FREEZE_VERSION == "stage-b-execution/1.6"
-    assert not admission.FREEZE_PATH.is_file()
+    monkeypatch.setattr(admission, "FREEZE_PATH", tmp_path / "freeze-1.6.json")
     live = admission.preflight(
         evidence_root=REPO_ROOT / "experiments/stage_b_benchmark/cells", live=True
     )
