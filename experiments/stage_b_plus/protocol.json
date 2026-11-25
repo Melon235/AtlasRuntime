@@ -1,0 +1,827 @@
+{
+  "stage": "B+",
+  "protocol_version": "bplus-1.0.0",
+  "supersedes": null,
+  "does_not_modify": [
+    "experiments/stage_benchmark/execution/freeze-1.6.json",
+    "experiments/stage_benchmark/protocol.json",
+    "experiments/evaluation/closure2/*"
+  ],
+  "prompts": {
+    "p3-literal": {
+      "version": "main-v2.1-rc1",
+      "path": "experiments/stage_s2_prompt_v21/prompts/main_v21.md",
+      "chars": 10377,
+      "digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489",
+      "declared_digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489"
+    },
+    "p3-bplus": {
+      "version": "main-v2.1-rc1-bplus",
+      "derived_from": "p3-literal",
+      "chars": 9033,
+      "digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+      "removed_section": {
+        "heading": "## WORKER CAPABILITY CONTRACT",
+        "chars": 1344,
+        "digest": "sha256:5dd265cca564ef5ad239ea08c8bf45bbe58fd62bbb0f4decd76955c282b6216e"
+      }
+    },
+    "selected": "p3-bplus"
+  },
+  "arms": [
+    {
+      "arm_id": "C0",
+      "capability": "research",
+      "profile_id": "research_worker",
+      "worker_profiles": [
+        "research_worker"
+      ],
+      "exposure": "native",
+      "description": "research_worker with the existing prose disclosure",
+      "child_write_grants": "none",
+      "budget": {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "main_max_turns": 20,
+        "child_max_turns": 20,
+        "worker_max_turns": 20,
+        "max_concurrent_children": 2,
+        "max_children_per_call": 2,
+        "max_delegation_rounds": 3,
+        "token_budget": 500000,
+        "result_preview_chars": 900,
+        "public_test_max_calls": 4,
+        "tool_error_mode": "corrected",
+        "network": "none",
+        "cpu": 1,
+        "memory_gib": 1.0,
+        "sandbox_provider": "opensandbox",
+        "image": "atlas-uat-python:3.12",
+        "router_policy": "m.1.0",
+        "sandbox_timeout_minutes": 30,
+        "matrix_concurrency": 1,
+        "repetitions": 2,
+        "seed": 20261119,
+        "sampling_seed_supported": false
+      }
+    },
+    {
+      "arm_id": "C1",
+      "capability": "research",
+      "profile_id": "research_worker",
+      "worker_profiles": [
+        "research_worker"
+      ],
+      "exposure": "card",
+      "description": "research_worker with the derived capability card",
+      "child_write_grants": "none",
+      "budget": {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "main_max_turns": 20,
+        "child_max_turns": 20,
+        "worker_max_turns": 20,
+        "max_concurrent_children": 2,
+        "max_children_per_call": 2,
+        "max_delegation_rounds": 3,
+        "token_budget": 500000,
+        "result_preview_chars": 900,
+        "public_test_max_calls": 4,
+        "tool_error_mode": "corrected",
+        "network": "none",
+        "cpu": 1,
+        "memory_gib": 1.0,
+        "sandbox_provider": "opensandbox",
+        "image": "atlas-uat-python:3.12",
+        "router_policy": "m.1.0",
+        "sandbox_timeout_minutes": 30,
+        "matrix_concurrency": 1,
+        "repetitions": 2,
+        "seed": 20261119,
+        "sampling_seed_supported": false
+      }
+    },
+    {
+      "arm_id": "C2",
+      "capability": "coding",
+      "profile_id": "coding_worker",
+      "worker_profiles": [
+        "coding_worker"
+      ],
+      "exposure": "native",
+      "description": "coding_worker with the existing prose disclosure",
+      "child_write_grants": "per task write_scope",
+      "budget": {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "main_max_turns": 20,
+        "child_max_turns": 20,
+        "worker_max_turns": 20,
+        "max_concurrent_children": 2,
+        "max_children_per_call": 2,
+        "max_delegation_rounds": 3,
+        "token_budget": 500000,
+        "result_preview_chars": 900,
+        "public_test_max_calls": 4,
+        "tool_error_mode": "corrected",
+        "network": "none",
+        "cpu": 1,
+        "memory_gib": 1.0,
+        "sandbox_provider": "opensandbox",
+        "image": "atlas-uat-python:3.12",
+        "router_policy": "m.1.0",
+        "sandbox_timeout_minutes": 30,
+        "matrix_concurrency": 1,
+        "repetitions": 2,
+        "seed": 20261119,
+        "sampling_seed_supported": false
+      }
+    },
+    {
+      "arm_id": "C3",
+      "capability": "coding",
+      "profile_id": "coding_worker",
+      "worker_profiles": [
+        "coding_worker"
+      ],
+      "exposure": "card",
+      "description": "coding_worker with the derived capability card",
+      "child_write_grants": "per task write_scope",
+      "budget": {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "main_max_turns": 20,
+        "child_max_turns": 20,
+        "worker_max_turns": 20,
+        "max_concurrent_children": 2,
+        "max_children_per_call": 2,
+        "max_delegation_rounds": 3,
+        "token_budget": 500000,
+        "result_preview_chars": 900,
+        "public_test_max_calls": 4,
+        "tool_error_mode": "corrected",
+        "network": "none",
+        "cpu": 1,
+        "memory_gib": 1.0,
+        "sandbox_provider": "opensandbox",
+        "image": "atlas-uat-python:3.12",
+        "router_policy": "m.1.0",
+        "sandbox_timeout_minutes": 30,
+        "matrix_concurrency": 1,
+        "repetitions": 2,
+        "seed": 20261119,
+        "sampling_seed_supported": false
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "closure2-pipeline-migration",
+      "family": "P1",
+      "title": "Multi-module data pipeline migration",
+      "goal": "The ingest pipeline is being moved to the v2 record contract. `pipeline/parsing.py` must produce validated records, `pipeline/normalise.py` must add the numeric field, `pipeline/aggregate.py` must sum those fields, `pipeline/store.py` must keep one record per name, `pipeline/api.py` must compose the whole path and `pipeline/report.py` must render it. The old v1 shape (`name`, `value`) stays the record shape; v2 adds `count` and fixes ordering, validation and duplicate handling. No public call site may lose behaviour it has today.",
+      "goal_digest": "sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa",
+      "write_scope": [
+        "pipeline/**"
+      ],
+      "deliverables": [
+        "pipeline/aggregate.py",
+        "pipeline/api.py",
+        "pipeline/normalise.py",
+        "pipeline/parsing.py",
+        "pipeline/report.py",
+        "pipeline/store.py"
+      ],
+      "forbidden_paths": [
+        "test_public.py",
+        "docs/INTERFACE.md",
+        "README.md"
+      ],
+      "seed_files": [
+        "README.md",
+        "docs/INTERFACE.md",
+        "pipeline/__init__.py",
+        "pipeline/aggregate.py",
+        "pipeline/api.py",
+        "pipeline/normalise.py",
+        "pipeline/parsing.py",
+        "pipeline/report.py",
+        "pipeline/store.py",
+        "test_public.py"
+      ],
+      "seed_digest": "f9378c44a0ee564962e0a56ac7172ad616904d098fbc8dabb0806c4cdbbef515",
+      "reference_files": [
+        "pipeline/aggregate.py",
+        "pipeline/api.py",
+        "pipeline/normalise.py",
+        "pipeline/parsing.py",
+        "pipeline/report.py",
+        "pipeline/store.py"
+      ],
+      "reference_digest": "80706d098281e6d9f2cb9374aa6f449b29ce1665b88b77c2ffa7e7fa3b4dd3fe",
+      "oracle_files": [
+        "test_hidden_pipeline.py"
+      ],
+      "oracle_digest": "95174a0d6f42036ed52d98b5b7c8929f860ae55911646323f75886a8e7499808",
+      "public_tests": [
+        "test_public.py"
+      ],
+      "frozen_workers": [
+        {
+          "task_id": "parse",
+          "owned_paths": [
+            "pipeline/parsing.py",
+            "pipeline/normalise.py"
+          ]
+        },
+        {
+          "task_id": "aggregate",
+          "owned_paths": [
+            "pipeline/aggregate.py",
+            "pipeline/store.py"
+          ]
+        },
+        {
+          "task_id": "integrate",
+          "owned_paths": [
+            "pipeline/api.py",
+            "pipeline/report.py"
+          ]
+        }
+      ],
+      "main_visible_inputs": {
+        "goal": true,
+        "workspace": true,
+        "frozen_dag": false,
+        "worker_assignment": false,
+        "placement": false,
+        "oracle": false,
+        "reference": false
+      }
+    },
+    {
+      "task_id": "closure2-plugin-migration",
+      "family": "P2",
+      "title": "Plugin interface migration",
+      "goal": "The plugin system is moving to the frozen v2 plugin interface in `plugins/base.py`. Two concrete plugins (`csv` and `json`) still implement the v1 `parse`-only shape and must migrate; the registry and the loader still call v1 and must be brought onto the same contract. The two plugins have genuinely different inputs \u2014 CSV rows with quoting versus nested JSON objects \u2014 so each has its own parsing edge cases, but both must return the same record shape.",
+      "goal_digest": "sha256:05256583f0250ebc6418c4cd06dcd3ca3e986a330cbc7f3982f1328345513594",
+      "write_scope": [
+        "plugins/**"
+      ],
+      "deliverables": [
+        "plugins/csv_plugin.py",
+        "plugins/json_plugin.py",
+        "plugins/loader.py",
+        "plugins/registry.py"
+      ],
+      "forbidden_paths": [
+        "plugins/base.py",
+        "test_public.py",
+        "docs/INTERFACE.md",
+        "README.md"
+      ],
+      "seed_files": [
+        "README.md",
+        "docs/INTERFACE.md",
+        "plugins/__init__.py",
+        "plugins/base.py",
+        "plugins/csv_fields.py",
+        "plugins/csv_plugin.py",
+        "plugins/json_fields.py",
+        "plugins/json_plugin.py",
+        "plugins/loader.py",
+        "plugins/registry.py",
+        "test_public.py"
+      ],
+      "seed_digest": "cdc114a995318c7021016a08fff1cfb50b1d14d26f9d8f30ffa0ff12b53f8076",
+      "reference_files": [
+        "plugins/csv_fields.py",
+        "plugins/csv_plugin.py",
+        "plugins/json_fields.py",
+        "plugins/json_plugin.py",
+        "plugins/loader.py",
+        "plugins/registry.py"
+      ],
+      "reference_digest": "6e907eb96c35bb76c0e4bf091f0b6119cb1af1341d96580fd76557ade524ab97",
+      "oracle_files": [
+        "test_hidden_plugins.py"
+      ],
+      "oracle_digest": "a82b6add0cb721db78008ba2361820b1e7768cdd4bdad4cd09affb547ac4983a",
+      "public_tests": [
+        "test_public.py"
+      ],
+      "frozen_workers": [
+        {
+          "task_id": "csv",
+          "owned_paths": [
+            "plugins/csv_fields.py",
+            "plugins/csv_plugin.py"
+          ]
+        },
+        {
+          "task_id": "json",
+          "owned_paths": [
+            "plugins/json_fields.py",
+            "plugins/json_plugin.py"
+          ]
+        },
+        {
+          "task_id": "register",
+          "owned_paths": [
+            "plugins/loader.py",
+            "plugins/registry.py"
+          ]
+        }
+      ],
+      "main_visible_inputs": {
+        "goal": true,
+        "workspace": true,
+        "frozen_dag": false,
+        "worker_assignment": false,
+        "placement": false,
+        "oracle": false,
+        "reference": false
+      }
+    },
+    {
+      "task_id": "closure2-state-machine-refactor",
+      "family": "N1",
+      "title": "Coupled state machine refactor",
+      "goal": "The order lifecycle state machine in `lifecycle/state.py` must grow two terminal states (`rejected`, `cancelled`) and the events that reach them, and every caller must be moved onto the same table. Approvals, shipping and the audit trail all read the same `STATES` mapping, so the machine and its callers are one change: a caller that hard-codes a transition the table does not contain is a defect, and an illegal transition must be rejected rather than raising `KeyError`.",
+      "goal_digest": "sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538",
+      "write_scope": [
+        "lifecycle/**"
+      ],
+      "deliverables": [
+        "lifecycle/approval.py",
+        "lifecycle/audit.py",
+        "lifecycle/shipping.py",
+        "lifecycle/state.py"
+      ],
+      "forbidden_paths": [
+        "test_public.py",
+        "docs/INTERFACE.md",
+        "README.md"
+      ],
+      "seed_files": [
+        "README.md",
+        "docs/INTERFACE.md",
+        "lifecycle/__init__.py",
+        "lifecycle/approval.py",
+        "lifecycle/audit.py",
+        "lifecycle/shipping.py",
+        "lifecycle/state.py",
+        "test_public.py"
+      ],
+      "seed_digest": "400f56d38c1425757835701e73db4feb8ee3beea5764f008006058bd6a9e4012",
+      "reference_files": [
+        "lifecycle/approval.py",
+        "lifecycle/audit.py",
+        "lifecycle/shipping.py",
+        "lifecycle/state.py"
+      ],
+      "reference_digest": "5a04ee0c48152b9f18cdd0b8902d32660404c28d72ba345a06114f7ec1cd494c",
+      "oracle_files": [
+        "test_hidden_lifecycle.py"
+      ],
+      "oracle_digest": "a6f05cfc0deee5add17131c1f0e7ffc1f15081600507ba7639ae235dd664094e",
+      "public_tests": [
+        "test_public.py"
+      ],
+      "frozen_workers": [
+        {
+          "task_id": "machine",
+          "owned_paths": [
+            "lifecycle/state.py"
+          ]
+        },
+        {
+          "task_id": "callers",
+          "owned_paths": [
+            "lifecycle/approval.py",
+            "lifecycle/audit.py",
+            "lifecycle/shipping.py",
+            "lifecycle/state.py"
+          ]
+        }
+      ],
+      "main_visible_inputs": {
+        "goal": true,
+        "workspace": true,
+        "frozen_dag": false,
+        "worker_assignment": false,
+        "placement": false,
+        "oracle": false,
+        "reference": false
+      }
+    }
+  ],
+  "structures": [
+    "P1",
+    "P2",
+    "N1"
+  ],
+  "run_config": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "main_max_turns": 20,
+    "child_max_turns": 20,
+    "worker_max_turns": 20,
+    "max_concurrent_children": 2,
+    "max_children_per_call": 2,
+    "max_delegation_rounds": 3,
+    "token_budget": 500000,
+    "result_preview_chars": 900,
+    "public_test_max_calls": 4,
+    "tool_error_mode": "corrected",
+    "network": "none",
+    "cpu": 1,
+    "memory_gib": 1.0,
+    "sandbox_provider": "opensandbox",
+    "image": "atlas-uat-python:3.12",
+    "router_policy": "m.1.0",
+    "sandbox_timeout_minutes": 30,
+    "matrix_concurrency": 1,
+    "repetitions": 2,
+    "seed": 20261119,
+    "sampling_seed_supported": false
+  },
+  "s06_reference": {
+    "execution_head": "e0bc2ccd0e7e2ea0e5f8682f03e1cf47dde446b1",
+    "execution_freeze": "1.6",
+    "executor": "1.2.1",
+    "cells": 36,
+    "executor_passed": 30,
+    "goal_passed": 31,
+    "provider_requests": 432,
+    "system_tokens": 3032172,
+    "cost_usd": 0.18207,
+    "main_max_turns": 20,
+    "child_max_turns": 6,
+    "worker_profiles": [
+      "research_worker"
+    ],
+    "child_write_grants": {},
+    "proposals": 0,
+    "admissions": 0
+  },
+  "delegation_ladder": {
+    "L1_proposal": "the Main called delegate_tasks",
+    "L2_admission": "the Router admitted at least one worker",
+    "L3_worker_completion": "every admitted worker completed successfully",
+    "L4_handoff_delivery": "a handoff payload reached the Main",
+    "L5_main_continuation": "the Main edited or tested after the handoff",
+    "L6_goal_correctness": "public tests and the oracle passed"
+  },
+  "proposal_states": [
+    "NO_PROPOSAL",
+    "PROPOSAL_REJECTED",
+    "DELEGATE_ONE_ADMITTED",
+    "DELEGATE_PARALLEL_ADMITTED",
+    "ROUTER_RESULT_UNKNOWN"
+  ],
+  "primary_metrics": [
+    {
+      "id": "proposal_rate",
+      "numerator": "cells with at least one delegate_tasks call",
+      "denominator": "cells",
+      "missing": "0 only when delegate_tasks was on the surface; otherwise UNKNOWN"
+    },
+    {
+      "id": "valid_proposal_rate",
+      "numerator": "cells whose first proposal was admitted",
+      "denominator": "cells with a proposal",
+      "missing": "UNKNOWN when no proposal exists; never counted as a rejection"
+    },
+    {
+      "id": "admission_rate",
+      "numerator": "proposals the router admitted at least one child for",
+      "denominator": "proposals",
+      "missing": "N/A when no proposal exists; NO_PROPOSAL and PROPOSAL_REJECTED are separate"
+    },
+    {
+      "id": "worker_completion_rate",
+      "numerator": "admitted children that ended successfully",
+      "denominator": "admitted children",
+      "missing": "UNKNOWN when no child was admitted"
+    },
+    {
+      "id": "handoff_delivery_rate",
+      "numerator": "cells where a usable handoff reached the Main",
+      "denominator": "cells with a completed child",
+      "missing": "UNKNOWN when no child completed"
+    },
+    {
+      "id": "main_continuation_rate",
+      "numerator": "cells where the Main edited or tested after the handoff",
+      "denominator": "cells with a delivered handoff",
+      "missing": "UNKNOWN when no handoff was delivered"
+    },
+    {
+      "id": "goal_correctness_rate",
+      "numerator": "cells whose public suite and host oracle both passed",
+      "denominator": "cells",
+      "missing": "counted as FAIL, never dropped"
+    }
+  ],
+  "context_metrics": [
+    "main_peak_context_tokens",
+    "main_cumulative_input_tokens",
+    "main_cache_hit_tokens",
+    "main_cache_miss_tokens",
+    "main_completion_tokens",
+    "child_total_prompt_tokens",
+    "child_completion_tokens",
+    "system_total_tokens",
+    "worker_tool_calls",
+    "main_tool_calls",
+    "handoff_payload_chars",
+    "handoff_reference_count",
+    "context_projection_chars",
+    "first_delegation_turn",
+    "first_implementation_turn",
+    "main_continuation_after_handoff",
+    "wall_clock_seconds",
+    "cost_estimate_usd"
+  ],
+  "interpretation": [
+    {
+      "id": "I1",
+      "observation": "C1 > C0 on proposal_rate",
+      "reading": "disclosure alone can change whether a research worker is used",
+      "limit": "12 cells per arm; a direction, not a significance claim"
+    },
+    {
+      "id": "I2",
+      "observation": "C2 > C0 on proposal_rate",
+      "reading": "write-capable workers plus their native disclosure can change delegation",
+      "limit": "capability and disclosure are coupled: C2 discloses coding_worker, C0 discloses research_worker"
+    },
+    {
+      "id": "I3",
+      "observation": "C3 > C2 on proposal_rate",
+      "reading": "the derived card adds value beyond the prose enumeration on a coding worker",
+      "limit": "the two disclosures differ in contract detail, not in the presence of capability information"
+    },
+    {
+      "id": "I4",
+      "observation": "only C3 improves",
+      "reading": "possible interaction between capability and disclosure",
+      "limit": "an interaction cannot be separated from arm order at 24 cells"
+    },
+    {
+      "id": "I5",
+      "observation": "proposals rise but admissions do not",
+      "reading": "the bottleneck is proposal quality or the router, not disclosure",
+      "limit": "read the per-proposal reason codes before concluding"
+    },
+    {
+      "id": "I6",
+      "observation": "admissions rise but worker completion does not",
+      "reading": "the bottleneck is the worker contract, its tools or its budget",
+      "limit": "check child stop reasons and ownership denials"
+    },
+    {
+      "id": "I7",
+      "observation": "completion rises but handoff or continuation does not",
+      "reading": "the bottleneck is how results are projected into Main context",
+      "limit": "check handoff payload size and the preview bound"
+    },
+    {
+      "id": "I8",
+      "observation": "L1-L5 improve but L6 does not",
+      "reading": "no claim about final task performance may be made",
+      "limit": "L6 is correctness of the run and is never attributed to delegation"
+    },
+    {
+      "id": "I9",
+      "observation": "all four arms stay at NO_PROPOSAL",
+      "reading": "the capability hypothesis does not explain S06; task, model or decision policy is the next place to look",
+      "limit": "no arm may be declared best"
+    }
+  ],
+  "plan": {
+    "seed": 20261119,
+    "repetitions": 2,
+    "cells": [
+      {
+        "cell_id": "closure2-pipeline-migration.C0.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C0",
+        "repetition": 1,
+        "round": 1,
+        "order": 1
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C1.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C1",
+        "repetition": 1,
+        "round": 1,
+        "order": 2
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C2.r1",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C2",
+        "repetition": 1,
+        "round": 1,
+        "order": 3
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C1.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C1",
+        "repetition": 1,
+        "round": 2,
+        "order": 4
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C2.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C2",
+        "repetition": 1,
+        "round": 2,
+        "order": 5
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C3.r1",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C3",
+        "repetition": 1,
+        "round": 2,
+        "order": 6
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C2.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C2",
+        "repetition": 1,
+        "round": 3,
+        "order": 7
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C3.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C3",
+        "repetition": 1,
+        "round": 3,
+        "order": 8
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C0.r1",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C0",
+        "repetition": 1,
+        "round": 3,
+        "order": 9
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C3.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C3",
+        "repetition": 1,
+        "round": 4,
+        "order": 10
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C0.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C0",
+        "repetition": 1,
+        "round": 4,
+        "order": 11
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C1.r1",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C1",
+        "repetition": 1,
+        "round": 4,
+        "order": 12
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C1.r2",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C1",
+        "repetition": 2,
+        "round": 1,
+        "order": 13
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C2.r2",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C2",
+        "repetition": 2,
+        "round": 1,
+        "order": 14
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C3.r2",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C3",
+        "repetition": 2,
+        "round": 1,
+        "order": 15
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C2.r2",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C2",
+        "repetition": 2,
+        "round": 2,
+        "order": 16
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C3.r2",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C3",
+        "repetition": 2,
+        "round": 2,
+        "order": 17
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C0.r2",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C0",
+        "repetition": 2,
+        "round": 2,
+        "order": 18
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C3.r2",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C3",
+        "repetition": 2,
+        "round": 3,
+        "order": 19
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C0.r2",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C0",
+        "repetition": 2,
+        "round": 3,
+        "order": 20
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C1.r2",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C1",
+        "repetition": 2,
+        "round": 3,
+        "order": 21
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C0.r2",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C0",
+        "repetition": 2,
+        "round": 4,
+        "order": 22
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C1.r2",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C1",
+        "repetition": 2,
+        "round": 4,
+        "order": 23
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C2.r2",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C2",
+        "repetition": 2,
+        "round": 4,
+        "order": 24
+      }
+    ],
+    "digest": "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72",
+    "balance": {
+      "cells": 24,
+      "each_task_meets_each_arm": true,
+      "every_arm_run_equally_often": true,
+      "arm_cell_counts": {
+        "C0": 6,
+        "C1": 6,
+        "C2": 6,
+        "C3": 6
+      },
+      "first_arm_by_repetition": {
+        "1": "C0",
+        "2": "C1"
+      },
+      "first_arm_differs_across_repetitions": true,
+      "each_arm_in_each_round": null
+    }
+  },
+  "authorization": {
+    "state": "PENDING_OWNER_APPROVAL",
+    "live_execution_authorized": false,
+    "cells_allowed": 0,
+    "deepseek_calls_allowed": 0,
+    "sandboxes_allowed": 0,
+    "reuses_s06_or_s08_balance": false
+  }
+}

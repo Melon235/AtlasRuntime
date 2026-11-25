@@ -1,0 +1,94 @@
+{
+  "stage": "B+",
+  "cells": 24,
+  "pricing": {
+    "cache_hit_input_per_million": 0.006,
+    "cache_miss_input_per_million": 0.3,
+    "output_per_million": 1.2,
+    "snapshot_date": "2026-11-06",
+    "source": "experiments/configs/eval-benchmark.yaml",
+    "basis": "frozen config; the file itself labels it an upper bound for deepseek-chat"
+  },
+  "anchors": {
+    "s06_usage": {
+      "main_prompt_hit_tokens": 2754304.0,
+      "main_prompt_miss_tokens": 186553.0,
+      "child_prompt_tokens": 0.0,
+      "main_completion_tokens": 91315.0,
+      "child_completion_tokens": 0.0
+    },
+    "s06_cells": 36,
+    "s06_provider_requests": 432,
+    "s06_tokens_per_request": 6807.5,
+    "per_cell_from_s06": {
+      "main_prompt_hit_tokens": 76508.4,
+      "main_prompt_miss_tokens": 5182.0,
+      "child_prompt_tokens": 0.0,
+      "main_completion_tokens": 2536.5,
+      "child_completion_tokens": 0.0
+    }
+  },
+  "scenarios": {
+    "S0_s06_basis": {
+      "assumption": "one B+ cell costs exactly one S06 cell; S06 delegated in 0 cells, so this is a lower bound",
+      "per_cell_tokens": 84226.9,
+      "total_tokens": 2021445.6,
+      "per_cell_cost_usd": 0.005057,
+      "total_cost_usd": 0.1214
+    },
+    "S1_delegated": {
+      "assumption": "60% of cells delegate 2 children at 20 turns each; a child turn costs 1200+900x turn prompt tokens",
+      "child_turns": 20,
+      "delegated_cells": 14.4,
+      "child_prompt_tokens_total": 5616000.0,
+      "child_completion_tokens_total": 149760.0,
+      "per_cell_tokens": 324466.9,
+      "total_tokens": 7787205.6,
+      "per_cell_cost_usd": 0.082745,
+      "total_cost_usd": 1.9859
+    },
+    "S1b_delegated_6_turns": {
+      "assumption": "the same delegation shape at S06's 6-turn child cap, which no S06 child ever reached because no worker was ever created",
+      "child_turns": 6,
+      "delegated_cells": 14.4,
+      "child_prompt_tokens_total": 596160.0,
+      "child_completion_tokens_total": 44928.0,
+      "per_cell_tokens": 110938.9,
+      "total_tokens": 2662533.6,
+      "per_cell_cost_usd": 0.014756,
+      "total_cost_usd": 0.3541
+    },
+    "S2_budget_fill": {
+      "assumption": "every cell consumes its whole 500 000-token admission budget",
+      "total_tokens": 12000000.0,
+      "total_cost_usd": 0.7205
+    }
+  },
+  "nominal_capacity": {
+    "tokens": 12000000,
+    "cost_usd_at_s06_cache_mixture": 0.7205,
+    "note": "nominal capacity is the admission ceiling, not a forecast. At S06's 93.7 % cache-hit mixture it is cheap; the same tokens with child prompts priced as misses cost what S1 says, which is why S1 and S2 do not order the way their token totals do"
+  },
+  "dominant_variable": {
+    "field": "worker turn cap",
+    "evidence": "20 turns costs 5.6x the 6-turn shape: the child prompt is re-sent every turn and is priced as a cache miss",
+    "decision": "S06 requested 6 turns for a profile that caps at 6, so requested and effective agreed. B+ requests 20. The Owner should decide the cap on cost grounds rather than inherit it from a budget sheet"
+  },
+  "proposed": {
+    "cumulative_cost_stop_usd": 3.0,
+    "rationale": "covers S1 with margin; S2 is cheaper because it assumes the S06 cache mixture over the whole budget",
+    "canary_cells": 4,
+    "canary_stop_usd": 0.4,
+    "canary_shape": "one cell per arm on P1, repetition 1, in matrix order",
+    "approved": false,
+    "reuses_s06_or_s08_balance": false,
+    "note": "a candidate for the Owner to accept or lower; this module authorizes nothing and no S06 or S08 remainder is carried forward"
+  },
+  "limitations": [
+    "S06 measured a no-delegation regime on different tasks; its mixture is an anchor, not a forecast",
+    "the child shape is an assumption: no B+ child has ever run, and a 20-turn cap is three times S06's never-exercised 6",
+    "child prompt tokens are priced as cache misses because the provider reports no child cache split",
+    "the price is the repository's frozen snapshot, not a live quote",
+    "whether these cells delegate at all is the largest single cost variable"
+  ]
+}

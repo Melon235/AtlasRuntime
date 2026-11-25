@@ -1,0 +1,71 @@
+{
+  "stage": "B+",
+  "kind": "closure2_oracle_selftest_reused",
+  "source": "experiments/evaluation/closure2/preflight.py::task_selftest",
+  "tasks": {
+    "closure2-pipeline-migration": {
+      "seed_public_fails": true,
+      "seed_hidden_fails": true,
+      "reference_public_passes": true,
+      "reference_hidden_passes": true,
+      "hidden_oracle_executed_tests": 11,
+      "hidden_oracle_really_executes": true,
+      "separate_workspaces": true,
+      "public_and_hidden_targets_disjoint": true,
+      "harness_blocked": {
+        "seed_public": false,
+        "seed_hidden": false,
+        "reference_public": false,
+        "reference_hidden": false
+      },
+      "main_visible_variables": {
+        "goal_is_public_requirement": true,
+        "workspace_is_seed_only": true,
+        "interface_contract_is_a_repo_file": true
+      }
+    },
+    "closure2-plugin-migration": {
+      "seed_public_fails": true,
+      "seed_hidden_fails": true,
+      "reference_public_passes": true,
+      "reference_hidden_passes": true,
+      "hidden_oracle_executed_tests": 12,
+      "hidden_oracle_really_executes": true,
+      "separate_workspaces": true,
+      "public_and_hidden_targets_disjoint": true,
+      "harness_blocked": {
+        "seed_public": false,
+        "seed_hidden": false,
+        "reference_public": false,
+        "reference_hidden": false
+      },
+      "main_visible_variables": {
+        "goal_is_public_requirement": true,
+        "workspace_is_seed_only": true,
+        "interface_contract_is_a_repo_file": true
+      }
+    },
+    "closure2-state-machine-refactor": {
+      "seed_public_fails": true,
+      "seed_hidden_fails": true,
+      "reference_public_passes": true,
+      "reference_hidden_passes": true,
+      "hidden_oracle_executed_tests": 7,
+      "hidden_oracle_really_executes": true,
+      "separate_workspaces": true,
+      "public_and_hidden_targets_disjoint": true,
+      "harness_blocked": {
+        "seed_public": false,
+        "seed_hidden": false,
+        "reference_public": false,
+        "reference_hidden": false
+      },
+      "main_visible_variables": {
+        "goal_is_public_requirement": true,
+        "workspace_is_seed_only": true,
+        "interface_contract_is_a_repo_file": true
+      }
+    }
+  },
+  "ok": true
+}

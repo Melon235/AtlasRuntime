@@ -25,6 +25,12 @@ Deliberate composition choices, stated as facts rather than aspirations:
   It refuses instead of reporting a policy it does not apply.
 * Children are read-only unless the Host grants a profile writable paths. The grant is Host-owned;
   the Main cannot widen it by asking.
+* ``worker_profiles``, ``worker_max_turns`` and ``worker_exposure`` are Host-owned ablation controls
+  and every one of them defaults to a no-op. The first restricts what this run may construct, the
+  second replaces a profile turn cap that a run-level limit cannot raise, and the third appends a
+  derived capability disclosure to the ``delegate_tasks`` description. None of them is an
+  authorization source: a disclosed capability is still refused by the router and the ownership
+  policy when it is not granted.
 """
 
 from __future__ import annotations
@@ -76,7 +82,20 @@ from atlasos.delegation import (
     build_delegation_ownership,
     load_delegation_config,
 )
+from atlasos.delegation.capability_card import (
+    REFERENCE_SURFACE,
+    WorkerCapabilityCard,
+    build_card,
+)
+from atlasos.delegation.exposure import (
+    LEVELS as EXPOSURE_LEVELS,
+)
+from atlasos.delegation.exposure import (
+    exposure_evidence,
+    render_exposure,
+)
 from atlasos.delegation.handoff import handoffs_root, index_path
+from atlasos.delegation.tool import DEFAULT_DESCRIPTION as DELEGATE_TASK_DESCRIPTION
 from atlasos.delegation.tool import STAGE_M_DELEGATE_TOOL
 from atlasos.delegation.usage import UsageAttributionHook
 from atlasos.handoff import HandoffStore
@@ -95,6 +114,8 @@ from atlasos.trajectory.payloads import (
     read_corpus,
 )
 from atlasos.trajectory.recorder import TrajectoryRecorder
+from atlasos.workers import WorkerCatalog
+from atlasos.workers.factory import DEFAULT_AVAILABLE_TOOLS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CONFIG = REPO_ROOT / "experiments" / "configs" / "v2-uat.yaml"
@@ -133,6 +154,8 @@ MAIN_SYSTEM_PROMPT = (
 #: Version label of :data:`MAIN_SYSTEM_PROMPT`. A run's prompt is part of its identity: the same
 #: goal executed under a different prompt is a different experiment, so the label is recorded.
 MAIN_PROMPT_V1_VERSION = "main-v1.0"
+
+
 
 
 @dataclass(frozen=True)
@@ -193,6 +216,20 @@ class GoalRunOptions:
     main_write_paths: tuple[str, ...] = ()
     #: Host-owned write grants per worker profile, for delegated children.
     child_write_grants: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    #: Host-owned worker profiles this run may construct. ``None`` keeps the shipped catalog, which
+    #: is what every earlier stage ran: the field is documentation-free, so an unspecified run
+    #: resolves exactly as before. Restricting it makes a proposal for another profile a router
+    #: refusal (``UNKNOWN_PROFILE``) instead of a worker that quietly runs without a grant.
+    worker_profiles: tuple[str, ...] | None = None
+    #: Host-owned turn cap applied to the selected profiles. ``None`` keeps each profile's own
+    #: ``max_turns``. The child agent is built with ``min(profile.max_turns, child_max_turns)``, so
+    #: only a value at or below the delegation limit has an effect, and a value above it is refused:
+    #: the effective number is recorded in the run's capability evidence rather than assumed.
+    worker_max_turns: int | None = None
+    #: What the Main is told about the workers it may request. ``none`` keeps the shipped
+    #: ``delegate_tasks`` bytes; ``native`` and ``card`` append a derived disclosure (see
+    #: :mod:`atlasos.delegation.exposure`). Disclosure only: it never widens a grant.
+    worker_exposure: str = "none"
     #: Deterministic test seam. The default builds the real DeepSeek adapter from the environment.
     provider_factory: Callable[[], Any] | None = None
     run_id: str | None = None
@@ -294,6 +331,60 @@ def _config_error(config: AtlasConfig) -> str | None:
             "reporting a context plane it does not apply"
         )
     return None
+
+
+def _worker_catalog(options: GoalRunOptions) -> WorkerCatalog:
+    """The profiles this run may construct.
+
+    ``None`` means the shipped catalog, resolved exactly as before. A selection is Host-owned and
+    makes an unlisted profile id a router refusal rather than a silently different worker.
+    """
+
+    shipped = WorkerCatalog()
+    profiles = dict(shipped.profiles)
+    if options.worker_profiles is None:
+        selected = tuple(profiles[name] for name in sorted(profiles))
+    else:
+        if not options.worker_profiles:
+            raise ValueError("worker_profiles was given but is empty")
+        unknown = [name for name in options.worker_profiles if name not in profiles]
+        if unknown:
+            raise ValueError(f"unknown worker profile(s): {sorted(unknown)}")
+        selected = tuple(profiles[name] for name in options.worker_profiles)
+    if options.worker_max_turns is not None:
+        cap = int(options.worker_max_turns)
+        if cap > options.delegation.child_max_turns:
+            # ``DelegationService`` builds each child with min(profile.max_turns, child_max_turns),
+            # and the child cap is checked before the model call. A value above it would be reported
+            # by a config file and never reach the agent, which is the failure S07 documented.
+            raise ValueError(
+                "worker_max_turns exceeds delegation.child_max_turns "
+                f"({cap} > {options.delegation.child_max_turns}); the effective cap would be the "
+                "delegation limit, not this value"
+            )
+        selected = tuple(profile.model_copy(update={"max_turns": cap}) for profile in selected)
+    return WorkerCatalog(selected)
+
+
+def _worker_cards(
+    catalog: WorkerCatalog, options: GoalRunOptions
+) -> tuple[WorkerCapabilityCard, ...]:
+    """Derived capability cards for the offered profiles, or nothing when nothing is disclosed."""
+
+    if options.worker_exposure == "none":
+        return ()
+    return tuple(
+        build_card(
+            profile,
+            # The factory's own gate: a profile naming a tool outside it is refused at build time.
+            registered_tools=DEFAULT_AVAILABLE_TOOLS,
+            surface_tools=REFERENCE_SURFACE,
+            granted_write_paths=tuple(options.child_write_grants.get(profile_id, ())),
+            child_max_turns=options.delegation.child_max_turns,
+            result_preview_chars=options.delegation.result_preview_chars,
+        )
+        for profile_id, profile in sorted(catalog.profiles.items())
+    )
 
 
 def _usage_evidence(usage: Any | None) -> dict[str, int]:
@@ -502,7 +593,19 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         parent_agent=main_agent_name,
     )
 
-    delegate_tool = DelegateTasksTool()
+    if options.worker_exposure not in EXPOSURE_LEVELS:
+        raise ValueError(
+            f"unknown worker exposure {options.worker_exposure!r}; expected one of "
+            f"{list(EXPOSURE_LEVELS)}"
+        )
+    worker_catalog = _worker_catalog(options)
+    worker_cards = _worker_cards(worker_catalog, options)
+    delegate_description = render_exposure(
+        options.worker_exposure,
+        worker_cards,
+        base_description=DELEGATE_TASK_DESCRIPTION,
+    )
+    delegate_tool = DelegateTasksTool(description=delegate_description)
     # Ablation: with delegation disabled neither tool exists, so the Main cannot delegate at all
     # and the run is a plain single-agent baseline.
     core_tools = (
@@ -590,6 +693,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
                 parent_task_id=main_task_id,
                 parent_agent=main_agent_name,
                 tool_runtime=runtime,
+                worker_catalog=worker_catalog,
                 handoff_store=handoff_store,
                 handoff_index=handoff_index,
                 reader=reader,
@@ -778,6 +882,9 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         },
         "delegation": delegation_evidence.as_dict() if delegation_evidence else None,
         "delegation_enabled": delegation_config.enabled,
+        "delegation_controls": _delegation_controls_evidence(
+            options, worker_catalog, worker_cards, delegate_description
+        ),
         "child_tokens": child_usage,
         "metrics": metrics,
         "sandbox": sandbox.evidence.as_dict() if sandbox is not None else None,
@@ -796,6 +903,51 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     }
     (run_dir / "session.json").write_text(json.dumps(session, indent=2), encoding="utf-8")
     return session
+
+
+def _delegation_controls_evidence(
+    options: GoalRunOptions,
+    catalog: WorkerCatalog,
+    cards: tuple[WorkerCapabilityCard, ...],
+    description: str,
+) -> dict[str, Any]:
+    """What this run offered the Main, stated with the effective numbers rather than the asked ones.
+
+    ``effective_max_turns`` is read back from the catalog the service was built with, because
+    ``min(profile.max_turns, child_max_turns)`` is what the child agent actually receives.
+    """
+
+    profiles = {
+        profile_id: {
+            "role": profile.role,
+            "tools": list(profile.base_tools),
+            "operating_scope": list(profile.operating_scope),
+            "profile_max_turns": profile.max_turns,
+            "effective_max_turns": min(profile.max_turns, options.delegation.child_max_turns),
+            "can_delegate": profile.can_delegate,
+            "granted_write_paths": list(options.child_write_grants.get(profile_id, ())),
+        }
+        for profile_id, profile in sorted(catalog.profiles.items())
+    }
+    return {
+        "worker_profiles": sorted(catalog.profiles),
+        "worker_profiles_requested": (
+            list(options.worker_profiles) if options.worker_profiles is not None else None
+        ),
+        "worker_max_turns_requested": options.worker_max_turns,
+        "child_max_turns_limit": options.delegation.child_max_turns,
+        "profiles": profiles,
+        "exposure": exposure_evidence(
+            options.worker_exposure,
+            description,
+            cards,
+            base_description=DELEGATE_TASK_DESCRIPTION,
+        ),
+        # The shipped bytes, so a reader can tell an unchanged surface from a changed one.
+        "delegate_description_shipped_digest": "sha256:"
+        + hashlib.sha256(DELEGATE_TASK_DESCRIPTION.encode("utf-8")).hexdigest(),
+        "authority": "disclosure_only",
+    }
 
 
 def _integrity_evidence(corpus: ToolPayloadCorpus | None, run_dir: Path) -> dict[str, Any]:

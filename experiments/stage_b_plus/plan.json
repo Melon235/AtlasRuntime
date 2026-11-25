@@ -1,0 +1,220 @@
+{
+  "stage": "B+",
+  "protocol_version": "bplus-1.0.0",
+  "plan": {
+    "seed": 20261119,
+    "repetitions": 2,
+    "cells": [
+      {
+        "cell_id": "closure2-pipeline-migration.C0.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C0",
+        "repetition": 1,
+        "round": 1,
+        "order": 1
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C1.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C1",
+        "repetition": 1,
+        "round": 1,
+        "order": 2
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C2.r1",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C2",
+        "repetition": 1,
+        "round": 1,
+        "order": 3
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C1.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C1",
+        "repetition": 1,
+        "round": 2,
+        "order": 4
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C2.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C2",
+        "repetition": 1,
+        "round": 2,
+        "order": 5
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C3.r1",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C3",
+        "repetition": 1,
+        "round": 2,
+        "order": 6
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C2.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C2",
+        "repetition": 1,
+        "round": 3,
+        "order": 7
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C3.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C3",
+        "repetition": 1,
+        "round": 3,
+        "order": 8
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C0.r1",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C0",
+        "repetition": 1,
+        "round": 3,
+        "order": 9
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C3.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C3",
+        "repetition": 1,
+        "round": 4,
+        "order": 10
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C0.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C0",
+        "repetition": 1,
+        "round": 4,
+        "order": 11
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C1.r1",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C1",
+        "repetition": 1,
+        "round": 4,
+        "order": 12
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C1.r2",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C1",
+        "repetition": 2,
+        "round": 1,
+        "order": 13
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C2.r2",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C2",
+        "repetition": 2,
+        "round": 1,
+        "order": 14
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C3.r2",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C3",
+        "repetition": 2,
+        "round": 1,
+        "order": 15
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C2.r2",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C2",
+        "repetition": 2,
+        "round": 2,
+        "order": 16
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C3.r2",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C3",
+        "repetition": 2,
+        "round": 2,
+        "order": 17
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C0.r2",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C0",
+        "repetition": 2,
+        "round": 2,
+        "order": 18
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C3.r2",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C3",
+        "repetition": 2,
+        "round": 3,
+        "order": 19
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C0.r2",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C0",
+        "repetition": 2,
+        "round": 3,
+        "order": 20
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C1.r2",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C1",
+        "repetition": 2,
+        "round": 3,
+        "order": 21
+      },
+      {
+        "cell_id": "closure2-plugin-migration.C0.r2",
+        "task_id": "closure2-plugin-migration",
+        "arm_id": "C0",
+        "repetition": 2,
+        "round": 4,
+        "order": 22
+      },
+      {
+        "cell_id": "closure2-pipeline-migration.C1.r2",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C1",
+        "repetition": 2,
+        "round": 4,
+        "order": 23
+      },
+      {
+        "cell_id": "closure2-state-machine-refactor.C2.r2",
+        "task_id": "closure2-state-machine-refactor",
+        "arm_id": "C2",
+        "repetition": 2,
+        "round": 4,
+        "order": 24
+      }
+    ],
+    "digest": "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72",
+    "balance": {
+      "cells": 24,
+      "each_task_meets_each_arm": true,
+      "every_arm_run_equally_often": true,
+      "arm_cell_counts": {
+        "C0": 6,
+        "C1": 6,
+        "C2": 6,
+        "C3": 6
+      },
+      "first_arm_by_repetition": {
+        "1": "C0",
+        "2": "C1"
+      },
+      "first_arm_differs_across_repetitions": true,
+      "each_arm_in_each_round": null
+    }
+  }
+}

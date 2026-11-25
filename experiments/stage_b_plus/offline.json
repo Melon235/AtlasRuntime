@@ -1,0 +1,475 @@
+{
+  "stage": "B+",
+  "protocol_version": "bplus-1.0.0",
+  "protocol_digest": "sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5",
+  "protocol_path": "experiments/stage_b_plus/protocol.json",
+  "plan_path": "experiments/stage_b_plus/plan.json",
+  "ok": true,
+  "checks": [
+    {
+      "check_id": "J01_four_arm_requests_match_design",
+      "ok": true,
+      "detail": "one system prompt across the arms, four distinct delegate_tasks descriptions, and no other field differs between arms",
+      "system_prompt_digests": [
+        "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca"
+      ],
+      "description_digests": {
+        "C0": "sha256:8a801b21a0ca782a737907b61e1bd990e26910b2ca5c490c6b68c6704fe899fc",
+        "C1": "sha256:3f364f23fcc16ff63587ba1454eb1d94fff275ad4f0411bbfa7294f23a470303",
+        "C2": "sha256:9fc86fd3d6a61a537f0f516fca9aeab0d432ab66c8dc1f6054b75eedaa6c180a",
+        "C3": "sha256:365593c9598dbfba8249603d61fa848b50aa089f20b99332fc7de908bc5d0b0f"
+      },
+      "changed_fields": {
+        "C0->C1": [
+          "delegate_tasks.description_chars",
+          "delegate_tasks.description_digest",
+          "tools.chars",
+          "tools.digest"
+        ],
+        "C0->C2": [
+          "delegate_tasks.description_chars",
+          "delegate_tasks.description_digest",
+          "tools.chars",
+          "tools.digest"
+        ],
+        "C0->C3": [
+          "delegate_tasks.description_chars",
+          "delegate_tasks.description_digest",
+          "tools.chars",
+          "tools.digest"
+        ],
+        "C1->C2": [
+          "delegate_tasks.description_chars",
+          "delegate_tasks.description_digest",
+          "tools.chars",
+          "tools.digest"
+        ],
+        "C1->C3": [
+          "delegate_tasks.description_chars",
+          "delegate_tasks.description_digest",
+          "tools.chars",
+          "tools.digest"
+        ],
+        "C2->C3": [
+          "delegate_tasks.description_chars",
+          "delegate_tasks.description_digest",
+          "tools.chars",
+          "tools.digest"
+        ]
+      },
+      "unchanged_across_arms": [
+        "system_prompt.digest",
+        "delegate_tasks.schema_digest",
+        "delegate_tasks.profile_default",
+        "first_user_turn.digest"
+      ]
+    },
+    {
+      "check_id": "J02_worker_capability_matches_its_description",
+      "ok": true,
+      "detail": "every disclosed tool set equals the trusted profile's",
+      "profiles": {
+        "C0": {
+          "level": "native",
+          "levels": [
+            "none",
+            "native",
+            "card"
+          ],
+          "chars": 1613,
+          "digest": "sha256:8a801b21a0ca782a737907b61e1bd990e26910b2ca5c490c6b68c6704fe899fc",
+          "base_chars": 819,
+          "base_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+          "appended_chars": 794,
+          "profiles": [
+            "research_worker"
+          ],
+          "cards": [
+            {
+              "role_id": "research_worker",
+              "digest": "sha256:22f3e86bf00fdad3429f035718f5c1b12136b1fcf74dc0bd0d04b44124be6b00",
+              "read_only": true,
+              "max_turns": 20
+            }
+          ],
+          "authority": "disclosure_only"
+        },
+        "C1": {
+          "level": "card",
+          "levels": [
+            "none",
+            "native",
+            "card"
+          ],
+          "chars": 3030,
+          "digest": "sha256:3f364f23fcc16ff63587ba1454eb1d94fff275ad4f0411bbfa7294f23a470303",
+          "base_chars": 819,
+          "base_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+          "appended_chars": 2211,
+          "profiles": [
+            "research_worker"
+          ],
+          "cards": [
+            {
+              "role_id": "research_worker",
+              "digest": "sha256:22f3e86bf00fdad3429f035718f5c1b12136b1fcf74dc0bd0d04b44124be6b00",
+              "read_only": true,
+              "max_turns": 20
+            }
+          ],
+          "authority": "disclosure_only"
+        },
+        "C2": {
+          "level": "native",
+          "levels": [
+            "none",
+            "native",
+            "card"
+          ],
+          "chars": 1805,
+          "digest": "sha256:9fc86fd3d6a61a537f0f516fca9aeab0d432ab66c8dc1f6054b75eedaa6c180a",
+          "base_chars": 819,
+          "base_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+          "appended_chars": 986,
+          "profiles": [
+            "coding_worker"
+          ],
+          "cards": [
+            {
+              "role_id": "coding_worker",
+              "digest": "sha256:25bd76308e43594c7177e50a8b8d52cf680b259e83cbafaa7a72327695971a8a",
+              "read_only": false,
+              "max_turns": 20
+            }
+          ],
+          "authority": "disclosure_only"
+        },
+        "C3": {
+          "level": "card",
+          "levels": [
+            "none",
+            "native",
+            "card"
+          ],
+          "chars": 3336,
+          "digest": "sha256:365593c9598dbfba8249603d61fa848b50aa089f20b99332fc7de908bc5d0b0f",
+          "base_chars": 819,
+          "base_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+          "appended_chars": 2517,
+          "profiles": [
+            "coding_worker"
+          ],
+          "cards": [
+            {
+              "role_id": "coding_worker",
+              "digest": "sha256:25bd76308e43594c7177e50a8b8d52cf680b259e83cbafaa7a72327695971a8a",
+              "read_only": false,
+              "max_turns": 20
+            }
+          ],
+          "authority": "disclosure_only"
+        }
+      }
+    },
+    {
+      "check_id": "J03_research_worker_has_no_write_route",
+      "ok": true,
+      "detail": "a declared write is refused before a worker starts",
+      "checks": [
+        {
+          "check": "main_has_delegate_tasks",
+          "ok": true,
+          "detail": "surface=['bash', 'delegate_read', 'delegate_tasks', 'dispatch_action', 'file_edit', 'file_read', 'file_write', 'grep', 'list_files', 'tool_search']"
+        },
+        {
+          "check": "router_refused_declared_write",
+          "ok": true,
+          "detail": "route=direct reasons=['WRITE_SCOPE_NOT_GRANTED']"
+        },
+        {
+          "check": "no_worker_started",
+          "ok": true,
+          "detail": "children=0"
+        },
+        {
+          "check": "workspace_untouched_by_worker",
+          "ok": true,
+          "detail": "package/a.py unchanged"
+        }
+      ]
+    },
+    {
+      "check_id": "J04_coding_worker_completes_a_granted_task",
+      "ok": true,
+      "detail": "two admitted children wrote inside their declared paths and completed",
+      "checks": [
+        {
+          "check": "main_has_delegate_tasks",
+          "ok": true,
+          "detail": "surface=['bash', 'delegate_read', 'delegate_tasks', 'dispatch_action', 'file_edit', 'file_read', 'file_write', 'grep', 'list_files', 'tool_search']"
+        },
+        {
+          "check": "route_is_parallel",
+          "ok": true,
+          "detail": "route=delegate_parallel"
+        },
+        {
+          "check": "two_children_admitted",
+          "ok": true,
+          "detail": "children=2"
+        },
+        {
+          "check": "every_child_completed",
+          "ok": true,
+          "detail": "[[\"alpha\", \"completed\"], [\"beta\", \"completed\"]]"
+        },
+        {
+          "check": "granted_write_landed",
+          "ok": true,
+          "detail": "a='def alpha():\\n    \"\"\"Implemented by a scripted child for the B+ probe.\"\"\"\\n    return \\'alpha\\'\\n' b='def beta():\\n    \"\"\"Implemented by a scripted child for the B+ probe.\"\"\"\\n    return \\'beta\\'\\n'"
+        },
+        {
+          "check": "outside_write_blocked",
+          "ok": true,
+          "detail": "extra=[]"
+        },
+        {
+          "check": "ownership_denied_the_escape",
+          "ok": true,
+          "detail": "denials=['OWNERSHIP_DENIED_UNDECLARED_PATH', 'OWNERSHIP_UNCLASSIFIABLE_SHELL']"
+        },
+        {
+          "check": "interpreter_shell_blocked",
+          "ok": true,
+          "detail": "denials=['OWNERSHIP_DENIED_UNDECLARED_PATH', 'OWNERSHIP_UNCLASSIFIABLE_SHELL']"
+        },
+        {
+          "check": "main_continued_after_handoff",
+          "ok": true,
+          "detail": "integration='\"\"\"Integration surface the Main owns.\"\"\"\\nINTEGRATED = \"integrated two modules\"\\n\\n'"
+        },
+        {
+          "check": "handoff_read_succeeded",
+          "ok": true,
+          "detail": "read_success=1"
+        },
+        {
+          "check": "coding_child_offered_write_tools",
+          "ok": true,
+          "detail": "surface=['bash', 'dispatch_action', 'file_edit', 'file_read', 'file_write', 'grep', 'list_files', 'tool_search']"
+        },
+        {
+          "check": "coding_child_not_offered_host_tools",
+          "ok": true,
+          "detail": "surface=['bash', 'dispatch_action', 'file_edit', 'file_read', 'file_write', 'grep', 'list_files', 'tool_search']"
+        }
+      ]
+    },
+    {
+      "check_id": "J05_main_driven_path_derives_workers",
+      "ok": true,
+      "detail": "children were constructed by the real factory and ran their own loops",
+      "children": [
+        {
+          "key": "alpha",
+          "profile_id": "coding_worker",
+          "status": "completed",
+          "success": true,
+          "stop_reason": "success",
+          "error_code": null,
+          "error_message": null,
+          "tool_calls": 4,
+          "turns": 5
+        },
+        {
+          "key": "beta",
+          "profile_id": "coding_worker",
+          "status": "completed",
+          "success": true,
+          "stop_reason": "success",
+          "error_code": null,
+          "error_message": null,
+          "tool_calls": 2,
+          "turns": 3
+        }
+      ]
+    },
+    {
+      "check_id": "J06_router_and_ownership_gates_remain_effective",
+      "ok": true,
+      "detail": "declared write refused, shared write refused, single write task refused, and an unoffered tool never executed",
+      "probes": {
+        "research_write": true,
+        "shared_write": true,
+        "single_coding": true,
+        "research_tool_escape": true
+      }
+    },
+    {
+      "check_id": "J07_handoff_reaches_the_main",
+      "ok": true,
+      "detail": "the Main read a child result through delegate.read",
+      "handoff_reads": {
+        "read_calls": 1,
+        "read_success": 1,
+        "read_denied": 0
+      }
+    },
+    {
+      "check_id": "J08_four_arms_share_one_budget",
+      "ok": true,
+      "detail": "one child turn limit and one run configuration across the four arms",
+      "child_max_turns": {
+        "C0": 20,
+        "C1": 20,
+        "C2": 20,
+        "C3": 20
+      },
+      "run_config": {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "main_max_turns": 20,
+        "child_max_turns": 20,
+        "worker_max_turns": 20,
+        "max_concurrent_children": 2,
+        "max_children_per_call": 2,
+        "max_delegation_rounds": 3,
+        "token_budget": 500000,
+        "result_preview_chars": 900,
+        "public_test_max_calls": 4,
+        "tool_error_mode": "corrected",
+        "network": "none",
+        "cpu": 1,
+        "memory_gib": 1.0,
+        "sandbox_provider": "opensandbox",
+        "image": "atlas-uat-python:3.12",
+        "router_policy": "m.1.0",
+        "sandbox_timeout_minutes": 30,
+        "matrix_concurrency": 1,
+        "repetitions": 2,
+        "seed": 20261119,
+        "sampling_seed_supported": false
+      }
+    },
+    {
+      "check_id": "J09_usage_includes_main_and_children",
+      "ok": true,
+      "detail": "system_total_tokens is Main plus child prompt and completion, and is not a Main-only number",
+      "metrics": {
+        "main_cumulative_input_tokens": 40,
+        "main_completion_tokens": 20,
+        "child_total_prompt_tokens": 80,
+        "child_completion_tokens": 40,
+        "system_total_tokens": 180
+      }
+    },
+    {
+      "check_id": "J10_l1_l6_evidence_recoverable",
+      "ok": true,
+      "detail": "the Stage B analyzer reconstructs all six levels from a probe run directory",
+      "levels": {
+        "L1_proposal": true,
+        "L2_admission": true,
+        "L3_worker_completion": true,
+        "L4_handoff_delivery": true,
+        "L5_main_continuation": true,
+        "L6_goal_correctness": false
+      },
+      "level_reached": 5
+    },
+    {
+      "check_id": "J11_24_unique_cell_identities",
+      "ok": true,
+      "detail": "24 cells, 24 distinct ids, four arms x three tasks x two repetitions",
+      "first_three": [
+        "closure2-pipeline-migration.C0.r1",
+        "closure2-state-machine-refactor.C1.r1",
+        "closure2-plugin-migration.C2.r1"
+      ]
+    },
+    {
+      "check_id": "J12_unsigned_authorization_refuses_execution",
+      "ok": true,
+      "detail": "the pending record is refused, and a fully populated record bound to another digest is refused too",
+      "problems": [
+        "status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
+        "record has no approver",
+        "record has no approval commit",
+        "record has no approval timestamp",
+        "record has no cost ceiling"
+      ],
+      "forged_problems": [
+        "record names 'sha256:0000000000000000000000000000000000000000000000000000000000000000', contract is 'sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5'"
+      ]
+    },
+    {
+      "check_id": "J13_stage_b_freeze_1_6_unchanged",
+      "ok": true,
+      "detail": "experiments/stage_benchmark/execution/freeze-1.6.json is unchanged against e0bc2cc; raw sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45, LF sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45, CRLF sha256:004d4b776f944ea0a6c21b8f019eeed311527fb5198c0a7b10ba079b407dbdbc; declared content digest None; 9677 bytes"
+    },
+    {
+      "check_id": "J14_closure2_s07_s08_unaffected",
+      "ok": true,
+      "detail": "3 files changed since e0bc2cc, none of them protected"
+    },
+    {
+      "check_id": "X01_contract_self_validates",
+      "ok": true,
+      "detail": "the derived protocol document passes its own invariants",
+      "problems": []
+    },
+    {
+      "check_id": "X02_capture_is_not_a_model_call",
+      "ok": true,
+      "detail": "every capture completed in one turn against a fake provider; no provider was built",
+      "statuses": {
+        "C0": "succeeded",
+        "C1": "succeeded",
+        "C2": "succeeded",
+        "C3": "succeeded"
+      }
+    },
+    {
+      "check_id": "X03_reused_tasks_still_satisfiable",
+      "ok": true,
+      "detail": "the frozen Closure-2 oracle self-test still discriminates seed from reference on all three tasks",
+      "tasks": {
+        "closure2-pipeline-migration": {
+          "seed_hidden_fails": true,
+          "reference_hidden_passes": true
+        },
+        "closure2-plugin-migration": {
+          "seed_hidden_fails": true,
+          "reference_hidden_passes": true
+        },
+        "closure2-state-machine-refactor": {
+          "seed_hidden_fails": true,
+          "reference_hidden_passes": true
+        }
+      }
+    }
+  ],
+  "summary": {
+    "total": 17,
+    "passed": 17,
+    "failed": []
+  },
+  "authorization": {
+    "stage": "B+",
+    "protocol_version": "bplus-1.0.0",
+    "protocol_digest": "sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5",
+    "status": "PENDING_OWNER_APPROVAL",
+    "cells": 24,
+    "bound_head": null,
+    "approved_by": null,
+    "approval_commit": null,
+    "approved_at": null,
+    "cost_ceiling_usd": null,
+    "cumulative_stop_usd": null,
+    "canary_approved": false,
+    "authorizes_live_execution": false,
+    "reuses_s06_or_s08_balance": false,
+    "notes": "This record authorizes nothing. A live Stage B+ cell requires the Owner to fill every empty field, name this exact protocol digest and a head commit, and set both a cost ceiling and a cumulative stop."
+  },
+  "live_execution_authorized": false
+}

@@ -25,7 +25,9 @@ from atlasos.delegation.models import (
 
 STAGE_M_DELEGATE_TOOL = "delegate_tasks"
 
-_DESCRIPTION = (
+#: The shipped description. Public so an ablation can append a disclosure to exactly these bytes
+#: instead of copying them into another module, where they would drift.
+DEFAULT_DESCRIPTION = (
     "Delegate one or more INDEPENDENT subtasks to subworkers that run concurrently in isolated "
     "contexts. Each subworker sees only the objective and background you pass here: it never sees "
     "this conversation, your file reads, or your tool logs. You receive a bounded summary per "
@@ -41,7 +43,7 @@ _DESCRIPTION = (
 class DelegateTasksTool:
     """Late-bound ``delegate_tasks`` definition."""
 
-    def __init__(self, *, description: str = _DESCRIPTION) -> None:
+    def __init__(self, *, description: str = DEFAULT_DESCRIPTION) -> None:
         self._service: Any | None = None
         self._disabled_reason: str | None = None
         self._description = description
@@ -84,4 +86,4 @@ class DelegateTasksTool:
         )
 
 
-__all__ = ["STAGE_M_DELEGATE_TOOL", "DelegateTasksTool"]
+__all__ = ["DEFAULT_DESCRIPTION", "STAGE_M_DELEGATE_TOOL", "DelegateTasksTool"]

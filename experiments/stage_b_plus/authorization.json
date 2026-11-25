@@ -1,0 +1,17 @@
+{
+  "stage": "B+",
+  "protocol_version": "bplus-1.0.0",
+  "protocol_digest": "sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5",
+  "status": "PENDING_OWNER_APPROVAL",
+  "cells": 24,
+  "bound_head": null,
+  "approved_by": null,
+  "approval_commit": null,
+  "approved_at": null,
+  "cost_ceiling_usd": null,
+  "cumulative_stop_usd": null,
+  "canary_approved": false,
+  "authorizes_live_execution": false,
+  "reuses_s06_or_s08_balance": false,
+  "notes": "This record authorizes nothing. A live Stage B+ cell requires the Owner to fill every empty field, name this exact protocol digest and a head commit, and set both a cost ceiling and a cumulative stop."
+}

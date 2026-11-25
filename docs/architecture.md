@@ -216,6 +216,15 @@ Three properties are structural, not prompt-level:
   and is read-only. A child cannot delegate (`delegate_tasks` is not in any profile and the tool
   refuses non-main callers).
 
+Three Host-owned controls decide what the Main is *offered*, as distinct from what it is granted
+(`GoalRunOptions`, all no-ops by default): `worker_profiles` restricts which profiles this run may
+construct, `worker_max_turns` replaces the profile's own cap — the child is built with
+`min(profile.max_turns, delegation.child_max_turns)`, so a run-level value alone cannot raise it —
+and `worker_exposure` (`none` | `native` | `card`) appends a capability disclosure **derived from the
+profile, the run's registered tools and the grant** to the `delegate_tasks` description. The
+disclosure is text only: it is not read by the router, the gate, the policy or the factory, and
+`none` returns the shipped description bytes unchanged.
+
 Stage P adds the sandbox and the acceptance oracle around that composition:
 
 ```text
