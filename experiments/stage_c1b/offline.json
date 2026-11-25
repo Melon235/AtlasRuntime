@@ -6,8 +6,8 @@
   "protocol_version": "bplus-2.2.0",
   "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
   "bplus_protocol_unchanged": true,
-  "executor_version": "bplus-executor-1.4",
-  "executor_digest": "sha256:ba7591a727fe6fc0822528531a545ab13db966b8cbb7efe6134ee8c826a2582e",
+  "executor_version": "bplus-executor-1.5",
+  "executor_digest": "sha256:145f6c83822c3d38e21f86d4999057250518b2587d273aaa5451b6f5b2bccba4",
   "c1_executor_digest": "sha256:c7f3c4c88a86c91be82792fb5da640f8a62e0922840fd9d492606ea8a279937d",
   "bplus_v3_executor_digest": "sha256:9f4c21cc66eb6b082ea9aec5dcbec3a4d4dda53054b155d31e7dc784f7429cda",
   "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
@@ -67,7 +67,7 @@
     ],
     "forbidden_inside_grant_protection": "task instruction plus independent oracle, not ownership"
   },
-  "built_from_head": "1101b6689bf968997f0ec037109ac821d1de24b9",
+  "built_from_head": "5598dce0ec988e0622c9dc92a05ac1e677002fad",
   "ok": true,
   "checks": [
     {
@@ -206,8 +206,8 @@
         "approved_at is empty",
         "owner_statement is empty",
         "approval_provenance is empty",
-        "reviewed_head is None, actual head is '1101b6689bf968997f0ec037109ac821d1de24b9'",
-        "execution_head is None, actual head is '1101b6689bf968997f0ec037109ac821d1de24b9'",
+        "reviewed_head is None, actual head is '5598dce0ec988e0622c9dc92a05ac1e677002fad'",
+        "execution_head is None, actual head is '5598dce0ec988e0622c9dc92a05ac1e677002fad'",
         "cost_stop_usd is None; it must be finite and positive",
         "per_cell_cost_stop_usd is None; it must be finite and positive",
         "approval_provenance is empty"
@@ -239,11 +239,57 @@
       "mounted": true,
       "files": 34,
       "index_digest": "sha256:2e8c7be725f7e12119e9e7dc2fd577cb0748c2fb5f3676a5676d6e82648943e7"
+    },
+    {
+      "check_id": "C13_entry_resolution_resolves_the_c1b_plan_and_nothing_else_moved",
+      "ok": true,
+      "detail": "stage-c1b-coding-delegation-completion-v1 and its scope both resolve to sha256:d74c4d6f4634\u2026; C1 and both B+ entries are unchanged; 4 ids remain rejected",
+      "resolved_digest": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+      "rejected": [
+        "stage-b-plus-diagnostic-canary-v1",
+        "stage-b-plus-diagnostic-canary-v2",
+        "stage-c1b-unknown-plan",
+        "C1B_UNKNOWN_SCOPE"
+      ]
+    },
+    {
+      "check_id": "C14_real_dispatch_entry_runs_the_offline_control_flow",
+      "ok": true,
+      "detail": "dispatch('stage-c1b-coding-delegation-completion-v1') resolved, verified, claimed in a throwaway root, ran one synthetic cell and wrote the audit + matrix report (verdict PASS, 17 audit checks)",
+      "report": {
+        "plan_id": "stage-c1b-coding-delegation-completion-v1",
+        "scope": "C1B_COMPLETION_CONTROL_ONLY",
+        "plan_digest": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+        "mode": "offline_proof",
+        "complete": true,
+        "cells_planned": 1,
+        "cells_started": 1,
+        "cells_passed": 1,
+        "stop_reason": "NONE",
+        "aggregate_includes_sample": false
+      },
+      "cell": {
+        "cell_id": "c1b.closure2-plugin-migration.C3.r1",
+        "verdict": "PASS",
+        "execution_integrity": "PASS",
+        "goal_correctness": true,
+        "public_test_status": "PASS",
+        "oracle_passed": true,
+        "stops": [],
+        "failed_checks": [],
+        "check_count": 17
+      },
+      "evidence_exists": {
+        "matrix_report": true,
+        "ledger": true,
+        "analysis": true,
+        "attempt": true
+      }
     }
   ],
   "summary": {
-    "total": 12,
-    "passed": 12,
+    "total": 14,
+    "passed": 14,
     "failed": []
   },
   "status": "STAGE_C1B_COMPLETION_CONTROL_READY_FOR_LIVE_AUTHORIZATION",

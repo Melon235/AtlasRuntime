@@ -3,7 +3,9 @@
 `python -m experiments.stage_c1b.checks` writes ``plan.json``, ``authorization.json``,
 ``executor.json`` and ``offline.json`` next to this module and nothing else in the repository.
 
-Twelve checks, each one a fact this stage's design depends on:
+Fourteen checks, each one a fact this stage's design depends on. C13 and C14 were added after the
+first live attempt died at ``contract.scope_plan``: the plan id had never been registered there, and
+none of the previous twelve checks called the function ``dispatch`` calls first.
 
 C01  the coding worker now renders the completion contract (and the bytes are the plan's bytes)
 C02  the tool surface, the profile turn cap, the grant and the Main's write scope did not move
@@ -17,6 +19,8 @@ C09  the pending authorization authorizes nothing
 C10  V1/V2/V3/C1 claims are intact and no C1-B claim exists
 C11  the plan's own design invariants hold
 C12  the C1 evidence index still matches the digest the Owner recorded
+C13  the plan id and scope resolve through ``contract.scope_plan``, and nothing else moved
+C14  the real ``dispatch`` entry, called by plan id, runs the offline control flow end to end
 """
 
 from __future__ import annotations
@@ -463,6 +467,117 @@ def _check_claims(plan: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
+FROZEN_PLAN_DIGEST = "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c"
+
+#: Plan ids that must stay unresolvable: a stage that once ran cannot be rebuilt into a dispatchable
+#: plan, and an unknown id must never fall through to something.
+REJECTED_PLAN_IDS: tuple[str, ...] = (
+    contract.CANARY_PLAN_ID_V1,
+    contract.CANARY_PLAN_ID_V2,
+    "stage-c1b-unknown-plan",
+    "C1B_UNKNOWN_SCOPE",
+)
+
+
+def _check_entry_resolution(plan: Mapping[str, Any]) -> dict[str, Any]:
+    """The exact call ``dispatch`` makes first, plus the entries that must not move."""
+
+    problems: list[str] = []
+    by_id = contract.scope_plan(c1b.PLAN_ID)
+    by_scope = contract.scope_plan(c1b.SCOPE)
+
+    if by_id["digest"] != FROZEN_PLAN_DIGEST:
+        problems.append(f"plan id resolves to {by_id['digest']}, not the frozen digest")
+    if by_scope["digest"] != by_id["digest"] or by_scope["plan_id"] != by_id["plan_id"]:
+        problems.append("the scope and the plan id resolve to different plans")
+    if by_id["digest"] != plan["digest"]:
+        problems.append("the resolved plan is not the plan this check was given")
+    rejected: list[str] = []
+    for plan_id in REJECTED_PLAN_IDS:
+        try:
+            contract.scope_plan(plan_id)
+        except ValueError:
+            rejected.append(plan_id)
+        else:
+            problems.append(f"{plan_id} resolved; it must be rejected")
+    if contract.scope_plan(c1.PLAN_ID)["digest"] != C1_PLAN_DIGEST:
+        problems.append("the Stage C1 entry moved")
+    if contract.scope_plan(contract.SCOPE_CANARY)["digest"] != BPLUS_CANARY_PLAN_DIGEST:
+        problems.append("the B+ canary entry moved")
+    if contract.scope_plan(contract.SCOPE_FORMAL)["digest"] != BPLUS_FORMAL_PLAN_DIGEST:
+        problems.append("the B+ formal entry moved")
+
+    ok = not problems
+    return _check(
+        "C13_entry_resolution_resolves_the_c1b_plan_and_nothing_else_moved",
+        ok,
+        "; ".join(problems)
+        or (
+            f"{c1b.PLAN_ID} and its scope both resolve to {FROZEN_PLAN_DIGEST[:19]}…; C1 and both "
+            f"B+ entries are unchanged; {len(rejected)} ids remain rejected"
+        ),
+        resolved_digest=by_id["digest"],
+        rejected=rejected,
+    )
+
+
+def _check_offline_dispatch_entry(
+    plan: Mapping[str, Any],
+    *,
+    scratch: Path,
+    head: str,
+    identity: Mapping[str, Any],
+    protocol_digest: str,
+) -> dict[str, Any]:
+    """The real ``dispatch`` entry, by plan id, in offline proof mode.
+
+    Cell execution is synthetic and the claim lives in a throwaway root; the path from plan-id
+    resolution through authority verification, the offline claim, the cell, the audit and the matrix
+    report is the production one. This is where the missing registration would have failed.
+    """
+
+    try:
+        report = c1_checks.dispatch_report(
+            plan,
+            scratch=scratch,
+            head=head,
+            identity=identity,
+            protocol_digest=protocol_digest,
+        )
+    except Exception as error:  # noqa: BLE001 - a raised entry is a failed check
+        return _check(
+            "C14_real_dispatch_entry_runs_the_offline_control_flow",
+            False,
+            f"{type(error).__name__}: {error}"[:300],
+        )
+    body = report["report"]
+    cell = report["cell"]
+    ok = (
+        body["plan_id"] == c1b.PLAN_ID
+        and body["scope"] == c1b.SCOPE
+        and body["plan_digest"] == plan["digest"]
+        and body["mode"] == executor.MODE_OFFLINE_PROOF
+        and body["complete"] is True
+        and body["cells_planned"] == 1
+        and body["cells_started"] == 1
+        and body["cells_passed"] == 1
+        and body["stop_reason"] == executor.STOP_NONE
+        and cell["verdict"] == "PASS"
+        and cell["execution_integrity"] == "PASS"
+        and cell["goal_correctness"] is True
+        and not cell["stops"]
+        and all(report["evidence_exists"].values())
+    )
+    return _check(
+        "C14_real_dispatch_entry_runs_the_offline_control_flow",
+        ok,
+        f"dispatch({c1b.PLAN_ID!r}) resolved, verified, claimed in a throwaway root, ran one "
+        f"synthetic cell and wrote the audit + matrix report (verdict {cell['verdict']}, "
+        f"{cell['check_count']} audit checks)",
+        **report,
+    )
+
+
 def _check_evidence_index() -> dict[str, Any]:
     index = C1_EVIDENCE_ROOT / "evidence-index.json"
     if not index.is_file():
@@ -557,6 +672,14 @@ def run_checks(
             problems=c1b.validate(plan),
         ),
         _check_evidence_index(),
+        _check_entry_resolution(plan),
+        _check_offline_dispatch_entry(
+            plan,
+            scratch=scratch / "c14",
+            head=head,
+            identity=identity,
+            protocol_digest=protocol_digest,
+        ),
     ]
 
 

@@ -1,12 +1,36 @@
 # Stage C1-B — Worker Execution Efficiency and Completion
 
-Status: **`STAGE_C1B_COMPLETION_CONTROL_READY_FOR_LIVE_AUTHORIZATION`**
+Status: **`STAGE_C1B_DISPATCH_ENTRY_CORRECTED_READY_FOR_LIVE_AUTHORIZATION`**
 
 Stage C1 ran the coding-delegation positive control once and ended **A2**: the proposal was real,
 the router admitted it, two workers ran in parallel, and both died at the 20-turn cap. This stage
 audits that run from its own evidence, fixes two under-specified contracts, repairs one failure
 classification gap, and prepares one follow-up cell. No model was called, no sandbox was created, no
 claim was written or consumed, and no authorization was signed.
+
+### Dispatch entry correction
+
+The first live attempt of the C1-B plan (`5598dce`, signed authority `sha256:921bc382…`) died at the
+first statement of `executor.dispatch`:
+
+```
+executor.py:1238  plan = contract.scope_plan(plan_id)
+contract.py:786   ValueError: unknown scope 'stage-c1b-coding-delegation-completion-v1'
+```
+
+`contract.scope_plan()` registered the Stage C1 plan id and scope but not the C1-B ones, and every
+preparation check resolved the plan **by object**, so none of them called the function `dispatch`
+calls first. The incident is recorded as `PRE_CLAIM_DISPATCH_ENTRY_FAILURE` in
+`D:\Work\AtlasRuntime-runs\stage-c1b-completion\PRE_CLAIM_DISPATCH_ENTRY_FAILURE.json`: dispatch
+attempted, claim not consumed, 0 cells, 0 model requests, 0 sandboxes, L1–L6 `NOT_RUN`. The launch
+lock, both logs, the preflight scratch and the signed authorization were left untouched.
+
+The correction registers the C1-B id and scope in the same seam and adds two checks that would have
+caught it: **C13** resolves the plan through `contract.scope_plan()` (and asserts nothing else moved
+and unknown ids still fail), and **C14** calls the real `dispatch(PLAN_ID, mode=MODE_OFFLINE_PROOF)`
+by id with a synthetic cell, a throwaway claim root and a temporary signed record — plan-id
+resolution → authority verification → offline claim → cell → audit → matrix report. The plan digest
+did not move; the executor did, to `bplus-executor-1.5`.
 
 The audit tool is `experiments/stage_c1b/trace_audit.py`; it reads the C1 run tree read-only and
 writes `experiments/stage_c1b/trace-audit.json`. Every number below comes from it or from the run's
@@ -202,12 +226,13 @@ attempt, `is_benchmark_sample: false`.
 | budget digest | `sha256:a6ea4367…` (unchanged) |
 | protocol | `bplus-2.2.0` / `sha256:65e0b993…` (unchanged) |
 | execution contract | `bplus-exec-3.1` / `sha256:242fcef5…` |
-| executor | `bplus-executor-1.4` / `sha256:ba7591a727fe6fc0822528531a545ab13db966b8cbb7efe6134ee8c826a2582e` |
+| executor | `bplus-executor-1.5` / `sha256:145f6c83822c3d38e21f86d4999057250518b2587d273aaa5451b6f5b2bccba4` |
 | candidate envelope | token stop 500,000; cost stops 0.15 / 0.15 (still unapproved) |
 
-The executor identity now also covers `src/atlasos/workers/catalog.py` and
+The executor identity also covers `src/atlasos/workers/catalog.py` and
 `src/atlasos/app/main_driven.py`, because the worker contract and the failure classifier are part of
-what a cell executes. That is why the digest moved from 1.3 to 1.4.
+what a cell executes; 1.5 adds the `contract.scope_plan` registration that the first attempt needed.
+The plan digest did not move: the plan record is the same object it was before the correction.
 
 **This is a combined intervention.** One run on this plan exercises the worker completion contract
 *and* the Main verification discipline at once; it cannot be read as a single-variable ablation of
@@ -216,8 +241,8 @@ either. The plan records `intervention.kind = "combined_mechanism_fix"` and
 
 ## I. Targeted verification
 
-`python -m experiments.stage_c1b.checks` → **12/12 pass**, status
-`STAGE_C1B_COMPLETION_CONTROL_READY_FOR_LIVE_AUTHORIZATION`:
+`python -m experiments.stage_c1b.checks` → **14/14 pass**, status
+`STAGE_C1B_DISPATCH_ENTRY_CORRECTED_READY_FOR_LIVE_AUTHORIZATION`:
 
 | check | what it proves |
 | --- | --- |
@@ -233,11 +258,14 @@ either. The plan records `intervention.kind = "combined_mechanism_fix"` and
 | C10 | V1/V2/V3/C1 claims are present and no C1-B claim exists |
 | C11 | the plan's own design invariants hold |
 | C12 | the C1 evidence index (34 files) still matches `sha256:2e8c7be7…` |
+| C13 | the C1-B plan id and scope resolve through `contract.scope_plan()`, C1 and both B+ entries are unchanged, and four ids still fail |
+| C14 | the real `dispatch(PLAN_ID, MODE_OFFLINE_PROOF)` runs plan-id resolution → authority verification → offline claim → cell → audit → matrix report |
 
-Tests: 12 new C1-B tests (plan, prompt derivation, worker contract, production options, router,
-artifacts, authorization, history, classification end-to-end), 7 classifier unit tests, 19 worker
-prompt tests, 30 Stage C1 tests updated for the post-run state, and 273 regressions across the B+
-contract, delegation, worker, goal-path and reliability suites. Ruff is clean on every touched file.
+Tests: 22 C1-B tests (plan, prompt derivation, worker contract, production options, router, artifacts,
+authorization, history, classification end-to-end, entry resolution, offline dispatch entry), 7
+classifier unit tests, 19 worker prompt tests, 30 Stage C1 tests updated for the post-run state, and
+the B+ contract, delegation, worker, goal-path and reliability regressions. Ruff is clean on every
+touched file.
 
 ## J. Authorization and claims
 
@@ -251,7 +279,9 @@ Claims: V1, V2, V3 and C1 are present and untouched; C1 is spent (`537508bf….c
 
 ## K. Exact execution entry
 
-After the Owner signs, one attempt:
+After the Owner signs **the new head and `bplus-executor-1.5`**, one attempt — in a **new** run
+directory with a **new** launch lock and a **new** authorization file, because the previous attempt's
+directory already holds `PRE_CLAIM_DISPATCH_ENTRY_FAILURE.json` and its own lock:
 
 ```python
 import asyncio
@@ -259,13 +289,13 @@ import sys
 from pathlib import Path
 from experiments.stage_b_plus import executor
 
-root = Path(r"D:\Work\AtlasRuntime-runs\stage-c1b-completion")
+root = Path(r"D:\Work\AtlasRuntime-runs\stage-c1b-completion-2")
 report = asyncio.run(
     executor.dispatch(
         "stage-c1b-coding-delegation-completion-v1",
         runs_root=root / "runs",
         evidence_root=root / "evidence",
-        authority_path=Path(r"D:\Work\AtlasRuntime-authorizations\stage-c1b-completion.json"),
+        authority_path=Path(r"D:\Work\AtlasRuntime-authorizations\stage-c1b-completion-2.json"),
         mode=executor.MODE_LIVE,
     )
 )
@@ -275,7 +305,8 @@ sys.exit(0 if report.get("complete") else 4)
 
 The dispatch enforces: clean worktree at the signed head, no claim-root override, the signed record's
 plan/protocol/executor/budget/contract digests, both cost stops positive, and a READY pre-claim
-admission. One claim, one attempt, no retry, no resume.
+admission. One claim, one attempt, no retry, no resume. The claim namespace stays the production
+default, so the plan digest — not the directory — is still the one-shot identity.
 
 ## L. Limits and unverified assumptions
 
@@ -299,3 +330,9 @@ admission. One claim, one attempt, no retry, no resume.
 6. **C04 reads a machine-local evidence tree.** On a machine without it the check reports
    `mounted: false` rather than failing, so the delivery semantics are then asserted by review, not
    by the gate.
+7. **C14 proves the entry, not the experiment.** It runs the production path with a synthetic cell in
+   a throwaway claim root: it shows plan-id resolution, authority verification, the offline claim, the
+   audit and the matrix report are reachable, and nothing about a real model or a real sandbox.
+8. **The first attempt is spent as an event, not as a claim.** No claim was written, so the plan's
+   one-shot identity is still unspent — but the signed authority `921bc382…` names head `5598dce` and
+   executor 1.4, and cannot authorize the corrected identity.

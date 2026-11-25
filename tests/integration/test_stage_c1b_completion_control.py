@@ -119,6 +119,56 @@ def test_the_plan_validates() -> None:
     assert plan.validate() == []
 
 
+def test_the_plan_id_and_scope_resolve_through_the_dispatch_entry() -> None:
+    """The first statement ``dispatch`` executes; C1-B died here before the fix."""
+
+    record = plan.plan_record()
+    by_id = contract.scope_plan(plan.PLAN_ID)
+    by_scope = contract.scope_plan(plan.SCOPE)
+
+    assert by_id["plan_id"] == plan.PLAN_ID
+    assert by_id["digest"] == record["digest"] == checks.FROZEN_PLAN_DIGEST
+    assert by_scope == by_id
+
+
+def test_the_entry_still_rejects_what_it_should_and_keeps_the_older_entries() -> None:
+    for rejected in checks.REJECTED_PLAN_IDS:
+        with pytest.raises(ValueError):
+            contract.scope_plan(rejected)
+
+    assert contract.scope_plan(c1.PLAN_ID)["digest"] == c1.plan_record()["digest"]
+    assert (
+        contract.scope_plan(contract.SCOPE_CANARY)["digest"] == c1_checks.BPLUS_CANARY_PLAN_DIGEST
+    )
+    assert (
+        contract.scope_plan(contract.SCOPE_FORMAL)["digest"] == c1_checks.BPLUS_FORMAL_PLAN_DIGEST
+    )
+
+
+def test_the_real_dispatch_entry_runs_the_offline_control_flow(tmp_path: Path) -> None:
+    """Real entry, real authority check, synthetic cell, throwaway claim root."""
+
+    record = plan.plan_record()
+    identity = executor.executor_identity(REPO_ROOT)
+    protocol = authority.protocol_digest(contract.protocol_document())
+    report = c1_checks.dispatch_report(
+        record,
+        scratch=tmp_path / "entry",
+        head=executor.git_head(REPO_ROOT),
+        identity=identity,
+        protocol_digest=protocol,
+    )
+
+    assert report["report"]["plan_id"] == plan.PLAN_ID
+    assert report["report"]["scope"] == plan.SCOPE
+    assert report["report"]["plan_digest"] == record["digest"]
+    assert report["report"]["complete"] is True
+    assert report["report"]["cells_started"] == 1
+    assert report["report"]["stop_reason"] == executor.STOP_NONE
+    assert report["cell"]["verdict"] == "PASS"
+    assert all(report["evidence_exists"].values())
+
+
 def test_the_checked_in_artefacts_match_the_current_code() -> None:
     stage = REPO_ROOT / "experiments" / "stage_c1b"
     plan_file = json.loads((stage / "plan.json").read_text(encoding="utf-8"))
@@ -190,7 +240,7 @@ def test_every_check_passes_on_this_repository(tmp_path: Path) -> None:
 
     failed = [item["check_id"] for item in report if not item["ok"]]
     assert failed == []
-    assert len(report) == 12
+    assert len(report) == 14
 
 
 @pytest.mark.parametrize("label", ["v1", "v2", "v3", "c1"])

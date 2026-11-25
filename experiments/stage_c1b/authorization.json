@@ -10,8 +10,8 @@
   "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
   "reviewed_head": null,
   "execution_head": null,
-  "executor_digest": "sha256:ba7591a727fe6fc0822528531a545ab13db966b8cbb7efe6134ee8c826a2582e",
-  "executor_version": "bplus-executor-1.4",
+  "executor_digest": "sha256:145f6c83822c3d38e21f86d4999057250518b2587d273aaa5451b6f5b2bccba4",
+  "executor_version": "bplus-executor-1.5",
   "cells_count": 1,
   "cell_ids": [
     "c1b.closure2-plugin-migration.C3.r1"

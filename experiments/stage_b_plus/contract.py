@@ -759,12 +759,15 @@ def canary_cells() -> list[dict[str, Any]]:
 def scope_plan(scope_or_id: str) -> dict[str, Any]:
     """The plan record for one scope. ``scope_or_id`` accepts a scope type or a plan id."""
 
-    # A Stage C1 diagnostic plan declares itself in its own module; this is the one seam, so a new
-    # single-cell plan reuses ``executor.dispatch`` instead of a second executor.
+    # A Stage C1 / C1-B diagnostic plan declares itself in its own module; this is the one seam, so
+    # a new single-cell plan reuses ``executor.dispatch`` instead of a second executor.
     from experiments.stage_c1 import plan as c1_plan
+    from experiments.stage_c1b import plan as c1b_plan
 
     if scope_or_id in (c1_plan.SCOPE, c1_plan.PLAN_ID):
         return c1_plan.plan_record()
+    if scope_or_id in (c1b_plan.SCOPE, c1b_plan.PLAN_ID):
+        return c1b_plan.plan_record()
     if scope_or_id in SUPERSEDED_CANARY_PLAN_IDS:
         raise ValueError(
             f"{scope_or_id} was dispatched once and its claim is consumed; it is superseded by "
@@ -1145,9 +1148,7 @@ def main_prompt_for(cell: Mapping[str, Any]) -> Any:
 
     override = cell.get("main_prompt")
     if isinstance(override, Mapping) and str(override.get("text") or "").strip():
-        return MainPromptSpec(
-            version=str(override["version"]), text=str(override["text"])
-        )
+        return MainPromptSpec(version=str(override["version"]), text=str(override["text"]))
     return main_prompt_spec()
 
 

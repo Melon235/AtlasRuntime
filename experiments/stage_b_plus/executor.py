@@ -56,7 +56,7 @@ from experiments.evaluation.sandboxed_oracle import (
 from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract, cost
 
-EXECUTOR_VERSION = "bplus-executor-1.4"
+EXECUTOR_VERSION = "bplus-executor-1.5"
 
 #: Files whose bytes *are* the executor identity. A dispatch is bound to their digests, so editing
 #: any of them invalidates an existing signature rather than silently running different code.
