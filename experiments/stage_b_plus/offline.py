@@ -134,11 +134,13 @@ def _live_path_proof(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
         main_max_turns=2,
     )
     runner = executor.live_cell_runner(config)
+    plan = contract.scope_plan(contract.SCOPE_CANARY)
     context = {
-        "plan": contract.scope_plan(contract.SCOPE_CANARY),
+        "plan": plan,
         "runs_root": scratch / "live-proof" / "runs",
         "evidence_root": scratch / "live-proof" / "evidence",
     }
+
     async def _await_run() -> executor.CellRun:
         return await runner(cell, context)
 
@@ -151,6 +153,16 @@ def _live_path_proof(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
     fixture = run.fixture or {}
     oracle = run.oracle or {}
     export = run.export or {}
+
+    # The producer's CellRun goes straight into the real audit. This is the seam v2 was missing:
+    # the proof checked the runner's output field by field and never asked the gate to read it.
+    outcome = executor.audit_cell(
+        cell=cell,
+        run=run,
+        plan=plan,
+        usage_before=dict.fromkeys(executor.REQUIRED_USAGE_FIELDS, 0),
+        cost_before=0.0,
+    )
     ok = bool(
         run.error is None
         and exposure == arm.exposure
@@ -160,16 +172,28 @@ def _live_path_proof(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
         and fixture.get("commit")
         and export.get("workspace_path")
         and export.get("workspace_digest")
+        and export.get("directory_digest")
+        and export.get("workspace_digest") != export.get("directory_digest")
+        and export.get("archive_digest_verifiable") is False
         and oracle.get("execution_mode") == "sandbox"
         and oracle.get("status") in {"PASS", "FAIL"}
         and oracle.get("sandbox_id")
         and not oracle.get("cleanup_failure")
+        # The fake sandbox runs on the Host, so the isolation gate must refuse it — and that is the
+        # only stop it may produce. Export and public-test checks must stay silent.
+        and set(outcome["stops"]) == {executor.STOP_HOST_ISOLATION}
+        and outcome["public_test_status"] == "NOT_RUN"
+        and outcome["goal_correctness"] is not True
     )
     detail = (
-        f"one cell through the live runner for {cell['cell_id']}: fixture_commit="
-        f"{str(fixture.get('commit'))[:8]} export_files={export.get('workspace_files')} "
+        f"one cell through the live runner and the real audit for {cell['cell_id']}: "
+        f"fixture_commit={str(fixture.get('commit'))[:8]} "
+        f"export_files={export.get('workspace_files')} "
         f"oracle={oracle.get('status')} in {oracle.get('execution_mode')} "
-        f"(sandbox {oracle.get('sandbox_id')}), usage_ok={usage['ok']}"
+        f"(sandbox {oracle.get('sandbox_id')}), "
+        f"audit_stops={outcome['stops'] or 'none'} (isolation only: the fake sandbox is not "
+        f"isolated), public_test={outcome['public_test_status']} "
+        f"goal={outcome['goal_correctness']}, usage_ok={usage['ok']}"
     )
     evidence = {
         "cell_id": cell["cell_id"],
@@ -188,7 +212,10 @@ def _live_path_proof(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
         },
         "export": {
             "workspace_files": export.get("workspace_files"),
-            "workspace_digest": export.get("workspace_digest"),
+            "archive_digest": export.get("workspace_digest"),
+            "directory_digest": export.get("directory_digest"),
+            "directory_files": export.get("directory_files"),
+            "archive_digest_verifiable": export.get("archive_digest_verifiable"),
             "patch_digest": export.get("patch_digest"),
         },
         "oracle": {
@@ -197,6 +224,16 @@ def _live_path_proof(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
             "execution_mode": oracle.get("execution_mode"),
             "sandbox_id": oracle.get("sandbox_id"),
             "cleanup_failure": oracle.get("cleanup_failure"),
+        },
+        "audit": {
+            "verdict": outcome["verdict"],
+            "stops": outcome["stops"],
+            "execution_integrity": outcome["execution_integrity"],
+            "public_test_status": outcome["public_test_status"],
+            "public_test_runs": outcome["public_test_runs"],
+            "goal_correctness": outcome["goal_correctness"],
+            "oracle_passed": outcome["oracle_passed"],
+            "agent_success": outcome["agent_success"],
         },
         "usage": usage["values"] if usage["ok"] else usage["problems"],
         "run_dir": str(run.run_dir) if run.run_dir is not None else None,
@@ -309,6 +346,38 @@ def _context_metrics_from_live_evidence(
         "usage_problems": usage_report["problems"],
     }
     return ok, detail, evidence
+
+
+def _public_test_agreement(run_dir: str | None) -> tuple[bool, str, dict[str, Any]]:
+    """The gate's public-test reader and the Stage B analyzer must agree on the same session.
+
+    ``experiments/stage_benchmark`` is protected, so the rule cannot be shared by import. This check
+    is the substitute: both readers are applied to one real session and must reach the same verdict.
+    """
+
+    from experiments.stage_benchmark import reconstruct
+
+    if not run_dir or not (Path(run_dir) / "session.json").is_file():
+        return False, "the live-proof run directory is missing", {}
+    record = reconstruct.reconstruct(Path(run_dir))
+    session = json.loads((Path(run_dir) / "session.json").read_text(encoding="utf-8"))
+    mine = executor.public_test_verdict(session.get("public_tests"))
+    theirs = record["verification"]
+    same_statuses = list(theirs.get("public_test_statuses") or []) == mine["statuses"]
+    same_pass = (theirs.get("public_tests_passed") is True) == (mine["passed"] is True)
+    ok = same_statuses and same_pass
+    return ok, (
+        f"the gate and the Stage B analyzer read {mine['runs']} public run(s) the same way "
+        f"(state={mine['state']}, statuses={mine['statuses']})"
+    ), {
+        "gate": mine,
+        "analyzer": {
+            "statuses": theirs.get("public_test_statuses"),
+            "passed": theirs.get("public_tests_passed"),
+        },
+        "same_statuses": same_statuses,
+        "same_pass": same_pass,
+    }
 
 
 def _admission_checks(scratch: Path) -> list[dict[str, Any]]:
@@ -502,6 +571,140 @@ def _admission_checks(scratch: Path) -> list[dict[str, Any]]:
     return checks
 
 
+def _evidence_contract_checks(scratch: Path) -> list[dict[str, Any]]:
+    """The producer/consumer contract that v2 got wrong: export identity and public-test evidence.
+
+    Each case feeds a real ``CellRun`` into the real ``audit_cell`` and reads the gate's verdict. No
+    model, no sandbox, no oracle: the fixture, the export and the session are real bytes on disk.
+    """
+
+    plan = contract.scope_plan(contract.CANARY_PLAN_ID)
+    work = scratch / "evidence-contract"
+    executor.remove_tree(work)
+    work.mkdir(parents=True, exist_ok=True)
+    cell = plan["cells"][0]
+    checks: list[dict[str, Any]] = []
+
+    def _audit(candidate: executor.CellRun) -> dict[str, Any]:
+        return executor.audit_cell(
+            cell=cell,
+            run=candidate,
+            plan=plan,
+            usage_before=dict.fromkeys(executor.REQUIRED_USAGE_FIELDS, 0),
+            cost_before=0.0,
+        )
+
+    healthy = synthetic_cell_run(cell, work / "healthy")
+    export = healthy.export or {}
+    checks.append(
+        _check(
+            "L32_export_identity_is_two_records",
+            bool(export.get("workspace_digest"))
+            and bool(export.get("directory_digest"))
+            and export.get("workspace_digest") != export.get("directory_digest")
+            and export.get("archive_digest_verifiable") is False,
+            "the producer's archive digest and the host's directory digest are recorded "
+            "separately and are never compared",
+            archive_digest=export.get("workspace_digest"),
+            directory_digest=export.get("directory_digest"),
+        )
+    )
+
+    healthy_outcome = _audit(healthy)
+    checks.append(
+        _check(
+            "L33_healthy_cell_passes_the_evidence_checks",
+            healthy_outcome["stops"] == []
+            and healthy_outcome["execution_integrity"] == "PASS"
+            and healthy_outcome["public_test_status"] == "PASS"
+            and healthy_outcome["goal_correctness"] is True,
+            "a production-shaped cell passes export, public-test and oracle checks together",
+            stops=healthy_outcome["stops"],
+            public_test=healthy_outcome["public_test_status"],
+            goal=healthy_outcome["goal_correctness"],
+        )
+    )
+
+    mutated = synthetic_cell_run(cell, work / "mutated")
+    target = Path(str((mutated.export or {})["workspace_path"])) / "pipeline" / "parsing.py"
+    target.write_text(target.read_text(encoding="utf-8") + "\n# changed after export\n", "utf-8")
+    mutated_outcome = _audit(mutated)
+    checks.append(
+        _check(
+            "L34_changed_export_directory_stops",
+            executor.STOP_EXPORT in mutated_outcome["stops"],
+            "a workspace that changed after the host recorded its identity is refused",
+            stops=mutated_outcome["stops"],
+        )
+    )
+
+    miscounted = synthetic_cell_run(cell, work / "miscounted")
+    assert miscounted.session is not None
+    miscounted.session["artifacts"]["workspace_files"] = 999
+    miscounted_outcome = _audit(miscounted)
+    checks.append(
+        _check(
+            "L35_export_file_count_mismatch_stops",
+            executor.STOP_EXPORT in miscounted_outcome["stops"],
+            "a recorded file count that the directory does not hold is refused",
+            stops=miscounted_outcome["stops"],
+        )
+    )
+
+    suite: dict[str, Any] = {}
+    for behaviour in (
+        "public_fail_then_pass",
+        "public_pass_then_fail",
+        "public_not_run",
+        "public_error",
+    ):
+        outcome = _audit(synthetic_cell_run(cell, work / behaviour, behaviour=behaviour))
+        suite[behaviour] = {
+            "state": outcome["public_test_status"],
+            "goal": outcome["goal_correctness"],
+            "verdict": outcome["verdict"],
+        }
+    checks.append(
+        _check(
+            "L36_public_test_verdict_reads_the_runs",
+            suite["public_fail_then_pass"]["state"] == "PASS"
+            and suite["public_fail_then_pass"]["goal"] is True
+            and suite["public_pass_then_fail"]["state"] == "FAIL"
+            and suite["public_pass_then_fail"]["goal"] is False
+            and suite["public_not_run"]["state"] == "NOT_RUN"
+            and suite["public_not_run"]["goal"] is None
+            and suite["public_error"]["state"] == "ERROR"
+            and suite["public_error"]["goal"] is None,
+            "the verdict is the last recorded run: an earlier pass cannot hide a later fail, and "
+            "NOT_RUN / ERROR are never a pass",
+            outcomes=suite,
+        )
+    )
+
+    report = _read_json(scratch / "history" / "clean" / "matrix-report.json") or {}
+    cells = report.get("cells") or []
+    delta_floor = round(
+        sum(item["delta_cost_usd"] for item in cells if item.get("delta_cost_usd") is not None), 6
+    )
+    cumulative_floor = round(
+        sum(item["cost_usd"] for item in cells if item.get("cost_usd") is not None), 6
+    )
+    checks.append(
+        _check(
+            "L37_observed_cost_floor_sums_deltas",
+            bool(cells)
+            and report.get("observed_cost_floor_usd") == delta_floor
+            and delta_floor != cumulative_floor,
+            f"the observed floor is the sum of per-cell costs ({delta_floor}), not of the running "
+            f"totals ({cumulative_floor})",
+            reported=report.get("observed_cost_floor_usd"),
+            delta_sum=delta_floor,
+            cumulative_sum=cumulative_floor,
+        )
+    )
+    return checks
+
+
 # -- synthetic cells for the gate ---------------------------------------------------------------
 
 
@@ -538,14 +741,22 @@ def _synthetic_session(
     export_dir = cell_root / "export"
     executor.remove_tree(export_dir)
     shutil.copytree(fixture["path"], export_dir, ignore=shutil.ignore_patterns(".git"))
+    directory = "sha256:" + workspace_digest(export_dir)
+    # The producer records an *archive* digest, which is a different object from the directory
+    # hash. The synthetic value stands in for it and is deliberately not the directory digest, so a
+    # regression that compares the two fails here instead of on a live cell.
+    archive = "sha256:" + hashlib.sha256(
+        ("synthetic-archive:" + directory).encode("utf-8")
+    ).hexdigest()
     artifacts = {
         "workspace_path": str(export_dir),
-        "workspace_digest": workspace_digest(export_dir),
+        "workspace_digest": archive,
         "workspace_files": len(executor.workspace_hashes(export_dir)),
         "patch_digest": "sha256:" + "0" * 64,
         "patch_changed_files": 0,
         "patch_path": str(cell_root / "workspace.patch"),
         "workspace_size_bytes": 1024,
+        "archive_digest_source": "synthetic stand-in for the producer's archive digest",
     }
     metrics = {
         "main_cumulative_input_tokens": 12_000,
@@ -588,7 +799,34 @@ def _synthetic_session(
         "ownership": {"denied_calls": []},
         "verification": {"verdict": "PASS", "dynamic": {"status": "PASS"}},
         "acceptance": "PASS",
-        "public_tests": {"status": "PASS", "calls": 1, "runs": []},
+        # The producer's real shape: no top-level ``status``. Only ``contract``, ``command_digest``,
+        # ``calls`` and one ``runs`` entry per call.
+        "public_tests": {
+            "contract": {
+                "test_id": "bplus-public",
+                "command": "python3 -B -m pytest -q test_public.py",
+                "timeout_seconds": 240,
+                "max_output_chars": 6000,
+                "max_calls": 4,
+            },
+            "command_digest": "sha256:" + "1" * 64,
+            "calls": 1,
+            "runs": [
+                {
+                    "test_id": "bplus-public",
+                    "command_digest": "sha256:" + "1" * 64,
+                    "call_index": 1,
+                    "status": "PASS",
+                    "exit_code": 0,
+                    "duration_ms": 120,
+                    "output_digest": "sha256:" + "2" * 64,
+                    "output_chars": 40,
+                    "output_truncated": False,
+                    "reason": None,
+                }
+            ],
+            "oracle_is_separate": True,
+        },
     }
     for key, value in (overrides or {}).items():
         if isinstance(value, Mapping) and isinstance(session.get(key), Mapping):
@@ -637,8 +875,39 @@ def synthetic_cell_run(
         oracle = dict(oracle, cleanup_failure="destroy refused")
     if behaviour == "oracle_fail":
         oracle = dict(oracle, status="FAIL", kind="HIDDEN_TESTS_FAILED", passed=False)
+
+    suite = session["public_tests"]
+    if behaviour in {"public_fail", "public_fail_then_pass", "public_pass_then_fail"}:
+        statuses = {
+            "public_fail": ["FAIL"],
+            "public_fail_then_pass": ["FAIL", "PASS"],
+            "public_pass_then_fail": ["PASS", "FAIL"],
+        }[behaviour]
+        suite["runs"] = [
+            dict(suite["runs"][0], call_index=index, status=status,
+                 exit_code=0 if status == "PASS" else 1)
+            for index, status in enumerate(statuses, start=1)
+        ]
+        suite["calls"] = len(statuses)
+    if behaviour == "public_not_run":
+        suite["runs"] = []
+        suite["calls"] = 0
+    if behaviour == "public_error":
+        suite["runs"] = [dict(suite["runs"][0], status="ERROR", exit_code=None)]
+        suite["calls"] = 1
+    if behaviour == "public_unknown":
+        suite["runs"] = [dict(suite["runs"][0], status=None, exit_code=None)]
+        suite["calls"] = 1
+    (run_dir / "session.json").write_text(json.dumps(session, indent=2) + "\n", encoding="utf-8")
     if behaviour == "corrupt_evidence":
         (run_dir / "session.json").write_text("{ this is not json", encoding="utf-8")
+
+    # What the live runner adds on top of the producer's fields: the Host identity of the exported
+    # directory, recorded after the export and before the oracle. The producer's archive digest is
+    # left exactly as it came.
+    export = dict(artifacts)
+    export.update(executor.workspace_identity(Path(str(artifacts["workspace_path"]))))
+    export["archive_digest_verifiable"] = False
     return executor.CellRun(
         session=session,
         run_dir=None if behaviour == "no_evidence" else run_dir,
@@ -646,7 +915,7 @@ def synthetic_cell_run(
         oracle=oracle,
         duration_s=0.01,
         fixture=fixture,
-        export=artifacts,
+        export=export,
         sandbox_plan=executor.sandbox_plan(require_real=False, provider_name="fake").as_dict(),
         expected_run_id=f"bplus-{key_of(cell)}",
     )
@@ -956,6 +1225,17 @@ def run_checks(
     )
     checks.append(
         _check("X06_l1_l6_rebuilt_from_live_evidence", ladder_ok, ladder_detail, **ladder_evidence)
+    )
+    agreement_ok, agreement_detail, agreement_evidence = _public_test_agreement(
+        evidence.get("run_dir")
+    )
+    checks.append(
+        _check(
+            "X08_public_test_readers_agree",
+            agreement_ok,
+            agreement_detail,
+            **agreement_evidence,
+        )
     )
     metrics_ok, metrics_detail, metrics_evidence = _context_metrics_from_live_evidence(
         evidence.get("run_dir"),
@@ -1356,6 +1636,9 @@ def run_checks(
 
     # Task A/B — the admission contract, on the real preflight and the real options
     checks.extend(_admission_checks(scratch))
+
+    # The producer/consumer contract that v2 got wrong: export identity and public-test evidence.
+    checks.extend(_evidence_contract_checks(scratch))
 
     # beyond the list: the contract, the freeze and the isolation
     checks.append(

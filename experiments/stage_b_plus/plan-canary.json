@@ -1,9 +1,9 @@
 {
   "stage": "B+",
-  "protocol_version": "bplus-2.1.0",
-  "plan_id": "stage-b-plus-diagnostic-canary-v2",
+  "protocol_version": "bplus-2.2.0",
+  "plan_id": "stage-b-plus-diagnostic-canary-v3",
   "plan": {
-    "plan_id": "stage-b-plus-diagnostic-canary-v2",
+    "plan_id": "stage-b-plus-diagnostic-canary-v3",
     "scope": "CANARY_ONLY",
     "tasks": [
       "closure2-pipeline-migration"
@@ -27,9 +27,9 @@
         "round": 1,
         "order": 1,
         "scope": "CANARY_ONLY",
-        "plan_id": "stage-b-plus-diagnostic-canary-v2",
+        "plan_id": "stage-b-plus-diagnostic-canary-v3",
         "is_benchmark_sample": false,
-        "execution_contract": "sha256:a4d74b4d5e2aab3fc5cbb2d5d66edcf158515da8701075a786e547c6f31aaaad"
+        "execution_contract": "sha256:3debfcb5ef05bbf929731e570b6d0301396b9a5fca1f83f91676ecd3859ff86c"
       },
       {
         "cell_id": "canary.closure2-pipeline-migration.C1.r1",
@@ -39,9 +39,9 @@
         "round": 2,
         "order": 2,
         "scope": "CANARY_ONLY",
-        "plan_id": "stage-b-plus-diagnostic-canary-v2",
+        "plan_id": "stage-b-plus-diagnostic-canary-v3",
         "is_benchmark_sample": false,
-        "execution_contract": "sha256:a4d74b4d5e2aab3fc5cbb2d5d66edcf158515da8701075a786e547c6f31aaaad"
+        "execution_contract": "sha256:3debfcb5ef05bbf929731e570b6d0301396b9a5fca1f83f91676ecd3859ff86c"
       },
       {
         "cell_id": "canary.closure2-pipeline-migration.C2.r1",
@@ -51,9 +51,9 @@
         "round": 3,
         "order": 3,
         "scope": "CANARY_ONLY",
-        "plan_id": "stage-b-plus-diagnostic-canary-v2",
+        "plan_id": "stage-b-plus-diagnostic-canary-v3",
         "is_benchmark_sample": false,
-        "execution_contract": "sha256:a4d74b4d5e2aab3fc5cbb2d5d66edcf158515da8701075a786e547c6f31aaaad"
+        "execution_contract": "sha256:3debfcb5ef05bbf929731e570b6d0301396b9a5fca1f83f91676ecd3859ff86c"
       },
       {
         "cell_id": "canary.closure2-pipeline-migration.C3.r1",
@@ -63,9 +63,9 @@
         "round": 4,
         "order": 4,
         "scope": "CANARY_ONLY",
-        "plan_id": "stage-b-plus-diagnostic-canary-v2",
+        "plan_id": "stage-b-plus-diagnostic-canary-v3",
         "is_benchmark_sample": false,
-        "execution_contract": "sha256:a4d74b4d5e2aab3fc5cbb2d5d66edcf158515da8701075a786e547c6f31aaaad"
+        "execution_contract": "sha256:3debfcb5ef05bbf929731e570b6d0301396b9a5fca1f83f91676ecd3859ff86c"
       },
       {
         "cell_id": "canary.closure2-pipeline-migration.C4.r1",
@@ -75,9 +75,9 @@
         "round": 5,
         "order": 5,
         "scope": "CANARY_ONLY",
-        "plan_id": "stage-b-plus-diagnostic-canary-v2",
+        "plan_id": "stage-b-plus-diagnostic-canary-v3",
         "is_benchmark_sample": false,
-        "execution_contract": "sha256:a4d74b4d5e2aab3fc5cbb2d5d66edcf158515da8701075a786e547c6f31aaaad"
+        "execution_contract": "sha256:3debfcb5ef05bbf929731e570b6d0301396b9a5fca1f83f91676ecd3859ff86c"
       },
       {
         "cell_id": "canary.closure2-pipeline-migration.C5.r1",
@@ -87,12 +87,12 @@
         "round": 6,
         "order": 6,
         "scope": "CANARY_ONLY",
-        "plan_id": "stage-b-plus-diagnostic-canary-v2",
+        "plan_id": "stage-b-plus-diagnostic-canary-v3",
         "is_benchmark_sample": false,
-        "execution_contract": "sha256:a4d74b4d5e2aab3fc5cbb2d5d66edcf158515da8701075a786e547c6f31aaaad"
+        "execution_contract": "sha256:3debfcb5ef05bbf929731e570b6d0301396b9a5fca1f83f91676ecd3859ff86c"
       }
     ],
-    "digest": "sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046",
+    "digest": "sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae",
     "balance": {
       "cells": 6,
       "arms": [
@@ -123,44 +123,127 @@
       "first_arm_differs_across_repetitions": true,
       "each_arm_in_each_round": null
     },
-    "claim_namespace": "bplus-claim/stage-b-plus-diagnostic-canary-v2",
-    "runs_subdir": "runs/stage-b-plus/stage-b-plus-diagnostic-canary-v2",
-    "evidence_subdir": "evidence/stage-b-plus/stage-b-plus-diagnostic-canary-v2",
+    "claim_namespace": "bplus-claim/stage-b-plus-diagnostic-canary-v3",
+    "runs_subdir": "runs/stage-b-plus/stage-b-plus-diagnostic-canary-v3",
+    "evidence_subdir": "evidence/stage-b-plus/stage-b-plus-diagnostic-canary-v3",
     "is_benchmark_sample": false,
     "nominal_token_capacity": 3000000,
     "execution_contract": {
-      "revision": "bplus-exec-2.0",
-      "supersedes": "bplus-exec-1.0",
+      "revision": "bplus-exec-3.0",
+      "supersedes": "bplus-exec-2.0",
       "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
       "acceptance": "static presence checks only; correctness is never self-graded",
       "oracle_runner": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
       "scored_snapshot": "the exported workspace (artifacts.workspace_path), never the fixture",
       "public_suite_separation": "the public suite is a different artifact from the hidden oracle",
       "pre_claim_preflight": "run_live_preflight over the six production GoalRunOptions",
-      "v1_refusal": "live_preflight required a dynamic acceptance command; the B+ acceptance has none, and the oracle is a Host sandbox that runs after the run, so every cell was refused before the first model call"
+      "export_identity": {
+        "archive": "artifacts.workspace_digest \u2014 the producer's sha256 of the transferred archive; recorded, not recomputable, never compared with a directory hash",
+        "directory": "directory_digest \u2014 computed by the host after export and before the oracle, recomputed at audit time",
+        "files": "workspace_files must equal the number of files the directory holds",
+        "fail_closed": "a missing directory identity, a changed directory or a count mismatch stops the matrix"
+      },
+      "public_test_evidence": {
+        "source": "session.public_tests.runs \u2014 one entry per call, no top-level status",
+        "rule": "the last run decides; an earlier PASS cannot hide a later FAIL",
+        "not_run": "a suite that never ran is NOT_RUN and is never a pass",
+        "error": "an ERROR run leaves correctness unknown, it is not a failure and not a pass"
+      },
+      "v1_refusal": "live_preflight required a dynamic acceptance command; the B+ acceptance has none, and the oracle is a Host sandbox that runs after the run, so every cell was refused before the first model call",
+      "v2_refusal": "the audit compared the producer's archive digest with a directory hash and read a top-level public_tests.status that the producer never writes, so a cell whose independent oracle passed was recorded as an integrity failure"
     },
-    "execution_contract_digest": "sha256:a4d74b4d5e2aab3fc5cbb2d5d66edcf158515da8701075a786e547c6f31aaaad",
-    "supersedes": "stage-b-plus-diagnostic-canary-v1",
+    "execution_contract_digest": "sha256:3debfcb5ef05bbf929731e570b6d0301396b9a5fca1f83f91676ecd3859ff86c",
+    "supersedes": "stage-b-plus-diagnostic-canary-v2",
     "supersedes_record": {
-      "plan_id": "stage-b-plus-diagnostic-canary-v1",
-      "plan_digest": "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575",
-      "execution_head": "a4e1836b3953207db262d28dc4d58e32b66d2f35",
-      "executor_version": "bplus-executor-1.1",
-      "executor_digest": "sha256:4826d81acf1df64fa9754ba8f85fdf34600ff9ea4096fec8dc08b7f0ee138c73",
+      "plan_id": "stage-b-plus-diagnostic-canary-v2",
+      "plan_digest": "sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046",
+      "execution_head": "106939ed470e84339cc53ae98b5a62800db8ab23",
+      "protocol_version": "bplus-2.1.0",
+      "protocol_digest": "sha256:5ab5d4787753429b95f096ff187175a7fa38bdaeac08f164808ba8ca39880154",
+      "executor_version": "bplus-executor-1.2",
+      "executor_digest": "sha256:1c2f1338fa02f2de961301193dcdb7df43ee54f2393e3f7383c70c0687146f71",
       "claim": "CONSUMED",
       "attempt_limit": 1,
       "cells_planned": 6,
       "cells_started": 1,
       "cells_valid": 0,
       "cells_not_run": 5,
-      "model_requests": 0,
-      "sandbox_creations": 0,
-      "oracle_executions": 0,
+      "model_requests": 12,
+      "sandbox_creations": 2,
+      "oracle_executions": 1,
       "process_exit": 4,
-      "raw_stop_reason": "PROVIDER_FAILURE",
-      "classification": "LIVE_PREFLIGHT_CONTRACT_MISMATCH",
+      "raw_stop_reason": "EXPORT_INVALID",
+      "classification": "EXECUTOR_EVIDENCE_CONTRACT_MISMATCH",
+      "observed": {
+        "agent_success": true,
+        "public_tests_final": "PASS",
+        "independent_oracle": "PASS",
+        "delegation": "NO_PROPOSAL",
+        "system_tokens": 92097,
+        "estimated_cost_usd": 0.006837
+      },
+      "defects": [
+        "the export audit compared the producer's archive digest with a directory hash",
+        "the audit read a top-level public_tests.status the producer never writes"
+      ],
       "authorization_migrates": false
     },
+    "execution_history": [
+      {
+        "plan_id": "stage-b-plus-diagnostic-canary-v1",
+        "plan_digest": "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575",
+        "execution_head": "a4e1836b3953207db262d28dc4d58e32b66d2f35",
+        "executor_version": "bplus-executor-1.1",
+        "executor_digest": "sha256:4826d81acf1df64fa9754ba8f85fdf34600ff9ea4096fec8dc08b7f0ee138c73",
+        "claim": "CONSUMED",
+        "attempt_limit": 1,
+        "cells_planned": 6,
+        "cells_started": 1,
+        "cells_valid": 0,
+        "cells_not_run": 5,
+        "model_requests": 0,
+        "sandbox_creations": 0,
+        "oracle_executions": 0,
+        "process_exit": 4,
+        "raw_stop_reason": "PROVIDER_FAILURE",
+        "classification": "LIVE_PREFLIGHT_CONTRACT_MISMATCH",
+        "authorization_migrates": false
+      },
+      {
+        "plan_id": "stage-b-plus-diagnostic-canary-v2",
+        "plan_digest": "sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046",
+        "execution_head": "106939ed470e84339cc53ae98b5a62800db8ab23",
+        "protocol_version": "bplus-2.1.0",
+        "protocol_digest": "sha256:5ab5d4787753429b95f096ff187175a7fa38bdaeac08f164808ba8ca39880154",
+        "executor_version": "bplus-executor-1.2",
+        "executor_digest": "sha256:1c2f1338fa02f2de961301193dcdb7df43ee54f2393e3f7383c70c0687146f71",
+        "claim": "CONSUMED",
+        "attempt_limit": 1,
+        "cells_planned": 6,
+        "cells_started": 1,
+        "cells_valid": 0,
+        "cells_not_run": 5,
+        "model_requests": 12,
+        "sandbox_creations": 2,
+        "oracle_executions": 1,
+        "process_exit": 4,
+        "raw_stop_reason": "EXPORT_INVALID",
+        "classification": "EXECUTOR_EVIDENCE_CONTRACT_MISMATCH",
+        "observed": {
+          "agent_success": true,
+          "public_tests_final": "PASS",
+          "independent_oracle": "PASS",
+          "delegation": "NO_PROPOSAL",
+          "system_tokens": 92097,
+          "estimated_cost_usd": 0.006837
+        },
+        "defects": [
+          "the export audit compared the producer's archive digest with a directory hash",
+          "the audit read a top-level public_tests.status the producer never writes"
+        ],
+        "authorization_migrates": false
+      }
+    ],
     "authorization_migrates": false
   }
 }

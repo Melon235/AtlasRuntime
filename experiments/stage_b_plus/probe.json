@@ -155,17 +155,17 @@
         "denied_calls": 2,
         "denials": [
           {
-            "worker_id": "bplus-probe-coding_parallel-15b5a432-main:r1:alpha",
-            "task_id": "bplus-probe-coding_parallel-15b5a432-main:r1:alpha",
+            "worker_id": "bplus-probe-coding_parallel-bbefdfe8-main:r1:alpha",
+            "task_id": "bplus-probe-coding_parallel-bbefdfe8-main:r1:alpha",
             "tool_name": "file_write",
             "target": "package/forbidden.py",
             "reason_code": "OWNERSHIP_DENIED_UNDECLARED_PATH",
             "decision": "DENY",
-            "detail": "<file tool>: package/forbidden.py is not declared for bplus-probe-coding_parallel-15b5a432-main:r1:alpha"
+            "detail": "<file tool>: package/forbidden.py is not declared for bplus-probe-coding_parallel-bbefdfe8-main:r1:alpha"
           },
           {
-            "worker_id": "bplus-probe-coding_parallel-15b5a432-main:r1:alpha",
-            "task_id": "bplus-probe-coding_parallel-15b5a432-main:r1:alpha",
+            "worker_id": "bplus-probe-coding_parallel-bbefdfe8-main:r1:alpha",
+            "task_id": "bplus-probe-coding_parallel-bbefdfe8-main:r1:alpha",
             "tool_name": "bash",
             "target": "python3 -m pytest -q",
             "reason_code": "OWNERSHIP_UNCLASSIFIABLE_SHELL",
@@ -213,7 +213,7 @@
         "unavailable_fields": []
       },
       "child_calls": {
-        "bplus-probe-coding_parallel-15b5a432-main:r1:alpha": [
+        "bplus-probe-coding_parallel-bbefdfe8-main:r1:alpha": [
           {
             "tool": "file_write",
             "result": "Overwrote \"package/a.py\" (3 lines, 92 bytes)."
@@ -231,7 +231,7 @@
             "result": "probe\r\n"
           }
         ],
-        "bplus-probe-coding_parallel-15b5a432-main:r1:beta": [
+        "bplus-probe-coding_parallel-bbefdfe8-main:r1:beta": [
           {
             "tool": "file_write",
             "result": "Overwrote \"package/b.py\" (3 lines, 90 bytes)."
@@ -695,13 +695,13 @@
         "unavailable_fields": []
       },
       "child_calls": {
-        "bplus-probe-research_tool_escape-ddb13b29-main:r1:alpha": [
+        "bplus-probe-research_tool_escape-6e8615e1-main:r1:alpha": [
           {
             "tool": "file_write",
             "result": "Tool \"file_write\" is not allowed for this agent."
           }
         ],
-        "bplus-probe-research_tool_escape-ddb13b29-main:r1:beta": []
+        "bplus-probe-research_tool_escape-6e8615e1-main:r1:beta": []
       }
     }
   ],

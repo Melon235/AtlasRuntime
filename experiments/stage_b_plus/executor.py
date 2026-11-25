@@ -451,6 +451,58 @@ def cell_cost(
 # -- evidence helpers -------------------------------------------------------------------------
 
 
+def public_test_verdict(public_tests: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The public channel's final verdict, read from the runs the producer recorded.
+
+    ``session["public_tests"]`` has no top-level ``status`` in a normal run:
+    ``main_driven._public_test_evidence`` records ``contract``, ``command_digest``, ``calls`` and
+    one ``runs`` entry per call. The verdict is therefore the *last* run — an earlier PASS cannot
+    hide a later FAIL — and a suite that never ran is ``NOT_RUN``, never a pass. v2 read the
+    missing top-level field, turned a real PASS into a failure, and refused a cell whose oracle had
+    passed.
+
+    ``experiments/stage_benchmark`` is a protected tree, so this cannot be shared with the Stage B
+    analyzer by import; the offline proof instead asserts the two agree on the same real session.
+    """
+
+    block = public_tests or {}
+    runs = [item for item in (block.get("runs") or []) if isinstance(item, Mapping)]
+    statuses = [str(item.get("status") or "").upper() for item in runs if item.get("status")]
+    calls = block.get("calls")
+    configured = str(block.get("status") or "").upper() != "NOT_CONFIGURED"
+    exit_codes = [
+        item.get("exit_code") for item in runs if isinstance(item.get("exit_code"), int)
+    ]
+
+    if not configured:
+        state, passed = "NOT_CONFIGURED", None
+    elif not runs:
+        state, passed = "NOT_RUN", None
+    else:
+        last = statuses[-1] if statuses else ""
+        if last == "PASS":
+            state, passed = "PASS", True
+        elif last == "FAIL":
+            state, passed = "FAIL", False
+        elif last == "ERROR":
+            state, passed = "ERROR", None
+        else:
+            state, passed = "UNKNOWN", None
+
+    return {
+        "state": state,
+        "passed": passed,
+        "runs": len(runs),
+        "statuses": statuses,
+        "calls": calls if isinstance(calls, int) and not isinstance(calls, bool) else None,
+        "calls_consistent": (
+            isinstance(calls, int) and not isinstance(calls, bool) and calls == len(runs)
+        ),
+        "last_exit_code": exit_codes[-1] if exit_codes else None,
+        "configured": configured,
+    }
+
+
 def _verdict_of(value: Any) -> bool | None:
     """Read a probe verdict that may be a bool, a string or a mapping. ``None`` means unreadable."""
 
@@ -504,8 +556,37 @@ def _sandbox_evidence_problems(session: Mapping[str, Any]) -> tuple[list[str], l
     return lifecycle, isolation
 
 
+#: The producer's export digest. ``GoalSandbox.export`` records ``export.archive_digest`` — the
+#: SHA-256 of the tar bytes downloaded from the sandbox. It is a transfer-integrity value: the
+#: archive is not retained, so it cannot be recomputed after the fact and it is *not* a hash of the
+#: extracted directory. v2 compared the two and refused a cell whose oracle had passed.
+EXPORT_ARCHIVE_DIGEST = "workspace_digest"
+#: Added by this module, after the export and before the oracle: the Host's own identity of the
+#: directory the oracle scores. Only this one can be recomputed at audit time.
+EXPORT_DIRECTORY_DIGEST = "directory_digest"
+EXPORT_DIRECTORY_FILES = "directory_files"
+
+
+def workspace_identity(workspace: Path) -> dict[str, Any]:
+    """The Host identity of one exported directory, recomputable at any later point."""
+
+    hashes = workspace_hashes(workspace)
+    return {
+        EXPORT_DIRECTORY_DIGEST: "sha256:" + workspace_digest(workspace),
+        EXPORT_DIRECTORY_FILES: len(hashes),
+        "directory_digest_source": "host, computed from the extracted export directory",
+    }
+
+
 def _export_problems(run: CellRun) -> list[str]:
-    """The exported workspace is the thing the oracle scores; it must exist and match its digest."""
+    """The exported workspace is what the oracle scores; its Host identity must still hold.
+
+    Two identities are kept apart on purpose. The archive digest is the producer's transfer value
+    and is only *recorded* here: the archive bytes are gone, so claiming to have re-verified them
+    would be an invented observation. The directory digest is the Host's own value, taken after the
+    export and before the oracle, and it is recomputed here — that is what detects a workspace that
+    moved after export.
+    """
 
     problems: list[str] = []
     artifacts = (run.session or {}).get("artifacts")
@@ -517,22 +598,48 @@ def _export_problems(run: CellRun) -> list[str]:
     workspace = Path(str(path_value))
     if not workspace.is_dir():
         return [f"the exported workspace {workspace} does not exist"]
-    recorded = artifacts.get("workspace_digest")
-    if not recorded:
-        problems.append("the export carries no workspace_digest")
+
+    runner_export = run.export if isinstance(run.export, Mapping) else {}
+    recorded_directory = runner_export.get(EXPORT_DIRECTORY_DIGEST) or artifacts.get(
+        EXPORT_DIRECTORY_DIGEST
+    )
+    if not recorded_directory:
+        problems.append(
+            "the host recorded no directory identity for the export; the archive digest cannot "
+            "stand in for it"
+        )
     else:
-        actual = workspace_digest(workspace)
-        if actual != str(recorded):
-            problems.append(f"the exported workspace hashes to {actual}, record says {recorded}")
+        actual = "sha256:" + workspace_digest(workspace)
+        if actual != str(recorded_directory):
+            problems.append(
+                f"the exported workspace hashes to {actual}, the host recorded "
+                f"{recorded_directory}"
+            )
+
+    if not artifacts.get(EXPORT_ARCHIVE_DIGEST):
+        problems.append("the export carries no archive digest")
+
     files = artifacts.get("workspace_files")
     if not isinstance(files, int) or isinstance(files, bool) or files <= 0:
         problems.append(f"the export reports {files!r} files")
+    else:
+        actual_files = len(workspace_hashes(workspace))
+        if actual_files != files:
+            problems.append(
+                f"the export reports {files} files, the directory holds {actual_files}"
+            )
+    recorded_files = runner_export.get(EXPORT_DIRECTORY_FILES)
+    if (
+        isinstance(recorded_files, int)
+        and not isinstance(recorded_files, bool)
+        and recorded_files != len(workspace_hashes(workspace))
+    ):
+        problems.append(
+            f"the host recorded {recorded_files} exported files, the directory holds "
+            f"{len(workspace_hashes(workspace))}"
+        )
     if not artifacts.get("patch_digest"):
         problems.append("the export carries no patch_digest")
-    if run.export is not None:
-        expected = run.export.get("workspace_digest")
-        if expected and expected != recorded:
-            problems.append("the runner recorded a different export digest than the session")
     return problems
 
 
@@ -635,6 +742,9 @@ def audit_cell(
             "checks": checks,
             "stops": stops,
             "agent_success": None,
+            "public_test_status": "NOT_RUN",
+            "public_test_runs": 0,
+            "static_acceptance": None,
             "oracle_passed": None,
             "goal_correctness": None,
             "execution_integrity": "FAIL",
@@ -794,20 +904,24 @@ def audit_cell(
     else:
         total_cost = round(float(cost_before) + delta_cost, 6)
 
-    public_passed = session.get("public_tests", {}).get("status") == "PASS" if isinstance(
-        session.get("public_tests"), Mapping
-    ) else None
+    suite = public_test_verdict(
+        session.get("public_tests") if isinstance(session.get("public_tests"), Mapping) else None
+    )
     acceptance = session.get("acceptance")
     goal_correctness: bool | None
     if oracle_passed is None or not agent_success:
         goal_correctness = False if oracle_passed is False else None
-    else:
+    elif suite["state"] == "FAIL":
+        # The last public run failed; an earlier pass does not undo it.
+        goal_correctness = False
+    elif suite["state"] in {"PASS", "NOT_CONFIGURED"}:
         goal_correctness = bool(
-            oracle_passed
-            and agent_success
-            and (public_passed is not False)
-            and (acceptance in (None, "PASS"))
+            oracle_passed and agent_success and (acceptance in (None, "PASS"))
         )
+    else:
+        # NOT_RUN / UNKNOWN / ERROR: the public gate was not observed, so correctness is unknown.
+        # An unobserved gate is never a pass.
+        goal_correctness = None
 
     execution_integrity = "PASS" if not stops else "FAIL"
     if stops:
@@ -828,6 +942,9 @@ def audit_cell(
         "status": status,
         "failure_kind": kind or None,
         "agent_success": agent_success,
+        "public_test_status": suite["state"],
+        "public_test_runs": suite["runs"],
+        "static_acceptance": acceptance,
         "oracle_passed": oracle_passed,
         "oracle_status": oracle_status or None,
         "goal_correctness": goal_correctness,
@@ -1015,8 +1132,13 @@ async def dispatch(
     # after the claim was spent.
     admission: dict[str, Any] | None = None
     if not offline:
-        admission = admission_gate(plan, repo_root=repo_root)
-        if admission is not None:
+        admission = run_admission_preflight(plan, repo_root=repo_root)
+        # The report is written whether it admits or refuses: a READY run must leave the same
+        # six-arm evidence a refused one does, instead of a null.
+        (evidence / "admission.json").write_text(
+            json.dumps(admission, indent=2, default=str) + "\n", encoding="utf-8"
+        )
+        if admission["status"] != "READY":
             report = _refused_report(
                 plan,
                 identity,
@@ -1030,13 +1152,7 @@ async def dispatch(
             (evidence / "dispatch-refused.json").write_text(
                 json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8"
             )
-            (evidence / "admission.json").write_text(
-                json.dumps(admission, indent=2, default=str) + "\n", encoding="utf-8"
-            )
             return report
-        (evidence / "admission.json").write_text(
-            json.dumps(admission, indent=2, default=str) + "\n", encoding="utf-8"
-        )
 
     ledger_path = evidence / "ledger.jsonl"
     if not _fresh_ledger(ledger_path):
@@ -1196,8 +1312,13 @@ async def dispatch(
             break
 
     finished = clock()
+    # The floor is the sum of what each cell measurably *cost*, not of the running totals: adding
+    # cumulative values counts the first cell once per later cell.
     observed_floor = round(
-        sum(cell["cost_usd"] for cell in cells if cell["cost_usd"] is not None), 6
+        sum(
+            cell["delta_cost_usd"] for cell in cells if cell["delta_cost_usd"] is not None
+        ),
+        6,
     )
     completeness = "COMPLETE"
     if any(cell["usage"].get(key) is None for cell in cells for key in REQUIRED_USAGE_FIELDS):
@@ -1719,6 +1840,18 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
 
         artifacts = session.get("artifacts")
         export = dict(artifacts) if isinstance(artifacts, Mapping) else None
+        if export and export.get("workspace_path"):
+            # Recorded here — after the export, before the oracle — so the audit has a Host value it
+            # can recompute. The producer's archive digest stays untouched beside it.
+            exported = Path(str(export["workspace_path"]))
+            if await asyncio.to_thread(exported.is_dir):
+                export.update(await asyncio.to_thread(workspace_identity, exported))
+                export["archive_digest_verifiable"] = False
+                export["archive_digest_source"] = (
+                    "producer (GoalSandbox export.archive_digest, sha256 of the transferred "
+                    "archive); the archive bytes are not retained, so this value is recorded, "
+                    "not re-derived"
+                )
         workspace_value = (export or {}).get("workspace_path")
         oracle: dict[str, Any] | None = None
         oracle_sandbox: dict[str, Any] | None = None

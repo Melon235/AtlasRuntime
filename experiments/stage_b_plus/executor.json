@@ -1,15 +1,15 @@
 {
   "stage": "B+",
   "executor_version": "bplus-executor-1.2",
-  "executor_digest": "sha256:1c2f1338fa02f2de961301193dcdb7df43ee54f2393e3f7383c70c0687146f71",
+  "executor_digest": "sha256:e9eb9c1244080d1238f3e1e8ff6e1be6a0f6212d0a04af5b5c6657dddfca6e23",
   "files": {
-    "experiments/stage_b_plus/executor.py": "sha256:c0738d7907d4133bb8d96addc0091e709038ade9916202e9214f7099006f381c",
+    "experiments/stage_b_plus/executor.py": "sha256:e0960b775d5bf05d9f1621c950a8ed8063157a87964eeef2a8e3bf527efa6c9a",
     "experiments/stage_b_plus/authority.py": "sha256:594b6578723aa45e0fa9c9469b1410120cf3cece44fd489f8c563eb8fa01a1f1",
-    "experiments/stage_b_plus/contract.py": "sha256:b2f99737963936e95f6336c9120dd2ceb355edc79aa181d2ce71884fbfdbe8aa",
+    "experiments/stage_b_plus/contract.py": "sha256:4c304b955a6d6ea5a7b7456cafd481f7e08f20d5675b349a13c784b66784a2c2",
     "experiments/stage_b_plus/cost.py": "sha256:fa0db30eb622c6076f9b153618fc9e7bfaf990eb422d11946102d7c74a684c28",
     "src/atlasos/app/live_preflight.py": "sha256:861518f226e29f1baee50721daf5dbf24b1db7f1deb16e357c27a922353d46d0",
     "src/atlasos/app/goal_verification.py": "sha256:7ee0a0bf03e9c5d49618ab117e4af5d5d25f4f5665aa5a6438048497ba1072be"
   },
-  "head_at_build": "a4e1836b3953207db262d28dc4d58e32b66d2f35",
+  "head_at_build": "106939ed470e84339cc53ae98b5a62800db8ab23",
   "note": "a live authorization must carry these exact digests and the head the Owner actually reviews. head_at_build records what this artefact set was built on; it is not an approval, and it is not necessarily the reviewed commit"
 }

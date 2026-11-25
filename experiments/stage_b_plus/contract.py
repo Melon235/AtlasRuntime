@@ -41,7 +41,7 @@ STAGE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = STAGE_DIR.parents[1]
 
 STAGE_ID = "B+"
-PROTOCOL_VERSION = "bplus-2.1.0"
+PROTOCOL_VERSION = "bplus-2.2.0"
 #: What this contract is *not*: it supersedes no frozen Stage B document and changes none of them.
 SUPERSEDES: None = None
 DOES_NOT_MODIFY = (
@@ -80,22 +80,68 @@ SUPERSEDED_CANARY: dict[str, Any] = {
     "authorization_migrates": False,
 }
 
+#: v2 ran for real and stopped on an executor evidence defect, not on the model.
+SUPERSEDED_CANARY_V2: dict[str, Any] = {
+    "plan_id": "stage-b-plus-diagnostic-canary-v2",
+    "plan_digest": (
+        "sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046"
+    ),
+    "execution_head": "106939ed470e84339cc53ae98b5a62800db8ab23",
+    "protocol_version": "bplus-2.1.0",
+    "protocol_digest": (
+        "sha256:5ab5d4787753429b95f096ff187175a7fa38bdaeac08f164808ba8ca39880154"
+    ),
+    "executor_version": "bplus-executor-1.2",
+    "executor_digest": (
+        "sha256:1c2f1338fa02f2de961301193dcdb7df43ee54f2393e3f7383c70c0687146f71"
+    ),
+    "claim": "CONSUMED",
+    "attempt_limit": 1,
+    "cells_planned": 6,
+    "cells_started": 1,
+    "cells_valid": 0,
+    "cells_not_run": 5,
+    "model_requests": 12,
+    "sandbox_creations": 2,
+    "oracle_executions": 1,
+    "process_exit": 4,
+    "raw_stop_reason": "EXPORT_INVALID",
+    "classification": "EXECUTOR_EVIDENCE_CONTRACT_MISMATCH",
+    "observed": {
+        "agent_success": True,
+        "public_tests_final": "PASS",
+        "independent_oracle": "PASS",
+        "delegation": "NO_PROPOSAL",
+        "system_tokens": 92_097,
+        "estimated_cost_usd": 0.006837,
+    },
+    "defects": [
+        "the export audit compared the producer's archive digest with a directory hash",
+        "the audit read a top-level public_tests.status the producer never writes",
+    ],
+    "authorization_migrates": False,
+}
+
+#: Every execution this stage has performed, newest last. A claim is consumed for ever.
+SUPERSEDED_CANARIES: tuple[dict[str, Any], ...] = (SUPERSEDED_CANARY, SUPERSEDED_CANARY_V2)
+
 #: The approved revision. ``bplus-1.0.0`` was a candidate that was never authorized and never ran.
 #: ``bplus-2.0.0`` *was* authorized and dispatched once: the record below says what happened to it,
 #: because a revision that supersedes an executed identity has to say so.
 REVISION: dict[str, Any] = {
-    "version": "bplus-2.1.0",
-    "previous_version": "bplus-2.0.0",
+    "version": "bplus-2.2.0",
+    "previous_version": "bplus-2.1.0",
     "previous_protocol_digest": (
-        "sha256:c7dad972f4882e5808dbcaa47f4b4532e101f7e2e44d9e1c90e0eb2c14620067"
+        "sha256:5ab5d4787753429b95f096ff187175a7fa38bdaeac08f164808ba8ca39880154"
     ),
     "previous_canary_plan_digest": (
-        "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575"
+        "sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046"
     ),
     "previous_formal_plan_digest": (
         "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72"
     ),
-    "previous_execution": dict(SUPERSEDED_CANARY),
+    "previous_protocol_version": "bplus-2.1.0",
+    "previous_execution": dict(SUPERSEDED_CANARY_V2),
     "approval": "OWNER_DESIGN_DECISIONS_CONFIRMED on 2026-11-25",
     "changes": [
         "R-B+1 accepted: main-v2.1-rc1-bplus becomes the matrix prompt",
@@ -111,6 +157,13 @@ REVISION: dict[str, Any] = {
         "a live dispatch admits the six production configurations before the claim is written",
         "an admission refusal is classified as LIVE_PREFLIGHT_BLOCKED, not as a provider failure",
         "the executor identity covers the two files that decide what admission allows",
+        "the export audit keeps the producer's archive digest and the host's directory digest "
+        "apart, and never compares them",
+        "the export audit recomputes the host directory identity and the file count at audit time",
+        "the public-test verdict is read from the recorded runs, last run wins, NOT_RUN is not a "
+        "pass",
+        "the observed cost floor sums per-cell costs instead of running totals",
+        "a READY admission report is written to the evidence root, not a null",
     ],
     "unchanged": [
         "the four-arm formal matrix (same cells, same order, same digest)",
@@ -560,11 +613,13 @@ def cells() -> list[dict[str, Any]]:
     )
 
 
-CANARY_PLAN_ID = "stage-b-plus-diagnostic-canary-v2"
-#: v1 was dispatched once and its claim is consumed. The id is kept here so a reader can find it,
-#: and ``scope_plan`` refuses it: the plan it names cannot be rebuilt into a dispatchable record.
+CANARY_PLAN_ID = "stage-b-plus-diagnostic-canary-v3"
+#: v1 and v2 were each dispatched once and both claims are consumed. The ids are kept here so a
+#: reader can find them, and ``scope_plan`` refuses them: neither can be rebuilt into a dispatchable
+#: record.
 CANARY_PLAN_ID_V1 = "stage-b-plus-diagnostic-canary-v1"
-SUPERSEDED_CANARY_PLAN_IDS: tuple[str, ...] = (CANARY_PLAN_ID_V1,)
+CANARY_PLAN_ID_V2 = "stage-b-plus-diagnostic-canary-v2"
+SUPERSEDED_CANARY_PLAN_IDS: tuple[str, ...] = (CANARY_PLAN_ID_V1, CANARY_PLAN_ID_V2)
 FORMAL_PLAN_ID = "stage-b-plus-formal-matrix-v1"
 SCOPE_CANARY = "CANARY_ONLY"
 SCOPE_FORMAL = "FORMAL_MATRIX_ONLY"
@@ -577,18 +632,39 @@ SCOPES: tuple[str, ...] = (SCOPE_CANARY, SCOPE_FORMAL)
 #: change to *what it means to run a cell*, so it belongs in the plan identity: the digest below is
 #: stamped into every canary cell, which is why the v2 plan digest cannot be produced by renaming.
 EXECUTION_CONTRACT: dict[str, Any] = {
-    "revision": "bplus-exec-2.0",
-    "supersedes": "bplus-exec-1.0",
+    "revision": "bplus-exec-3.0",
+    "supersedes": "bplus-exec-2.0",
     "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
     "acceptance": "static presence checks only; correctness is never self-graded",
     "oracle_runner": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
     "scored_snapshot": "the exported workspace (artifacts.workspace_path), never the fixture",
     "public_suite_separation": "the public suite is a different artifact from the hidden oracle",
     "pre_claim_preflight": "run_live_preflight over the six production GoalRunOptions",
+    # The two evidence contracts v2 got wrong, stated where the plan digest can bind them.
+    "export_identity": {
+        "archive": "artifacts.workspace_digest — the producer's sha256 of the transferred archive; "
+        "recorded, not recomputable, never compared with a directory hash",
+        "directory": "directory_digest — computed by the host after export and before the oracle, "
+        "recomputed at audit time",
+        "files": "workspace_files must equal the number of files the directory holds",
+        "fail_closed": "a missing directory identity, a changed directory or a count mismatch "
+        "stops the matrix",
+    },
+    "public_test_evidence": {
+        "source": "session.public_tests.runs — one entry per call, no top-level status",
+        "rule": "the last run decides; an earlier PASS cannot hide a later FAIL",
+        "not_run": "a suite that never ran is NOT_RUN and is never a pass",
+        "error": "an ERROR run leaves correctness unknown, it is not a failure and not a pass",
+    },
     "v1_refusal": (
         "live_preflight required a dynamic acceptance command; the B+ acceptance has none, and the "
         "oracle is a Host sandbox that runs after the run, so every cell was refused before the "
         "first model call"
+    ),
+    "v2_refusal": (
+        "the audit compared the producer's archive digest with a directory hash and read a "
+        "top-level public_tests.status that the producer never writes, so a cell whose independent "
+        "oracle passed was recorded as an integrity failure"
     ),
 }
 EXECUTION_CONTRACT_DIGEST = "sha256:" + canonical_digest(EXECUTION_CONTRACT)
@@ -670,8 +746,11 @@ def scope_plan(scope_or_id: str) -> dict[str, Any]:
         "nominal_token_capacity": len(plan_cells) * int(BUDGET["token_budget"]),
         "execution_contract": dict(EXECUTION_CONTRACT),
         "execution_contract_digest": EXECUTION_CONTRACT_DIGEST,
-        "supersedes": CANARY_PLAN_ID_V1 if scope == SCOPE_CANARY else None,
-        "supersedes_record": dict(SUPERSEDED_CANARY) if scope == SCOPE_CANARY else None,
+        "supersedes": CANARY_PLAN_ID_V2 if scope == SCOPE_CANARY else None,
+        "supersedes_record": dict(SUPERSEDED_CANARY_V2) if scope == SCOPE_CANARY else None,
+        "execution_history": [dict(item) for item in SUPERSEDED_CANARIES]
+        if scope == SCOPE_CANARY
+        else [],
         # An approval for one plan never carries over to another: the Owner signs a digest.
         "authorization_migrates": False,
     }
@@ -810,7 +889,7 @@ def protocol_document() -> dict[str, Any]:
         "run_config": dict(BUDGET),
         "execution_contract": dict(EXECUTION_CONTRACT),
         "execution_contract_digest": EXECUTION_CONTRACT_DIGEST,
-        "superseded_execution": dict(SUPERSEDED_CANARY),
+        "superseded_executions": [dict(item) for item in SUPERSEDED_CANARIES],
         "s06_reference": dict(S06_REFERENCE),
         "delegation_ladder": {name: text for name, text in DELEGATION_LEVELS},
         "proposal_states": list(PROPOSAL_STATES),
@@ -917,10 +996,12 @@ def validate(document: dict[str, Any]) -> list[str]:
         problems.append("a canary cell is not bound to the current execution contract")
     if canary.get("execution_contract_digest") != EXECUTION_CONTRACT_DIGEST:
         problems.append("the canary plan does not declare the current execution contract")
-    if canary.get("supersedes") != CANARY_PLAN_ID_V1:
+    if canary.get("supersedes") != CANARY_PLAN_ID_V2:
         problems.append("the canary plan does not say which plan it supersedes")
     if (canary.get("supersedes_record") or {}).get("claim") != "CONSUMED":
         problems.append("the superseded plan is not recorded as having consumed its claim")
+    if len(canary.get("execution_history") or []) != 2:
+        problems.append("the canary plan does not carry both superseded executions")
     if canary.get("authorization_migrates") is not False:
         problems.append("the canary plan claims an authorization migrates to it")
 
@@ -1084,6 +1165,7 @@ __all__ = [
     "BUDGET",
     "CANARY_PLAN_ID",
     "CANARY_PLAN_ID_V1",
+    "CANARY_PLAN_ID_V2",
     "CANARY_TASK_IDS",
     "CODING",
     "CONTEXT_METRICS",
@@ -1113,8 +1195,10 @@ __all__ = [
     "SCOPE_FORMAL",
     "STAGE_ID",
     "STRUCTURE_OF",
+    "SUPERSEDED_CANARIES",
     "SUPERSEDED_CANARY",
     "SUPERSEDED_CANARY_PLAN_IDS",
+    "SUPERSEDED_CANARY_V2",
     "TASKS",
     "TASKS_BY_ID",
     "TASK_IDS",

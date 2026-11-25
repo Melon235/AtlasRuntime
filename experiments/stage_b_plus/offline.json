@@ -1,14 +1,14 @@
 {
   "stage": "B+",
-  "protocol_version": "bplus-2.1.0",
-  "protocol_digest": "sha256:5ab5d4787753429b95f096ff187175a7fa38bdaeac08f164808ba8ca39880154",
-  "head_at_build": "a4e1836b3953207db262d28dc4d58e32b66d2f35",
-  "executor_digest": "sha256:1c2f1338fa02f2de961301193dcdb7df43ee54f2393e3f7383c70c0687146f71",
+  "protocol_version": "bplus-2.2.0",
+  "protocol_digest": "sha256:522f876dabc2073f36dbab4ea04eb8494a89a261b62d7aff462dde906c4f2227",
+  "head_at_build": "106939ed470e84339cc53ae98b5a62800db8ab23",
+  "executor_digest": "sha256:e9eb9c1244080d1238f3e1e8ff6e1be6a0f6212d0a04af5b5c6657dddfca6e23",
   "plans": {
-    "stage-b-plus-diagnostic-canary-v2": {
+    "stage-b-plus-diagnostic-canary-v3": {
       "scope": "CANARY_ONLY",
       "cells": 6,
-      "digest": "sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046"
+      "digest": "sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae"
     },
     "stage-b-plus-formal-matrix-v1": {
       "scope": "FORMAL_MATRIX_ONLY",
@@ -22,8 +22,8 @@
       "check_id": "L01_canary_identity_unique",
       "ok": true,
       "detail": "six cells, six ids, each arm once on P1, none marked as a benchmark sample",
-      "plan_id": "stage-b-plus-diagnostic-canary-v2",
-      "plan_digest": "sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046",
+      "plan_id": "stage-b-plus-diagnostic-canary-v3",
+      "plan_digest": "sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae",
       "cell_ids": [
         "canary.closure2-pipeline-migration.C0.r1",
         "canary.closure2-pipeline-migration.C1.r1",
@@ -326,7 +326,7 @@
     {
       "check_id": "L11_live_path_fixture_export_oracle",
       "ok": true,
-      "detail": "one cell through the live runner for canary.closure2-pipeline-migration.C2.r1: fixture_commit=7721bd5a export_files=10 oracle=FAIL in sandbox (sandbox sandbox-1), usage_ok=True",
+      "detail": "one cell through the live runner and the real audit for canary.closure2-pipeline-migration.C2.r1: fixture_commit=a1638bcd export_files=10 oracle=FAIL in sandbox (sandbox sandbox-1), audit_stops=['HOST_ISOLATION_VIOLATION'] (isolation only: the fake sandbox is not isolated), public_test=NOT_RUN goal=None, usage_ok=True",
       "cell_id": "canary.closure2-pipeline-migration.C2.r1",
       "arm": {
         "profile": "coding_worker",
@@ -339,14 +339,17 @@
       "effective_max_turns": 20,
       "fixture": {
         "path_is_per_cell": true,
-        "commit": "7721bd5aa00e76ec961db79a54b44c3cedc31400",
+        "commit": "a1638bcdd45bdf618764fbcfdd04f3dd238ae702",
         "seed_digest": "f9378c44a0ee564962e0a56ac7172ad616904d098fbc8dabb0806c4cdbbef515",
         "matches_frozen_seed": true,
         "files": 10
       },
       "export": {
         "workspace_files": 10,
-        "workspace_digest": "sha256:df69976083fd505e126150d29b9558d09cd2e1d359e46db9415a209a2fc7e542",
+        "archive_digest": "sha256:3ee620a5d93228f6ad21beb077cf2fd722c74a34afb87c31339266503b2cfd32",
+        "directory_digest": "sha256:1e399a258d95477b3b6c3c3dba5b15f2aec6f889c2eb76798fbf0e97af49e36e",
+        "directory_files": 10,
+        "archive_digest_verifiable": false,
         "patch_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "oracle": {
@@ -356,6 +359,18 @@
         "sandbox_id": "sandbox-1",
         "cleanup_failure": null
       },
+      "audit": {
+        "verdict": "STOPPED",
+        "stops": [
+          "HOST_ISOLATION_VIOLATION"
+        ],
+        "execution_integrity": "FAIL",
+        "public_test_status": "NOT_RUN",
+        "public_test_runs": 0,
+        "goal_correctness": null,
+        "oracle_passed": false,
+        "agent_success": true
+      },
       "usage": {
         "main_cumulative_input_tokens": 10,
         "main_completion_tokens": 5,
@@ -363,7 +378,7 @@
         "child_completion_tokens": 0,
         "system_total_tokens": 15
       },
-      "run_dir": "D:\\Work\\AtlasRuntime-scratch\\ddc02-offline\\work\\live-proof\\evidence\\cells\\c03\\agent\\bplus-c03",
+      "run_dir": "D:\\Work\\AtlasRuntime-scratch\\ddc03-offline\\work\\live-proof\\evidence\\cells\\c03\\agent\\bplus-c03",
       "note": "fake model + fake sandbox; control flow is production, isolation is not claimed"
     },
     {
@@ -380,6 +395,27 @@
       ],
       "level_reached": 0,
       "proposals": 0
+    },
+    {
+      "check_id": "X08_public_test_readers_agree",
+      "ok": true,
+      "detail": "the gate and the Stage B analyzer read 0 public run(s) the same way (state=NOT_RUN, statuses=[])",
+      "gate": {
+        "state": "NOT_RUN",
+        "passed": null,
+        "runs": 0,
+        "statuses": [],
+        "calls": 0,
+        "calls_consistent": true,
+        "last_exit_code": null,
+        "configured": true
+      },
+      "analyzer": {
+        "statuses": [],
+        "passed": false
+      },
+      "same_statuses": true,
+      "same_pass": true
     },
     {
       "check_id": "X07_context_metrics_rebuilt_from_live_evidence",
@@ -440,8 +476,8 @@
         "approved_at is empty",
         "owner_statement is empty",
         "approval_provenance is empty",
-        "reviewed_head is None, actual head is 'a4e1836b3953207db262d28dc4d58e32b66d2f35'",
-        "execution_head is None, actual head is 'a4e1836b3953207db262d28dc4d58e32b66d2f35'",
+        "reviewed_head is None, actual head is '106939ed470e84339cc53ae98b5a62800db8ab23'",
+        "execution_head is None, actual head is '106939ed470e84339cc53ae98b5a62800db8ab23'",
         "cost_stop_usd is None; it must be finite and positive",
         "per_cell_cost_stop_usd is None; it must be finite and positive",
         "approval_provenance is empty"
@@ -452,11 +488,11 @@
       "ok": true,
       "detail": "a signed canary record is refused when the head or the plan digest moves",
       "head_problems": [
-        "reviewed_head is 'a4e1836b3953207db262d28dc4d58e32b66d2f35', actual head is '0000000000000000000000000000000000000000'",
-        "execution_head is 'a4e1836b3953207db262d28dc4d58e32b66d2f35', actual head is '0000000000000000000000000000000000000000'"
+        "reviewed_head is '106939ed470e84339cc53ae98b5a62800db8ab23', actual head is '0000000000000000000000000000000000000000'",
+        "execution_head is '106939ed470e84339cc53ae98b5a62800db8ab23', actual head is '0000000000000000000000000000000000000000'"
       ],
       "digest_problems": [
-        "plan_digest is 'sha256:0000000000000000000000000000000000000000000000000000000000000000', expected 'sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046'"
+        "plan_digest is 'sha256:0000000000000000000000000000000000000000000000000000000000000000', expected 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae'"
       ]
     },
     {
@@ -466,13 +502,13 @@
       "problems": {
         "canary_authority_cannot_run_formal": [
           "record scope is 'CANARY_ONLY'; this plan is 'FORMAL_MATRIX_ONLY'",
-          "record plan_id is 'stage-b-plus-diagnostic-canary-v2', not 'stage-b-plus-formal-matrix-v1'",
-          "plan_digest is 'sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
+          "record plan_id is 'stage-b-plus-diagnostic-canary-v3', not 'stage-b-plus-formal-matrix-v1'",
+          "plan_digest is 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
         ],
         "formal_authority_cannot_run_canary": [
           "record scope is 'FORMAL_MATRIX_ONLY'; this plan is 'CANARY_ONLY'",
-          "record plan_id is 'stage-b-plus-formal-matrix-v1', not 'stage-b-plus-diagnostic-canary-v2'",
-          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046'"
+          "record plan_id is 'stage-b-plus-formal-matrix-v1', not 'stage-b-plus-diagnostic-canary-v3'",
+          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae'"
         ]
       }
     },
@@ -483,13 +519,13 @@
       "problems": {
         "canary_authority_cannot_run_formal": [
           "record scope is 'CANARY_ONLY'; this plan is 'FORMAL_MATRIX_ONLY'",
-          "record plan_id is 'stage-b-plus-diagnostic-canary-v2', not 'stage-b-plus-formal-matrix-v1'",
-          "plan_digest is 'sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
+          "record plan_id is 'stage-b-plus-diagnostic-canary-v3', not 'stage-b-plus-formal-matrix-v1'",
+          "plan_digest is 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
         ],
         "formal_authority_cannot_run_canary": [
           "record scope is 'FORMAL_MATRIX_ONLY'; this plan is 'CANARY_ONLY'",
-          "record plan_id is 'stage-b-plus-formal-matrix-v1', not 'stage-b-plus-diagnostic-canary-v2'",
-          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046'"
+          "record plan_id is 'stage-b-plus-formal-matrix-v1', not 'stage-b-plus-diagnostic-canary-v3'",
+          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae'"
         ]
       }
     },
@@ -593,6 +629,9 @@
         "status": "succeeded",
         "failure_kind": null,
         "agent_success": true,
+        "public_test_status": "PASS",
+        "public_test_runs": 1,
+        "static_acceptance": "PASS",
         "oracle_passed": true,
         "oracle_status": "PASS",
         "goal_correctness": true,
@@ -602,7 +641,7 @@
           {
             "check": "identity_matches_plan",
             "ok": true,
-            "detail": "cell says stage-b-plus-diagnostic-canary-v2/CANARY_ONLY"
+            "detail": "cell says stage-b-plus-diagnostic-canary-v3/CANARY_ONLY"
           },
           {
             "check": "execution_returned",
@@ -824,6 +863,72 @@
       "detail": "a full six-arm admission pass writes no claim, so a refused configuration still leaves the single attempt intact"
     },
     {
+      "check_id": "L32_export_identity_is_two_records",
+      "ok": true,
+      "detail": "the producer's archive digest and the host's directory digest are recorded separately and are never compared",
+      "archive_digest": "sha256:b838289f960d32e6a895b05744be48ca5481657f2bcdfa9f0155181a37144a51",
+      "directory_digest": "sha256:1e399a258d95477b3b6c3c3dba5b15f2aec6f889c2eb76798fbf0e97af49e36e"
+    },
+    {
+      "check_id": "L33_healthy_cell_passes_the_evidence_checks",
+      "ok": true,
+      "detail": "a production-shaped cell passes export, public-test and oracle checks together",
+      "stops": [],
+      "public_test": "PASS",
+      "goal": true
+    },
+    {
+      "check_id": "L34_changed_export_directory_stops",
+      "ok": true,
+      "detail": "a workspace that changed after the host recorded its identity is refused",
+      "stops": [
+        "EXPORT_INVALID"
+      ]
+    },
+    {
+      "check_id": "L35_export_file_count_mismatch_stops",
+      "ok": true,
+      "detail": "a recorded file count that the directory does not hold is refused",
+      "stops": [
+        "EXPORT_INVALID"
+      ]
+    },
+    {
+      "check_id": "L36_public_test_verdict_reads_the_runs",
+      "ok": true,
+      "detail": "the verdict is the last recorded run: an earlier pass cannot hide a later fail, and NOT_RUN / ERROR are never a pass",
+      "outcomes": {
+        "public_fail_then_pass": {
+          "state": "PASS",
+          "goal": true,
+          "verdict": "PASS"
+        },
+        "public_pass_then_fail": {
+          "state": "FAIL",
+          "goal": false,
+          "verdict": "MEASURED_FAILURE"
+        },
+        "public_not_run": {
+          "state": "NOT_RUN",
+          "goal": null,
+          "verdict": "MEASURED_FAILURE"
+        },
+        "public_error": {
+          "state": "ERROR",
+          "goal": null,
+          "verdict": "MEASURED_FAILURE"
+        }
+      }
+    },
+    {
+      "check_id": "L37_observed_cost_floor_sums_deltas",
+      "ok": true,
+      "detail": "the observed floor is the sum of per-cell costs (0.02052), not of the running totals (0.07182)",
+      "reported": 0.02052,
+      "delta_sum": 0.02052,
+      "cumulative_sum": 0.07182
+    },
+    {
       "check_id": "X01_contract_self_validates",
       "ok": true,
       "detail": "the derived protocol passes its own invariants",
@@ -842,18 +947,18 @@
     {
       "check_id": "X04_closure2_untouched",
       "ok": true,
-      "detail": "39 files changed since e0bc2cc, none of them protected"
+      "detail": "40 files changed since e0bc2cc, none of them protected"
     },
     {
       "check_id": "X05_executor_identity_is_derived",
       "ok": true,
       "detail": "the executor digest covers every file whose bytes decide what runs",
-      "executor_digest": "sha256:1c2f1338fa02f2de961301193dcdb7df43ee54f2393e3f7383c70c0687146f71"
+      "executor_digest": "sha256:e9eb9c1244080d1238f3e1e8ff6e1be6a0f6212d0a04af5b5c6657dddfca6e23"
     }
   ],
   "summary": {
-    "total": 45,
-    "passed": 45,
+    "total": 52,
+    "passed": 52,
     "failed": []
   },
   "live_execution_authorized": false,

@@ -1,6 +1,6 @@
 {
   "stage": "B+",
-  "protocol_version": "bplus-2.1.0",
+  "protocol_version": "bplus-2.2.0",
   "plan_id": "stage-b-plus-formal-matrix-v1",
   "plan": {
     "plan_id": "stage-b-plus-formal-matrix-v1",
@@ -248,19 +248,33 @@
     "is_benchmark_sample": true,
     "nominal_token_capacity": 12000000,
     "execution_contract": {
-      "revision": "bplus-exec-2.0",
-      "supersedes": "bplus-exec-1.0",
+      "revision": "bplus-exec-3.0",
+      "supersedes": "bplus-exec-2.0",
       "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
       "acceptance": "static presence checks only; correctness is never self-graded",
       "oracle_runner": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
       "scored_snapshot": "the exported workspace (artifacts.workspace_path), never the fixture",
       "public_suite_separation": "the public suite is a different artifact from the hidden oracle",
       "pre_claim_preflight": "run_live_preflight over the six production GoalRunOptions",
-      "v1_refusal": "live_preflight required a dynamic acceptance command; the B+ acceptance has none, and the oracle is a Host sandbox that runs after the run, so every cell was refused before the first model call"
+      "export_identity": {
+        "archive": "artifacts.workspace_digest \u2014 the producer's sha256 of the transferred archive; recorded, not recomputable, never compared with a directory hash",
+        "directory": "directory_digest \u2014 computed by the host after export and before the oracle, recomputed at audit time",
+        "files": "workspace_files must equal the number of files the directory holds",
+        "fail_closed": "a missing directory identity, a changed directory or a count mismatch stops the matrix"
+      },
+      "public_test_evidence": {
+        "source": "session.public_tests.runs \u2014 one entry per call, no top-level status",
+        "rule": "the last run decides; an earlier PASS cannot hide a later FAIL",
+        "not_run": "a suite that never ran is NOT_RUN and is never a pass",
+        "error": "an ERROR run leaves correctness unknown, it is not a failure and not a pass"
+      },
+      "v1_refusal": "live_preflight required a dynamic acceptance command; the B+ acceptance has none, and the oracle is a Host sandbox that runs after the run, so every cell was refused before the first model call",
+      "v2_refusal": "the audit compared the producer's archive digest with a directory hash and read a top-level public_tests.status that the producer never writes, so a cell whose independent oracle passed was recorded as an integrity failure"
     },
-    "execution_contract_digest": "sha256:a4d74b4d5e2aab3fc5cbb2d5d66edcf158515da8701075a786e547c6f31aaaad",
+    "execution_contract_digest": "sha256:3debfcb5ef05bbf929731e570b6d0301396b9a5fca1f83f91676ecd3859ff86c",
     "supersedes": null,
     "supersedes_record": null,
+    "execution_history": [],
     "authorization_migrates": false
   }
 }
