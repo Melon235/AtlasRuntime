@@ -681,6 +681,51 @@ def _evidence_contract_checks(scratch: Path) -> list[dict[str, Any]]:
         )
     )
 
+    negative: dict[str, Any] = {}
+    for behaviour in (
+        "public_missing_last_status",
+        "public_corrupt_status",
+        "public_identity_mismatch",
+        "public_exit_contradiction",
+    ):
+        outcome = _audit(synthetic_cell_run(cell, work / behaviour, behaviour=behaviour))
+        negative[behaviour] = {
+            "state": outcome["public_test_status"],
+            "stops": outcome["stops"],
+            "goal": outcome["goal_correctness"],
+        }
+    checks.append(
+        _check(
+            "L38_public_test_evidence_negative_controls",
+            all(item["state"] in {"INCOMPLETE", "INVALID"} for item in negative.values())
+            and all(executor.STOP_MISSING_EVIDENCE in item["stops"] for item in negative.values())
+            and all(item["goal"] is not True for item in negative.values()),
+            "a counted call with no record, a corrupt status, a foreign suite identity and a PASS "
+            "contradicted by its exit code are each refused and never scored",
+            outcomes=negative,
+        )
+    )
+
+    diverged = synthetic_cell_run(cell, work / "diverged")
+    assert diverged.export is not None
+    diverged.export["workspace_digest"] = "sha256:" + "e" * 64
+    diverged_outcome = _audit(diverged)
+    moved = synthetic_cell_run(cell, work / "moved")
+    assert moved.export is not None
+    moved.export["workspace_path"] = str(work / "elsewhere")
+    moved_outcome = _audit(moved)
+    checks.append(
+        _check(
+            "L39_runner_and_session_export_must_agree",
+            executor.STOP_EXPORT in diverged_outcome["stops"]
+            and executor.STOP_EXPORT in moved_outcome["stops"],
+            "an archive digest or a workspace path that differs between the runner and the "
+            "session is refused",
+            diverged=diverged_outcome["stops"],
+            moved=moved_outcome["stops"],
+        )
+    )
+
     report = _read_json(scratch / "history" / "clean" / "matrix-report.json") or {}
     cells = report.get("cells") or []
     delta_floor = round(
@@ -733,6 +778,7 @@ def _synthetic_session(
 
     arm = contract.ARMS_BY_ID[cell["arm_id"]]
     task = contract.TASKS_BY_ID[cell["task_id"]]
+    suite_contract = contract.public_test_spec(task)
     key = f"c{int(cell['order']):02d}"
     cell_root = root / key
     run_dir = cell_root / "run"
@@ -800,21 +846,15 @@ def _synthetic_session(
         "verification": {"verdict": "PASS", "dynamic": {"status": "PASS"}},
         "acceptance": "PASS",
         # The producer's real shape: no top-level ``status``. Only ``contract``, ``command_digest``,
-        # ``calls`` and one ``runs`` entry per call.
+        # ``calls`` and one ``runs`` entry per call — carrying the frozen suite's identity.
         "public_tests": {
-            "contract": {
-                "test_id": "bplus-public",
-                "command": "python3 -B -m pytest -q test_public.py",
-                "timeout_seconds": 240,
-                "max_output_chars": 6000,
-                "max_calls": 4,
-            },
-            "command_digest": "sha256:" + "1" * 64,
+            "contract": suite_contract.payload(),
+            "command_digest": suite_contract.command_digest(),
             "calls": 1,
             "runs": [
                 {
-                    "test_id": "bplus-public",
-                    "command_digest": "sha256:" + "1" * 64,
+                    "test_id": suite_contract.test_id,
+                    "command_digest": suite_contract.command_digest(),
                     "call_index": 1,
                     "status": "PASS",
                     "exit_code": 0,
@@ -895,8 +935,19 @@ def synthetic_cell_run(
     if behaviour == "public_error":
         suite["runs"] = [dict(suite["runs"][0], status="ERROR", exit_code=None)]
         suite["calls"] = 1
-    if behaviour == "public_unknown":
+    if behaviour == "public_missing_last_status":
+        # The reachable producer shape after a GoalSandboxError: the call was counted, no record was
+        # appended, so the earlier PASS would be inherited by a reader that skips empty statuses.
+        suite["runs"] = [dict(suite["runs"][0])]
+        suite["calls"] = 2
+    if behaviour == "public_corrupt_status":
         suite["runs"] = [dict(suite["runs"][0], status=None, exit_code=None)]
+        suite["calls"] = 1
+    if behaviour == "public_identity_mismatch":
+        suite["runs"] = [dict(suite["runs"][0], test_id="some-other-suite")]
+        suite["calls"] = 1
+    if behaviour == "public_exit_contradiction":
+        suite["runs"] = [dict(suite["runs"][0], status="PASS", exit_code=1)]
         suite["calls"] = 1
     (run_dir / "session.json").write_text(json.dumps(session, indent=2) + "\n", encoding="utf-8")
     if behaviour == "corrupt_evidence":

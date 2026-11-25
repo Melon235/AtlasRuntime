@@ -1,14 +1,14 @@
 {
   "stage": "B+",
   "protocol_version": "bplus-2.2.0",
-  "protocol_digest": "sha256:522f876dabc2073f36dbab4ea04eb8494a89a261b62d7aff462dde906c4f2227",
-  "head_at_build": "106939ed470e84339cc53ae98b5a62800db8ab23",
-  "executor_digest": "sha256:e9eb9c1244080d1238f3e1e8ff6e1be6a0f6212d0a04af5b5c6657dddfca6e23",
+  "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
+  "head_at_build": "7fdf4215522bbb992b39461da25af44376daa56a",
+  "executor_digest": "sha256:9f4c21cc66eb6b082ea9aec5dcbec3a4d4dda53054b155d31e7dc784f7429cda",
   "plans": {
     "stage-b-plus-diagnostic-canary-v3": {
       "scope": "CANARY_ONLY",
       "cells": 6,
-      "digest": "sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae"
+      "digest": "sha256:0b58ab2500325d11cf27763dd0d8dde8498d5bca9ca11f602e6e410a37e572f6"
     },
     "stage-b-plus-formal-matrix-v1": {
       "scope": "FORMAL_MATRIX_ONLY",
@@ -23,7 +23,7 @@
       "ok": true,
       "detail": "six cells, six ids, each arm once on P1, none marked as a benchmark sample",
       "plan_id": "stage-b-plus-diagnostic-canary-v3",
-      "plan_digest": "sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae",
+      "plan_digest": "sha256:0b58ab2500325d11cf27763dd0d8dde8498d5bca9ca11f602e6e410a37e572f6",
       "cell_ids": [
         "canary.closure2-pipeline-migration.C0.r1",
         "canary.closure2-pipeline-migration.C1.r1",
@@ -326,7 +326,7 @@
     {
       "check_id": "L11_live_path_fixture_export_oracle",
       "ok": true,
-      "detail": "one cell through the live runner and the real audit for canary.closure2-pipeline-migration.C2.r1: fixture_commit=a1638bcd export_files=10 oracle=FAIL in sandbox (sandbox sandbox-1), audit_stops=['HOST_ISOLATION_VIOLATION'] (isolation only: the fake sandbox is not isolated), public_test=NOT_RUN goal=None, usage_ok=True",
+      "detail": "one cell through the live runner and the real audit for canary.closure2-pipeline-migration.C2.r1: fixture_commit=8f41917a export_files=10 oracle=FAIL in sandbox (sandbox sandbox-1), audit_stops=['HOST_ISOLATION_VIOLATION'] (isolation only: the fake sandbox is not isolated), public_test=NOT_RUN goal=None, usage_ok=True",
       "cell_id": "canary.closure2-pipeline-migration.C2.r1",
       "arm": {
         "profile": "coding_worker",
@@ -339,14 +339,14 @@
       "effective_max_turns": 20,
       "fixture": {
         "path_is_per_cell": true,
-        "commit": "a1638bcdd45bdf618764fbcfdd04f3dd238ae702",
+        "commit": "8f41917a441cc75a5c9b568b23c24b9d936d8434",
         "seed_digest": "f9378c44a0ee564962e0a56ac7172ad616904d098fbc8dabb0806c4cdbbef515",
         "matches_frozen_seed": true,
         "files": 10
       },
       "export": {
         "workspace_files": 10,
-        "archive_digest": "sha256:3ee620a5d93228f6ad21beb077cf2fd722c74a34afb87c31339266503b2cfd32",
+        "archive_digest": "sha256:bbf7a8bb7dd305d5b455bb45724ff78cc37bd728bd0c712bedf2e8852080c3f4",
         "directory_digest": "sha256:1e399a258d95477b3b6c3c3dba5b15f2aec6f889c2eb76798fbf0e97af49e36e",
         "directory_files": 10,
         "archive_digest_verifiable": false,
@@ -378,7 +378,7 @@
         "child_completion_tokens": 0,
         "system_total_tokens": 15
       },
-      "run_dir": "D:\\Work\\AtlasRuntime-scratch\\ddc03-offline\\work\\live-proof\\evidence\\cells\\c03\\agent\\bplus-c03",
+      "run_dir": "D:\\Work\\AtlasRuntime-scratch\\ddc04-offline\\work\\live-proof\\evidence\\cells\\c03\\agent\\bplus-c03",
       "note": "fake model + fake sandbox; control flow is production, isolation is not claimed"
     },
     {
@@ -407,8 +407,13 @@
         "statuses": [],
         "calls": 0,
         "calls_consistent": true,
+        "identity_consistent": null,
+        "index_consistent": true,
+        "outcome_consistent": true,
+        "evidence_complete": true,
         "last_exit_code": null,
-        "configured": true
+        "configured": true,
+        "problems": []
       },
       "analyzer": {
         "statuses": [],
@@ -476,8 +481,8 @@
         "approved_at is empty",
         "owner_statement is empty",
         "approval_provenance is empty",
-        "reviewed_head is None, actual head is '106939ed470e84339cc53ae98b5a62800db8ab23'",
-        "execution_head is None, actual head is '106939ed470e84339cc53ae98b5a62800db8ab23'",
+        "reviewed_head is None, actual head is '7fdf4215522bbb992b39461da25af44376daa56a'",
+        "execution_head is None, actual head is '7fdf4215522bbb992b39461da25af44376daa56a'",
         "cost_stop_usd is None; it must be finite and positive",
         "per_cell_cost_stop_usd is None; it must be finite and positive",
         "approval_provenance is empty"
@@ -488,11 +493,11 @@
       "ok": true,
       "detail": "a signed canary record is refused when the head or the plan digest moves",
       "head_problems": [
-        "reviewed_head is '106939ed470e84339cc53ae98b5a62800db8ab23', actual head is '0000000000000000000000000000000000000000'",
-        "execution_head is '106939ed470e84339cc53ae98b5a62800db8ab23', actual head is '0000000000000000000000000000000000000000'"
+        "reviewed_head is '7fdf4215522bbb992b39461da25af44376daa56a', actual head is '0000000000000000000000000000000000000000'",
+        "execution_head is '7fdf4215522bbb992b39461da25af44376daa56a', actual head is '0000000000000000000000000000000000000000'"
       ],
       "digest_problems": [
-        "plan_digest is 'sha256:0000000000000000000000000000000000000000000000000000000000000000', expected 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae'"
+        "plan_digest is 'sha256:0000000000000000000000000000000000000000000000000000000000000000', expected 'sha256:0b58ab2500325d11cf27763dd0d8dde8498d5bca9ca11f602e6e410a37e572f6'"
       ]
     },
     {
@@ -503,12 +508,12 @@
         "canary_authority_cannot_run_formal": [
           "record scope is 'CANARY_ONLY'; this plan is 'FORMAL_MATRIX_ONLY'",
           "record plan_id is 'stage-b-plus-diagnostic-canary-v3', not 'stage-b-plus-formal-matrix-v1'",
-          "plan_digest is 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
+          "plan_digest is 'sha256:0b58ab2500325d11cf27763dd0d8dde8498d5bca9ca11f602e6e410a37e572f6', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
         ],
         "formal_authority_cannot_run_canary": [
           "record scope is 'FORMAL_MATRIX_ONLY'; this plan is 'CANARY_ONLY'",
           "record plan_id is 'stage-b-plus-formal-matrix-v1', not 'stage-b-plus-diagnostic-canary-v3'",
-          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae'"
+          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:0b58ab2500325d11cf27763dd0d8dde8498d5bca9ca11f602e6e410a37e572f6'"
         ]
       }
     },
@@ -520,12 +525,12 @@
         "canary_authority_cannot_run_formal": [
           "record scope is 'CANARY_ONLY'; this plan is 'FORMAL_MATRIX_ONLY'",
           "record plan_id is 'stage-b-plus-diagnostic-canary-v3', not 'stage-b-plus-formal-matrix-v1'",
-          "plan_digest is 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
+          "plan_digest is 'sha256:0b58ab2500325d11cf27763dd0d8dde8498d5bca9ca11f602e6e410a37e572f6', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
         ],
         "formal_authority_cannot_run_canary": [
           "record scope is 'FORMAL_MATRIX_ONLY'; this plan is 'CANARY_ONLY'",
           "record plan_id is 'stage-b-plus-formal-matrix-v1', not 'stage-b-plus-diagnostic-canary-v3'",
-          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:827c2a63f42292a3c316ffe3d33aec47639cfcad6c3e323a4e319de6b3464aae'"
+          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:0b58ab2500325d11cf27763dd0d8dde8498d5bca9ca11f602e6e410a37e572f6'"
         ]
       }
     },
@@ -631,6 +636,7 @@
         "agent_success": true,
         "public_test_status": "PASS",
         "public_test_runs": 1,
+        "public_test_problems": [],
         "static_acceptance": "PASS",
         "oracle_passed": true,
         "oracle_status": "PASS",
@@ -712,6 +718,16 @@
             "check": "oracle_verdict",
             "ok": true,
             "detail": "independent oracle PASS"
+          },
+          {
+            "check": "public_test_configured",
+            "ok": true,
+            "detail": "the cell must run the frozen public suite; NOT_CONFIGURED is not a way past it"
+          },
+          {
+            "check": "public_test_evidence_intact",
+            "ok": true,
+            "detail": "1 recorded run(s), complete"
           }
         ],
         "stops": [
@@ -921,6 +937,52 @@
       }
     },
     {
+      "check_id": "L38_public_test_evidence_negative_controls",
+      "ok": true,
+      "detail": "a counted call with no record, a corrupt status, a foreign suite identity and a PASS contradicted by its exit code are each refused and never scored",
+      "outcomes": {
+        "public_missing_last_status": {
+          "state": "INCOMPLETE",
+          "stops": [
+            "MISSING_OR_CORRUPT_EVIDENCE"
+          ],
+          "goal": null
+        },
+        "public_corrupt_status": {
+          "state": "INVALID",
+          "stops": [
+            "MISSING_OR_CORRUPT_EVIDENCE"
+          ],
+          "goal": null
+        },
+        "public_identity_mismatch": {
+          "state": "INVALID",
+          "stops": [
+            "MISSING_OR_CORRUPT_EVIDENCE"
+          ],
+          "goal": null
+        },
+        "public_exit_contradiction": {
+          "state": "INVALID",
+          "stops": [
+            "MISSING_OR_CORRUPT_EVIDENCE"
+          ],
+          "goal": null
+        }
+      }
+    },
+    {
+      "check_id": "L39_runner_and_session_export_must_agree",
+      "ok": true,
+      "detail": "an archive digest or a workspace path that differs between the runner and the session is refused",
+      "diverged": [
+        "EXPORT_INVALID"
+      ],
+      "moved": [
+        "EXPORT_INVALID"
+      ]
+    },
+    {
       "check_id": "L37_observed_cost_floor_sums_deltas",
       "ok": true,
       "detail": "the observed floor is the sum of per-cell costs (0.02052), not of the running totals (0.07182)",
@@ -947,18 +1009,18 @@
     {
       "check_id": "X04_closure2_untouched",
       "ok": true,
-      "detail": "40 files changed since e0bc2cc, none of them protected"
+      "detail": "41 files changed since e0bc2cc, none of them protected"
     },
     {
       "check_id": "X05_executor_identity_is_derived",
       "ok": true,
       "detail": "the executor digest covers every file whose bytes decide what runs",
-      "executor_digest": "sha256:e9eb9c1244080d1238f3e1e8ff6e1be6a0f6212d0a04af5b5c6657dddfca6e23"
+      "executor_digest": "sha256:9f4c21cc66eb6b082ea9aec5dcbec3a4d4dda53054b155d31e7dc784f7429cda"
     }
   ],
   "summary": {
-    "total": 52,
-    "passed": 52,
+    "total": 54,
+    "passed": 54,
     "failed": []
   },
   "live_execution_authorized": false,

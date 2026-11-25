@@ -451,35 +451,124 @@ def cell_cost(
 # -- evidence helpers -------------------------------------------------------------------------
 
 
-def public_test_verdict(public_tests: Mapping[str, Any] | None) -> dict[str, Any]:
+def public_test_verdict(
+    public_tests: Mapping[str, Any] | None, *, expected: Any = None
+) -> dict[str, Any]:
     """The public channel's final verdict, read from the runs the producer recorded.
 
     ``session["public_tests"]`` has no top-level ``status`` in a normal run:
     ``main_driven._public_test_evidence`` records ``contract``, ``command_digest``, ``calls`` and
-    one ``runs`` entry per call. The verdict is therefore the *last* run — an earlier PASS cannot
-    hide a later FAIL — and a suite that never ran is ``NOT_RUN``, never a pass. v2 read the
-    missing top-level field, turned a real PASS into a failure, and refused a cell whose oracle had
-    passed.
+    one ``runs`` entry per call. The verdict is the *last recorded run*, not the last run that
+    happens to carry a status: a final record with no status means the gate was not observed, and an
+    earlier PASS must not be inherited.
 
-    ``experiments/stage_benchmark`` is a protected tree, so this cannot be shared with the Stage B
-    analyzer by import; the offline proof instead asserts the two agree on the same real session.
+    ``PublicTestRunner`` increments ``calls`` *before* it talks to the sandbox and returns without
+    appending a record when the sandbox raises, so ``calls > len(runs)`` is a reachable production
+    state. It is reported as ``INCOMPLETE`` — never as a pass.
+
+    Identity is checked against ``expected`` (the frozen ``PublicTestContract`` for this cell), so a
+    run that recorded a different suite cannot be read as this one. ``experiments/stage_benchmark``
+    is a protected tree, so this cannot be shared with the Stage B analyzer by import; the offline
+    proof instead asserts the two agree on the same real session.
     """
 
-    block = public_tests or {}
-    runs = [item for item in (block.get("runs") or []) if isinstance(item, Mapping)]
-    statuses = [str(item.get("status") or "").upper() for item in runs if item.get("status")]
-    calls = block.get("calls")
-    configured = str(block.get("status") or "").upper() != "NOT_CONFIGURED"
-    exit_codes = [
-        item.get("exit_code") for item in runs if isinstance(item.get("exit_code"), int)
-    ]
+    block = public_tests if isinstance(public_tests, Mapping) else {}
+    if not block or str(block.get("status") or "").upper() == "NOT_CONFIGURED":
+        return {
+            "state": "NOT_CONFIGURED",
+            "passed": None,
+            "runs": 0,
+            "statuses": [],
+            "calls": None,
+            "calls_consistent": False,
+            "identity_consistent": None,
+            "index_consistent": None,
+            "outcome_consistent": None,
+            "evidence_complete": False,
+            "last_exit_code": None,
+            "configured": False,
+            "problems": ["the public suite is not configured"],
+        }
 
-    if not configured:
-        state, passed = "NOT_CONFIGURED", None
+    raw_runs = list(block.get("runs") or ())
+    runs = [item for item in raw_runs if isinstance(item, Mapping)]
+    dropped = len(raw_runs) - len(runs)
+    calls = block.get("calls")
+    calls_ok = isinstance(calls, int) and not isinstance(calls, bool) and calls >= 0
+    expected_test_id = str(getattr(expected, "test_id", "") or "")
+    expected_digest = expected.command_digest() if expected is not None else ""
+
+    problems: list[str] = []
+    if not calls_ok:
+        problems.append(f"calls is {calls!r}, not a non-negative integer")
+    elif calls != len(runs):
+        problems.append(
+            f"{calls} call(s) were made but {len(runs)} result(s) were recorded "
+            "(a call returned no record, so the last observation is unknown)"
+        )
+    if dropped:
+        problems.append(f"{dropped} run record(s) are not objects")
+
+    index_ok = True
+    for position, run in enumerate(runs, start=1):
+        if run.get("call_index") != position:
+            index_ok = False
+            problems.append(
+                f"run {position} carries call_index {run.get('call_index')!r}, expected {position}"
+            )
+
+    identity_ok: bool | None = None
+    if expected is not None:
+        identity_ok = True
+        for position, run in enumerate(runs, start=1):
+            recorded_id = str(run.get("test_id") or "")
+            recorded_digest = str(run.get("command_digest") or "")
+            if recorded_id != expected_test_id:
+                identity_ok = False
+                problems.append(
+                    f"run {position} is for test {recorded_id!r}, the frozen contract is "
+                    f"{expected_test_id!r}"
+                )
+            if recorded_digest != expected_digest:
+                identity_ok = False
+                problems.append(
+                    f"run {position} ran command digest {recorded_digest[:19]!r}, the frozen "
+                    f"contract is {expected_digest[:19]!r}"
+                )
+        block_digest = str(block.get("command_digest") or "")
+        if block_digest and block_digest != expected_digest:
+            identity_ok = False
+            problems.append("the recorded suite digest differs from the frozen contract")
+
+    outcome_ok = True
+    for position, run in enumerate(runs, start=1):
+        status = str(run.get("status") or "").upper()
+        exit_code = run.get("exit_code")
+        if status not in {"PASS", "FAIL", "ERROR"}:
+            outcome_ok = False
+            problems.append(f"run {position} has status {run.get('status')!r}")
+        elif status == "PASS" and exit_code != 0:
+            outcome_ok = False
+            problems.append(f"run {position} says PASS but exited {exit_code!r}")
+        elif status == "FAIL" and not (isinstance(exit_code, int) and exit_code != 0):
+            outcome_ok = False
+            problems.append(f"run {position} says FAIL but exited {exit_code!r}")
+
+    statuses = [str(run.get("status") or "").upper() for run in runs]
+    evidence_complete = calls_ok and calls == len(runs) and dropped == 0
+
+    if problems:
+        # A missing observation is INCOMPLETE; a contradiction inside records that do exist is
+        # INVALID. Neither is a pass, and the audit treats them differently.
+        observation_only = (
+            not evidence_complete and index_ok and outcome_ok and identity_ok is not False
+        )
+        state = "INCOMPLETE" if observation_only else "INVALID"
+        passed = None
     elif not runs:
         state, passed = "NOT_RUN", None
     else:
-        last = statuses[-1] if statuses else ""
+        last = str(runs[-1].get("status") or "").upper()
         if last == "PASS":
             state, passed = "PASS", True
         elif last == "FAIL":
@@ -487,19 +576,22 @@ def public_test_verdict(public_tests: Mapping[str, Any] | None) -> dict[str, Any
         elif last == "ERROR":
             state, passed = "ERROR", None
         else:
-            state, passed = "UNKNOWN", None
+            state, passed = "INVALID", None
 
     return {
         "state": state,
         "passed": passed,
         "runs": len(runs),
         "statuses": statuses,
-        "calls": calls if isinstance(calls, int) and not isinstance(calls, bool) else None,
-        "calls_consistent": (
-            isinstance(calls, int) and not isinstance(calls, bool) and calls == len(runs)
-        ),
-        "last_exit_code": exit_codes[-1] if exit_codes else None,
-        "configured": configured,
+        "calls": calls if calls_ok else None,
+        "calls_consistent": calls_ok and calls == len(runs),
+        "identity_consistent": identity_ok,
+        "index_consistent": index_ok,
+        "outcome_consistent": outcome_ok,
+        "evidence_complete": evidence_complete,
+        "last_exit_code": runs[-1].get("exit_code") if runs else None,
+        "configured": True,
+        "problems": problems,
     }
 
 
@@ -592,6 +684,10 @@ def _export_problems(run: CellRun) -> list[str]:
     artifacts = (run.session or {}).get("artifacts")
     if not isinstance(artifacts, Mapping):
         return ["the run exported no artifacts"]
+    if not isinstance(run.export, Mapping):
+        return ["the runner recorded no export; a session field has no host source"]
+    runner_export = run.export
+
     path_value = artifacts.get("workspace_path")
     if not path_value:
         return ["the export carries no workspace_path"]
@@ -599,43 +695,69 @@ def _export_problems(run: CellRun) -> list[str]:
     if not workspace.is_dir():
         return [f"the exported workspace {workspace} does not exist"]
 
-    runner_export = run.export if isinstance(run.export, Mapping) else {}
-    recorded_directory = runner_export.get(EXPORT_DIRECTORY_DIGEST) or artifacts.get(
-        EXPORT_DIRECTORY_DIGEST
-    )
+    # Both sides must name the same scoring object. Comparing one path with a different one would
+    # let the oracle score an artifact the audit never looked at.
+    runner_path = runner_export.get("workspace_path")
+    if not runner_path:
+        problems.append("the runner export carries no workspace_path")
+    elif Path(str(runner_path)) != workspace:
+        problems.append(
+            f"the runner scored {runner_path!r} but the session records {str(path_value)!r}"
+        )
+
+    # The host identity must come from the runner, which takes it after the export and before the
+    # oracle. A value that only exists in the session has no provenance.
+    recorded_directory = runner_export.get(EXPORT_DIRECTORY_DIGEST)
+    recorded_files = runner_export.get(EXPORT_DIRECTORY_FILES)
     if not recorded_directory:
         problems.append(
-            "the host recorded no directory identity for the export; the archive digest cannot "
+            "the host recorded no directory digest for the export; the archive digest cannot "
             "stand in for it"
         )
+    elif not (
+        isinstance(recorded_directory, str)
+        and recorded_directory.startswith("sha256:")
+        and len(recorded_directory) == len("sha256:") + 64
+    ):
+        problems.append(f"the host directory digest is not a sha256 digest: {recorded_directory!r}")
     else:
         actual = "sha256:" + workspace_digest(workspace)
-        if actual != str(recorded_directory):
+        if actual != recorded_directory:
             problems.append(
                 f"the exported workspace hashes to {actual}, the host recorded "
                 f"{recorded_directory}"
             )
 
-    if not artifacts.get(EXPORT_ARCHIVE_DIGEST):
-        problems.append("the export carries no archive digest")
+    if isinstance(recorded_files, bool) or not isinstance(recorded_files, int):
+        problems.append(f"the host recorded {recorded_files!r} exported files, not an integer")
+    elif recorded_files <= 0:
+        problems.append(f"the host recorded {recorded_files} exported files")
+    else:
+        actual_files = len(workspace_hashes(workspace))
+        if recorded_files != actual_files:
+            problems.append(
+                f"the host recorded {recorded_files} exported files, the directory holds "
+                f"{actual_files}"
+            )
+
+    session_archive = artifacts.get(EXPORT_ARCHIVE_DIGEST)
+    runner_archive = runner_export.get(EXPORT_ARCHIVE_DIGEST)
+    if not session_archive:
+        problems.append("the session carries no archive digest")
+    if not runner_archive:
+        problems.append("the runner export carries no archive digest")
+    elif session_archive and str(runner_archive) != str(session_archive):
+        problems.append(
+            f"the runner recorded archive digest {runner_archive} and the session "
+            f"{session_archive}"
+        )
 
     files = artifacts.get("workspace_files")
     if not isinstance(files, int) or isinstance(files, bool) or files <= 0:
         problems.append(f"the export reports {files!r} files")
-    else:
-        actual_files = len(workspace_hashes(workspace))
-        if actual_files != files:
-            problems.append(
-                f"the export reports {files} files, the directory holds {actual_files}"
-            )
-    recorded_files = runner_export.get(EXPORT_DIRECTORY_FILES)
-    if (
-        isinstance(recorded_files, int)
-        and not isinstance(recorded_files, bool)
-        and recorded_files != len(workspace_hashes(workspace))
-    ):
+    elif files != len(workspace_hashes(workspace)):
         problems.append(
-            f"the host recorded {recorded_files} exported files, the directory holds "
+            f"the export reports {files} files, the directory holds "
             f"{len(workspace_hashes(workspace))}"
         )
     if not artifacts.get("patch_digest"):
@@ -905,22 +1027,37 @@ def audit_cell(
         total_cost = round(float(cost_before) + delta_cost, 6)
 
     suite = public_test_verdict(
-        session.get("public_tests") if isinstance(session.get("public_tests"), Mapping) else None
+        session.get("public_tests") if isinstance(session.get("public_tests"), Mapping) else None,
+        expected=contract.public_test_spec(contract.TASKS_BY_ID[cell["task_id"]]),
     )
     acceptance = session.get("acceptance")
+    # The evidence consistency the reader computed is part of the gate, not a diagnostic it drops.
+    check(
+        "public_test_configured",
+        suite["configured"],
+        "the cell must run the frozen public suite; NOT_CONFIGURED is not a way past it",
+        STOP_IDENTITY_MISMATCH,
+    )
+    check(
+        "public_test_evidence_intact",
+        suite["state"] not in {"INCOMPLETE", "INVALID"},
+        "; ".join(suite["problems"]) or f"{suite['runs']} recorded run(s), complete",
+        STOP_MISSING_EVIDENCE,
+    )
+
     goal_correctness: bool | None
     if oracle_passed is None or not agent_success:
         goal_correctness = False if oracle_passed is False else None
     elif suite["state"] == "FAIL":
-        # The last public run failed; an earlier pass does not undo it.
+        # The last public run failed; an earlier pass does not undo it. A measured failure.
         goal_correctness = False
-    elif suite["state"] in {"PASS", "NOT_CONFIGURED"}:
+    elif suite["state"] == "PASS":
         goal_correctness = bool(
             oracle_passed and agent_success and (acceptance in (None, "PASS"))
         )
     else:
-        # NOT_RUN / UNKNOWN / ERROR: the public gate was not observed, so correctness is unknown.
-        # An unobserved gate is never a pass.
+        # NOT_RUN / ERROR / INCOMPLETE / INVALID: the gate was not observed, so correctness is
+        # unknown. An unobserved gate is never a pass; the integrity ones have already stopped.
         goal_correctness = None
 
     execution_integrity = "PASS" if not stops else "FAIL"
@@ -944,6 +1081,7 @@ def audit_cell(
         "agent_success": agent_success,
         "public_test_status": suite["state"],
         "public_test_runs": suite["runs"],
+        "public_test_problems": list(suite["problems"]),
         "static_acceptance": acceptance,
         "oracle_passed": oracle_passed,
         "oracle_status": oracle_status or None,
@@ -1588,7 +1726,6 @@ def production_goal_options(
 
     from atlasos.app.goal_sandbox import GoalSandboxOptions
     from atlasos.app.main_driven import GoalRunOptions
-    from atlasos.app.public_tests import PublicTestContract
 
     task = contract.TASKS_BY_ID[cell["task_id"]]
     arm = contract.ARMS_BY_ID[cell["arm_id"]]
@@ -1611,13 +1748,7 @@ def production_goal_options(
         provider_factory=config.llm_factory,
         run_id=run_id,
         main_prompt=contract.main_prompt_spec(),
-        public_tests=PublicTestContract(
-            test_id="bplus-public",
-            command="python3 -B -m pytest -q " + " ".join(sorted(task.public_tests)),
-            timeout_seconds=240,
-            max_output_chars=6000,
-            max_calls=int(contract.BUDGET["public_test_max_calls"]),
-        ),
+        public_tests=contract.public_test_spec(task),
         acceptance=contract.acceptance_spec(task),
         sandbox=GoalSandboxOptions(
             provider=plan.provider_name,

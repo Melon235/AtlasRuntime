@@ -162,6 +162,10 @@ REVISION: dict[str, Any] = {
         "the export audit recomputes the host directory identity and the file count at audit time",
         "the public-test verdict is read from the recorded runs, last run wins, NOT_RUN is not a "
         "pass",
+        "the public-test verdict refuses an incomplete observation, a foreign suite identity, a "
+        "non-contiguous call index and a status that contradicts its exit code",
+        "the export identity requires the same scoring path and the same archive digest on both "
+        "the runner and the session, and a directory identity the runner actually took",
         "the observed cost floor sums per-cell costs instead of running totals",
         "a READY admission report is written to the evidence root, not a null",
     ],
@@ -632,8 +636,8 @@ SCOPES: tuple[str, ...] = (SCOPE_CANARY, SCOPE_FORMAL)
 #: change to *what it means to run a cell*, so it belongs in the plan identity: the digest below is
 #: stamped into every canary cell, which is why the v2 plan digest cannot be produced by renaming.
 EXECUTION_CONTRACT: dict[str, Any] = {
-    "revision": "bplus-exec-3.0",
-    "supersedes": "bplus-exec-2.0",
+    "revision": "bplus-exec-3.1",
+    "supersedes": "bplus-exec-3.0",
     "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
     "acceptance": "static presence checks only; correctness is never self-graded",
     "oracle_runner": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
@@ -647,14 +651,27 @@ EXECUTION_CONTRACT: dict[str, Any] = {
         "directory": "directory_digest — computed by the host after export and before the oracle, "
         "recomputed at audit time",
         "files": "workspace_files must equal the number of files the directory holds",
-        "fail_closed": "a missing directory identity, a changed directory or a count mismatch "
-        "stops the matrix",
+        "same_object": "the runner's workspace_path and the session's must name the same directory",
+        "agreement": "the runner's and the session's archive digest must be the same value",
+        "provenance": "the directory identity must come from the runner; a value that exists only "
+        "in the session has no source and is refused",
+        "fail_closed": "a missing directory identity, a changed directory, a count mismatch, a "
+        "diverged path or a diverged archive digest stops the matrix",
     },
     "public_test_evidence": {
         "source": "session.public_tests.runs — one entry per call, no top-level status",
-        "rule": "the last run decides; an earlier PASS cannot hide a later FAIL",
+        "rule": "the last recorded run decides; a final record without a status is not the earlier "
+        "PASS",
         "not_run": "a suite that never ran is NOT_RUN and is never a pass",
         "error": "an ERROR run leaves correctness unknown, it is not a failure and not a pass",
+        "completeness": "calls must equal the number of recorded runs; a call that returned no "
+        "record leaves the last observation unknown and is INCOMPLETE",
+        "identity": "every run must name the frozen test id and command digest for its cell",
+        "order": "call_index must be the contiguous position of the record",
+        "outcome": "PASS must exit 0 and FAIL must exit non-zero; a contradiction is INVALID",
+        "required": "B+ always configures the public suite; NOT_CONFIGURED is refused",
+        "classification": "INCOMPLETE and INVALID are evidence-integrity stops; FAIL continues "
+        "the matrix and is scored as a measured failure",
     },
     "v1_refusal": (
         "live_preflight required a dynamic acceptance command; the B+ acceptance has none, and the "
@@ -1077,6 +1094,24 @@ def main_prompt_spec() -> Any:
     from atlasos.app.main_driven import MainPromptSpec
 
     return MainPromptSpec(version=prompt_version("p3-bplus"), text=prompt_text("p3-bplus"))
+
+
+def public_test_spec(task: closure2.Task) -> Any:
+    """The frozen public suite for one cell.
+
+    One function, two callers: the runner that fixes the command and the audit that checks the run
+    recorded *that* command. Separate copies is how a test id or a command digest drifts.
+    """
+
+    from atlasos.app.public_tests import PublicTestContract
+
+    return PublicTestContract(
+        test_id="bplus-public",
+        command="python3 -B -m pytest -q " + " ".join(sorted(task.public_tests)),
+        timeout_seconds=240,
+        max_output_chars=6000,
+        max_calls=int(BUDGET["public_test_max_calls"]),
+    )
 
 
 def acceptance_spec(task: closure2.Task) -> Any:
