@@ -1,17 +1,17 @@
 {
   "stage": "C1",
   "executor_version": "bplus-executor-1.3",
-  "executor_digest": "sha256:47bfd5bd11940b0f73968b2a9a740d99173041c496cacb86f226ad3189ba0164",
+  "executor_digest": "sha256:c7f3c4c88a86c91be82792fb5da640f8a62e0922840fd9d492606ea8a279937d",
   "files": {
-    "experiments/stage_b_plus/executor.py": "sha256:2ca71c3307f6175e2d6de0302f08154bd335e9071022591a68840971bf6a041a",
+    "experiments/stage_b_plus/executor.py": "sha256:5aef9c4e56ea43be1308cb43cfb9abeff0291a59ef021cf80be47daba4d921ea",
     "experiments/stage_b_plus/authority.py": "sha256:594b6578723aa45e0fa9c9469b1410120cf3cece44fd489f8c563eb8fa01a1f1",
-    "experiments/stage_b_plus/contract.py": "sha256:67799ea4a3924e4ff41e91ce789dd9c43aa10844dc6a472dc4b23b90cdb6cbb1",
+    "experiments/stage_b_plus/contract.py": "sha256:6d50c77b0191c2f8457a25616410585475ed0be28951fa4f918efb8755c4da2b",
     "experiments/stage_b_plus/cost.py": "sha256:fa0db30eb622c6076f9b153618fc9e7bfaf990eb422d11946102d7c74a684c28",
-    "experiments/stage_c1/plan.py": "sha256:39446a41fbe51a17f317233851b2d2102598bdda560114afc1c276e06c051a7f",
+    "experiments/stage_c1/plan.py": "sha256:b01723fc3117608c72196b99b57dfe3e841586fe36250babd363b0ebc1c326cd",
     "src/atlasos/app/live_preflight.py": "sha256:861518f226e29f1baee50721daf5dbf24b1db7f1deb16e357c27a922353d46d0",
     "src/atlasos/app/goal_verification.py": "sha256:7ee0a0bf03e9c5d49618ab117e4af5d5d25f4f5665aa5a6438048497ba1072be"
   },
-  "built_from_head": "a55e106893a6893734db6da62c0dafa1f1fa5e2f",
+  "built_from_head": "749b37e67cf26ba19bf11e7c6748eb9b2f670153",
   "supersedes": {
     "executor_version": "bplus-executor-1.2",
     "executor_digest": "sha256:9f4c21cc66eb6b082ea9aec5dcbec3a4d4dda53054b155d31e7dc784f7429cda",

@@ -219,11 +219,16 @@ def _worker_report(options: Any) -> dict[str, Any]:
         )
         if token and token in description
     ]
+    grant = [str(path) for path in options.child_write_grants.get(profile_id, ())]
     return {
         "profile_id": profile_id,
         "profiles_offered": list(options.worker_profiles),
         "exposure": options.worker_exposure,
-        "grant": list(options.child_write_grants.get(profile_id, ())),
+        "grant": grant,
+        # The disclosure must state the grant the runtime will actually enforce, in the same
+        # representation: a card that still advertised a glob the matcher refuses would be false.
+        "description_mentions_grant": bool(grant) and all(path in description for path in grant),
+        "description_mentions_raw_grant": "plugins/**" in description,
         "max_turns_effective": card.max_turns,
         "card_read_only": card.read_only,
         "allowed": list(card.allowed),
@@ -231,7 +236,6 @@ def _worker_report(options: Any) -> dict[str, Any]:
         "card_digest": card.digest(),
         "description_chars": len(description),
         "description_digest": _digest_bytes(description.encode("utf-8")),
-        "description_mentions_grant": "plugins/**" in description,
         "description_mentions_assignment": task_specific,
         "task_writes_possible": card.read_only is False and bool(options.child_write_grants),
     }
@@ -243,11 +247,12 @@ def _check_worker(root: Path, cell: Mapping[str, Any]) -> dict[str, Any]:
     ok = (
         report["profiles_offered"] == [contract.CODING]
         and report["exposure"] == "card"
-        and report["grant"] == list(c1.task().allowed_paths)
+        and report["grant"] == [str(path) for path in c1.effective_grant()[contract.CODING]]
         and report["max_turns_effective"] == int(contract.BUDGET["worker_max_turns"])
         and report["card_read_only"] is False
         and report["write_tools_present"]
         and report["description_mentions_grant"]
+        and not report["description_mentions_raw_grant"]
         and not report["description_mentions_assignment"]
         and report["task_writes_possible"]
     )
@@ -298,7 +303,14 @@ def _plan_context(options: Any) -> Any:
     )
 
 
-def _spec(key: str, objective: str, paths: tuple[str, ...], *, depends_on: tuple[str, ...] = ()):
+def _spec(
+    key: str,
+    objective: str,
+    paths: tuple[str, ...],
+    *,
+    depends_on: tuple[str, ...] = (),
+    profile_id: str = contract.CODING,
+):
     from atlasos.delegation.models import DelegatedTaskSpec
 
     return DelegatedTaskSpec(
@@ -309,7 +321,7 @@ def _spec(key: str, objective: str, paths: tuple[str, ...], *, depends_on: tuple
             "and described in docs/INTERFACE.md, both frozen. test_public.py is present and must "
             "not be edited."
         ),
-        profile_id=contract.CODING,
+        profile_id=profile_id,
         write_paths=paths,
         depends_on=depends_on,
     )
@@ -359,28 +371,29 @@ def _proposal(shape: str) -> Any:
             _spec("csv", "Implement the CSV plugin.", ("plugins/csv_plugin.py",)),
             _spec("json", "Implement the JSON plugin.", ("test_public.py",)),
         )
+    elif shape == "path_escape":
+        tasks = (
+            _spec("csv", "Implement the CSV plugin.", ("plugins/csv_plugin.py",)),
+            _spec("json", "Implement the JSON plugin.", ("../outside.py",)),
+        )
+    elif shape == "research_write":
+        tasks = (
+            _spec(
+                "csv",
+                "Implement the CSV plugin.",
+                ("plugins/csv_plugin.py",),
+                profile_id=contract.RESEARCH,
+            ),
+            _spec(
+                "json",
+                "Implement the JSON plugin.",
+                ("plugins/json_plugin.py",),
+                profile_id=contract.RESEARCH,
+            ),
+        )
     else:  # pragma: no cover - programming error
         raise ValueError(f"unknown proposal shape {shape!r}")
     return DelegateTasksInput(tasks=tasks, reason="Stage C1 offline admission check")
-
-
-def normalized_grant(
-    grants: Mapping[str, tuple[str, ...]], workspace_root: str
-) -> dict[str, tuple[str, ...]]:
-    """The same scope, written the way the ownership manifest writes it.
-
-    ``normalize_declared_path`` is the repository's own normaliser: ``plugins/**`` and ``plugins/``
-    both mean the directory, and only the second one can be matched by ``path_is_within``.
-    """
-
-    from atlasos.ownership.paths import normalize_declared_path
-
-    return {
-        profile_id: tuple(
-            normalize_declared_path(path, workspace_root=workspace_root) for path in paths
-        )
-        for profile_id, paths in grants.items()
-    }
 
 
 def _decide(
@@ -414,75 +427,94 @@ def _decide(
     }
 
 
+#: The shapes the stage measures. The positive shape must be admitted; every other one must not.
+POSITIVE_SHAPE = "p2_coding_pair"
+NEGATIVE_SHAPES: tuple[str, ...] = (
+    "shared_write",
+    "declared_dependency",
+    "outside_grant",
+    "path_escape",
+    "research_write",
+)
+
+#: The reason each negative shape must produce. A different code is a change in the boundary.
+EXPECTED_NEGATIVE_CODES: dict[str, str] = {
+    "shared_write": "SHARED_WRITE_RISK",
+    "declared_dependency": "DEPENDENCY_NOT_SUPPORTED",
+    "outside_grant": "WRITE_SCOPE_NOT_GRANTED",
+    "path_escape": "INVALID_PLAN",
+    "research_write": "WRITE_SCOPE_NOT_GRANTED",
+}
+
+
 def admission_report(options: Any) -> dict[str, Any]:
-    """The frozen configurations and their scope-equivalents through the frozen router."""
+    """The production configuration and the frozen original, through the frozen router.
+
+    ``production`` is what the run actually executes with: the cell's grant, built by the same
+    ``production_goal_options`` both the preflight and the live runner call. ``raw_representation``
+    replays the *original* B+ grant through the same router with nothing else changed, so the
+    before/after comparison stays in the record instead of in prose.
+    """
 
     from atlasos.app.main_driven import SANDBOX_WORKSPACE_ROOT
 
-    frozen_grants = {
+    production = {
         profile_id: tuple(paths) for profile_id, paths in options.child_write_grants.items()
     }
-    normalized = normalized_grant(frozen_grants, SANDBOX_WORKSPACE_ROOT)
     out: dict[str, Any] = {
-        "frozen_grant": dict(frozen_grants),
-        "normalized_grant": normalized,
+        "production_grant": {key: list(value) for key, value in production.items()},
+        "raw_grant": {key: list(value) for key, value in c1.raw_grant().items()},
         "workspace_root": SANDBOX_WORKSPACE_ROOT,
-        "frozen": {},
-        "normalized": {},
+        "production": {},
+        "raw_representation": _decide(options, POSITIVE_SHAPE, grants=c1.raw_grant()),
     }
-    for shape in ("p2_coding_pair", "shared_write", "declared_dependency", "outside_grant"):
-        out["frozen"][shape] = _decide(options, shape)
-    out["normalized"]["p2_coding_pair"] = _decide(options, "p2_coding_pair", grants=normalized)
+    for shape in (POSITIVE_SHAPE, *NEGATIVE_SHAPES):
+        out["production"][shape] = _decide(options, shape)
     return out
 
 
 def _check_admission(root: Path, cell: Mapping[str, Any]) -> dict[str, Any]:
-    """P2's pair, measured rather than hoped for.
+    """The positive control's admission, and the security boundary around it.
 
-    Two facts are asserted together, because either one alone would be misleading:
-
-    * under the frozen Stage B+ grant (``plugins/**``) *every* declared write is refused with
-      ``WRITE_SCOPE_NOT_GRANTED`` — P2 never reaches the coupling or parallel gates;
-    * the identical proposal and the identical scope, written as ``plugins/`` (what
-      ``normalize_declared_path`` produces), is admitted as a two-wide parallel wave.
-
-    The second fact is what makes the first a defect in the *grant representation* rather than a
-    property of the task, the router's logic or the Main. Nothing here changes the router: the
-    refusal is reported, not worked around.
+    Both halves are required. Admission alone would not show that normalising the grant kept the
+    boundary; the negatives alone would not show that the pair can be delegated at all. The raw
+    replay keeps the root cause on the record: the router still refuses an unnormalised glob, and
+    this stage changed the *grant*, not the router.
     """
 
     options = _production_options(cell, root)
     report = admission_report(options)
-    frozen = report["frozen"]
-    pair = frozen["p2_coding_pair"]
-    shared = frozen["shared_write"]
-    dependency = frozen["declared_dependency"]
-    outside = frozen["outside_grant"]
-    normalized_pair = report["normalized"]["p2_coding_pair"]
+    positive = report["production"][POSITIVE_SHAPE]
+    raw = report["raw_representation"]
+    negative_problems = [
+        f"{shape}: {report['production'][shape]['reason_codes']} (expected {code})"
+        for shape, code in EXPECTED_NEGATIVE_CODES.items()
+        if report["production"][shape]["route"] != "direct"
+        or code not in report["production"][shape]["reason_codes"]
+        or report["production"][shape]["admitted_children"]
+    ]
     ok = (
-        pair["route"] == "direct"
-        and pair["reason_codes"] == ["WRITE_SCOPE_NOT_GRANTED"]
-        and pair["admitted_children"] == []
-        and pair["policy_version"] == contract.BUDGET["router_policy"]
-        and normalized_pair["route"] == "delegate_parallel"
-        and normalized_pair["admitted_children"] == ["csv", "json"]
-        and "DELEGATION_ADMITTED" in normalized_pair["reason_codes"]
-        and not normalized_pair["blocked_gates"]
-        and normalized_pair["max_wave_width"] == 2
-        and shared["route"] == "direct"
-        and "WRITE_SCOPE_NOT_GRANTED" in shared["reason_codes"]
-        and dependency["route"] == "direct"
-        and "DEPENDENCY_NOT_SUPPORTED" in dependency["reason_codes"]
-        and outside["route"] == "direct"
-        and "WRITE_SCOPE_NOT_GRANTED" in outside["reason_codes"]
+        report["production_grant"] == {contract.CODING: ["plugins/"]}
+        and positive["route"] == "delegate_parallel"
+        and positive["admitted_children"] == ["csv", "json"]
+        and "DELEGATION_ADMITTED" in positive["reason_codes"]
+        and "WRITE_SCOPE_NOT_GRANTED" not in positive["reason_codes"]
+        and not positive["blocked_gates"]
+        and positive["max_wave_width"] == 2
+        and positive["policy_version"] == contract.BUDGET["router_policy"]
+        and raw["route"] == "direct"
+        and raw["reason_codes"] == ["WRITE_SCOPE_NOT_GRANTED"]
+        and not negative_problems
     )
     return _check(
-        "C05_frozen_grant_refuses_p2_and_the_same_scope_is_admitted_normalized",
+        "C05_p2_pair_is_admitted_with_the_normalised_grant_and_the_boundary_holds",
         ok,
-        f"with the frozen grant {report['frozen_grant']} the P2 pair is refused "
-        f"{pair['reason_codes']}; with the same scope as {report['normalized_grant']} it is "
-        "admitted as a two-wide parallel wave; the gate still refuses a shared write, a declared "
-        "dependency and a write outside the grant",
+        f"the production grant {report['production_grant']} admits the P2 csv/json pair as a "
+        f"two-wide parallel wave; the raw representation {report['raw_grant']} is still refused "
+        f"{raw['reason_codes']}; the boundary is unchanged: "
+        + "; ".join(
+            negative_problems or [f"{s} -> {c}" for s, c in EXPECTED_NEGATIVE_CODES.items()]
+        ),
         variants=report,
     )
 
@@ -933,65 +965,61 @@ def _check_authorization(
 # -- records ---------------------------------------------------------------------------------------
 
 
-def admission_blocker(options: Any) -> dict[str, Any]:
-    """What the frozen router does with P2's pair, stated as the Owner's decision input.
+def admission_record(options: Any) -> dict[str, Any]:
+    """What the frozen router does with P2's pair, before and after the grant correction.
 
-    The blocker is a fact about the *grant representation*, not about P2 and not about the router's
-    logic: the same proposal, with the same scope written as ``plugins/``, is admitted.
+    The correction is one representation change inside the C1 cell: the frozen scope
+    ``plugins/**`` is bound as ``plugins/``, produced by the repository's own normaliser. The router
+    is untouched, so the unnormalised form is still refused — which is exactly why the record keeps
+    both outcomes instead of only the passing one.
     """
 
     report = admission_report(options)
-    pair = report["frozen"]["p2_coding_pair"]
-    normalized_pair = report["normalized"]["p2_coding_pair"]
-    blocked = pair["route"] == "direct"
+    pair = report["production"][POSITIVE_SHAPE]
+    raw = report["raw_representation"]
+    admitted = pair["route"] == "delegate_parallel"
     return {
-        "status": "BLOCKED_ADMISSION" if blocked else "ADMITTED",
-        "gate": "GATE_M_PROPOSAL" if blocked else None,
+        "status": "ADMITTED" if admitted else "BLOCKED_ADMISSION",
+        "gate": None if admitted else "GATE_M_PROPOSAL",
         "reason_codes": list(pair["reason_codes"]),
-        "frozen_grant": report["frozen_grant"],
-        "normalized_grant": report["normalized_grant"],
-        "normalized_outcome": {
-            "route": normalized_pair["route"],
-            "reason_codes": list(normalized_pair["reason_codes"]),
-            "admitted_children": normalized_pair["admitted_children"],
+        "production_grant": report["production_grant"],
+        "raw_grant": report["raw_grant"],
+        "raw_outcome": {
+            "route": raw["route"],
+            "reason_codes": list(raw["reason_codes"]),
+            "blocked_gates": list(raw["blocked_gates"]),
         },
-        "cause": (
-            "the Host grant is the task's glob (plugins/**) and reaches the router unchanged; the "
-            "router matches a declared target with path_is_within, which only matches a normalised "
-            "file or a directory declaration ending in '/', so every declared write path is "
-            "refused before the coupling, parallel, risk and context gates are reached. The "
-            "enforcement "
-            "layer normalises the same grant with normalize_declared_path (plugins/ -> directory), "
-            "so the two representations of one scope disagree at the admission gate only"
+        "production_outcome": {
+            "route": pair["route"],
+            "reason_codes": list(pair["reason_codes"]),
+            "admitted_children": pair["admitted_children"],
+            "max_wave_width": pair["max_wave_width"],
+        },
+        "correction": {
+            "design": "A",
+            "change": "the cell binds the Host grant through normalize_declared_path",
+            "normalizer": c1.GRANT_NORMALIZER,
+            "workspace_root": c1.WORKSPACE_ROOT,
+            "router_modified": False,
+            "runtime_source_modified": False,
+            "scope_widened": False,
+            "profile_changed": False,
+            "proposal_rewritten": False,
+            "task_specific_special_case": False,
+        },
+        "root_cause": (
+            "the Host grant was the task's glob (plugins/**), and the router's matcher accepts "
+            "only a normalised file or a directory declaration ending in '/', while the ownership "
+            "manifest already normalised the same grant — one scope, two representations, "
+            "disagreeing at the admission gate"
         ),
-        "source": [
-            "experiments/stage_b_plus/contract.py:236-238 (TASK_WRITE_SCOPE = task.allowed_paths)",
-            "experiments/stage_b_plus/contract.py:332-342 (Arm.grant_for)",
-            "src/atlasos/app/main_driven.py:711 "
-            "(granted_write_paths=dict(options.child_write_grants))",
-            "src/atlasos/delegation/router.py:193-216 (_write_scope_problem, raw grant)",
-            "src/atlasos/ownership/models.py:145-156 (path_is_within)",
-            "src/atlasos/ownership/paths.py:66-84 (normalize_declared_path)",
-            "src/atlasos/ownership/manifest.py:114-118 (the enforcer does normalise the grant)",
-        ],
-        "scope_of_the_defect": (
-            "not P2-specific: any Closure-2 task's allowed_paths is a glob, so no coding child "
-            "could be admitted under this grant form; the six Stage B+ V3 cells produced no "
-            "proposal, so the path was never exercised"
-        ),
-        "not_done_here": (
-            "the router was not modified, no grant was widened, and no special admission was "
-            "added; expressing plugins/** as plugins/ would be the repository's own normalisation "
-            "of the same scope, and that choice belongs to the Owner"
-        ),
-        "owner_decisions": [
-            "A: authorize expressing the frozen write scope with normalize_declared_path "
-            "(plugins/** -> plugins/) for the C1 cell only, then re-run this preparation",
-            "B: authorize a router fix that normalises the grant before matching, as its own "
-            "reviewed change with regression tests, then re-run this preparation",
-            "C: sign this plan as-is, accepting that a write-declaring proposal is refused and the "
-            "run can only reach A0 or A1 (predicted, not a positive control)",
-        ],
+        "boundary_unchanged": {
+            shape: {
+                "reason_codes": list(report["production"][shape]["reason_codes"]),
+                "route": report["production"][shape]["route"],
+            }
+            for shape in NEGATIVE_SHAPES
+        },
     }
 
 
@@ -1000,7 +1028,7 @@ def authorization_record(
     *,
     protocol_digest: str,
     identity: Mapping[str, Any],
-    blocker: Mapping[str, Any] | None = None,
+    admission: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The pending record, plus the candidate envelope as a *proposal*, never as a signature."""
 
@@ -1025,9 +1053,10 @@ def authorization_record(
         "intervention_digest": c1.activation_digest(),
         "main_prompt_digest": c1.prompt_digest(),
         "main_prompt_modified": False,
+        "write_grant": c1.grant_record(),
     }
-    if blocker is not None:
-        record["prelive_admission"] = dict(blocker)
+    if admission is not None:
+        record["prelive_admission"] = dict(admission)
     return record
 
 
@@ -1093,12 +1122,15 @@ def build(scratch: Path | None = None, *, write: bool = True) -> dict[str, Any]:
     protocol_digest = authority.protocol_digest(document)
     plan = c1.plan_record()
 
-    base = (
-        Path(scratch) if scratch is not None else Path(tempfile.mkdtemp(prefix="stage-c1-checks-"))
-    )
-    blocker = admission_blocker(_production_options(plan["cells"][0], base / "blocker"))
+    # A fresh working directory per run: the production dispatch is one-shot, so a reused runs root
+    # would show the cell as already started and prove nothing. ``--scratch`` chooses the parent.
+    parent = Path(scratch) if scratch is not None else None
+    if parent is not None:
+        parent.mkdir(parents=True, exist_ok=True)
+    base = Path(tempfile.mkdtemp(dir=parent, prefix="stage-c1-run-"))
+    admission = admission_record(_production_options(plan["cells"][0], base / "admission"))
     pending = authorization_record(
-        plan, protocol_digest=protocol_digest, identity=identity, blocker=blocker
+        plan, protocol_digest=protocol_digest, identity=identity, admission=admission
     )
     checks = run_checks(
         scratch=base,
@@ -1135,10 +1167,10 @@ def build(scratch: Path | None = None, *, write: bool = True) -> dict[str, Any]:
             "failed": [check["check_id"] for check in checks if not check["ok"]],
         },
         "custody": custody,
-        "admission": dict(blocker),
+        "admission": dict(admission),
         "status": (
             "STAGE_C1_POSITIVE_CONTROL_BLOCKED_ADMISSION"
-            if blocker["status"] == "BLOCKED_ADMISSION"
+            if admission["status"] == "BLOCKED_ADMISSION"
             else "STAGE_C1_POSITIVE_CONTROL_READY_FOR_LIVE_AUTHORIZATION"
         ),
         "live_execution_authorized": False,

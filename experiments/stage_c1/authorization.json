@@ -6,11 +6,11 @@
   "authorizes_live_execution": false,
   "scope": "C1_POSITIVE_CONTROL_ONLY",
   "plan_id": "stage-c1-coding-delegation-positive-control-v1",
-  "plan_digest": "sha256:e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad",
+  "plan_digest": "sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2",
   "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
   "reviewed_head": null,
   "execution_head": null,
-  "executor_digest": "sha256:47bfd5bd11940b0f73968b2a9a740d99173041c496cacb86f226ad3189ba0164",
+  "executor_digest": "sha256:c7f3c4c88a86c91be82792fb5da640f8a62e0922840fd9d492606ea8a279937d",
   "executor_version": "bplus-executor-1.3",
   "cells_count": 1,
   "cell_ids": [
@@ -51,25 +51,66 @@
     "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
     "intervention_digest": "sha256:fad89af68cff6bf619401b838c55b2e5cfa62b1438b0d8b0e5656b7fd6ed47d8",
     "main_prompt_digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
-    "main_prompt_modified": false
+    "main_prompt_modified": false,
+    "write_grant": {
+      "raw": {
+        "coding_worker": [
+          "plugins/**"
+        ]
+      },
+      "effective": {
+        "coding_worker": [
+          "plugins/"
+        ]
+      },
+      "normalizer": "atlasos.ownership.paths.normalize_declared_path",
+      "workspace_root": "/workspace/project",
+      "changes": [
+        {
+          "raw": "plugins/**",
+          "effective": "plugins/"
+        }
+      ],
+      "scope_changed": false,
+      "profile_changed": false,
+      "matches_frozen_task_scope": true,
+      "denied_by_runtime": [
+        "test_public.py",
+        "docs/INTERFACE.md",
+        "README.md"
+      ],
+      "forbidden_inside_grant": [
+        "plugins/base.py"
+      ],
+      "forbidden_inside_grant_protection": "task instruction plus independent oracle, not ownership"
+    }
   },
   "prelive_admission": {
-    "status": "BLOCKED_ADMISSION",
-    "gate": "GATE_M_PROPOSAL",
+    "status": "ADMITTED",
+    "gate": null,
     "reason_codes": [
-      "WRITE_SCOPE_NOT_GRANTED"
+      "DELEGATION_ADMITTED"
     ],
-    "frozen_grant": {
-      "coding_worker": [
-        "plugins/**"
-      ]
-    },
-    "normalized_grant": {
+    "production_grant": {
       "coding_worker": [
         "plugins/"
       ]
     },
-    "normalized_outcome": {
+    "raw_grant": {
+      "coding_worker": [
+        "plugins/**"
+      ]
+    },
+    "raw_outcome": {
+      "route": "direct",
+      "reason_codes": [
+        "WRITE_SCOPE_NOT_GRANTED"
+      ],
+      "blocked_gates": [
+        "GATE_M_PROPOSAL"
+      ]
+    },
+    "production_outcome": {
       "route": "delegate_parallel",
       "reason_codes": [
         "DELEGATION_ADMITTED"
@@ -77,24 +118,53 @@
       "admitted_children": [
         "csv",
         "json"
-      ]
+      ],
+      "max_wave_width": 2
     },
-    "cause": "the Host grant is the task's glob (plugins/**) and reaches the router unchanged; the router matches a declared target with path_is_within, which only matches a normalised file or a directory declaration ending in '/', so every declared write path is refused before the coupling, parallel, risk and context gates are reached. The enforcement layer normalises the same grant with normalize_declared_path (plugins/ -> directory), so the two representations of one scope disagree at the admission gate only",
-    "source": [
-      "experiments/stage_b_plus/contract.py:236-238 (TASK_WRITE_SCOPE = task.allowed_paths)",
-      "experiments/stage_b_plus/contract.py:332-342 (Arm.grant_for)",
-      "src/atlasos/app/main_driven.py:711 (granted_write_paths=dict(options.child_write_grants))",
-      "src/atlasos/delegation/router.py:193-216 (_write_scope_problem, raw grant)",
-      "src/atlasos/ownership/models.py:145-156 (path_is_within)",
-      "src/atlasos/ownership/paths.py:66-84 (normalize_declared_path)",
-      "src/atlasos/ownership/manifest.py:114-118 (the enforcer does normalise the grant)"
-    ],
-    "scope_of_the_defect": "not P2-specific: any Closure-2 task's allowed_paths is a glob, so no coding child could be admitted under this grant form; the six Stage B+ V3 cells produced no proposal, so the path was never exercised",
-    "not_done_here": "the router was not modified, no grant was widened, and no special admission was added; expressing plugins/** as plugins/ would be the repository's own normalisation of the same scope, and that choice belongs to the Owner",
-    "owner_decisions": [
-      "A: authorize expressing the frozen write scope with normalize_declared_path (plugins/** -> plugins/) for the C1 cell only, then re-run this preparation",
-      "B: authorize a router fix that normalises the grant before matching, as its own reviewed change with regression tests, then re-run this preparation",
-      "C: sign this plan as-is, accepting that a write-declaring proposal is refused and the run can only reach A0 or A1 (predicted, not a positive control)"
-    ]
+    "correction": {
+      "design": "A",
+      "change": "the cell binds the Host grant through normalize_declared_path",
+      "normalizer": "atlasos.ownership.paths.normalize_declared_path",
+      "workspace_root": "/workspace/project",
+      "router_modified": false,
+      "runtime_source_modified": false,
+      "scope_widened": false,
+      "profile_changed": false,
+      "proposal_rewritten": false,
+      "task_specific_special_case": false
+    },
+    "root_cause": "the Host grant was the task's glob (plugins/**), and the router's matcher accepts only a normalised file or a directory declaration ending in '/', while the ownership manifest already normalised the same grant \u2014 one scope, two representations, disagreeing at the admission gate",
+    "boundary_unchanged": {
+      "shared_write": {
+        "reason_codes": [
+          "SHARED_WRITE_RISK"
+        ],
+        "route": "direct"
+      },
+      "declared_dependency": {
+        "reason_codes": [
+          "DEPENDENCY_NOT_SUPPORTED"
+        ],
+        "route": "direct"
+      },
+      "outside_grant": {
+        "reason_codes": [
+          "WRITE_SCOPE_NOT_GRANTED"
+        ],
+        "route": "direct"
+      },
+      "path_escape": {
+        "reason_codes": [
+          "INVALID_PLAN"
+        ],
+        "route": "direct"
+      },
+      "research_write": {
+        "reason_codes": [
+          "WRITE_SCOPE_NOT_GRANTED"
+        ],
+        "route": "direct"
+      }
+    }
   }
 }

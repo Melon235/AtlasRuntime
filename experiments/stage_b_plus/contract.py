@@ -58,14 +58,10 @@ DOES_NOT_MODIFY = (
 #: consumed and stays consumed; the authorization does not migrate to v2.
 SUPERSEDED_CANARY: dict[str, Any] = {
     "plan_id": "stage-b-plus-diagnostic-canary-v1",
-    "plan_digest": (
-        "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575"
-    ),
+    "plan_digest": ("sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575"),
     "execution_head": "a4e1836b3953207db262d28dc4d58e32b66d2f35",
     "executor_version": "bplus-executor-1.1",
-    "executor_digest": (
-        "sha256:4826d81acf1df64fa9754ba8f85fdf34600ff9ea4096fec8dc08b7f0ee138c73"
-    ),
+    "executor_digest": ("sha256:4826d81acf1df64fa9754ba8f85fdf34600ff9ea4096fec8dc08b7f0ee138c73"),
     "claim": "CONSUMED",
     "attempt_limit": 1,
     "cells_planned": 6,
@@ -84,18 +80,12 @@ SUPERSEDED_CANARY: dict[str, Any] = {
 #: v2 ran for real and stopped on an executor evidence defect, not on the model.
 SUPERSEDED_CANARY_V2: dict[str, Any] = {
     "plan_id": "stage-b-plus-diagnostic-canary-v2",
-    "plan_digest": (
-        "sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046"
-    ),
+    "plan_digest": ("sha256:41fc36da78feb51a4fa8462b7901bd3f41c6573105ad0d93486bafde4ddd5046"),
     "execution_head": "106939ed470e84339cc53ae98b5a62800db8ab23",
     "protocol_version": "bplus-2.1.0",
-    "protocol_digest": (
-        "sha256:5ab5d4787753429b95f096ff187175a7fa38bdaeac08f164808ba8ca39880154"
-    ),
+    "protocol_digest": ("sha256:5ab5d4787753429b95f096ff187175a7fa38bdaeac08f164808ba8ca39880154"),
     "executor_version": "bplus-executor-1.2",
-    "executor_digest": (
-        "sha256:1c2f1338fa02f2de961301193dcdb7df43ee54f2393e3f7383c70c0687146f71"
-    ),
+    "executor_digest": ("sha256:1c2f1338fa02f2de961301193dcdb7df43ee54f2393e3f7383c70c0687146f71"),
     "claim": "CONSUMED",
     "attempt_limit": 1,
     "cells_planned": 6,
@@ -412,6 +402,25 @@ STRUCTURE_OF: dict[str, str] = {task.task_id: task.family for task in TASKS}
 GOAL_OF: dict[str, str] = {task.task_id: task.prompt for task in TASKS}
 
 
+def child_grants_for(cell: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
+    """The Host write grants a cell executes with.
+
+    A Stage B+ cell carries none of its own, so the arm's grant for the task applies unchanged. A
+    diagnostic plan may bind its own grants into the cell — and therefore into the plan digest —
+    when it needs a representation the arm cannot express (Stage C1 normalises ``plugins/**`` to
+    ``plugins/`` so the frozen router's own matcher accepts it). Nothing else about the cell
+    changes, and the profile that receives the grant is still the arm's profile.
+    """
+
+    override = cell.get("child_write_grants")
+    if isinstance(override, Mapping) and override:
+        return {
+            str(profile_id): tuple(str(path) for path in paths)
+            for profile_id, paths in override.items()
+        }
+    return ARMS_BY_ID[cell["arm_id"]].grant_for(cell["task_id"])
+
+
 def goal_for(cell: Mapping[str, Any]) -> str:
     """The goal a cell executes.
 
@@ -424,6 +433,7 @@ def goal_for(cell: Mapping[str, Any]) -> str:
     if isinstance(goal, str) and goal:
         return goal
     return GOAL_OF[cell["task_id"]]
+
 
 FORBIDDEN_GOAL_PHRASES: tuple[str, ...] = (
     "you must delegate",
@@ -811,8 +821,10 @@ def balance(
     repetition and that no arm is systematically earlier.
     """
 
-    arm_ids = tuple(arm_ids) if arm_ids is not None else tuple(
-        dict.fromkeys(cell["arm_id"] for cell in cell_list)
+    arm_ids = (
+        tuple(arm_ids)
+        if arm_ids is not None
+        else tuple(dict.fromkeys(cell["arm_id"] for cell in cell_list))
     )
     task_ids = tuple(dict.fromkeys(cell["task_id"] for cell in cell_list))
     per_task_arm: dict[tuple[str, str], int] = {}
@@ -830,12 +842,10 @@ def balance(
         "arms": list(arm_ids),
         "tasks": list(task_ids),
         "each_task_meets_each_arm": all(
-            per_task_arm.get((task, arm)) == per_repetition
-            for task in task_ids
-            for arm in arm_ids
+            per_task_arm.get((task, arm)) == per_repetition for task in task_ids for arm in arm_ids
         ),
-        "each_arm_exactly_once_per_task": len(cell_list) == len(arm_ids) * len(task_ids)
-        * per_repetition,
+        "each_arm_exactly_once_per_task": len(cell_list)
+        == len(arm_ids) * len(task_ids) * per_repetition,
         "every_arm_run_equally_often": len(set(counts.values())) == 1,
         "arm_cell_counts": counts,
         "first_arm_by_repetition": first_arm,
@@ -942,8 +952,7 @@ def protocol_document() -> dict[str, Any]:
         "context_metrics": list(CONTEXT_METRICS),
         "interpretation": [dict(item) for item in INTERPRETATION],
         "plans": {
-            plan["plan_id"]: plan
-            for plan in (scope_plan(SCOPE_CANARY), scope_plan(SCOPE_FORMAL))
+            plan["plan_id"]: plan for plan in (scope_plan(SCOPE_CANARY), scope_plan(SCOPE_FORMAL))
         },
         "authorization": {
             "state": "PENDING_OWNER_APPROVAL",
@@ -1244,6 +1253,7 @@ __all__ = [
     "FORMAL_PLAN_ID",
     "GOAL_OF",
     "INTERPRETATION",
+    "child_grants_for",
     "goal_for",
     "P3_DIGEST",
     "P3_LITERAL",

@@ -43,7 +43,7 @@ from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract
 from experiments.stage_benchmark import matrix
 
-DESIGN_VERSION = "c1-1.0.0"
+DESIGN_VERSION = "c1-1.1.0"
 STAGE_ID = "C1"
 
 PLAN_ID = "stage-c1-coding-delegation-positive-control-v1"
@@ -77,6 +77,91 @@ ACTIVATION_INSTRUCTION = "\n\n".join(_ACTIVATION_PARAGRAPHS)
 #: One blank line between the frozen requirement and the appendix. Stated as a constant so the
 #: composition is checkable rather than implied by a literal.
 GOAL_SEPARATOR = "\n\n"
+
+#: The workspace root every tool, ownership check and child sees inside a project sandbox (AnyCode's
+#: M5 contract). The offline checks compare it with
+#: ``atlasos.app.main_driven.SANDBOX_WORKSPACE_ROOT`` rather than trust this copy.
+WORKSPACE_ROOT = "/workspace/project"
+
+#: One grant, two representations. The frozen task scope is a glob; the router's matcher accepts a
+#: normalised file or a directory declaration. The repository already owns the normaliser for the
+#: second form (the ownership manifest applies it), so the C1 cell binds the normalised form instead
+#: of declaring a second matcher.
+GRANT_NORMALIZER = "atlasos.ownership.paths.normalize_declared_path"
+
+
+def _normalize(grants: Mapping[str, tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
+    from atlasos.ownership.paths import normalize_declared_path
+
+    return {
+        profile_id: tuple(
+            normalize_declared_path(path, workspace_root=WORKSPACE_ROOT) for path in paths
+        )
+        for profile_id, paths in grants.items()
+    }
+
+
+def raw_grant() -> dict[str, tuple[str, ...]]:
+    """The arm's grant as the frozen B+ contract states it: the task's own write scope."""
+
+    return dict(contract.ARMS_BY_ID[ARM_ID].grant_for(TASK_ID))
+
+
+def effective_grant() -> dict[str, tuple[str, ...]]:
+    """The same scope, in the representation the runtime's matcher accepts."""
+
+    return _normalize(raw_grant())
+
+
+def grant_covers(target: str) -> bool:
+    """Whether the effective grant admits ``target``, by the runtime's own predicate.
+
+    ``path_is_within`` plus ``normalize_workspace_path`` is exactly what the router applies to a
+    model declaration and what the ownership manifest applies to a write, so this answers "would the
+    runtime let a child write here" rather than "does a string look similar".
+    """
+
+    from atlasos.ownership.models import path_is_within
+    from atlasos.ownership.paths import normalize_workspace_path
+
+    normalized = normalize_workspace_path(target, workspace_root=WORKSPACE_ROOT)
+    granted = effective_grant()[contract.CODING]
+    return any(path_is_within(declared, normalized) for declared in granted)
+
+
+def grant_record() -> dict[str, Any]:
+    """Both representations, the normaliser that connects them, and what did *not* change."""
+
+    raw = raw_grant()
+    effective = effective_grant()
+    forbidden = list(task().forbidden_paths)
+    return {
+        "raw": {profile_id: list(paths) for profile_id, paths in raw.items()},
+        "effective": {profile_id: list(paths) for profile_id, paths in effective.items()},
+        "normalizer": GRANT_NORMALIZER,
+        "workspace_root": WORKSPACE_ROOT,
+        "changes": [
+            {"raw": raw_path, "effective": effective_path}
+            for profile_id in sorted(raw)
+            for raw_path, effective_path in zip(raw[profile_id], effective[profile_id], strict=True)
+            if raw_path != effective_path
+        ],
+        # Stated so a reader never has to infer it: no scope was added, removed or merged.
+        "scope_changed": False,
+        "profile_changed": False,
+        "matches_frozen_task_scope": set(raw.get(contract.CODING, ()))
+        == set(contract.TASK_WRITE_SCOPE[TASK_ID]),
+        # The three layers, kept apart: what the runtime denies, what only the task text forbids,
+        # and what only the oracle can catch. ``plugins/base.py`` is inside the granted directory,
+        # so the runtime would accept a write to it; it is protected by the task instruction and by
+        # the oracle's reference check, not by ownership.
+        "denied_by_runtime": [path for path in forbidden if not grant_covers(path)],
+        "forbidden_inside_grant": [path for path in forbidden if grant_covers(path)],
+        "forbidden_inside_grant_protection": (
+            "task instruction plus independent oracle, not ownership"
+        ),
+    }
+
 
 #: Candidate envelope. Not an approval: every cost field of the authority record stays null until
 #: the Owner signs it.
@@ -167,6 +252,11 @@ def cells() -> list[dict[str, Any]]:
                 "worker_profile": arm.profile_id,
                 "worker_exposure": arm.exposure,
                 "attempt_limit": ATTEMPT_LIMIT,
+                # The Host grant the run executes with, in the form the runtime's matcher accepts,
+                # plus the frozen original and the normaliser that connects them. Both are in the
+                # cell, so renaming or re-scoping the plan cannot produce a different grant.
+                "child_write_grants": effective_grant(),
+                "grant_normalization": grant_record(),
             }
         )
     return cells_out
@@ -224,6 +314,7 @@ def plan_record() -> dict[str, Any]:
         "intervention": intervention_record(),
         "goal_id": GOAL_ID,
         "goal_digest": goal_digest(),
+        "write_grant": grant_record(),
         "main_prompt": {
             "version": contract.BPLUS_VERSION,
             "digest": prompt_digest(),
@@ -302,6 +393,39 @@ def validate(plan: Mapping[str, Any] | None = None) -> list[str]:
         problems.append("arm C3 is no longer coding_worker with the full card")
     if cell.get("worker_profile") != arm.profile_id or cell.get("worker_exposure") != arm.exposure:
         problems.append("the cell disagrees with the arm about profile or exposure")
+
+    # the Host grant: two representations of one frozen scope, nothing added or removed
+    expected_raw = raw_grant()
+    expected_effective = effective_grant()
+    bound = {
+        str(profile_id): tuple(str(path) for path in paths)
+        for profile_id, paths in (cell.get("child_write_grants") or {}).items()
+    }
+    if bound != expected_effective:
+        problems.append("the cell's Host grant is not the frozen effective grant")
+    if set(expected_effective) != {contract.CODING}:
+        problems.append("the effective grant is not for the coding profile alone")
+    normalization = cell.get("grant_normalization") or {}
+    as_lists = {profile_id: list(paths) for profile_id, paths in expected_raw.items()}
+    if normalization.get("raw") != as_lists:
+        problems.append("the cell does not record the frozen original grant")
+    if normalization.get("normalizer") != GRANT_NORMALIZER:
+        problems.append("the cell names a normaliser the repository does not own")
+    if normalization.get("workspace_root") != WORKSPACE_ROOT:
+        problems.append("the grant was normalised against another workspace root")
+    if normalization.get("scope_changed") is not False:
+        problems.append("the normalisation claims to change the scope")
+    if normalization.get("matches_frozen_task_scope") is not True:
+        problems.append("the original grant is not the frozen task write scope")
+    if record.get("write_grant") != normalization:
+        problems.append("the plan and the cell disagree about the Host grant")
+    missing = [path for path in frozen.deliverables if not grant_covers(path)]
+    if missing:
+        problems.append(f"the effective grant does not admit every deliverable: {missing}")
+    if "test_public.py" in (normalization.get("forbidden_inside_grant") or []):
+        problems.append("the effective grant admits the public suite")
+    if not normalization.get("denied_by_runtime"):
+        problems.append("the effective grant denies nothing, which cannot be the task scope")
 
     # the goal: the frozen requirement, one separator, the frozen appendix, nothing else
     goal = str(cell.get("goal") or "")
@@ -384,15 +508,20 @@ __all__ = [
     "ENVELOPE_CANDIDATE",
     "GOAL_ID",
     "GOAL_SEPARATOR",
+    "GRANT_NORMALIZER",
     "PLAN_ID",
     "REPETITION",
     "SCOPE",
     "STAGE_ID",
     "TASK_ID",
+    "WORKSPACE_ROOT",
     "activation_digest",
     "cells",
+    "effective_grant",
     "goal_digest",
     "goal_text",
+    "grant_covers",
+    "grant_record",
     "intervention_record",
     "main_prompt_spec",
     "plan_record",

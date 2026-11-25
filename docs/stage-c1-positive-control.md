@@ -1,12 +1,17 @@
 # Stage C1 — Coding Delegation Positive Control (preparation)
 
-Status: **`STAGE_C1_POSITIVE_CONTROL_BLOCKED_ADMISSION`**
+Status: **`STAGE_C1_POSITIVE_CONTROL_READY_FOR_LIVE_AUTHORIZATION`**
 
-The positive control is frozen, its offline verification passes 12/12, and its pending authorization
-authorizes nothing. It is **not** ready to run, because the offline admission check measured a
-deterministic refusal that no configuration in this stage can avoid: the frozen Stage B+ write grant
-(`plugins/**`) is refused by the router for every declared write path (`WRITE_SCOPE_NOT_GRANTED`).
-The finding, its source and the three Owner options are in §B and §G.
+The positive control is frozen, its offline verification passes 12/12, its admission is admitted by
+the frozen router through the production configuration, and its pending authorization authorizes
+nothing.
+
+This file was first written when the stage was blocked: the frozen Stage B+ grant (`plugins/**`) was
+refused by the router for every declared write path (`WRITE_SCOPE_NOT_GRANTED`), because the router
+matches a *normalised* declaration and the grant reached it as a glob. The Owner chose the minimal
+correction (design A): the C1 cell now binds the same scope through the repository's own
+`normalize_declared_path` (`plugins/**` → `plugins/`). The router, the runtime and the scope are
+unchanged; §B records both outcomes.
 
 No model was called, no sandbox was created, no claim was written or consumed, no authorization was
 signed, and no Stage B+ artefact was rebuilt.
@@ -21,16 +26,16 @@ signed, and no Stage B+ artefact was rebuilt.
 | baseline branch | `feat/stage-b-plus-capability` |
 | baseline HEAD | `a55e106893a6893734db6da62c0dafa1f1fa5e2f` |
 | stage branch | `feat/stage-c1-positive-control` (created from the baseline HEAD) |
-| stage commit | `0a16312` (the commit that carries the plan, the checks and these artefacts) |
+| stage commit | `0a16312` (the plan, the checks and the artefacts), then the grant-correction commit |
 | B+ history | untouched: no commit of that branch was amended, rebased or force-pushed |
 
-`experiments/stage_b_plus/` changed in exactly three places, all additive or explanatory:
+`experiments/stage_b_plus/` changed in exactly four places:
 
 | file | change | why |
 | --- | --- | --- |
-| `contract.py` | new `goal_for(cell)`; `scope_plan` resolves the C1 plan id/scope; the "only P1 can admit a coding pair" comment replaced by the measured fact | a per-cell goal must resolve without moving `GOAL_OF`; the C1 plan needs one seam into `dispatch` |
-| `executor.py` | `production_goal_options` uses `contract.goal_for(cell)`; `EXECUTOR_VERSION` → `1.3`; `experiments/stage_c1/plan.py` added to `EXECUTOR_FILES` | the goal a cell executes must be the goal in the plan digest; the file that decides the goal belongs in the signed identity |
-| `sampling_seed`-free `BUDGET` | *unchanged* | the C1 cell runs on the frozen budget |
+| `contract.py` | new `goal_for(cell)`; new `child_grants_for(cell)`; `scope_plan` resolves the C1 plan id/scope; the "only P1 can admit a coding pair" comment replaced by the measured fact | a per-cell goal and a per-cell Host grant must resolve without moving `GOAL_OF` or `Arm.grant_for`; the C1 plan needs one seam into `dispatch` |
+| `executor.py` | `production_goal_options` uses `contract.goal_for(cell)` and `contract.child_grants_for(cell)`; `EXECUTOR_VERSION` → `1.3`; `experiments/stage_c1/plan.py` added to `EXECUTOR_FILES` | the goal and the grant a cell executes must be the ones in the plan digest, and the file that decides them belongs in the signed identity |
+| `BUDGET`, `EXECUTION_CONTRACT`, task catalog, arms | *unchanged* | the C1 cell runs on the frozen budget, contract and catalog |
 
 `contract.protocol_document()` output is byte-identical to the baseline: the B+ protocol digest is
 still `sha256:65e0b993…`, the canary plan digest still `sha256:0b58ab25…`, the formal plan still
@@ -60,52 +65,66 @@ this run, so both steps are implementable inside their own declared files. The r
 *not* delegable in one wave (the router refuses a declared dependency), which is why the Main keeps
 integration — exactly the split the design assumed.
 
-**Not admissible as configured.** The production router refuses the P2 pair:
+**The root cause, measured.** Before the correction the production router refused the P2 pair:
 
 ```
-route:        direct
+grant:        ("plugins/**",)     route: direct
 reason code:  WRITE_SCOPE_NOT_GRANTED
 blocked gate: GATE_M_PROPOSAL      (refused before the frozen R0.1.0 router is consulted)
 admitted:     []
 ```
 
-Reproduced with the production objects only — `Arm.grant_for(task)` → `child_write_grants` →
-`DelegationService.plan_context()` → `DelegationRouter.decide()`:
+The Host grant was the task's glob (`contract.py:236-238` `TASK_WRITE_SCOPE = task.allowed_paths`,
+`contract.py:332-342` `Arm.grant_for`), and it reached `main_driven.py:711` unchanged. The router
+compares a declared target with the raw grant (`delegation/router.py:193-216` `_write_scope_problem`
+via `ownership/models.py:145-156` `path_is_within`), which matches only a normalised file or a
+directory declaration ending in `/`. The *enforcement* layer already normalised the same grant
+(`ownership/manifest.py:114-118` → `ownership/paths.py:66-84`), so one scope had two representations
+that disagreed at the admission gate only. The defect was not P2-specific: every Closure-2 task's
+`allowed_paths` is a glob, and the six Stage B+ V3 cells produced no proposal, so the path had never
+been exercised.
 
-| grant passed to the router | declared paths | outcome |
+**The correction (design A).** The C1 cell binds the Host grant through the repository's own
+normaliser, at the real sandbox workspace root:
+
+| representation | value | where |
 | --- | --- | --- |
-| `("plugins/**",)` — the frozen `TASK_WRITE_SCOPE` | `plugins/csv_plugin.py`, … | `WRITE_SCOPE_NOT_GRANTED` |
-| `("plugins/",)` — the same scope, normalized | `plugins/csv_plugin.py`, … | `DELEGATE_PARALLEL`, both admitted |
-| four explicit file paths | the four files | `DELEGATE_PARALLEL`, both admitted |
-| `("plugins/**",)` | one task declaring `plugins/**` | both refuse on the *other* task's file path |
+| raw (frozen catalog) | `plugins/**` | `contract.TASK_WRITE_SCOPE[TASK_ID]`, recorded, not executed |
+| effective (executed) | `plugins/` | `normalize_declared_path("plugins/**", workspace_root="/workspace/project")` |
+| normaliser | `atlasos.ownership.paths.normalize_declared_path` | the same function the manifest uses |
 
-Cause, with sources:
+Both strings, the normaliser and the workspace root are inside the cell, so the plan digest covers
+them. Nothing else moved: the router, `src/atlasos/`, the profile, the scope, the task catalog, the
+seed and the oracle are untouched, and no proposal is rewritten — the model still has to declare its
+own paths, and those declarations are still matched against the grant.
 
-* the Host grant is the task's glob: `contract.py:236-238` (`TASK_WRITE_SCOPE = task.allowed_paths`),
-  `contract.py:332-342` (`Arm.grant_for`);
-* it is passed unchanged: `src/atlasos/app/main_driven.py:711`
-  (`granted_write_paths=dict(options.child_write_grants)`);
-* the router compares a declared target with the raw grant: `delegation/router.py:193-216`
-  (`_write_scope_problem`) via `ownership/models.py:145-156` (`path_is_within`), which only matches a
-  normalized file or a directory declaration ending in `/`;
-* the *enforcement* layer normalizes the same grant (`ownership/manifest.py:114-118` →
-  `ownership/paths.py:66-84`), so one scope has two representations and they disagree at the
-  admission gate only.
+**Before / after, same proposal, same router:**
 
-Scope of the defect: **not P2-specific**. Every Closure-2 task's `allowed_paths` is a glob, so under
-this grant form no coding child can be admitted for any task. The six Stage B+ V3 cells produced no
-proposal, so this path was never exercised — which is why the stage found it offline instead of in a
-paid run.
+| executed grant | declared paths | outcome |
+| --- | --- | --- |
+| `("plugins/**",)` — raw replay, still refused | `plugins/csv_plugin.py`, … | `direct` / `WRITE_SCOPE_NOT_GRANTED` / `GATE_M_PROPOSAL` |
+| `("plugins/",)` — **the production configuration** | `plugins/csv_plugin.py`, … | `delegate_parallel` / `DELEGATION_ADMITTED`, both children admitted, wave width 2 |
 
-Not done here, deliberately: the router was not modified, no grant was widened, no special admission
-was added. Declaring `write_paths` as nothing does not help either: an empty declaration is admitted
-as read-only and the child owns nothing, so it cannot implement.
+The boundary is unchanged (same run, same context, five negative shapes): a shared write is
+`SHARED_WRITE_RISK`, a declared dependency is `DEPENDENCY_NOT_SUPPORTED`, a write outside the grant
+is `WRITE_SCOPE_NOT_GRANTED`, a path escape is `INVALID_PLAN`, and a research profile asking to
+write is `WRITE_SCOPE_NOT_GRANTED`.
 
-Consequence for the pre-registered outcomes (§ 7 of the brief): under the frozen configuration, a
-proposal that declares a write can only reach **A1** (`PROPOSED_REJECTED`, with
-`WRITE_SCOPE_NOT_GRANTED`), and a proposal that declares nothing can only reach **A2**
-(`ADMITTED_BUT_WORKER_FAILED`). A4 is unreachable by construction. That is a prediction from the
-offline gate, not an observed live result.
+**What the runtime does and does not protect** (three layers, not one):
+
+| layer | mechanism | covers |
+| --- | --- | --- |
+| runtime enforcement | ownership manifest + router grant | `test_public.py`, `docs/INTERFACE.md`, `README.md` — outside `plugins/`, denied |
+| task instruction | the P2 prompt and `forbidden_paths` | `plugins/base.py`, which is *inside* `plugins/`; the runtime would accept a write |
+| independent oracle | the hidden tests and the reference check | the same `plugins/base.py`, by comparison with the reference |
+
+The correction did not change that split: `plugins/base.py` was inside the granted directory before
+the correction (under the manifest's own normalisation) and is inside it after. Nothing in this stage
+widens or narrows what the runtime would accept; only what the admission gate accepts moved.
+
+Consequence for the pre-registered outcomes: with the correction, all five outcomes remain reachable
+in principle, and A4 no longer depends on a gate that refuses every write. A4 remains a claim about
+the mechanism being usable when asked, not about the Main choosing to delegate on its own.
 
 ## C. Minimal implementation, and what is reused
 
@@ -116,7 +135,7 @@ New, and all of it is experiment-layer code:
 | `experiments/stage_c1/plan.py` | the frozen plan: one cell, the goal composition, one intervention, the plan record, the design invariants |
 | `experiments/stage_c1/checks.py` | the 12 offline checks and the artefact builder (`python -m experiments.stage_c1.checks`) |
 | `experiments/stage_c1/plan.json`, `authorization.json`, `executor.json`, `offline.json` | the frozen artefacts the Owner reviews |
-| `tests/integration/test_stage_c1_positive_control.py` | 14 targeted tests over exactly those facts |
+| `tests/integration/test_stage_c1_positive_control.py` | 17 targeted tests over exactly those facts |
 
 Reused without a copy: `experiments.stage_b_plus.contract` (tasks, arms, budget, exposure,
 delegation config, public suite, acceptance/oracle contract), `authority` (pending record, signing,
@@ -129,8 +148,14 @@ verification, claims), `executor.dispatch` and `executor.live_cell_runner` (the 
 No second executor, no second budget system, no second evidence store, no second permission system.
 `src/atlasos/` is unchanged.
 
-The one seam in the B+ code is `contract.scope_plan()`, which resolves the C1 plan from
-`experiments.stage_c1.plan`; everything else in `dispatch` is already plan-agnostic.
+No second matcher either: the grant correction calls
+`atlasos.ownership.paths.normalize_declared_path`, the function the ownership manifest already uses,
+rather than reproducing glob semantics.
+
+Two seams in the B+ code, both of them lookups: `contract.scope_plan()` resolves the C1 plan from
+`experiments.stage_c1.plan`, and `contract.child_grants_for(cell)` returns the cell's grant when the
+cell carries one (every Stage B+ cell does not, so `Arm.grant_for` answers unchanged). Everything
+else in `dispatch` and `production_goal_options` is already plan-agnostic.
 
 ## D. Exact positive-control goal
 
@@ -160,8 +185,8 @@ asserts it independently.
 
 | item | value |
 | --- | --- |
-| plan id | `stage-c1-coding-delegation-positive-control-v1` |
-| plan digest | `sha256:e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad` |
+| plan id | `stage-c1-coding-delegation-positive-control-v1` (unchanged; no V2 id) |
+| plan digest | `sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2` |
 | cell | `c1.closure2-plugin-migration.C3.r1` (order 1, repetition 1, not a benchmark sample) |
 | task / arm | `closure2-plugin-migration` / `C3` (coding_worker, exposure `card`) |
 | goal digest | `sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07` |
@@ -170,17 +195,21 @@ asserts it independently.
 | budget digest | `sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9` (the frozen Stage B+ `BUDGET`) |
 | execution contract | `bplus-exec-3.1` (`EXTERNAL_SANDBOX_ORACLE`, static acceptance, pre-claim preflight) |
 | executor version | `bplus-executor-1.3` |
-| executor digest | `sha256:47bfd5bd11940b0f73968b2a9a740d99173041c496cacb86f226ad3189ba0164` |
+| executor digest | `sha256:c7f3c4c88a86c91be82792fb5da640f8a62e0922840fd9d492606ea8a279937d` |
+| executed Host grant | `plugins/` (raw `plugins/**` recorded in the cell; see §B) |
 | executor identity files | `stage_b_plus/{executor,authority,contract,cost}.py`, **`stage_c1/plan.py`**, `app/live_preflight.py`, `app/goal_verification.py` |
 | B+ protocol digest (unchanged) | `sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460` |
 | fixture seed (P2, 11 files) | `sha256:cdc114a995318c7021016a08fff1cfb50b1d14d26f9d8f30ffa0ff12b53f8076` |
-| capability card / disclosure | `sha256:f03a10b1…` / `sha256:3e15f7b6…` (card names `plugins/**`, no deliverable, no worker id) |
+| capability card / disclosure | recomputed per run from the effective grant (names `plugins/`, no deliverable, no worker id) |
 | run configuration | DeepSeek `deepseek-chat`, router `m.1.0`, 20/20/20 turns, 500 000 tokens, 2 concurrent children, 2 per call, 3 rounds, 4 public-test calls, OpenSandbox `atlas-uat-python:3.12`, cpu 1, 1Gi, network none, matrix concurrency 1 |
 | candidate envelope (not approved) | token stop 500 000, cumulative cost stop USD 0.15, per-cell cost stop USD 0.15 |
 
-The executor digest necessarily moved from the V3 run's `sha256:9f4c21cc…`: the goal a cell executes
-is now part of what the signed identity covers. The old digest stays recorded in the V3 dispatch
-claim and in `experiments/stage_c1/executor.json`, not overwritten.
+What moved, and why: the plan digest moved when the cell gained the effective grant and the
+normalisation record; the executor digest moved because `contract.py`, `executor.py` and
+`experiments/stage_c1/plan.py` are in the signed identity and all three changed. Goal, intervention,
+Main prompt, budget, protocol, task, arm, exposure, router and run configuration are byte-identical to
+the blocked version, and the V3 executor digest `sha256:9f4c21cc…` stays recorded in its own dispatch
+claim and in `executor.json`, not overwritten.
 
 The digest is computed from file bytes, so every added identity file is stored with LF line endings
 (`.gitattributes` `eol=lf`) and the worktree was normalised before the digest was taken: a clean
@@ -188,15 +217,16 @@ checkout of the commit below reproduces this value, which is what the Owner's si
 
 ## F. Offline verification
 
-`python -m experiments.stage_c1.checks` → **12/12 pass**, exit 0. Targeted tests: **14/14 pass**.
+`python -m experiments.stage_c1.checks` → **12/12 pass**, exit 0, status
+`STAGE_C1_POSITIVE_CONTROL_READY_FOR_LIVE_AUTHORIZATION`. Targeted tests: **17/17 pass**.
 
 | check | what it proves |
 | --- | --- |
 | C01 | the P2 fixture matches the frozen seed over 11 files; `plugins/base.py` and `test_public.py` present; no hidden test in the workspace |
 | C02 | the executed goal is the frozen requirement + one separator + the one appendix, in that order |
 | C03 | the Main prompt is the Stage B+ prompt (`sha256:76ebb03d…`); literal P3 untouched |
-| C04 | arm C3 offers `coding_worker` with the card, 20 effective turns, grant `plugins/**`, write tools, no deliverable or assignment in the disclosure |
-| C05 | the frozen grant refuses the P2 pair (`WRITE_SCOPE_NOT_GRANTED`) and the same scope normalized is admitted (`DELEGATE_PARALLEL`, both children); shared write, declared dependency and out-of-grant write still refused |
+| C04 | arm C3 offers `coding_worker` with the card, 20 effective turns, the effective grant `plugins/`, write tools, and a disclosure that names neither the raw glob, a deliverable nor a worker id |
+| C05 | the production configuration admits the P2 pair (`DELEGATE_PARALLEL`, both children, wave width 2); the raw-glob replay is still refused (`WRITE_SCOPE_NOT_GRANTED`); shared write, declared dependency, out-of-grant write, path escape and research-write are all refused with their own codes |
 | C06 | the real `dispatch()` + `audit_cell()` run one cell end to end on a synthetic result: 17 audit checks, no stop, verdict `PASS`, evidence files present |
 | C07 | the plan digest recomputes from the cells, is commit-independent, and collides with no B+ plan |
 | C08 | canary/formal plan digests and the B+ protocol digest unchanged; V1/V2 cannot be rebuilt; the three consumed claims are byte-identical before and after |
@@ -227,19 +257,15 @@ stage. This is the Stage B freeze drift the brief said not to repair.
 * every signature field null; `approval_provenance` empty;
 * `cell_ids` exactly `["c1.closure2-plugin-migration.C3.r1"]`;
 * `proposed_envelope` carries the candidate 0.15 / 0.15 as a *proposal* (`approved: false`);
-* `prelive_admission.status` = `BLOCKED_ADMISSION` with the reason code, the source list and the
-  three options below.
+* `prelive_admission.status` = `ADMITTED`, with both grant representations, both outcomes, the
+  correction record (design A: normaliser, workspace root, `router_modified: false`) and the five
+  boundary codes;
+* `review_surface.write_grant` repeats the raw/effective pair, so the Owner sees the representation
+  change on the same page as the digests.
 
-Three decisions are the Owner's; none of them is an engineering step this stage may take on its own:
-
-* **A** — authorize expressing the frozen write scope with the repository's own
-  `normalize_declared_path` (`plugins/**` → `plugins/`) for the C1 cell, then re-run this preparation.
-  Same scope, same enforcement, different string; it changes the grant a run reports.
-* **B** — authorize a router fix that normalizes the grant before matching, as its own reviewed
-  change with regression tests (it touches `src/atlasos/delegation/router.py`), then re-run this
-  preparation.
-* **C** — sign the plan as it stands and accept that the run can only reach A0/A1 (or A2 for a
-  read-only proposal). That confirms the offline prediction and gives no positive control.
+The two decisions that remain are the Owner's: approve the candidate envelope (token stop 500 000,
+cost stops 0.15 / 0.15) and sign the record with an external provenance artefact. The grant
+representation was decided in design A and is recorded; it is not a new authorization.
 
 ## H. Claim and historical evidence preservation
 
@@ -257,8 +283,7 @@ Three decisions are the Owner's; none of them is an engineering step this stage 
 
 ## I. Exact future execution command
 
-Not executable until §G is decided. With option A or B resolved — and only then — a single live
-attempt is:
+Not executable until the record in §G is signed. Once signed, a single live attempt is:
 
 ```python
 import asyncio
@@ -284,9 +309,10 @@ retry and resume are forbidden by the executor itself.
 
 ## J. Known limitations
 
-1. **The blocker in §B.** The headline limitation: under the frozen grant, A4 is unreachable. The
-   candidate envelope, the plan identity and the pending authorization are reusable the moment the
-   grant representation is decided.
+1. **The correction is a representation change, and it is the only one.** The frozen catalog still
+   says `plugins/**`; the cell executes `plugins/`. A reader who compares the two strings without the
+   normaliser will see a scope change that is not there. The record keeps both, and `plan.validate()`
+   refuses a cell whose effective grant and raw grant are not the two representations of one scope.
 2. **P2 is a mechanism diagnostic, not a real project.** Two plugins with different input formats and
    a frozen interface. Nothing here generalises to a large coupled codebase.
 3. **The instruction is an activation, not an autonomy measurement.** A4 would prove the mechanism

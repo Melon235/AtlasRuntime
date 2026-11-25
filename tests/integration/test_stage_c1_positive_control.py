@@ -112,40 +112,80 @@ def test_arm_c3_offers_a_write_capable_coding_worker_with_the_card(tmp_path: Pat
     report = checks._worker_report(_options(tmp_path))
     assert report["profiles_offered"] == [contract.CODING]
     assert report["exposure"] == "card"
-    assert report["grant"] == ["plugins/**"]
+    # the disclosure states the grant the runtime enforces, not the unnormalised catalog glob
+    assert report["grant"] == ["plugins/"]
+    assert report["description_mentions_grant"] is True
+    assert report["description_mentions_raw_grant"] is False
     assert report["max_turns_effective"] == 20
     assert report["card_read_only"] is False
     assert {"file_write", "file_edit"} <= set(report["write_tools_present"])
     assert not report["description_mentions_assignment"]
 
 
-def test_p2_is_refused_by_the_frozen_grant_and_admitted_when_normalised(tmp_path: Path) -> None:
-    """The Phase A finding, asserted in both directions.
+def test_the_cell_binds_both_representations_of_one_scope(tmp_path: Path) -> None:
+    """One scope, two strings: the frozen original and the form the matcher accepts."""
 
-    The refusal must be reported rather than worked around, and the admission must be shown to be
-    a property of the scope *expression* — otherwise the refusal could be blamed on P2, on the
-    router's logic, or on the proposal.
+    assert c1.raw_grant() == {contract.CODING: ("plugins/**",)}
+    assert c1.effective_grant() == {contract.CODING: ("plugins/",)}
+    record = c1.grant_record()
+    assert record["raw"] == {contract.CODING: ["plugins/**"]}
+    assert record["effective"] == {contract.CODING: ["plugins/"]}
+    assert record["changes"] == [{"raw": "plugins/**", "effective": "plugins/"}]
+    assert record["normalizer"] == "atlasos.ownership.paths.normalize_declared_path"
+    assert record["scope_changed"] is False and record["profile_changed"] is False
+    assert record["matches_frozen_task_scope"] is True
+    cell = c1.plan_record()["cells"][0]
+    assert cell["child_write_grants"] == c1.effective_grant()
+    assert cell["grant_normalization"] == record
+
+
+def test_the_grant_is_normalised_against_the_real_sandbox_workspace_root() -> None:
+    from atlasos.app.main_driven import SANDBOX_WORKSPACE_ROOT
+
+    assert c1.WORKSPACE_ROOT == SANDBOX_WORKSPACE_ROOT
+
+
+def test_production_options_carry_the_normalised_grant(tmp_path: Path) -> None:
+    """The preflight and the live runner build one ``GoalRunOptions``; it must carry the fix."""
+
+    options = _options(tmp_path)
+    assert {profile: tuple(paths) for profile, paths in options.child_write_grants.items()} == {
+        contract.CODING: ("plugins/",)
+    }
+    # the Main's own write scope is the task's, untouched by the child-grant normalisation
+    assert tuple(options.main_write_paths) == c1.task().allowed_paths
+
+
+def test_p2_is_admitted_with_the_normalised_grant_and_the_boundary_holds(tmp_path: Path) -> None:
+    """The correction, in both directions.
+
+    The pair must now be admitted *through the production configuration*, and every refusal the
+    boundary is supposed to produce must still be produced. The raw-glob replay stays on the record:
+    the router is unchanged, so the unnormalised form is still refused — the grant moved, not the
+    gate.
     """
 
     report = checks.admission_report(_options(tmp_path))
-    frozen_pair = report["frozen"]["p2_coding_pair"]
-    normalized_pair = report["normalized"]["p2_coding_pair"]
+    pair = report["production"][checks.POSITIVE_SHAPE]
+    raw = report["raw_representation"]
 
-    assert report["frozen_grant"] == {contract.CODING: ("plugins/**",)}
-    assert frozen_pair["route"] == "direct"
-    assert frozen_pair["reason_codes"] == ["WRITE_SCOPE_NOT_GRANTED"]
-    # the stage-M guard refuses before the frozen router is consulted
-    assert frozen_pair["blocked_gates"] == ["GATE_M_PROPOSAL"]
-    assert frozen_pair["admitted_children"] == []
+    assert report["production_grant"] == {contract.CODING: ["plugins/"]}
+    assert pair["route"] == "delegate_parallel"
+    assert pair["admitted_children"] == ["csv", "json"]
+    assert "DELEGATION_ADMITTED" in pair["reason_codes"]
+    assert "WRITE_SCOPE_NOT_GRANTED" not in pair["reason_codes"]
+    assert pair["blocked_gates"] == []
+    assert pair["max_wave_width"] == 2
 
-    assert report["normalized_grant"] == {contract.CODING: ("plugins/",)}
-    assert normalized_pair["route"] == "delegate_parallel"
-    assert normalized_pair["admitted_children"] == ["csv", "json"]
-    assert "DELEGATION_ADMITTED" in normalized_pair["reason_codes"]
+    assert report["raw_grant"] == {contract.CODING: ["plugins/**"]}
+    assert raw["route"] == "direct"
+    assert raw["reason_codes"] == ["WRITE_SCOPE_NOT_GRANTED"]
 
-    # the gate itself still discriminates
-    assert "DEPENDENCY_NOT_SUPPORTED" in report["frozen"]["declared_dependency"]["reason_codes"]
-    assert "WRITE_SCOPE_NOT_GRANTED" in report["frozen"]["outside_grant"]["reason_codes"]
+    for shape, code in checks.EXPECTED_NEGATIVE_CODES.items():
+        produced = report["production"][shape]
+        assert produced["route"] == "direct", shape
+        assert code in produced["reason_codes"], shape
+        assert produced["admitted_children"] == [], shape
 
 
 def test_the_dispatch_loop_and_audit_accept_one_synthetic_cell(tmp_path: Path) -> None:

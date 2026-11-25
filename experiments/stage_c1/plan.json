@@ -1,6 +1,6 @@
 {
   "stage": "C1",
-  "design_version": "c1-1.0.0",
+  "design_version": "c1-1.1.0",
   "plan_id": "stage-c1-coding-delegation-positive-control-v1",
   "scope": "C1_POSITIVE_CONTROL_ONLY",
   "tasks": [
@@ -31,10 +31,47 @@
       "main_prompt_digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
       "worker_profile": "coding_worker",
       "worker_exposure": "card",
-      "attempt_limit": 1
+      "attempt_limit": 1,
+      "child_write_grants": {
+        "coding_worker": [
+          "plugins/"
+        ]
+      },
+      "grant_normalization": {
+        "raw": {
+          "coding_worker": [
+            "plugins/**"
+          ]
+        },
+        "effective": {
+          "coding_worker": [
+            "plugins/"
+          ]
+        },
+        "normalizer": "atlasos.ownership.paths.normalize_declared_path",
+        "workspace_root": "/workspace/project",
+        "changes": [
+          {
+            "raw": "plugins/**",
+            "effective": "plugins/"
+          }
+        ],
+        "scope_changed": false,
+        "profile_changed": false,
+        "matches_frozen_task_scope": true,
+        "denied_by_runtime": [
+          "test_public.py",
+          "docs/INTERFACE.md",
+          "README.md"
+        ],
+        "forbidden_inside_grant": [
+          "plugins/base.py"
+        ],
+        "forbidden_inside_grant_protection": "task instruction plus independent oracle, not ownership"
+      }
     }
   ],
-  "digest": "sha256:e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad",
+  "digest": "sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2",
   "balance": {
     "cells": 1,
     "arms": [
@@ -117,6 +154,38 @@
   },
   "goal_id": "c1-p2-requirement-plus-coding-delegation-appendix-v1",
   "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
+  "write_grant": {
+    "raw": {
+      "coding_worker": [
+        "plugins/**"
+      ]
+    },
+    "effective": {
+      "coding_worker": [
+        "plugins/"
+      ]
+    },
+    "normalizer": "atlasos.ownership.paths.normalize_declared_path",
+    "workspace_root": "/workspace/project",
+    "changes": [
+      {
+        "raw": "plugins/**",
+        "effective": "plugins/"
+      }
+    ],
+    "scope_changed": false,
+    "profile_changed": false,
+    "matches_frozen_task_scope": true,
+    "denied_by_runtime": [
+      "test_public.py",
+      "docs/INTERFACE.md",
+      "README.md"
+    ],
+    "forbidden_inside_grant": [
+      "plugins/base.py"
+    ],
+    "forbidden_inside_grant_protection": "task instruction plus independent oracle, not ownership"
+  },
   "main_prompt": {
     "version": "main-v2.1-rc1-bplus",
     "digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",

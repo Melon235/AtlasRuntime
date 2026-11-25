@@ -1,21 +1,21 @@
 {
   "stage": "C1",
-  "design_version": "c1-1.0.0",
+  "design_version": "c1-1.1.0",
   "plan_id": "stage-c1-coding-delegation-positive-control-v1",
-  "plan_digest": "sha256:e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad",
+  "plan_digest": "sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2",
   "protocol_version": "bplus-2.2.0",
   "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
   "bplus_protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
   "bplus_protocol_unchanged": true,
   "executor_version": "bplus-executor-1.3",
-  "executor_digest": "sha256:47bfd5bd11940b0f73968b2a9a740d99173041c496cacb86f226ad3189ba0164",
+  "executor_digest": "sha256:c7f3c4c88a86c91be82792fb5da640f8a62e0922840fd9d492606ea8a279937d",
   "bplus_v3_executor_digest": "sha256:9f4c21cc66eb6b082ea9aec5dcbec3a4d4dda53054b155d31e7dc784f7429cda",
   "executor_identity_moved": true,
   "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
   "intervention_digest": "sha256:fad89af68cff6bf619401b838c55b2e5cfa62b1438b0d8b0e5656b7fd6ed47d8",
   "main_prompt_digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
   "budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
-  "built_from_head": "a55e106893a6893734db6da62c0dafa1f1fa5e2f",
+  "built_from_head": "749b37e67cf26ba19bf11e7c6748eb9b2f670153",
   "ok": true,
   "checks": [
     {
@@ -30,7 +30,7 @@
       "interface_digest": "sha256:cd3846f999fee80a37d22e269506a3ef60a8cc79f4f76c8afe44dba7239bb143",
       "public_suite_present": true,
       "hidden_files_in_fixture": [],
-      "commit": "7aa131b139790c25100f0c449b92ab0565e33fc5"
+      "commit": "84c23eb7cf013054805393bce42bf9692c112967"
     },
     {
       "check_id": "C02_goal_is_the_frozen_requirement_plus_one_appendix",
@@ -53,15 +53,17 @@
     {
       "check_id": "C04_arm_c3_offers_a_write_capable_coding_worker",
       "ok": true,
-      "detail": "coding_worker with the card, 20 effective turns, grant ['plugins/**'], tools ['bash', 'file_edit', 'file_write']; the disclosure names no deliverable and no worker id",
+      "detail": "coding_worker with the card, 20 effective turns, grant ['plugins/'], tools ['bash', 'file_edit', 'file_write']; the disclosure names no deliverable and no worker id",
       "profile_id": "coding_worker",
       "profiles_offered": [
         "coding_worker"
       ],
       "exposure": "card",
       "grant": [
-        "plugins/**"
+        "plugins/"
       ],
+      "description_mentions_grant": true,
+      "description_mentions_raw_grant": false,
       "max_turns_effective": 20,
       "card_read_only": false,
       "allowed": [
@@ -79,66 +81,66 @@
         "file_edit",
         "file_write"
       ],
-      "card_digest": "sha256:f03a10b16510fe223f7f86f000c36b3e3a657720aebbbb18c172a7ebe41afcd4",
-      "description_chars": 3335,
-      "description_digest": "sha256:3e15f7b604b7850cc7bb7633dabe6c35265cd9345857415be4af8c9cd753769f",
-      "description_mentions_grant": true,
+      "card_digest": "sha256:463776460518059b57000d6e97ac1dbaf0d5441cff078ba5d700512441683c91",
+      "description_chars": 3333,
+      "description_digest": "sha256:ca4bbfc5a63b14cb0acd1850695d20eac2bcc67303d48158ebea05426d41f4e9",
       "description_mentions_assignment": [],
       "task_writes_possible": true
     },
     {
-      "check_id": "C05_frozen_grant_refuses_p2_and_the_same_scope_is_admitted_normalized",
+      "check_id": "C05_p2_pair_is_admitted_with_the_normalised_grant_and_the_boundary_holds",
       "ok": true,
-      "detail": "with the frozen grant {'coding_worker': ('plugins/**',)} the P2 pair is refused ['WRITE_SCOPE_NOT_GRANTED']; with the same scope as {'coding_worker': ('plugins/',)} it is admitted as a two-wide parallel wave; the gate still refuses a shared write, a declared dependency and a write outside the grant",
+      "detail": "the production grant {'coding_worker': ['plugins/']} admits the P2 csv/json pair as a two-wide parallel wave; the raw representation {'coding_worker': ['plugins/**']} is still refused ['WRITE_SCOPE_NOT_GRANTED']; the boundary is unchanged: shared_write -> SHARED_WRITE_RISK; declared_dependency -> DEPENDENCY_NOT_SUPPORTED; outside_grant -> WRITE_SCOPE_NOT_GRANTED; path_escape -> INVALID_PLAN; research_write -> WRITE_SCOPE_NOT_GRANTED",
       "variants": {
-        "frozen_grant": {
-          "coding_worker": [
-            "plugins/**"
-          ]
-        },
-        "normalized_grant": {
+        "production_grant": {
           "coding_worker": [
             "plugins/"
           ]
         },
+        "raw_grant": {
+          "coding_worker": [
+            "plugins/**"
+          ]
+        },
         "workspace_root": "/workspace/project",
-        "frozen": {
+        "production": {
           "p2_coding_pair": {
-            "route": "direct",
+            "route": "delegate_parallel",
             "reason_codes": [
-              "WRITE_SCOPE_NOT_GRANTED"
+              "DELEGATION_ADMITTED"
             ],
-            "blocked_gates": [
-              "GATE_M_PROPOSAL"
+            "blocked_gates": [],
+            "admitted_children": [
+              "csv",
+              "json"
             ],
-            "admitted_children": [],
             "children": [
               {
                 "key": "csv",
-                "admitted": false,
+                "admitted": true,
                 "reasons": [
-                  "WRITE_SCOPE_NOT_GRANTED"
+                  "DELEGATION_ADMITTED"
                 ]
               },
               {
                 "key": "json",
-                "admitted": false,
+                "admitted": true,
                 "reasons": [
-                  "WRITE_SCOPE_NOT_GRANTED"
+                  "DELEGATION_ADMITTED"
                 ]
               }
             ],
-            "max_wave_width": 0,
+            "max_wave_width": 2,
             "policy_version": "m.1.0",
             "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5"
           },
           "shared_write": {
             "route": "direct",
             "reason_codes": [
-              "WRITE_SCOPE_NOT_GRANTED"
+              "SHARED_WRITE_RISK"
             ],
             "blocked_gates": [
-              "GATE_M_PROPOSAL"
+              "GATE_2_DEPENDENCY_COUPLING"
             ],
             "admitted_children": [],
             "children": [
@@ -146,18 +148,18 @@
                 "key": "csv",
                 "admitted": false,
                 "reasons": [
-                  "WRITE_SCOPE_NOT_GRANTED"
+                  "SHARED_WRITE_RISK"
                 ]
               },
               {
                 "key": "json",
                 "admitted": false,
                 "reasons": [
-                  "WRITE_SCOPE_NOT_GRANTED"
+                  "SHARED_WRITE_RISK"
                 ]
               }
             ],
-            "max_wave_width": 0,
+            "max_wave_width": 2,
             "policy_version": "m.1.0",
             "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5"
           },
@@ -218,39 +220,94 @@
             "max_wave_width": 0,
             "policy_version": "m.1.0",
             "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5"
-          }
-        },
-        "normalized": {
-          "p2_coding_pair": {
-            "route": "delegate_parallel",
+          },
+          "path_escape": {
+            "route": "direct",
             "reason_codes": [
-              "DELEGATION_ADMITTED"
+              "INVALID_PLAN"
             ],
-            "blocked_gates": [],
-            "admitted_children": [
-              "csv",
-              "json"
+            "blocked_gates": [
+              "GATE_M_PROPOSAL"
             ],
+            "admitted_children": [],
             "children": [
               {
                 "key": "csv",
-                "admitted": true,
+                "admitted": false,
                 "reasons": [
-                  "DELEGATION_ADMITTED"
+                  "INVALID_PLAN"
                 ]
               },
               {
                 "key": "json",
-                "admitted": true,
+                "admitted": false,
                 "reasons": [
-                  "DELEGATION_ADMITTED"
+                  "INVALID_PLAN"
                 ]
               }
             ],
-            "max_wave_width": 2,
+            "max_wave_width": 0,
+            "policy_version": "m.1.0",
+            "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5"
+          },
+          "research_write": {
+            "route": "direct",
+            "reason_codes": [
+              "WRITE_SCOPE_NOT_GRANTED"
+            ],
+            "blocked_gates": [
+              "GATE_M_PROPOSAL"
+            ],
+            "admitted_children": [],
+            "children": [
+              {
+                "key": "csv",
+                "admitted": false,
+                "reasons": [
+                  "WRITE_SCOPE_NOT_GRANTED"
+                ]
+              },
+              {
+                "key": "json",
+                "admitted": false,
+                "reasons": [
+                  "WRITE_SCOPE_NOT_GRANTED"
+                ]
+              }
+            ],
+            "max_wave_width": 0,
             "policy_version": "m.1.0",
             "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5"
           }
+        },
+        "raw_representation": {
+          "route": "direct",
+          "reason_codes": [
+            "WRITE_SCOPE_NOT_GRANTED"
+          ],
+          "blocked_gates": [
+            "GATE_M_PROPOSAL"
+          ],
+          "admitted_children": [],
+          "children": [
+            {
+              "key": "csv",
+              "admitted": false,
+              "reasons": [
+                "WRITE_SCOPE_NOT_GRANTED"
+              ]
+            },
+            {
+              "key": "json",
+              "admitted": false,
+              "reasons": [
+                "WRITE_SCOPE_NOT_GRANTED"
+              ]
+            }
+          ],
+          "max_wave_width": 0,
+          "policy_version": "m.1.0",
+          "policy_digest": "c6c29faf5d1acd2f59e60ab99ff268df78c5bfec629655852aa0ffa7dd9efea5"
         }
       }
     },
@@ -261,7 +318,7 @@
       "report": {
         "plan_id": "stage-c1-coding-delegation-positive-control-v1",
         "scope": "C1_POSITIVE_CONTROL_ONLY",
-        "plan_digest": "sha256:e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad",
+        "plan_digest": "sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2",
         "mode": "offline_proof",
         "complete": true,
         "cells_planned": 1,
@@ -309,8 +366,8 @@
     {
       "check_id": "C07_plan_identity_recomputes_and_is_independent_of_the_commit",
       "ok": true,
-      "detail": "one cell digests to sha256:e97a9b67421a\u2026; rebuilding the record reproduces it, no cell carries a commit and it collides with no Stage B+ plan",
-      "plan_digest": "sha256:e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad",
+      "detail": "one cell digests to sha256:537508bf0fc1\u2026; rebuilding the record reproduces it, no cell carries a commit and it collides with no Stage B+ plan",
+      "plan_digest": "sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2",
       "cell_ids": [
         "c1.closure2-plugin-migration.C3.r1"
       ],
@@ -368,8 +425,8 @@
     {
       "check_id": "C09_new_plan_claim_is_not_created",
       "ok": true,
-      "detail": "no claim file exists at C:\\Users\\86180\\AppData\\Local\\AtlasRuntime\\stage-b-plus\\claims\\e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad.claim and the production claim root is in force",
-      "claim_path": "C:\\Users\\86180\\AppData\\Local\\AtlasRuntime\\stage-b-plus\\claims\\e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad.claim",
+      "detail": "no claim file exists at C:\\Users\\86180\\AppData\\Local\\AtlasRuntime\\stage-b-plus\\claims\\537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2.claim and the production claim root is in force",
+      "claim_path": "C:\\Users\\86180\\AppData\\Local\\AtlasRuntime\\stage-b-plus\\claims\\537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2.claim",
       "claim_exists": false,
       "claim_root": "C:\\Users\\86180\\AppData\\Local\\AtlasRuntime\\stage-b-plus\\claims",
       "claim_root_is_default": true
@@ -385,8 +442,8 @@
         "approved_at is empty",
         "owner_statement is empty",
         "approval_provenance is empty",
-        "reviewed_head is None, actual head is 'a55e106893a6893734db6da62c0dafa1f1fa5e2f'",
-        "execution_head is None, actual head is 'a55e106893a6893734db6da62c0dafa1f1fa5e2f'",
+        "reviewed_head is None, actual head is '749b37e67cf26ba19bf11e7c6748eb9b2f670153'",
+        "execution_head is None, actual head is '749b37e67cf26ba19bf11e7c6748eb9b2f670153'",
         "cost_stop_usd is None; it must be finite and positive",
         "per_cell_cost_stop_usd is None; it must be finite and positive",
         "approval_provenance is empty"
@@ -438,22 +495,31 @@
     "note": "read-only custody reference; this preparation copies nothing out of it"
   },
   "admission": {
-    "status": "BLOCKED_ADMISSION",
-    "gate": "GATE_M_PROPOSAL",
+    "status": "ADMITTED",
+    "gate": null,
     "reason_codes": [
-      "WRITE_SCOPE_NOT_GRANTED"
+      "DELEGATION_ADMITTED"
     ],
-    "frozen_grant": {
-      "coding_worker": [
-        "plugins/**"
-      ]
-    },
-    "normalized_grant": {
+    "production_grant": {
       "coding_worker": [
         "plugins/"
       ]
     },
-    "normalized_outcome": {
+    "raw_grant": {
+      "coding_worker": [
+        "plugins/**"
+      ]
+    },
+    "raw_outcome": {
+      "route": "direct",
+      "reason_codes": [
+        "WRITE_SCOPE_NOT_GRANTED"
+      ],
+      "blocked_gates": [
+        "GATE_M_PROPOSAL"
+      ]
+    },
+    "production_outcome": {
       "route": "delegate_parallel",
       "reason_codes": [
         "DELEGATION_ADMITTED"
@@ -461,27 +527,56 @@
       "admitted_children": [
         "csv",
         "json"
-      ]
+      ],
+      "max_wave_width": 2
     },
-    "cause": "the Host grant is the task's glob (plugins/**) and reaches the router unchanged; the router matches a declared target with path_is_within, which only matches a normalised file or a directory declaration ending in '/', so every declared write path is refused before the coupling, parallel, risk and context gates are reached. The enforcement layer normalises the same grant with normalize_declared_path (plugins/ -> directory), so the two representations of one scope disagree at the admission gate only",
-    "source": [
-      "experiments/stage_b_plus/contract.py:236-238 (TASK_WRITE_SCOPE = task.allowed_paths)",
-      "experiments/stage_b_plus/contract.py:332-342 (Arm.grant_for)",
-      "src/atlasos/app/main_driven.py:711 (granted_write_paths=dict(options.child_write_grants))",
-      "src/atlasos/delegation/router.py:193-216 (_write_scope_problem, raw grant)",
-      "src/atlasos/ownership/models.py:145-156 (path_is_within)",
-      "src/atlasos/ownership/paths.py:66-84 (normalize_declared_path)",
-      "src/atlasos/ownership/manifest.py:114-118 (the enforcer does normalise the grant)"
-    ],
-    "scope_of_the_defect": "not P2-specific: any Closure-2 task's allowed_paths is a glob, so no coding child could be admitted under this grant form; the six Stage B+ V3 cells produced no proposal, so the path was never exercised",
-    "not_done_here": "the router was not modified, no grant was widened, and no special admission was added; expressing plugins/** as plugins/ would be the repository's own normalisation of the same scope, and that choice belongs to the Owner",
-    "owner_decisions": [
-      "A: authorize expressing the frozen write scope with normalize_declared_path (plugins/** -> plugins/) for the C1 cell only, then re-run this preparation",
-      "B: authorize a router fix that normalises the grant before matching, as its own reviewed change with regression tests, then re-run this preparation",
-      "C: sign this plan as-is, accepting that a write-declaring proposal is refused and the run can only reach A0 or A1 (predicted, not a positive control)"
-    ]
+    "correction": {
+      "design": "A",
+      "change": "the cell binds the Host grant through normalize_declared_path",
+      "normalizer": "atlasos.ownership.paths.normalize_declared_path",
+      "workspace_root": "/workspace/project",
+      "router_modified": false,
+      "runtime_source_modified": false,
+      "scope_widened": false,
+      "profile_changed": false,
+      "proposal_rewritten": false,
+      "task_specific_special_case": false
+    },
+    "root_cause": "the Host grant was the task's glob (plugins/**), and the router's matcher accepts only a normalised file or a directory declaration ending in '/', while the ownership manifest already normalised the same grant \u2014 one scope, two representations, disagreeing at the admission gate",
+    "boundary_unchanged": {
+      "shared_write": {
+        "reason_codes": [
+          "SHARED_WRITE_RISK"
+        ],
+        "route": "direct"
+      },
+      "declared_dependency": {
+        "reason_codes": [
+          "DEPENDENCY_NOT_SUPPORTED"
+        ],
+        "route": "direct"
+      },
+      "outside_grant": {
+        "reason_codes": [
+          "WRITE_SCOPE_NOT_GRANTED"
+        ],
+        "route": "direct"
+      },
+      "path_escape": {
+        "reason_codes": [
+          "INVALID_PLAN"
+        ],
+        "route": "direct"
+      },
+      "research_write": {
+        "reason_codes": [
+          "WRITE_SCOPE_NOT_GRANTED"
+        ],
+        "route": "direct"
+      }
+    }
   },
-  "status": "STAGE_C1_POSITIVE_CONTROL_BLOCKED_ADMISSION",
+  "status": "STAGE_C1_POSITIVE_CONTROL_READY_FOR_LIVE_AUTHORIZATION",
   "live_execution_authorized": false,
   "real_model_calls": 0,
   "real_sandboxes": 0,

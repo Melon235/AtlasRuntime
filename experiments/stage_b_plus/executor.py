@@ -727,8 +727,7 @@ def _export_problems(run: CellRun) -> list[str]:
         actual = "sha256:" + workspace_digest(workspace)
         if actual != recorded_directory:
             problems.append(
-                f"the exported workspace hashes to {actual}, the host recorded "
-                f"{recorded_directory}"
+                f"the exported workspace hashes to {actual}, the host recorded {recorded_directory}"
             )
 
     if isinstance(recorded_files, bool) or not isinstance(recorded_files, int):
@@ -751,8 +750,7 @@ def _export_problems(run: CellRun) -> list[str]:
         problems.append("the runner export carries no archive digest")
     elif session_archive and str(runner_archive) != str(session_archive):
         problems.append(
-            f"the runner recorded archive digest {runner_archive} and the session "
-            f"{session_archive}"
+            f"the runner recorded archive digest {runner_archive} and the session {session_archive}"
         )
 
     files = artifacts.get("workspace_files")
@@ -856,8 +854,12 @@ def audit_cell(
 
     session = run.session
     if session is None:
-        check("execution_returned", False, f"{run.error_kind or 'exception'}: {run.error}",
-              _exception_stop(run))
+        check(
+            "execution_returned",
+            False,
+            f"{run.error_kind or 'exception'}: {run.error}",
+            _exception_stop(run),
+        )
         return {
             "cell_id": cell["cell_id"],
             "arm_id": cell["arm_id"],
@@ -916,8 +918,12 @@ def audit_cell(
         if isinstance(run.sandbox_plan, Mapping)
         else ["the runner recorded no sandbox plan"]
     )
-    check("sandbox_matches_contract", not plan_problems, "; ".join(plan_problems) or "cpu/memory/"
-          "image/network/timeout as frozen", STOP_SANDBOX_CONFIG)
+    check(
+        "sandbox_matches_contract",
+        not plan_problems,
+        "; ".join(plan_problems) or "cpu/memory/image/network/timeout as frozen",
+        STOP_SANDBOX_CONFIG,
+    )
 
     # the fixture the cell ran on, and the export the oracle will score
     for problem in _fixture_problems(run):
@@ -958,8 +964,12 @@ def audit_cell(
 
     # usage and cost: unknown stays unknown
     usage_report = validate_usage(session.get("metrics"))
-    check("usage_is_complete", usage_report["ok"], "; ".join(usage_report["problems"]) or "ok",
-          STOP_UNKNOWN_USAGE)
+    check(
+        "usage_is_complete",
+        usage_report["ok"],
+        "; ".join(usage_report["problems"]) or "ok",
+        STOP_UNKNOWN_USAGE,
+    )
     metrics = session.get("metrics") if isinstance(session.get("metrics"), Mapping) else {}
     delta_cost = cell_cost(metrics, prices) if usage_report["ok"] else None
 
@@ -977,8 +987,12 @@ def audit_cell(
             parsed = None
         expected = run.expected_run_id or str(cell["cell_id"])
         if parsed is None:
-            check("run_evidence_present", False, "session.json is empty or not a JSON object",
-                  STOP_MISSING_EVIDENCE)
+            check(
+                "run_evidence_present",
+                False,
+                "session.json is empty or not a JSON object",
+                STOP_MISSING_EVIDENCE,
+            )
         elif run.expected_run_id is not None:
             if parsed.get("run_id") != expected:
                 check(
@@ -1055,9 +1069,7 @@ def audit_cell(
         # The last public run failed; an earlier pass does not undo it. A measured failure.
         goal_correctness = False
     elif suite["state"] == "PASS":
-        goal_correctness = bool(
-            oracle_passed and agent_success and (acceptance in (None, "PASS"))
-        )
+        goal_correctness = bool(oracle_passed and agent_success and (acceptance in (None, "PASS")))
     else:
         # NOT_RUN / ERROR / INCOMPLETE / INVALID: the gate was not observed, so correctness is
         # unknown. An unobserved gate is never a pass; the integrity ones have already stopped.
@@ -1456,9 +1468,7 @@ async def dispatch(
     # The floor is the sum of what each cell measurably *cost*, not of the running totals: adding
     # cumulative values counts the first cell once per later cell.
     observed_floor = round(
-        sum(
-            cell["delta_cost_usd"] for cell in cells if cell["delta_cost_usd"] is not None
-        ),
+        sum(cell["delta_cost_usd"] for cell in cells if cell["delta_cost_usd"] is not None),
         6,
     )
     completeness = "COMPLETE"
@@ -1487,9 +1497,7 @@ async def dispatch(
         "cells_planned": len(plan["cells"]),
         "cells_started": len(cells),
         "cells_passed": sum(1 for cell in cells if cell["verdict"] == "PASS"),
-        "cells_measured_failure": sum(
-            1 for cell in cells if cell["verdict"] == "MEASURED_FAILURE"
-        ),
+        "cells_measured_failure": sum(1 for cell in cells if cell["verdict"] == "MEASURED_FAILURE"),
         "cells_stopped": sum(1 for cell in cells if cell["verdict"] == "STOPPED"),
         "cells_not_run": len(plan["cells"]) - len(cells),
         "stop_reason": stop_reason,
@@ -1575,9 +1583,7 @@ def _write_analysis(
         "duration_s": round(run.duration_s, 3),
         "notes": list(run.notes),
     }
-    (cell_root / "analysis.json").write_text(
-        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
-    )
+    (cell_root / "analysis.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 # -- fixture, export and oracle ----------------------------------------------------------------
@@ -1744,7 +1750,7 @@ def production_goal_options(
         max_turns=config.main_max_turns,
         token_budget=int(contract.BUDGET["token_budget"]),
         main_write_paths=tuple(task.allowed_paths),
-        child_write_grants=arm.grant_for(cell["task_id"]),
+        child_write_grants=contract.child_grants_for(cell),
         worker_profiles=(arm.profile_id,),
         worker_max_turns=int(contract.BUDGET["worker_max_turns"]),
         worker_exposure=arm.exposure,
