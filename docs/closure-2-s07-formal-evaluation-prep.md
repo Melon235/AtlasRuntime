@@ -2,6 +2,10 @@
 
 Status: `CLOSURE2_S07_PREPARATION_READY_FOR_REVIEW`.
 
+> **Superseded in part.** `docs/closure-2-s07-preparation-closure.md` closes the owner decisions this
+> report lists in §K (R-1, R-4, R-5, R-6) and replaces its cost candidate in §I. Read that document
+> for the current state; this one stays as the record of what S07 first measured.
+
 This stage prepares the Closure-2 formal six-arm evaluation and runs nothing. It reads the existing
 preregistration, verifies the shipped implementation against it, diagnoses why S06 produced no
 delegation, and turns the 54-cell matrix into a reproducible offline plan. No model request, no
