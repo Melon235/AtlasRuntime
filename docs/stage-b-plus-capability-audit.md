@@ -79,7 +79,7 @@ Three distinctions that S06 collapsed, restated because the ablation depends on 
 Captured from the real composition, not from configuration. The fingerprint of each arm is in
 `experiments/stage_b_plus/inputs/diff.json`; the full payload is next to it.
 
-Common to all four arms (byte-identical): system prompt **9,033 chars**
+Common to all six arms (byte-identical): system prompt **9,033 chars**
 `sha256:76ebb03d51b7d…` (the B+ prompt, §C), ten tool definitions, the `delegate_tasks` input schema
 **1,131 chars** `sha256:b76380f3…`, and the first user turn (`Task: main-driven goal\n\n<goal>`).
 
@@ -92,7 +92,7 @@ Common to all four arms (byte-identical): system prompt **9,033 chars**
 
 The shipped description is 819 chars. Between any two arms, the **only** fields that differ are
 `delegate_tasks.description_*` and the aggregate `tools.chars`/`tools.digest` that contain it
-(`offline.json` check `J01`). That is the property the four-arm design needs and S06 did not have.
+(`offline.json` check `L02`). That is the property the six-arm design needs and S06 did not have.
 
 ### What the request actually contains, and what it does not
 
@@ -112,7 +112,7 @@ The P3 prompt (S06's P3 arm, and the S2 pilot) contains a `## WORKER CAPABILITY 
 that enumerates `research_worker`'s tools and states it has no `bash`, `python3`, `pytest` or
 `run_public_tests`. It is accurate — and it is hand-written, profile-specific and constant. Under a
 different worker profile it is worse than silence: it instructs the Main to use a worker the arm is
-trying to replace. That is why the four-arm matrix uses a prompt without it (§C of the design
+trying to replace. That is why the matrix uses a prompt without it (§C of the design
 document), and why the same paragraph is preserved as `p3-literal` for the Owner to compare against.
 
 ---

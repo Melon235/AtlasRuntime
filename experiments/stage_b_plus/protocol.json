@@ -1,7 +1,29 @@
 {
   "stage": "B+",
-  "protocol_version": "bplus-1.0.0",
+  "protocol_version": "bplus-2.0.0",
   "supersedes": null,
+  "revision": {
+    "version": "bplus-2.0.0",
+    "previous_version": "bplus-1.0.0",
+    "previous_protocol_digest": "sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5",
+    "previous_formal_plan_digest": "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72",
+    "previous_execution": "NONE \u2014 never authorized, never dispatched",
+    "approval": "OWNER_DESIGN_DECISIONS_CONFIRMED on 2026-11-25",
+    "changes": [
+      "R-B+1 accepted: main-v2.1-rc1-bplus becomes the matrix prompt",
+      "G-B+2 accepted: the Main verifies; no worker test tool is added",
+      "G-B+3 accepted: the router rules are unchanged",
+      "two control arms C4 (research/none) and C5 (coding/none) added for a diagnostic canary",
+      "a six-cell canary plan with its own identity, claim namespace and authorization",
+      "an executable entry point with an authority contract, a one-shot dispatch claim and a post-cell gate",
+      "the formal non-delegation scenario is no longer described as a mathematical lower bound"
+    ],
+    "unchanged": [
+      "the four-arm formal matrix (same cells, same order, same digest)",
+      "the three Closure-2 tasks, the prompts, the model and every budget field",
+      "Stage B Freeze 1.6, the Closure-2 tree and the S06/S08 authorization remain untouched"
+    ]
+  },
   "does_not_modify": [
     "experiments/stage_benchmark/execution/freeze-1.6.json",
     "experiments/stage_benchmark/protocol.json",
@@ -37,7 +59,10 @@
         "research_worker"
       ],
       "exposure": "native",
-      "description": "research_worker with the existing prose disclosure",
+      "exposure_term": "basic derived disclosure",
+      "description": "research_worker with the basic derived disclosure",
+      "is_control": false,
+      "in_formal_matrix": true,
       "child_write_grants": "none",
       "budget": {
         "provider": "deepseek",
@@ -73,7 +98,10 @@
         "research_worker"
       ],
       "exposure": "card",
-      "description": "research_worker with the derived capability card",
+      "exposure_term": "full capability contract",
+      "description": "research_worker with the full capability card",
+      "is_control": false,
+      "in_formal_matrix": true,
       "child_write_grants": "none",
       "budget": {
         "provider": "deepseek",
@@ -109,7 +137,10 @@
         "coding_worker"
       ],
       "exposure": "native",
-      "description": "coding_worker with the existing prose disclosure",
+      "exposure_term": "basic derived disclosure",
+      "description": "coding_worker with the basic derived disclosure",
+      "is_control": false,
+      "in_formal_matrix": true,
       "child_write_grants": "per task write_scope",
       "budget": {
         "provider": "deepseek",
@@ -145,7 +176,10 @@
         "coding_worker"
       ],
       "exposure": "card",
-      "description": "coding_worker with the derived capability card",
+      "exposure_term": "full capability contract",
+      "description": "coding_worker with the full capability card",
+      "is_control": false,
+      "in_formal_matrix": true,
       "child_write_grants": "per task write_scope",
       "budget": {
         "provider": "deepseek",
@@ -172,6 +206,159 @@
         "seed": 20261119,
         "sampling_seed_supported": false
       }
+    },
+    {
+      "arm_id": "C4",
+      "capability": "research",
+      "profile_id": "research_worker",
+      "worker_profiles": [
+        "research_worker"
+      ],
+      "exposure": "none",
+      "exposure_term": "shipped",
+      "description": "research_worker with the shipped description and no derived disclosure",
+      "is_control": true,
+      "in_formal_matrix": false,
+      "child_write_grants": "none",
+      "budget": {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "main_max_turns": 20,
+        "child_max_turns": 20,
+        "worker_max_turns": 20,
+        "max_concurrent_children": 2,
+        "max_children_per_call": 2,
+        "max_delegation_rounds": 3,
+        "token_budget": 500000,
+        "result_preview_chars": 900,
+        "public_test_max_calls": 4,
+        "tool_error_mode": "corrected",
+        "network": "none",
+        "cpu": 1,
+        "memory_gib": 1.0,
+        "sandbox_provider": "opensandbox",
+        "image": "atlas-uat-python:3.12",
+        "router_policy": "m.1.0",
+        "sandbox_timeout_minutes": 30,
+        "matrix_concurrency": 1,
+        "repetitions": 2,
+        "seed": 20261119,
+        "sampling_seed_supported": false
+      }
+    },
+    {
+      "arm_id": "C5",
+      "capability": "coding",
+      "profile_id": "coding_worker",
+      "worker_profiles": [
+        "coding_worker"
+      ],
+      "exposure": "none",
+      "exposure_term": "shipped",
+      "description": "coding_worker with the shipped description and no derived disclosure",
+      "is_control": true,
+      "in_formal_matrix": false,
+      "child_write_grants": "per task write_scope",
+      "budget": {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "main_max_turns": 20,
+        "child_max_turns": 20,
+        "worker_max_turns": 20,
+        "max_concurrent_children": 2,
+        "max_children_per_call": 2,
+        "max_delegation_rounds": 3,
+        "token_budget": 500000,
+        "result_preview_chars": 900,
+        "public_test_max_calls": 4,
+        "tool_error_mode": "corrected",
+        "network": "none",
+        "cpu": 1,
+        "memory_gib": 1.0,
+        "sandbox_provider": "opensandbox",
+        "image": "atlas-uat-python:3.12",
+        "router_policy": "m.1.0",
+        "sandbox_timeout_minutes": 30,
+        "matrix_concurrency": 1,
+        "repetitions": 2,
+        "seed": 20261119,
+        "sampling_seed_supported": false
+      }
+    }
+  ],
+  "exposure_terms": {
+    "none": {
+      "label": "shipped",
+      "definition": "the shipped delegate_tasks description, byte for byte, no derived information",
+      "new_in_this_stage": false,
+      "provides_role": false,
+      "provides_tools": false,
+      "provides_contract": false,
+      "arms": [
+        "C4",
+        "C5"
+      ]
+    },
+    "native": {
+      "label": "basic derived disclosure",
+      "definition": "a derived prose enumeration of the role, the tools the profile has, the tools it does not have, its limits and how a result comes back",
+      "new_in_this_stage": true,
+      "provides_role": true,
+      "provides_tools": true,
+      "provides_contract": false,
+      "arms": [
+        "C0",
+        "C2"
+      ]
+    },
+    "card": {
+      "label": "full capability contract",
+      "definition": "the basic disclosure plus structured capability, ownership, task-input, deliverable, verification and handoff contracts",
+      "new_in_this_stage": true,
+      "provides_role": true,
+      "provides_tools": true,
+      "provides_contract": true,
+      "arms": [
+        "C1",
+        "C3"
+      ]
+    }
+  },
+  "coupling_disclosure": [
+    {
+      "id": "X1",
+      "statement": "the offered worker profile and the Main-facing description are coupled",
+      "detail": "an arm cannot offer coding_worker while disclosing research_worker; the is derived from the profile that will actually run"
+    },
+    {
+      "id": "X2",
+      "statement": "native and card differ in content and length, not only in structure",
+      "detail": "card adds six contract fields, roughly 2.2-2.5k characters over native"
+    },
+    {
+      "id": "X3",
+      "statement": "the delegate_tasks schema still defaults profile_id to research_worker",
+      "detail": "the frozen schema has no enum and cannot be edited in this stage, so a proposal that omits profile_id in a coding-only arm is refused UNKNOWN_PROFILE"
+    },
+    {
+      "id": "X4",
+      "statement": "C5 may lose proposals to the schema default rather than to disclosure",
+      "detail": "UNKNOWN_PROFILE is counted separately and is not read as a disclosure effect"
+    },
+    {
+      "id": "X5",
+      "statement": "NO_PROPOSAL is not ROUTER_REJECTED",
+      "detail": "a cell that never called the tool has no admission denominator; N/A, not 0"
+    },
+    {
+      "id": "X6",
+      "statement": "C2 - C0 is not a pure permission effect",
+      "detail": "it changes both which worker exists and what the Main is told about it"
+    },
+    {
+      "id": "X7",
+      "statement": "C4 and C5 send byte-identical requests",
+      "detail": "with no disclosure the two control arms differ only in which profile the run accepts, so a C5 - C4 difference can come from the schema default or from the router, never from what the Main was told"
     }
   ],
   "tasks": [
@@ -600,220 +787,373 @@
       "limit": "no arm may be declared best"
     }
   ],
-  "plan": {
-    "seed": 20261119,
-    "repetitions": 2,
-    "cells": [
-      {
-        "cell_id": "closure2-pipeline-migration.C0.r1",
-        "task_id": "closure2-pipeline-migration",
-        "arm_id": "C0",
-        "repetition": 1,
-        "round": 1,
-        "order": 1
+  "plans": {
+    "stage-b-plus-diagnostic-canary-v1": {
+      "plan_id": "stage-b-plus-diagnostic-canary-v1",
+      "scope": "CANARY_ONLY",
+      "tasks": [
+        "closure2-pipeline-migration"
+      ],
+      "arms": [
+        "C0",
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5"
+      ],
+      "repetitions": 1,
+      "cells_count": 6,
+      "cells": [
+        {
+          "cell_id": "canary.closure2-pipeline-migration.C0.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C0",
+          "repetition": 1,
+          "round": 1,
+          "order": 1,
+          "scope": "CANARY_ONLY",
+          "plan_id": "stage-b-plus-diagnostic-canary-v1",
+          "is_benchmark_sample": false
+        },
+        {
+          "cell_id": "canary.closure2-pipeline-migration.C1.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C1",
+          "repetition": 1,
+          "round": 2,
+          "order": 2,
+          "scope": "CANARY_ONLY",
+          "plan_id": "stage-b-plus-diagnostic-canary-v1",
+          "is_benchmark_sample": false
+        },
+        {
+          "cell_id": "canary.closure2-pipeline-migration.C2.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C2",
+          "repetition": 1,
+          "round": 3,
+          "order": 3,
+          "scope": "CANARY_ONLY",
+          "plan_id": "stage-b-plus-diagnostic-canary-v1",
+          "is_benchmark_sample": false
+        },
+        {
+          "cell_id": "canary.closure2-pipeline-migration.C3.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C3",
+          "repetition": 1,
+          "round": 4,
+          "order": 4,
+          "scope": "CANARY_ONLY",
+          "plan_id": "stage-b-plus-diagnostic-canary-v1",
+          "is_benchmark_sample": false
+        },
+        {
+          "cell_id": "canary.closure2-pipeline-migration.C4.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C4",
+          "repetition": 1,
+          "round": 5,
+          "order": 5,
+          "scope": "CANARY_ONLY",
+          "plan_id": "stage-b-plus-diagnostic-canary-v1",
+          "is_benchmark_sample": false
+        },
+        {
+          "cell_id": "canary.closure2-pipeline-migration.C5.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C5",
+          "repetition": 1,
+          "round": 6,
+          "order": 6,
+          "scope": "CANARY_ONLY",
+          "plan_id": "stage-b-plus-diagnostic-canary-v1",
+          "is_benchmark_sample": false
+        }
+      ],
+      "digest": "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575",
+      "balance": {
+        "cells": 6,
+        "arms": [
+          "C0",
+          "C1",
+          "C2",
+          "C3",
+          "C4",
+          "C5"
+        ],
+        "tasks": [
+          "closure2-pipeline-migration"
+        ],
+        "each_task_meets_each_arm": true,
+        "each_arm_exactly_once_per_task": true,
+        "every_arm_run_equally_often": true,
+        "arm_cell_counts": {
+          "C0": 1,
+          "C1": 1,
+          "C2": 1,
+          "C3": 1,
+          "C4": 1,
+          "C5": 1
+        },
+        "first_arm_by_repetition": {
+          "1": "C0"
+        },
+        "first_arm_differs_across_repetitions": true,
+        "each_arm_in_each_round": null
       },
-      {
-        "cell_id": "closure2-state-machine-refactor.C1.r1",
-        "task_id": "closure2-state-machine-refactor",
-        "arm_id": "C1",
-        "repetition": 1,
-        "round": 1,
-        "order": 2
+      "claim_namespace": "bplus-claim/stage-b-plus-diagnostic-canary-v1",
+      "runs_subdir": "runs/stage-b-plus/stage-b-plus-diagnostic-canary-v1",
+      "evidence_subdir": "evidence/stage-b-plus/stage-b-plus-diagnostic-canary-v1",
+      "is_benchmark_sample": false,
+      "nominal_token_capacity": 3000000
+    },
+    "stage-b-plus-formal-matrix-v1": {
+      "plan_id": "stage-b-plus-formal-matrix-v1",
+      "scope": "FORMAL_MATRIX_ONLY",
+      "tasks": [
+        "closure2-pipeline-migration",
+        "closure2-plugin-migration",
+        "closure2-state-machine-refactor"
+      ],
+      "arms": [
+        "C0",
+        "C1",
+        "C2",
+        "C3"
+      ],
+      "repetitions": 2,
+      "cells_count": 24,
+      "cells": [
+        {
+          "cell_id": "closure2-pipeline-migration.C0.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C0",
+          "repetition": 1,
+          "round": 1,
+          "order": 1
+        },
+        {
+          "cell_id": "closure2-state-machine-refactor.C1.r1",
+          "task_id": "closure2-state-machine-refactor",
+          "arm_id": "C1",
+          "repetition": 1,
+          "round": 1,
+          "order": 2
+        },
+        {
+          "cell_id": "closure2-plugin-migration.C2.r1",
+          "task_id": "closure2-plugin-migration",
+          "arm_id": "C2",
+          "repetition": 1,
+          "round": 1,
+          "order": 3
+        },
+        {
+          "cell_id": "closure2-pipeline-migration.C1.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C1",
+          "repetition": 1,
+          "round": 2,
+          "order": 4
+        },
+        {
+          "cell_id": "closure2-state-machine-refactor.C2.r1",
+          "task_id": "closure2-state-machine-refactor",
+          "arm_id": "C2",
+          "repetition": 1,
+          "round": 2,
+          "order": 5
+        },
+        {
+          "cell_id": "closure2-plugin-migration.C3.r1",
+          "task_id": "closure2-plugin-migration",
+          "arm_id": "C3",
+          "repetition": 1,
+          "round": 2,
+          "order": 6
+        },
+        {
+          "cell_id": "closure2-pipeline-migration.C2.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C2",
+          "repetition": 1,
+          "round": 3,
+          "order": 7
+        },
+        {
+          "cell_id": "closure2-state-machine-refactor.C3.r1",
+          "task_id": "closure2-state-machine-refactor",
+          "arm_id": "C3",
+          "repetition": 1,
+          "round": 3,
+          "order": 8
+        },
+        {
+          "cell_id": "closure2-plugin-migration.C0.r1",
+          "task_id": "closure2-plugin-migration",
+          "arm_id": "C0",
+          "repetition": 1,
+          "round": 3,
+          "order": 9
+        },
+        {
+          "cell_id": "closure2-pipeline-migration.C3.r1",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C3",
+          "repetition": 1,
+          "round": 4,
+          "order": 10
+        },
+        {
+          "cell_id": "closure2-state-machine-refactor.C0.r1",
+          "task_id": "closure2-state-machine-refactor",
+          "arm_id": "C0",
+          "repetition": 1,
+          "round": 4,
+          "order": 11
+        },
+        {
+          "cell_id": "closure2-plugin-migration.C1.r1",
+          "task_id": "closure2-plugin-migration",
+          "arm_id": "C1",
+          "repetition": 1,
+          "round": 4,
+          "order": 12
+        },
+        {
+          "cell_id": "closure2-plugin-migration.C1.r2",
+          "task_id": "closure2-plugin-migration",
+          "arm_id": "C1",
+          "repetition": 2,
+          "round": 1,
+          "order": 13
+        },
+        {
+          "cell_id": "closure2-pipeline-migration.C2.r2",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C2",
+          "repetition": 2,
+          "round": 1,
+          "order": 14
+        },
+        {
+          "cell_id": "closure2-state-machine-refactor.C3.r2",
+          "task_id": "closure2-state-machine-refactor",
+          "arm_id": "C3",
+          "repetition": 2,
+          "round": 1,
+          "order": 15
+        },
+        {
+          "cell_id": "closure2-plugin-migration.C2.r2",
+          "task_id": "closure2-plugin-migration",
+          "arm_id": "C2",
+          "repetition": 2,
+          "round": 2,
+          "order": 16
+        },
+        {
+          "cell_id": "closure2-pipeline-migration.C3.r2",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C3",
+          "repetition": 2,
+          "round": 2,
+          "order": 17
+        },
+        {
+          "cell_id": "closure2-state-machine-refactor.C0.r2",
+          "task_id": "closure2-state-machine-refactor",
+          "arm_id": "C0",
+          "repetition": 2,
+          "round": 2,
+          "order": 18
+        },
+        {
+          "cell_id": "closure2-plugin-migration.C3.r2",
+          "task_id": "closure2-plugin-migration",
+          "arm_id": "C3",
+          "repetition": 2,
+          "round": 3,
+          "order": 19
+        },
+        {
+          "cell_id": "closure2-pipeline-migration.C0.r2",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C0",
+          "repetition": 2,
+          "round": 3,
+          "order": 20
+        },
+        {
+          "cell_id": "closure2-state-machine-refactor.C1.r2",
+          "task_id": "closure2-state-machine-refactor",
+          "arm_id": "C1",
+          "repetition": 2,
+          "round": 3,
+          "order": 21
+        },
+        {
+          "cell_id": "closure2-plugin-migration.C0.r2",
+          "task_id": "closure2-plugin-migration",
+          "arm_id": "C0",
+          "repetition": 2,
+          "round": 4,
+          "order": 22
+        },
+        {
+          "cell_id": "closure2-pipeline-migration.C1.r2",
+          "task_id": "closure2-pipeline-migration",
+          "arm_id": "C1",
+          "repetition": 2,
+          "round": 4,
+          "order": 23
+        },
+        {
+          "cell_id": "closure2-state-machine-refactor.C2.r2",
+          "task_id": "closure2-state-machine-refactor",
+          "arm_id": "C2",
+          "repetition": 2,
+          "round": 4,
+          "order": 24
+        }
+      ],
+      "digest": "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72",
+      "balance": {
+        "cells": 24,
+        "arms": [
+          "C0",
+          "C1",
+          "C2",
+          "C3"
+        ],
+        "tasks": [
+          "closure2-pipeline-migration",
+          "closure2-state-machine-refactor",
+          "closure2-plugin-migration"
+        ],
+        "each_task_meets_each_arm": true,
+        "each_arm_exactly_once_per_task": true,
+        "every_arm_run_equally_often": true,
+        "arm_cell_counts": {
+          "C0": 6,
+          "C1": 6,
+          "C2": 6,
+          "C3": 6
+        },
+        "first_arm_by_repetition": {
+          "1": "C0",
+          "2": "C1"
+        },
+        "first_arm_differs_across_repetitions": true,
+        "each_arm_in_each_round": null
       },
-      {
-        "cell_id": "closure2-plugin-migration.C2.r1",
-        "task_id": "closure2-plugin-migration",
-        "arm_id": "C2",
-        "repetition": 1,
-        "round": 1,
-        "order": 3
-      },
-      {
-        "cell_id": "closure2-pipeline-migration.C1.r1",
-        "task_id": "closure2-pipeline-migration",
-        "arm_id": "C1",
-        "repetition": 1,
-        "round": 2,
-        "order": 4
-      },
-      {
-        "cell_id": "closure2-state-machine-refactor.C2.r1",
-        "task_id": "closure2-state-machine-refactor",
-        "arm_id": "C2",
-        "repetition": 1,
-        "round": 2,
-        "order": 5
-      },
-      {
-        "cell_id": "closure2-plugin-migration.C3.r1",
-        "task_id": "closure2-plugin-migration",
-        "arm_id": "C3",
-        "repetition": 1,
-        "round": 2,
-        "order": 6
-      },
-      {
-        "cell_id": "closure2-pipeline-migration.C2.r1",
-        "task_id": "closure2-pipeline-migration",
-        "arm_id": "C2",
-        "repetition": 1,
-        "round": 3,
-        "order": 7
-      },
-      {
-        "cell_id": "closure2-state-machine-refactor.C3.r1",
-        "task_id": "closure2-state-machine-refactor",
-        "arm_id": "C3",
-        "repetition": 1,
-        "round": 3,
-        "order": 8
-      },
-      {
-        "cell_id": "closure2-plugin-migration.C0.r1",
-        "task_id": "closure2-plugin-migration",
-        "arm_id": "C0",
-        "repetition": 1,
-        "round": 3,
-        "order": 9
-      },
-      {
-        "cell_id": "closure2-pipeline-migration.C3.r1",
-        "task_id": "closure2-pipeline-migration",
-        "arm_id": "C3",
-        "repetition": 1,
-        "round": 4,
-        "order": 10
-      },
-      {
-        "cell_id": "closure2-state-machine-refactor.C0.r1",
-        "task_id": "closure2-state-machine-refactor",
-        "arm_id": "C0",
-        "repetition": 1,
-        "round": 4,
-        "order": 11
-      },
-      {
-        "cell_id": "closure2-plugin-migration.C1.r1",
-        "task_id": "closure2-plugin-migration",
-        "arm_id": "C1",
-        "repetition": 1,
-        "round": 4,
-        "order": 12
-      },
-      {
-        "cell_id": "closure2-plugin-migration.C1.r2",
-        "task_id": "closure2-plugin-migration",
-        "arm_id": "C1",
-        "repetition": 2,
-        "round": 1,
-        "order": 13
-      },
-      {
-        "cell_id": "closure2-pipeline-migration.C2.r2",
-        "task_id": "closure2-pipeline-migration",
-        "arm_id": "C2",
-        "repetition": 2,
-        "round": 1,
-        "order": 14
-      },
-      {
-        "cell_id": "closure2-state-machine-refactor.C3.r2",
-        "task_id": "closure2-state-machine-refactor",
-        "arm_id": "C3",
-        "repetition": 2,
-        "round": 1,
-        "order": 15
-      },
-      {
-        "cell_id": "closure2-plugin-migration.C2.r2",
-        "task_id": "closure2-plugin-migration",
-        "arm_id": "C2",
-        "repetition": 2,
-        "round": 2,
-        "order": 16
-      },
-      {
-        "cell_id": "closure2-pipeline-migration.C3.r2",
-        "task_id": "closure2-pipeline-migration",
-        "arm_id": "C3",
-        "repetition": 2,
-        "round": 2,
-        "order": 17
-      },
-      {
-        "cell_id": "closure2-state-machine-refactor.C0.r2",
-        "task_id": "closure2-state-machine-refactor",
-        "arm_id": "C0",
-        "repetition": 2,
-        "round": 2,
-        "order": 18
-      },
-      {
-        "cell_id": "closure2-plugin-migration.C3.r2",
-        "task_id": "closure2-plugin-migration",
-        "arm_id": "C3",
-        "repetition": 2,
-        "round": 3,
-        "order": 19
-      },
-      {
-        "cell_id": "closure2-pipeline-migration.C0.r2",
-        "task_id": "closure2-pipeline-migration",
-        "arm_id": "C0",
-        "repetition": 2,
-        "round": 3,
-        "order": 20
-      },
-      {
-        "cell_id": "closure2-state-machine-refactor.C1.r2",
-        "task_id": "closure2-state-machine-refactor",
-        "arm_id": "C1",
-        "repetition": 2,
-        "round": 3,
-        "order": 21
-      },
-      {
-        "cell_id": "closure2-plugin-migration.C0.r2",
-        "task_id": "closure2-plugin-migration",
-        "arm_id": "C0",
-        "repetition": 2,
-        "round": 4,
-        "order": 22
-      },
-      {
-        "cell_id": "closure2-pipeline-migration.C1.r2",
-        "task_id": "closure2-pipeline-migration",
-        "arm_id": "C1",
-        "repetition": 2,
-        "round": 4,
-        "order": 23
-      },
-      {
-        "cell_id": "closure2-state-machine-refactor.C2.r2",
-        "task_id": "closure2-state-machine-refactor",
-        "arm_id": "C2",
-        "repetition": 2,
-        "round": 4,
-        "order": 24
-      }
-    ],
-    "digest": "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72",
-    "balance": {
-      "cells": 24,
-      "each_task_meets_each_arm": true,
-      "every_arm_run_equally_often": true,
-      "arm_cell_counts": {
-        "C0": 6,
-        "C1": 6,
-        "C2": 6,
-        "C3": 6
-      },
-      "first_arm_by_repetition": {
-        "1": "C0",
-        "2": "C1"
-      },
-      "first_arm_differs_across_repetitions": true,
-      "each_arm_in_each_round": null
+      "claim_namespace": "bplus-claim/stage-b-plus-formal-matrix-v1",
+      "runs_subdir": "runs/stage-b-plus/stage-b-plus-formal-matrix-v1",
+      "evidence_subdir": "evidence/stage-b-plus/stage-b-plus-formal-matrix-v1",
+      "is_benchmark_sample": true,
+      "nominal_token_capacity": 12000000
     }
   },
   "authorization": {

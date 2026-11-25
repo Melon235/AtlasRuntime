@@ -3,7 +3,9 @@
     "C0",
     "C1",
     "C2",
-    "C3"
+    "C3",
+    "C4",
+    "C5"
   ],
   "fingerprints": {
     "C0": {
@@ -193,6 +195,100 @@
           "tool_search"
         ]
       }
+    },
+    "C4": {
+      "delegate_tasks": {
+        "description_chars": 819,
+        "description_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+        "profile_default": "research_worker",
+        "profile_enum": null,
+        "schema_chars": 1131,
+        "schema_digest": "sha256:b76380f3865c8d7537c1394d22edc4e33548d3e60d316290372da20908761394",
+        "task_fields": [
+          "background",
+          "depends_on",
+          "key",
+          "objective",
+          "profile_id",
+          "write_paths"
+        ]
+      },
+      "first_user_turn": {
+        "chars": 128,
+        "digest": "sha256:43c360a130a94a276d5499a1cca08dae44b5ee8238a8c493b9ff9e78887acf5f",
+        "head": "Task: main-driven goal\n\nSummarise the repository layout of the current workspace in one short paragraph. Do not modify any file."
+      },
+      "messages": 1,
+      "model": "deepseek-chat",
+      "system_prompt": {
+        "chars": 9033,
+        "digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+        "head": "# ATLASRUNTIME \u2014 MAIN AGENT\n\n## IDENTITY\n\nYou are Atlas Main, an autonomous software engineering agent.\n\nYou own the use"
+      },
+      "tools": {
+        "chars": 2210,
+        "count": 10,
+        "digest": "sha256:ab9d2551c71d0e5ef02e3d2af8a78b9c9bbf0c2755fd8e66ec52edf53e75ecca",
+        "names": [
+          "bash",
+          "delegate_read",
+          "delegate_tasks",
+          "dispatch_action",
+          "file_edit",
+          "file_read",
+          "file_write",
+          "grep",
+          "list_files",
+          "tool_search"
+        ]
+      }
+    },
+    "C5": {
+      "delegate_tasks": {
+        "description_chars": 819,
+        "description_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+        "profile_default": "research_worker",
+        "profile_enum": null,
+        "schema_chars": 1131,
+        "schema_digest": "sha256:b76380f3865c8d7537c1394d22edc4e33548d3e60d316290372da20908761394",
+        "task_fields": [
+          "background",
+          "depends_on",
+          "key",
+          "objective",
+          "profile_id",
+          "write_paths"
+        ]
+      },
+      "first_user_turn": {
+        "chars": 128,
+        "digest": "sha256:43c360a130a94a276d5499a1cca08dae44b5ee8238a8c493b9ff9e78887acf5f",
+        "head": "Task: main-driven goal\n\nSummarise the repository layout of the current workspace in one short paragraph. Do not modify any file."
+      },
+      "messages": 1,
+      "model": "deepseek-chat",
+      "system_prompt": {
+        "chars": 9033,
+        "digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+        "head": "# ATLASRUNTIME \u2014 MAIN AGENT\n\n## IDENTITY\n\nYou are Atlas Main, an autonomous software engineering agent.\n\nYou own the use"
+      },
+      "tools": {
+        "chars": 2210,
+        "count": 10,
+        "digest": "sha256:ab9d2551c71d0e5ef02e3d2af8a78b9c9bbf0c2755fd8e66ec52edf53e75ecca",
+        "names": [
+          "bash",
+          "delegate_read",
+          "delegate_tasks",
+          "dispatch_action",
+          "file_edit",
+          "file_read",
+          "file_write",
+          "grep",
+          "list_files",
+          "tool_search"
+        ]
+      }
     }
   },
   "pairwise_changed_fields": {
@@ -214,6 +310,18 @@
       "tools.chars",
       "tools.digest"
     ],
+    "C0->C4": [
+      "delegate_tasks.description_chars",
+      "delegate_tasks.description_digest",
+      "tools.chars",
+      "tools.digest"
+    ],
+    "C0->C5": [
+      "delegate_tasks.description_chars",
+      "delegate_tasks.description_digest",
+      "tools.chars",
+      "tools.digest"
+    ],
     "C1->C2": [
       "delegate_tasks.description_chars",
       "delegate_tasks.description_digest",
@@ -226,12 +334,49 @@
       "tools.chars",
       "tools.digest"
     ],
+    "C1->C4": [
+      "delegate_tasks.description_chars",
+      "delegate_tasks.description_digest",
+      "tools.chars",
+      "tools.digest"
+    ],
+    "C1->C5": [
+      "delegate_tasks.description_chars",
+      "delegate_tasks.description_digest",
+      "tools.chars",
+      "tools.digest"
+    ],
     "C2->C3": [
       "delegate_tasks.description_chars",
       "delegate_tasks.description_digest",
       "tools.chars",
       "tools.digest"
-    ]
+    ],
+    "C2->C4": [
+      "delegate_tasks.description_chars",
+      "delegate_tasks.description_digest",
+      "tools.chars",
+      "tools.digest"
+    ],
+    "C2->C5": [
+      "delegate_tasks.description_chars",
+      "delegate_tasks.description_digest",
+      "tools.chars",
+      "tools.digest"
+    ],
+    "C3->C4": [
+      "delegate_tasks.description_chars",
+      "delegate_tasks.description_digest",
+      "tools.chars",
+      "tools.digest"
+    ],
+    "C3->C5": [
+      "delegate_tasks.description_chars",
+      "delegate_tasks.description_digest",
+      "tools.chars",
+      "tools.digest"
+    ],
+    "C4->C5": []
   },
   "stage": "B+"
 }

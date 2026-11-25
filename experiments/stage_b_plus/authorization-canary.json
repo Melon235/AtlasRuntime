@@ -1,0 +1,56 @@
+{
+  "authority_version": "bplus-authority-1.0",
+  "stage": "B+",
+  "protocol_version": "bplus-2.0.0",
+  "status": "PENDING_OWNER_APPROVAL",
+  "authorizes_live_execution": false,
+  "scope": "CANARY_ONLY",
+  "plan_id": "stage-b-plus-diagnostic-canary-v1",
+  "plan_digest": "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575",
+  "protocol_digest": "sha256:c7dad972f4882e5808dbcaa47f4b4532e101f7e2e44d9e1c90e0eb2c14620067",
+  "reviewed_head": null,
+  "execution_head": null,
+  "executor_digest": "sha256:917d95e46b1575bb6da44427c43b48f68ee8af1ded59e3662758efa951f49590",
+  "executor_version": "bplus-executor-1.0",
+  "cells_count": 6,
+  "cell_ids": [
+    "canary.closure2-pipeline-migration.C0.r1",
+    "canary.closure2-pipeline-migration.C1.r1",
+    "canary.closure2-pipeline-migration.C2.r1",
+    "canary.closure2-pipeline-migration.C3.r1",
+    "canary.closure2-pipeline-migration.C4.r1",
+    "canary.closure2-pipeline-migration.C5.r1"
+  ],
+  "cell_order": [
+    "canary.closure2-pipeline-migration.C0.r1",
+    "canary.closure2-pipeline-migration.C1.r1",
+    "canary.closure2-pipeline-migration.C2.r1",
+    "canary.closure2-pipeline-migration.C3.r1",
+    "canary.closure2-pipeline-migration.C4.r1",
+    "canary.closure2-pipeline-migration.C5.r1"
+  ],
+  "arms": [
+    "C0",
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5"
+  ],
+  "tasks": [
+    "closure2-pipeline-migration"
+  ],
+  "repetitions": 1,
+  "budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+  "nominal_token_capacity": 3000000,
+  "cost_stop_usd": null,
+  "per_cell_cost_stop_usd": null,
+  "token_stop": 3000000,
+  "attempt_limit": 1,
+  "owner_statement": null,
+  "approved_by": null,
+  "approved_at": null,
+  "approval_provenance": null,
+  "reuses_s06_or_s08_balance": false,
+  "notes": "This record authorizes nothing. A live dispatch requires every null field filled, both cost fields to be finite and positive, and the provenance to name an external artefact whose bytes still hash to the values recorded here."
+}

@@ -41,7 +41,7 @@ STAGE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = STAGE_DIR.parents[1]
 
 STAGE_ID = "B+"
-PROTOCOL_VERSION = "bplus-1.0.0"
+PROTOCOL_VERSION = "bplus-2.0.0"
 #: What this contract is *not*: it supersedes no frozen Stage B document and changes none of them.
 SUPERSEDES: None = None
 DOES_NOT_MODIFY = (
@@ -49,6 +49,37 @@ DOES_NOT_MODIFY = (
     "experiments/stage_benchmark/protocol.json",
     "experiments/evaluation/closure2/*",
 )
+
+#: The approved revision. ``bplus-1.0.0`` was a candidate that was never authorized and never ran;
+#: superseding it is not superseding an executed identity, and the old digests stay recorded so a
+#: reader can tell the two apart.
+REVISION: dict[str, Any] = {
+    "version": "bplus-2.0.0",
+    "previous_version": "bplus-1.0.0",
+    "previous_protocol_digest": (
+        "sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5"
+    ),
+    "previous_formal_plan_digest": (
+        "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72"
+    ),
+    "previous_execution": "NONE — never authorized, never dispatched",
+    "approval": "OWNER_DESIGN_DECISIONS_CONFIRMED on 2026-11-25",
+    "changes": [
+        "R-B+1 accepted: main-v2.1-rc1-bplus becomes the matrix prompt",
+        "G-B+2 accepted: the Main verifies; no worker test tool is added",
+        "G-B+3 accepted: the router rules are unchanged",
+        "two control arms C4 (research/none) and C5 (coding/none) added for a diagnostic canary",
+        "a six-cell canary plan with its own identity, claim namespace and authorization",
+        "an executable entry point with an authority contract, a one-shot dispatch claim and a "
+        "post-cell gate",
+        "the formal non-delegation scenario is no longer described as a mathematical lower bound",
+    ],
+    "unchanged": [
+        "the four-arm formal matrix (same cells, same order, same digest)",
+        "the three Closure-2 tasks, the prompts, the model and every budget field",
+        "Stage B Freeze 1.6, the Closure-2 tree and the S06/S08 authorization remain untouched",
+    ],
+}
 
 # -- prompts ---------------------------------------------------------------------------------
 
@@ -110,6 +141,86 @@ TASK_WRITE_SCOPE: dict[str, tuple[str, ...]] = {
     task.task_id: tuple(task.allowed_paths) for task in closure2.TASKS
 }
 
+#: What each exposure level *is*. ``native`` is new in this stage, not a reproduction of S06's
+#: exposure: S06 had no derived disclosure at all, and its only capability text was the hand-written
+#: prompt section this revision removes. Calling ``native`` "the existing mechanism" would be wrong.
+EXPOSURE_TERMS: dict[str, dict[str, Any]] = {
+    "none": {
+        "label": "shipped",
+        "definition": "the shipped delegate_tasks description, byte for byte, no derived "
+        "information",
+        "new_in_this_stage": False,
+        "provides_role": False,
+        "provides_tools": False,
+        "provides_contract": False,
+        "arms": ["C4", "C5"],
+    },
+    "native": {
+        "label": "basic derived disclosure",
+        "definition": "a derived prose enumeration of the role, the tools the profile has, "
+        "the tools it does not have, its limits and how a result comes back",
+        "new_in_this_stage": True,
+        "provides_role": True,
+        "provides_tools": True,
+        "provides_contract": False,
+        "arms": ["C0", "C2"],
+    },
+    "card": {
+        "label": "full capability contract",
+        "definition": "the basic disclosure plus structured capability, ownership, task-input, "
+        "deliverable, verification and handoff contracts",
+        "new_in_this_stage": True,
+        "provides_role": True,
+        "provides_tools": True,
+        "provides_contract": True,
+        "arms": ["C1", "C3"],
+    },
+}
+
+#: Limitations that must travel with the result. Each one is a place where a naive reading of the
+#: numbers would be wrong, so they are part of the contract rather than a footnote in a report.
+COUPLING_DISCLOSURE: tuple[dict[str, str], ...] = (
+    {
+        "id": "X1",
+        "statement": "the offered worker profile and the Main-facing description are coupled",
+        "detail": "an arm cannot offer coding_worker while disclosing research_worker; the "
+        "is derived from the profile that will actually run",
+    },
+    {
+        "id": "X2",
+        "statement": "native and card differ in content and length, not only in structure",
+        "detail": "card adds six contract fields, roughly 2.2-2.5k characters over native",
+    },
+    {
+        "id": "X3",
+        "statement": "the delegate_tasks schema still defaults profile_id to research_worker",
+        "detail": "the frozen schema has no enum and cannot be edited in this stage, so a proposal "
+        "that omits profile_id in a coding-only arm is refused UNKNOWN_PROFILE",
+    },
+    {
+        "id": "X4",
+        "statement": "C5 may lose proposals to the schema default rather than to disclosure",
+        "detail": "UNKNOWN_PROFILE is counted separately and is not read as a disclosure effect",
+    },
+    {
+        "id": "X5",
+        "statement": "NO_PROPOSAL is not ROUTER_REJECTED",
+        "detail": "a cell that never called the tool has no admission denominator; N/A, not 0",
+    },
+    {
+        "id": "X6",
+        "statement": "C2 - C0 is not a pure permission effect",
+        "detail": "it changes both which worker exists and what the Main is told about it",
+    },
+    {
+        "id": "X7",
+        "statement": "C4 and C5 send byte-identical requests",
+        "detail": "with no disclosure the two control arms differ only in which profile the run "
+        "accepts, so a C5 - C4 difference can come from the schema default or from the router, "
+        "never from what the Main was told",
+    },
+)
+
 
 @dataclass(frozen=True)
 class Arm:
@@ -118,6 +229,9 @@ class Arm:
     profile_id: str
     exposure: str
     description: str
+    #: A control arm is diagnostic only. It is never part of the formal matrix and its cells are
+    #: marked ``is_benchmark_sample = false``.
+    is_control: bool = False
 
     def grant_for(self, task_id: str) -> dict[str, tuple[str, ...]]:
         """Host-owned write grant for this arm on this task.
@@ -138,33 +252,54 @@ ARMS: tuple[Arm, ...] = (
         capability="research",
         profile_id=RESEARCH,
         exposure="native",
-        description="research_worker with the existing prose disclosure",
+        description="research_worker with the basic derived disclosure",
     ),
     Arm(
         arm_id="C1",
         capability="research",
         profile_id=RESEARCH,
         exposure="card",
-        description="research_worker with the derived capability card",
+        description="research_worker with the full capability card",
     ),
     Arm(
         arm_id="C2",
         capability="coding",
         profile_id=CODING,
         exposure="native",
-        description="coding_worker with the existing prose disclosure",
+        description="coding_worker with the basic derived disclosure",
     ),
     Arm(
         arm_id="C3",
         capability="coding",
         profile_id=CODING,
         exposure="card",
-        description="coding_worker with the derived capability card",
+        description="coding_worker with the full capability card",
+    ),
+    Arm(
+        arm_id="C4",
+        capability="research",
+        profile_id=RESEARCH,
+        exposure="none",
+        description="research_worker with the shipped description and no derived disclosure",
+        is_control=True,
+    ),
+    Arm(
+        arm_id="C5",
+        capability="coding",
+        profile_id=CODING,
+        exposure="none",
+        description="coding_worker with the shipped description and no derived disclosure",
+        is_control=True,
     ),
 )
 
 ARMS_BY_ID: dict[str, Arm] = {arm.arm_id: arm for arm in ARMS}
 ARM_IDS: tuple[str, ...] = tuple(arm.arm_id for arm in ARMS)
+
+#: The formal matrix is the four-arm crossed design. The two control arms are diagnostic only and
+#: stay out of it until the canary is reviewed.
+FORMAL_ARM_IDS: tuple[str, ...] = tuple(arm.arm_id for arm in ARMS if not arm.is_control)
+CONTROL_ARM_IDS: tuple[str, ...] = tuple(arm.arm_id for arm in ARMS if arm.is_control)
 
 # -- tasks -----------------------------------------------------------------------------------
 
@@ -371,17 +506,100 @@ INTERPRETATION: tuple[dict[str, str], ...] = (
 
 
 def cells() -> list[dict[str, Any]]:
-    """The 24-cell matrix, in execution order. Same generator Stage B used, larger arm set."""
+    """The 24-cell formal matrix, in execution order.
+
+    Deliberately *unchanged* from ``bplus-1.0.0``: the same tasks, the same four arms, the same
+    seed and the same repetition count, so ``plan_digest`` still returns ``ab4d0e50…``. A reader can
+    therefore verify that approving this revision does not silently move the formal matrix.
+    """
 
     return matrix.build_plan(
         TASK_IDS,
-        ARM_IDS,
+        FORMAL_ARM_IDS,
         repetitions=int(BUDGET["repetitions"]),
         seed=int(BUDGET["seed"]),
     )
 
 
-def balance(cell_list: list[dict[str, Any]]) -> dict[str, Any]:
+CANARY_PLAN_ID = "stage-b-plus-diagnostic-canary-v1"
+FORMAL_PLAN_ID = "stage-b-plus-formal-matrix-v1"
+SCOPE_CANARY = "CANARY_ONLY"
+SCOPE_FORMAL = "FORMAL_MATRIX_ONLY"
+SCOPES: tuple[str, ...] = (SCOPE_CANARY, SCOPE_FORMAL)
+
+#: The canary runs one P1 task. P1 is the only family with two genuinely disjoint module write sets,
+#: so it is the only one where a coding pair can be admitted at all.
+CANARY_TASK_IDS: tuple[str, ...] = ("closure2-pipeline-migration",)
+
+
+def canary_cells() -> list[dict[str, Any]]:
+    """Six cells, one per arm, on one task, one repetition, in fixed arm order.
+
+    The order is not randomized: six cells are a mechanism diagnostic, and a fixed order makes the
+    report readable. ``cell_id`` carries the ``canary.`` prefix so it cannot collide with a formal
+    cell id, and every cell is marked ``is_benchmark_sample = False`` because these cells are not
+    evidence for the formal matrix.
+    """
+
+    base = matrix.build_plan(
+        CANARY_TASK_IDS,
+        ARM_IDS,
+        repetitions=1,
+        seed=int(BUDGET["seed"]),
+    )
+    cells_out: list[dict[str, Any]] = []
+    for order, cell in enumerate(base, start=1):
+        cells_out.append(
+            {
+                **cell,
+                "order": order,
+                "cell_id": f"canary.{cell['cell_id']}",
+                "scope": SCOPE_CANARY,
+                "plan_id": CANARY_PLAN_ID,
+                "is_benchmark_sample": False,
+            }
+        )
+    return cells_out
+
+
+def scope_plan(scope_or_id: str) -> dict[str, Any]:
+    """The plan record for one scope. ``scope_or_id`` accepts a scope type or a plan id."""
+
+    if scope_or_id in (SCOPE_CANARY, CANARY_PLAN_ID):
+        scope, plan_id = SCOPE_CANARY, CANARY_PLAN_ID
+        plan_cells = canary_cells()
+        task_ids = list(CANARY_TASK_IDS)
+        arm_ids = list(ARM_IDS)
+        repetitions = 1
+    elif scope_or_id in (SCOPE_FORMAL, FORMAL_PLAN_ID):
+        scope, plan_id = SCOPE_FORMAL, FORMAL_PLAN_ID
+        plan_cells = cells()
+        task_ids = list(TASK_IDS)
+        arm_ids = list(FORMAL_ARM_IDS)
+        repetitions = int(BUDGET["repetitions"])
+    else:
+        raise ValueError(f"unknown scope {scope_or_id!r}; expected one of {list(SCOPES)}")
+    return {
+        "plan_id": plan_id,
+        "scope": scope,
+        "tasks": task_ids,
+        "arms": arm_ids,
+        "repetitions": repetitions,
+        "cells_count": len(plan_cells),
+        "cells": plan_cells,
+        "digest": matrix.plan_digest(plan_cells),
+        "balance": balance(plan_cells),
+        "claim_namespace": f"bplus-claim/{plan_id}",
+        "runs_subdir": f"runs/stage-b-plus/{plan_id}",
+        "evidence_subdir": f"evidence/stage-b-plus/{plan_id}",
+        "is_benchmark_sample": scope == SCOPE_FORMAL,
+        "nominal_token_capacity": len(plan_cells) * int(BUDGET["token_budget"]),
+    }
+
+
+def balance(
+    cell_list: list[dict[str, Any]], arm_ids: tuple[str, ...] | None = None
+) -> dict[str, Any]:
     """The properties this design promises, measured on the plan itself.
 
     ``each_arm_in_each_round`` is deliberately **not** promised: with four arms and three tasks a
@@ -389,22 +607,31 @@ def balance(cell_list: list[dict[str, Any]]) -> dict[str, Any]:
     repetition and that no arm is systematically earlier.
     """
 
+    arm_ids = tuple(arm_ids) if arm_ids is not None else tuple(
+        dict.fromkeys(cell["arm_id"] for cell in cell_list)
+    )
+    task_ids = tuple(dict.fromkeys(cell["task_id"] for cell in cell_list))
     per_task_arm: dict[tuple[str, str], int] = {}
     for cell in cell_list:
         key = (cell["task_id"], cell["arm_id"])
         per_task_arm[key] = per_task_arm.get(key, 0) + 1
-    counts = {arm: sum(1 for cell in cell_list if cell["arm_id"] == arm) for arm in ARM_IDS}
+    counts = {arm: sum(1 for cell in cell_list if cell["arm_id"] == arm) for arm in arm_ids}
+    per_repetition = len(cell_list) // max(len(arm_ids) * len(task_ids), 1)
     first_arm: dict[int, str] = {}
     for cell in cell_list:
         first_arm.setdefault(cell["repetition"], cell["arm_id"])
     distinct = len(set(first_arm.values())) == len(first_arm) if len(first_arm) > 1 else True
     return {
         "cells": len(cell_list),
+        "arms": list(arm_ids),
+        "tasks": list(task_ids),
         "each_task_meets_each_arm": all(
-            per_task_arm.get((task, arm)) == int(BUDGET["repetitions"])
-            for task in TASK_IDS
-            for arm in ARM_IDS
+            per_task_arm.get((task, arm)) == per_repetition
+            for task in task_ids
+            for arm in arm_ids
         ),
+        "each_arm_exactly_once_per_task": len(cell_list) == len(arm_ids) * len(task_ids)
+        * per_repetition,
         "every_arm_run_equally_often": len(set(counts.values())) == 1,
         "arm_cell_counts": counts,
         "first_arm_by_repetition": first_arm,
@@ -454,7 +681,10 @@ def arm_record(arm: Arm) -> dict[str, Any]:
         "profile_id": arm.profile_id,
         "worker_profiles": [arm.profile_id],
         "exposure": arm.exposure,
+        "exposure_term": EXPOSURE_TERMS[arm.exposure]["label"],
         "description": arm.description,
+        "is_control": arm.is_control,
+        "in_formal_matrix": arm.arm_id in FORMAL_ARM_IDS,
         "child_write_grants": "per task write_scope" if arm.profile_id == CODING else "none",
         "budget": dict(BUDGET),
     }
@@ -465,11 +695,11 @@ def protocol_document() -> dict[str, Any]:
 
     p3 = p3_text()
     bplus, removed = remove_capability_section(p3)
-    cell_list = cells()
     return {
         "stage": STAGE_ID,
         "protocol_version": PROTOCOL_VERSION,
         "supersedes": SUPERSEDES,
+        "revision": dict(REVISION),
         "does_not_modify": list(DOES_NOT_MODIFY),
         "prompts": {
             "p3-literal": {
@@ -493,6 +723,8 @@ def protocol_document() -> dict[str, Any]:
             "selected": "p3-bplus",
         },
         "arms": [arm_record(arm) for arm in ARMS],
+        "exposure_terms": {key: dict(value) for key, value in EXPOSURE_TERMS.items()},
+        "coupling_disclosure": [dict(item) for item in COUPLING_DISCLOSURE],
         "tasks": [task_record(task) for task in TASKS],
         "structures": [task.family for task in TASKS],
         "run_config": dict(BUDGET),
@@ -502,12 +734,9 @@ def protocol_document() -> dict[str, Any]:
         "primary_metrics": [dict(item) for item in PRIMARY_METRICS],
         "context_metrics": list(CONTEXT_METRICS),
         "interpretation": [dict(item) for item in INTERPRETATION],
-        "plan": {
-            "seed": BUDGET["seed"],
-            "repetitions": BUDGET["repetitions"],
-            "cells": cell_list,
-            "digest": matrix.plan_digest(cell_list),
-            "balance": balance(cell_list),
+        "plans": {
+            plan["plan_id"]: plan
+            for plan in (scope_plan(SCOPE_CANARY), scope_plan(SCOPE_FORMAL))
         },
         "authorization": {
             "state": "PENDING_OWNER_APPROVAL",
@@ -543,7 +772,7 @@ def validate(document: dict[str, Any]) -> list[str]:
 
     arms = document.get("arms") or []
     if [item.get("arm_id") for item in arms] != list(ARM_IDS):
-        problems.append("arms are not C0..C3")
+        problems.append(f"arms are not {list(ARM_IDS)}")
     for arm in arms:
         if arm.get("exposure") not in EXPOSURES:
             problems.append(f"{arm.get('arm_id')} has an unknown exposure level")
@@ -551,9 +780,16 @@ def validate(document: dict[str, Any]) -> list[str]:
             problems.append(f"{arm.get('arm_id')} offers an unregistered profile")
         if arm.get("budget") != dict(BUDGET):
             problems.append(f"{arm.get('arm_id')} does not share the frozen budget")
+        if arm.get("is_control") and arm.get("in_formal_matrix"):
+            problems.append(f"{arm.get('arm_id')} is a control arm inside the formal matrix")
     pairs = {(arm.get("capability"), arm.get("exposure")) for arm in arms}
     if len(pairs) != len(arms):
-        problems.append("the four arms do not cross capability with exposure exactly once")
+        problems.append("the six arms do not cross capability with exposure exactly once")
+    if {arm.get("exposure") for arm in arms if not arm.get("is_control")} != {
+        "native",
+        "card",
+    }:
+        problems.append("the four formal arms do not cross native with card")
 
     tasks = document.get("tasks") or []
     if [item.get("task_id") for item in tasks] != list(TASK_IDS):
@@ -572,21 +808,51 @@ def validate(document: dict[str, Any]) -> list[str]:
             if not any(str(deliverable).startswith(item + "/") for item in scope):
                 problems.append(f"{deliverable} is outside the declared write scope")
 
-    plan = document.get("plan") or {}
-    cell_list = plan.get("cells") or []
-    expected = len(ARM_IDS) * len(TASK_IDS) * int(BUDGET["repetitions"])
+    plans = document.get("plans") or {}
+    if set(plans) != {CANARY_PLAN_ID, FORMAL_PLAN_ID}:
+        problems.append("the document does not carry exactly the canary and formal plans")
+
+    canary = plans.get(CANARY_PLAN_ID) or {}
+    canary_cells = canary.get("cells") or []
+    if canary.get("scope") != SCOPE_CANARY or canary.get("plan_id") != CANARY_PLAN_ID:
+        problems.append("the canary plan is not marked CANARY_ONLY")
+    if len(canary_cells) != len(ARM_IDS):
+        problems.append(f"the canary has {len(canary_cells)} cells, expected {len(ARM_IDS)}")
+    if sorted(cell.get("arm_id") for cell in canary_cells) != sorted(ARM_IDS):
+        problems.append("the canary does not run each arm exactly once")
+    if len({cell.get("cell_id") for cell in canary_cells}) != len(canary_cells):
+        problems.append("canary cell ids are not unique")
+    if any(cell.get("is_benchmark_sample") is not False for cell in canary_cells):
+        problems.append("a canary cell is marked as a benchmark sample")
+    if len({cell.get("task_id") for cell in canary_cells}) != 1:
+        problems.append("the canary uses more than one task")
+    if {cell.get("repetition") for cell in canary_cells} != {1}:
+        problems.append("the canary is not a single repetition")
+    if canary.get("digest") != matrix.plan_digest(canary_cells):
+        problems.append("canary plan digest does not match its cells")
+
+    formal = plans.get(FORMAL_PLAN_ID) or {}
+    cell_list = formal.get("cells") or []
+    expected = len(FORMAL_ARM_IDS) * len(TASK_IDS) * int(BUDGET["repetitions"])
+    if formal.get("scope") != SCOPE_FORMAL or formal.get("plan_id") != FORMAL_PLAN_ID:
+        problems.append("the formal plan is not marked FORMAL_MATRIX_ONLY")
     if len(cell_list) != expected:
-        problems.append(f"plan has {len(cell_list)} cells, expected {expected}")
+        problems.append(f"formal plan has {len(cell_list)} cells, expected {expected}")
     if len({cell["cell_id"] for cell in cell_list}) != len(cell_list):
         problems.append("cell ids are not unique")
-    if plan.get("digest") != matrix.plan_digest(cell_list):
+    if {cell.get("arm_id") for cell in cell_list} != set(FORMAL_ARM_IDS):
+        problems.append("the formal plan is not the four-arm design")
+    if formal.get("digest") != matrix.plan_digest(cell_list):
         problems.append("plan digest does not match its cells")
-    plan_balance = plan.get("balance") or {}
+    plan_balance = formal.get("balance") or {}
     for key in ("each_task_meets_each_arm", "every_arm_run_equally_often"):
         if not plan_balance.get(key):
             problems.append(f"plan is not balanced: {key}")
     if not plan_balance.get("first_arm_differs_across_repetitions"):
         problems.append("the same arm opens both repetitions")
+    canary_ids = {cell.get("cell_id") for cell in canary_cells}
+    if canary_ids & {cell.get("cell_id") for cell in cell_list}:
+        problems.append("a canary cell id collides with a formal cell id")
 
     config = document.get("run_config") or {}
     if config.get("token_budget") != 500_000:
@@ -614,6 +880,62 @@ def validate(document: dict[str, Any]) -> list[str]:
     return problems
 
 
+def delegation_config() -> Any:
+    """The one delegation configuration every B+ cell uses.
+
+    Centralised here so a capture, a probe and a dispatch cannot drift apart on a single limit.
+    """
+
+    from atlasos.delegation.config import DelegationConfig
+
+    return DelegationConfig(
+        enabled=True,
+        max_parallel_children=int(BUDGET["max_concurrent_children"]),
+        max_children_per_call=int(BUDGET["max_children_per_call"]),
+        max_delegation_rounds=int(BUDGET["max_delegation_rounds"]),
+        child_timeout_seconds=180.0,
+        child_max_turns=int(BUDGET["child_max_turns"]),
+        result_preview_chars=int(BUDGET["result_preview_chars"]),
+    )
+
+
+def main_prompt_spec() -> Any:
+    from atlasos.app.main_driven import MainPromptSpec
+
+    return MainPromptSpec(version=prompt_version("p3-bplus"), text=prompt_text("p3-bplus"))
+
+
+def acceptance_spec(task: closure2.Task) -> Any:
+    """The Host contract for one cell: the deliverables must exist, and the Host checks them.
+
+    Static only. The hidden oracle is *not* the acceptance command: it is run by the Host after the
+    run, on the exported workspace, and its verdict is recorded separately so a self-graded Main
+    cannot be mistaken for a verified one.
+    """
+
+    from atlasos.app.goal_verification import GoalAcceptance
+    from atlasos.verification.models import CheckKind, CheckSpec, VerificationSpec
+
+    checks = tuple(
+        CheckSpec(
+            check_id=f"present-{index}",
+            category="PRESENCE",
+            kind=CheckKind.FILE_PRESENT,
+            artifact=artifact,
+        )
+        for index, artifact in enumerate(sorted(task.deliverables), start=1)
+    )
+    spec = VerificationSpec(
+        spec_id=f"bplus-{task.task_id}",
+        version=PROTOCOL_VERSION,
+        deliverable_type="python-source",
+        required_artifacts=tuple(sorted(task.deliverables)),
+        checks=checks,
+        notes="Stage B+ acceptance: the deliverables exist. Correctness is the Host oracle's job.",
+    ).with_declared_digest()
+    return GoalAcceptance(spec=spec, dynamic_command=None, require_dynamic=False)
+
+
 def write_document(document: dict[str, Any], path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(document, indent=2, sort_keys=False) + "\n", encoding="utf-8")
@@ -627,11 +949,18 @@ __all__ = [
     "Arm",
     "BPLUS_VERSION",
     "BUDGET",
+    "CANARY_PLAN_ID",
+    "CANARY_TASK_IDS",
     "CODING",
     "CONTEXT_METRICS",
+    "CONTROL_ARM_IDS",
+    "COUPLING_DISCLOSURE",
     "DELEGATION_LEVELS",
     "EXPOSURES",
+    "EXPOSURE_TERMS",
     "FORBIDDEN_GOAL_PHRASES",
+    "FORMAL_ARM_IDS",
+    "FORMAL_PLAN_ID",
     "GOAL_OF",
     "INTERPRETATION",
     "P3_DIGEST",
@@ -641,20 +970,29 @@ __all__ = [
     "PROPOSAL_STATES",
     "PROTOCOL_VERSION",
     "RESEARCH",
+    "REVISION",
     "S06_REFERENCE",
+    "SCOPES",
+    "SCOPE_CANARY",
+    "SCOPE_FORMAL",
     "STAGE_ID",
     "STRUCTURE_OF",
     "TASKS",
     "TASKS_BY_ID",
     "TASK_IDS",
     "TASK_WRITE_SCOPE",
+    "acceptance_spec",
     "balance",
+    "canary_cells",
     "cells",
+    "delegation_config",
+    "main_prompt_spec",
     "p3_text",
     "prompt_text",
     "prompt_version",
     "protocol_document",
     "remove_capability_section",
+    "scope_plan",
     "task_record",
     "validate",
     "write_document",

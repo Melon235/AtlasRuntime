@@ -1,208 +1,214 @@
 {
   "stage": "B+",
-  "protocol_version": "bplus-1.0.0",
-  "protocol_digest": "sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5",
-  "protocol_path": "experiments/stage_b_plus/protocol.json",
-  "plan_path": "experiments/stage_b_plus/plan.json",
+  "protocol_version": "bplus-2.0.0",
+  "protocol_digest": "sha256:c7dad972f4882e5808dbcaa47f4b4532e101f7e2e44d9e1c90e0eb2c14620067",
+  "head_at_build": "542c1c4a76937ca24088ebfd87e2ec451e4ddde2",
+  "executor_digest": "sha256:917d95e46b1575bb6da44427c43b48f68ee8af1ded59e3662758efa951f49590",
+  "plans": {
+    "stage-b-plus-diagnostic-canary-v1": {
+      "scope": "CANARY_ONLY",
+      "cells": 6,
+      "digest": "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575"
+    },
+    "stage-b-plus-formal-matrix-v1": {
+      "scope": "FORMAL_MATRIX_ONLY",
+      "cells": 24,
+      "digest": "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72"
+    }
+  },
   "ok": true,
   "checks": [
     {
-      "check_id": "J01_four_arm_requests_match_design",
+      "check_id": "L01_canary_identity_unique",
       "ok": true,
-      "detail": "one system prompt across the arms, four distinct delegate_tasks descriptions, and no other field differs between arms",
-      "system_prompt_digests": [
-        "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca"
-      ],
-      "description_digests": {
-        "C0": "sha256:8a801b21a0ca782a737907b61e1bd990e26910b2ca5c490c6b68c6704fe899fc",
-        "C1": "sha256:3f364f23fcc16ff63587ba1454eb1d94fff275ad4f0411bbfa7294f23a470303",
-        "C2": "sha256:9fc86fd3d6a61a537f0f516fca9aeab0d432ab66c8dc1f6054b75eedaa6c180a",
-        "C3": "sha256:365593c9598dbfba8249603d61fa848b50aa089f20b99332fc7de908bc5d0b0f"
-      },
-      "changed_fields": {
-        "C0->C1": [
-          "delegate_tasks.description_chars",
-          "delegate_tasks.description_digest",
-          "tools.chars",
-          "tools.digest"
-        ],
-        "C0->C2": [
-          "delegate_tasks.description_chars",
-          "delegate_tasks.description_digest",
-          "tools.chars",
-          "tools.digest"
-        ],
-        "C0->C3": [
-          "delegate_tasks.description_chars",
-          "delegate_tasks.description_digest",
-          "tools.chars",
-          "tools.digest"
-        ],
-        "C1->C2": [
-          "delegate_tasks.description_chars",
-          "delegate_tasks.description_digest",
-          "tools.chars",
-          "tools.digest"
-        ],
-        "C1->C3": [
-          "delegate_tasks.description_chars",
-          "delegate_tasks.description_digest",
-          "tools.chars",
-          "tools.digest"
-        ],
-        "C2->C3": [
-          "delegate_tasks.description_chars",
-          "delegate_tasks.description_digest",
-          "tools.chars",
-          "tools.digest"
-        ]
-      },
-      "unchanged_across_arms": [
-        "system_prompt.digest",
-        "delegate_tasks.schema_digest",
-        "delegate_tasks.profile_default",
-        "first_user_turn.digest"
+      "detail": "six cells, six ids, each arm once on P1, none marked as a benchmark sample",
+      "plan_id": "stage-b-plus-diagnostic-canary-v1",
+      "plan_digest": "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575",
+      "cell_ids": [
+        "canary.closure2-pipeline-migration.C0.r1",
+        "canary.closure2-pipeline-migration.C1.r1",
+        "canary.closure2-pipeline-migration.C2.r1",
+        "canary.closure2-pipeline-migration.C3.r1",
+        "canary.closure2-pipeline-migration.C4.r1",
+        "canary.closure2-pipeline-migration.C5.r1"
       ]
     },
     {
-      "check_id": "J02_worker_capability_matches_its_description",
+      "check_id": "L02_six_provider_inputs_captured",
       "ok": true,
-      "detail": "every disclosed tool set equals the trusted profile's",
-      "profiles": {
+      "detail": "every arm produced a captured request without a provider being built",
+      "per_arm": {
         "C0": {
-          "level": "native",
-          "levels": [
-            "none",
-            "native",
-            "card"
-          ],
-          "chars": 1613,
-          "digest": "sha256:8a801b21a0ca782a737907b61e1bd990e26910b2ca5c490c6b68c6704fe899fc",
-          "base_chars": 819,
-          "base_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
-          "appended_chars": 794,
-          "profiles": [
-            "research_worker"
-          ],
-          "cards": [
-            {
-              "role_id": "research_worker",
-              "digest": "sha256:22f3e86bf00fdad3429f035718f5c1b12136b1fcf74dc0bd0d04b44124be6b00",
-              "read_only": true,
-              "max_turns": 20
-            }
-          ],
-          "authority": "disclosure_only"
+          "system_prompt": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+          "tools": "sha256:53313d319f5e3cf6391c015ff610e4edfba9cf21be279338c2bd2b1fdb64ad71",
+          "description": "sha256:8a801b21a0ca782a737907b61e1bd990e26910b2ca5c490c6b68c6704fe899fc",
+          "description_chars": 1613
         },
         "C1": {
-          "level": "card",
-          "levels": [
-            "none",
-            "native",
-            "card"
-          ],
-          "chars": 3030,
-          "digest": "sha256:3f364f23fcc16ff63587ba1454eb1d94fff275ad4f0411bbfa7294f23a470303",
-          "base_chars": 819,
-          "base_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
-          "appended_chars": 2211,
-          "profiles": [
-            "research_worker"
-          ],
-          "cards": [
-            {
-              "role_id": "research_worker",
-              "digest": "sha256:22f3e86bf00fdad3429f035718f5c1b12136b1fcf74dc0bd0d04b44124be6b00",
-              "read_only": true,
-              "max_turns": 20
-            }
-          ],
-          "authority": "disclosure_only"
+          "system_prompt": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+          "tools": "sha256:bad34d0b29e8210052e4cba77e61024f749150c5b4fe0b283dac52448f8ac34c",
+          "description": "sha256:3f364f23fcc16ff63587ba1454eb1d94fff275ad4f0411bbfa7294f23a470303",
+          "description_chars": 3030
         },
         "C2": {
-          "level": "native",
-          "levels": [
-            "none",
-            "native",
-            "card"
-          ],
-          "chars": 1805,
-          "digest": "sha256:9fc86fd3d6a61a537f0f516fca9aeab0d432ab66c8dc1f6054b75eedaa6c180a",
-          "base_chars": 819,
-          "base_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
-          "appended_chars": 986,
-          "profiles": [
-            "coding_worker"
-          ],
-          "cards": [
-            {
-              "role_id": "coding_worker",
-              "digest": "sha256:25bd76308e43594c7177e50a8b8d52cf680b259e83cbafaa7a72327695971a8a",
-              "read_only": false,
-              "max_turns": 20
-            }
-          ],
-          "authority": "disclosure_only"
+          "system_prompt": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+          "tools": "sha256:f278de94cfbbab7e9f26fbe683fd808964131289ef11c46d4136c2e1d4ae4e31",
+          "description": "sha256:9fc86fd3d6a61a537f0f516fca9aeab0d432ab66c8dc1f6054b75eedaa6c180a",
+          "description_chars": 1805
         },
         "C3": {
-          "level": "card",
-          "levels": [
-            "none",
-            "native",
-            "card"
-          ],
-          "chars": 3336,
-          "digest": "sha256:365593c9598dbfba8249603d61fa848b50aa089f20b99332fc7de908bc5d0b0f",
-          "base_chars": 819,
-          "base_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
-          "appended_chars": 2517,
-          "profiles": [
-            "coding_worker"
-          ],
-          "cards": [
-            {
-              "role_id": "coding_worker",
-              "digest": "sha256:25bd76308e43594c7177e50a8b8d52cf680b259e83cbafaa7a72327695971a8a",
-              "read_only": false,
-              "max_turns": 20
-            }
-          ],
-          "authority": "disclosure_only"
+          "system_prompt": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+          "tools": "sha256:6e8eef6805526384d905339f57645191828dc5503a817f1f31dfb320a18547c0",
+          "description": "sha256:365593c9598dbfba8249603d61fa848b50aa089f20b99332fc7de908bc5d0b0f",
+          "description_chars": 3336
+        },
+        "C4": {
+          "system_prompt": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+          "tools": "sha256:ab9d2551c71d0e5ef02e3d2af8a78b9c9bbf0c2755fd8e66ec52edf53e75ecca",
+          "description": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+          "description_chars": 819
+        },
+        "C5": {
+          "system_prompt": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+          "tools": "sha256:ab9d2551c71d0e5ef02e3d2af8a78b9c9bbf0c2755fd8e66ec52edf53e75ecca",
+          "description": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+          "description_chars": 819
         }
       }
     },
     {
-      "check_id": "J03_research_worker_has_no_write_route",
+      "check_id": "L03_control_arms_keep_shipped_description",
       "ok": true,
-      "detail": "a declared write is refused before a worker starts",
-      "checks": [
-        {
-          "check": "main_has_delegate_tasks",
-          "ok": true,
-          "detail": "surface=['bash', 'delegate_read', 'delegate_tasks', 'dispatch_action', 'file_edit', 'file_read', 'file_write', 'grep', 'list_files', 'tool_search']"
+      "detail": "C4 and C5 disclose nothing beyond the shipped text; no coding hint was smuggled in",
+      "shipped_chars": 819,
+      "shipped_digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+      "controls": {
+        "C4": {
+          "digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+          "chars": 819
         },
-        {
-          "check": "router_refused_declared_write",
-          "ok": true,
-          "detail": "route=direct reasons=['WRITE_SCOPE_NOT_GRANTED']"
-        },
-        {
-          "check": "no_worker_started",
-          "ok": true,
-          "detail": "children=0"
-        },
-        {
-          "check": "workspace_untouched_by_worker",
-          "ok": true,
-          "detail": "package/a.py unchanged"
+        "C5": {
+          "digest": "sha256:387e2594d382581276d5e47fa07c51226ba7127f508ea993bc7191f0cb40c61a",
+          "chars": 819
         }
-      ]
+      }
     },
     {
-      "check_id": "J04_coding_worker_completes_a_granted_task",
+      "check_id": "L04_disclosure_matches_profile",
       "ok": true,
-      "detail": "two admitted children wrote inside their declared paths and completed",
-      "checks": [
+      "detail": "every disclosed arm names its own profile's tools",
+      "per_arm": {
+        "C0": {
+          "profile": "research_worker",
+          "exposure": "native",
+          "allowed": [
+            "dispatch_action",
+            "file_read",
+            "grep",
+            "list_files",
+            "tool_search"
+          ],
+          "read_only": true,
+          "max_turns": 20
+        },
+        "C1": {
+          "profile": "research_worker",
+          "exposure": "card",
+          "allowed": [
+            "dispatch_action",
+            "file_read",
+            "grep",
+            "list_files",
+            "tool_search"
+          ],
+          "read_only": true,
+          "max_turns": 20
+        },
+        "C2": {
+          "profile": "coding_worker",
+          "exposure": "native",
+          "allowed": [
+            "bash",
+            "dispatch_action",
+            "file_edit",
+            "file_read",
+            "file_write",
+            "grep",
+            "list_files",
+            "tool_search"
+          ],
+          "read_only": false,
+          "max_turns": 20
+        },
+        "C3": {
+          "profile": "coding_worker",
+          "exposure": "card",
+          "allowed": [
+            "bash",
+            "dispatch_action",
+            "file_edit",
+            "file_read",
+            "file_write",
+            "grep",
+            "list_files",
+            "tool_search"
+          ],
+          "read_only": false,
+          "max_turns": 20
+        },
+        "C4": {
+          "profile": "research_worker",
+          "exposure": "none",
+          "allowed": [
+            "dispatch_action",
+            "file_read",
+            "grep",
+            "list_files",
+            "tool_search"
+          ],
+          "read_only": true,
+          "max_turns": 20
+        },
+        "C5": {
+          "profile": "coding_worker",
+          "exposure": "none",
+          "allowed": [
+            "bash",
+            "dispatch_action",
+            "file_edit",
+            "file_read",
+            "file_write",
+            "grep",
+            "list_files",
+            "tool_search"
+          ],
+          "read_only": false,
+          "max_turns": 20
+        }
+      }
+    },
+    {
+      "check_id": "L05_effective_worker_turns",
+      "ok": true,
+      "detail": "the run-level cap replaced the profile cap in every arm, and the override held",
+      "effective": {
+        "C0": 20,
+        "C1": 20,
+        "C2": 20,
+        "C3": 20,
+        "C4": 20,
+        "C5": 20
+      },
+      "profile_caps": {
+        "research_worker": 6,
+        "coding_worker": 8
+      }
+    },
+    {
+      "check_id": "L06_coding_worker_permissions",
+      "ok": true,
+      "detail": "a coding pair writes inside its grant and is refused outside it; a research write is refused before a worker starts",
+      "coding_checks": [
         {
           "check": "main_has_delegate_tasks",
           "ok": true,
@@ -266,9 +272,17 @@
       ]
     },
     {
-      "check_id": "J05_main_driven_path_derives_workers",
+      "check_id": "L07_research_overreach_blocked",
       "ok": true,
-      "detail": "children were constructed by the real factory and ran their own loops",
+      "detail": "WRITE_SCOPE_NOT_GRANTED is raised at the router, and file_write never reaches a research child",
+      "reason": [
+        "WRITE_SCOPE_NOT_GRANTED"
+      ]
+    },
+    {
+      "check_id": "L08_dynamic_derivation",
+      "ok": true,
+      "detail": "two children were constructed by the real factory and ran their own loops",
       "children": [
         {
           "key": "alpha",
@@ -295,18 +309,7 @@
       ]
     },
     {
-      "check_id": "J06_router_and_ownership_gates_remain_effective",
-      "ok": true,
-      "detail": "declared write refused, shared write refused, single write task refused, and an unoffered tool never executed",
-      "probes": {
-        "research_write": true,
-        "shared_write": true,
-        "single_coding": true,
-        "research_tool_escape": true
-      }
-    },
-    {
-      "check_id": "J07_handoff_reaches_the_main",
+      "check_id": "L09_handoff_reaches_main",
       "ok": true,
       "detail": "the Main read a child result through delegate.read",
       "handoff_reads": {
@@ -316,160 +319,195 @@
       }
     },
     {
-      "check_id": "J08_four_arms_share_one_budget",
+      "check_id": "L10_main_continues",
       "ok": true,
-      "detail": "one child turn limit and one run configuration across the four arms",
-      "child_max_turns": {
-        "C0": 20,
-        "C1": 20,
-        "C2": 20,
-        "C3": 20
+      "detail": "the Main edited after the handoff"
+    },
+    {
+      "check_id": "L11_usage_reconciles_main_and_worker",
+      "ok": true,
+      "detail": "one host-mode run_goal for canary.closure2-pipeline-migration.C2.r1: exposure='native' profiles=['coding_worker'] usage_ok=True status='succeeded'",
+      "cell_id": "canary.closure2-pipeline-migration.C2.r1",
+      "arm": {
+        "profile": "coding_worker",
+        "exposure": "native"
       },
-      "run_config": {
-        "provider": "deepseek",
-        "model": "deepseek-chat",
-        "main_max_turns": 20,
-        "child_max_turns": 20,
-        "worker_max_turns": 20,
-        "max_concurrent_children": 2,
-        "max_children_per_call": 2,
-        "max_delegation_rounds": 3,
-        "token_budget": 500000,
-        "result_preview_chars": 900,
-        "public_test_max_calls": 4,
-        "tool_error_mode": "corrected",
-        "network": "none",
-        "cpu": 1,
-        "memory_gib": 1.0,
-        "sandbox_provider": "opensandbox",
-        "image": "atlas-uat-python:3.12",
-        "router_policy": "m.1.0",
-        "sandbox_timeout_minutes": 30,
-        "matrix_concurrency": 1,
-        "repetitions": 2,
-        "seed": 20261119,
-        "sampling_seed_supported": false
-      }
-    },
-    {
-      "check_id": "J09_usage_includes_main_and_children",
-      "ok": true,
-      "detail": "system_total_tokens is Main plus child prompt and completion, and is not a Main-only number",
-      "metrics": {
-        "main_cumulative_input_tokens": 40,
-        "main_completion_tokens": 20,
-        "child_total_prompt_tokens": 80,
-        "child_completion_tokens": 40,
-        "system_total_tokens": 180
-      }
-    },
-    {
-      "check_id": "J10_l1_l6_evidence_recoverable",
-      "ok": true,
-      "detail": "the Stage B analyzer reconstructs all six levels from a probe run directory",
-      "levels": {
-        "L1_proposal": true,
-        "L2_admission": true,
-        "L3_worker_completion": true,
-        "L4_handoff_delivery": true,
-        "L5_main_continuation": true,
-        "L6_goal_correctness": false
+      "applied_exposure": "native",
+      "applied_profiles": [
+        "coding_worker"
+      ],
+      "effective_max_turns": 20,
+      "usage": {
+        "main_cumulative_input_tokens": 10,
+        "main_completion_tokens": 5,
+        "child_total_prompt_tokens": 0,
+        "child_completion_tokens": 0,
+        "system_total_tokens": 15
       },
-      "level_reached": 5
+      "sandbox_present": false,
+      "note": "host mode: no sandbox evidence, so the gate stops this cell by design"
     },
     {
-      "check_id": "J11_24_unique_cell_identities",
+      "check_id": "L12_pending_authorization_refuses",
       "ok": true,
-      "detail": "24 cells, 24 distinct ids, four arms x three tasks x two repetitions",
-      "first_three": [
-        "closure2-pipeline-migration.C0.r1",
-        "closure2-state-machine-refactor.C1.r1",
-        "closure2-plugin-migration.C2.r1"
-      ]
-    },
-    {
-      "check_id": "J12_unsigned_authorization_refuses_execution",
-      "ok": true,
-      "detail": "the pending record is refused, and a fully populated record bound to another digest is refused too",
+      "detail": "the pending record is refused for missing signature, identity and cost fields",
       "problems": [
         "status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
-        "record has no approver",
-        "record has no approval commit",
-        "record has no approval timestamp",
-        "record has no cost ceiling"
-      ],
-      "forged_problems": [
-        "record names 'sha256:0000000000000000000000000000000000000000000000000000000000000000', contract is 'sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5'"
+        "authorizes_live_execution is not true",
+        "approved_by is empty",
+        "approved_at is empty",
+        "owner_statement is empty",
+        "approval_provenance is empty",
+        "reviewed_head is None, actual head is '542c1c4a76937ca24088ebfd87e2ec451e4ddde2'",
+        "execution_head is None, actual head is '542c1c4a76937ca24088ebfd87e2ec451e4ddde2'",
+        "cost_stop_usd is None; it must be finite and positive",
+        "per_cell_cost_stop_usd is None; it must be finite and positive",
+        "approval_provenance is empty"
       ]
     },
     {
-      "check_id": "J13_stage_b_freeze_1_6_unchanged",
+      "check_id": "L13_head_or_digest_mismatch_refuses",
       "ok": true,
-      "detail": "experiments/stage_benchmark/execution/freeze-1.6.json is unchanged against e0bc2cc; raw sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45, LF sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45, CRLF sha256:004d4b776f944ea0a6c21b8f019eeed311527fb5198c0a7b10ba079b407dbdbc; declared content digest None; 9677 bytes"
+      "detail": "a signed canary record is refused when the head or the plan digest moves",
+      "head_problems": [
+        "reviewed_head is '542c1c4a76937ca24088ebfd87e2ec451e4ddde2', actual head is '0000000000000000000000000000000000000000'",
+        "execution_head is '542c1c4a76937ca24088ebfd87e2ec451e4ddde2', actual head is '0000000000000000000000000000000000000000'"
+      ],
+      "digest_problems": [
+        "plan_digest is 'sha256:0000000000000000000000000000000000000000000000000000000000000000', expected 'sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575'"
+      ]
     },
     {
-      "check_id": "J14_closure2_s07_s08_unaffected",
+      "check_id": "L14_canary_scope_isolation",
       "ok": true,
-      "detail": "3 files changed since e0bc2cc, none of them protected"
+      "detail": "a canary signature cannot dispatch the formal matrix and vice versa",
+      "problems": {
+        "canary_authority_cannot_run_formal": [
+          "record scope is 'CANARY_ONLY'; this plan is 'FORMAL_MATRIX_ONLY'",
+          "record plan_id is 'stage-b-plus-diagnostic-canary-v1', not 'stage-b-plus-formal-matrix-v1'",
+          "plan_digest is 'sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
+        ],
+        "formal_authority_cannot_run_canary": [
+          "record scope is 'FORMAL_MATRIX_ONLY'; this plan is 'CANARY_ONLY'",
+          "record plan_id is 'stage-b-plus-formal-matrix-v1', not 'stage-b-plus-diagnostic-canary-v1'",
+          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575'"
+        ]
+      }
+    },
+    {
+      "check_id": "L15_formal_scope_isolation",
+      "ok": true,
+      "detail": "the reverse direction of L14, reported separately because it has its own record",
+      "problems": {
+        "canary_authority_cannot_run_formal": [
+          "record scope is 'CANARY_ONLY'; this plan is 'FORMAL_MATRIX_ONLY'",
+          "record plan_id is 'stage-b-plus-diagnostic-canary-v1', not 'stage-b-plus-formal-matrix-v1'",
+          "plan_digest is 'sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575', expected 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72'"
+        ],
+        "formal_authority_cannot_run_canary": [
+          "record scope is 'FORMAL_MATRIX_ONLY'; this plan is 'CANARY_ONLY'",
+          "record plan_id is 'stage-b-plus-formal-matrix-v1', not 'stage-b-plus-diagnostic-canary-v1'",
+          "plan_digest is 'sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72', expected 'sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575'"
+        ]
+      }
+    },
+    {
+      "check_id": "L16_clean_matrix_completes",
+      "ok": true,
+      "detail": "six synthetic cells pass the gate and the matrix reports complete",
+      "report": {
+        "cells_started": 6,
+        "cells_passed": 6,
+        "stop_reason": "NONE"
+      }
+    },
+    {
+      "check_id": "L17_consumed_claim_refuses",
+      "ok": true,
+      "detail": "a second dispatch on the same evidence root is refused before any cell starts",
+      "problems": [
+        "the dispatch claim for this plan is already consumed"
+      ]
+    },
+    {
+      "check_id": "L18_measured_failure_continues",
+      "ok": true,
+      "detail": "a cell that failed its oracle does not stop the matrix",
+      "started": 6
+    },
+    {
+      "check_id": "L19_sandbox_cleanup_failure_stops",
+      "ok": true,
+      "detail": "a retained sandbox on the final cell still produces a stopped matrix",
+      "stop_reason": "SANDBOX_CLEANUP_FAILURE",
+      "stopped_at": 6
+    },
+    {
+      "check_id": "L20_exception_stops",
+      "ok": true,
+      "detail": "a transport exception is a provider failure, not a measured goal failure",
+      "stop_reason": "PROVIDER_FAILURE"
+    },
+    {
+      "check_id": "L21_unknown_usage_stops",
+      "ok": true,
+      "detail": "a counter the provider did not report stops the matrix instead of being written as 0",
+      "stop_reason": "UNKNOWN_OR_ILLEGAL_USAGE"
+    },
+    {
+      "check_id": "L22_missing_evidence_stops",
+      "ok": true,
+      "detail": "a cell without a readable run directory is not scored as a pass",
+      "stop_reason": "MISSING_OR_CORRUPT_EVIDENCE"
+    },
+    {
+      "check_id": "L23_cost_stop_stops_dispatch",
+      "ok": true,
+      "detail": "a cost stop below one cell's cost ends the matrix after that cell",
+      "stop_reason": "COST_STOP_REACHED",
+      "started": 1
+    },
+    {
+      "check_id": "L24_canary_excluded_from_formal_aggregate",
+      "ok": true,
+      "detail": "canary cells are marked as such and the report refuses to aggregate them",
+      "report_flag": false
     },
     {
       "check_id": "X01_contract_self_validates",
       "ok": true,
-      "detail": "the derived protocol document passes its own invariants",
+      "detail": "the derived protocol passes its own invariants",
       "problems": []
     },
     {
-      "check_id": "X02_capture_is_not_a_model_call",
+      "check_id": "X02_frozen_oracles_still_discriminate",
       "ok": true,
-      "detail": "every capture completed in one turn against a fake provider; no provider was built",
-      "statuses": {
-        "C0": "succeeded",
-        "C1": "succeeded",
-        "C2": "succeeded",
-        "C3": "succeeded"
-      }
+      "detail": "the reused Closure-2 oracles still fail the seed and pass the reference"
     },
     {
-      "check_id": "X03_reused_tasks_still_satisfiable",
+      "check_id": "X03_freeze_1_6_unchanged",
       "ok": true,
-      "detail": "the frozen Closure-2 oracle self-test still discriminates seed from reference on all three tasks",
-      "tasks": {
-        "closure2-pipeline-migration": {
-          "seed_hidden_fails": true,
-          "reference_hidden_passes": true
-        },
-        "closure2-plugin-migration": {
-          "seed_hidden_fails": true,
-          "reference_hidden_passes": true
-        },
-        "closure2-state-machine-refactor": {
-          "seed_hidden_fails": true,
-          "reference_hidden_passes": true
-        }
-      }
+      "detail": "experiments/stage_benchmark/execution/freeze-1.6.json is unchanged against e0bc2cc; raw sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45, LF sha256:73713095a6a852822dd7f96d39878f01b2ec115329d2934449089b171248fb45, CRLF sha256:004d4b776f944ea0a6c21b8f019eeed311527fb5198c0a7b10ba079b407dbdbc; declared content digest None"
+    },
+    {
+      "check_id": "X04_closure2_untouched",
+      "ok": true,
+      "detail": "27 files changed since e0bc2cc, none of them protected"
+    },
+    {
+      "check_id": "X05_executor_identity_is_derived",
+      "ok": true,
+      "detail": "the executor digest covers every file whose bytes decide what runs",
+      "executor_digest": "sha256:917d95e46b1575bb6da44427c43b48f68ee8af1ded59e3662758efa951f49590"
     }
   ],
   "summary": {
-    "total": 17,
-    "passed": 17,
+    "total": 29,
+    "passed": 29,
     "failed": []
   },
-  "authorization": {
-    "stage": "B+",
-    "protocol_version": "bplus-1.0.0",
-    "protocol_digest": "sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5",
-    "status": "PENDING_OWNER_APPROVAL",
-    "cells": 24,
-    "bound_head": null,
-    "approved_by": null,
-    "approval_commit": null,
-    "approved_at": null,
-    "cost_ceiling_usd": null,
-    "cumulative_stop_usd": null,
-    "canary_approved": false,
-    "authorizes_live_execution": false,
-    "reuses_s06_or_s08_balance": false,
-    "notes": "This record authorizes nothing. A live Stage B+ cell requires the Owner to fill every empty field, name this exact protocol digest and a head commit, and set both a cost ceiling and a cumulative stop."
-  },
-  "live_execution_authorized": false
+  "live_execution_authorized": false,
+  "real_model_calls": 0,
+  "real_sandboxes": 0,
+  "real_cells": 0
 }

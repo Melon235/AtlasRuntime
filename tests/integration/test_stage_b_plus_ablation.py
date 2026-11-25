@@ -5,8 +5,10 @@ What is asserted here, and why each assertion is the one that matters:
 * the candidate contract validates, and it *refuses* to look like a frozen document;
 * the B+ prompt is exactly P3 with one section removed, so the ablation's prompt change is a
   countable deletion rather than a rewrite;
-* the four arms differ in exactly one place on the wire — the ``delegate_tasks`` description — which
+* the arms differ in exactly one place on the wire (the ``delegate_tasks`` description), which
   is what makes the exposure factor separable from the prompt;
+* the two control arms keep the shipped description byte for byte, and are identical on the wire;
+* the formal matrix is byte-identical to its previous identity, and the canary is its own object;
 * a scripted coding delegation actually reaches admission, writes inside the grant, is refused
   outside it, hands a result back, and lets the Main continue;
 * a proposal for a profile the run does not offer is refused by the router, not silently run.
@@ -15,7 +17,7 @@ What is asserted here, and why each assertion is the one that matters:
 from __future__ import annotations
 
 import pytest
-from experiments.stage_b_plus import capture, contract, offline, probe
+from experiments.stage_b_plus import authority, capture, contract, executor, probe
 
 from atlasos.delegation.capability_card import REFERENCE_SURFACE, build_card
 from atlasos.delegation.tool import DEFAULT_DESCRIPTION
@@ -89,7 +91,15 @@ def test_every_arm_shares_one_budget() -> None:
         ("research", "card"),
         ("coding", "native"),
         ("coding", "card"),
+        ("research", "none"),
+        ("coding", "none"),
     }
+    # The formal matrix is the crossed four; the two no-disclosure arms are controls.
+    assert set(contract.FORMAL_ARM_IDS) == {"C0", "C1", "C2", "C3"}
+    assert set(contract.CONTROL_ARM_IDS) == {"C4", "C5"}
+    assert all(
+        arm["is_control"] is (arm["arm_id"] in contract.CONTROL_ARM_IDS) for arm in arms
+    )
 
 
 # -- prompt derivation --------------------------------------------------------------------------
@@ -130,13 +140,14 @@ def test_goals_carry_no_delegation_hint() -> None:
 # -- capture ------------------------------------------------------------------------------------
 
 
-def test_four_arm_requests_differ_only_in_the_delegate_description() -> None:
+def test_six_arm_requests_differ_only_in_the_delegate_description() -> None:
     results = [_arm_capture(arm) for arm in contract.ARMS]
     compare = capture.compare(results)
     assert len({item["fingerprint"]["system_prompt"]["digest"] for item in results}) == 1
+    # Five, not six: the two control arms carry the same shipped text, which is the point.
     assert len(
         {item["fingerprint"]["delegate_tasks"]["description_digest"] for item in results}
-    ) == 4
+    ) == 5
     allowed = {
         "tools.digest",
         "tools.chars",
@@ -147,10 +158,41 @@ def test_four_arm_requests_differ_only_in_the_delegate_description() -> None:
         assert set(fields) <= allowed, fields
 
 
+def test_control_arms_are_indistinguishable_on_the_wire() -> None:
+    """C4 and C5 differ in what the run accepts, not in what the Main reads.
+
+    That is a limitation of the control pair, not a bug: with no disclosure at all the two arms send
+    byte-identical requests, so ``C5 - C4`` can only reflect what the runtime does *after* the Main
+    calls the tool. Recorded as coupling disclosure ``X7``.
+    """
+
+    c4 = _arm_capture(contract.ARMS_BY_ID["C4"])["fingerprint"]["delegate_tasks"]
+    c5 = _arm_capture(contract.ARMS_BY_ID["C5"])["fingerprint"]["delegate_tasks"]
+    assert c4["description_digest"] == c5["description_digest"]
+    assert c4["description_chars"] == c5["description_chars"] == len(DEFAULT_DESCRIPTION)
+
+
+def test_the_formal_four_differ_only_in_the_delegate_description() -> None:
+    """The formal matrix is a subset, so its four arms keep the single-channel property."""
+
+    results = [_arm_capture(contract.ARMS_BY_ID[arm]) for arm in contract.FORMAL_ARM_IDS]
+    compare = capture.compare(results)
+    assert len(
+        {item["fingerprint"]["delegate_tasks"]["description_digest"] for item in results}
+    ) == 4
+    for fields in compare["pairwise_changed_fields"].values():
+        assert set(fields) <= {
+            "tools.digest",
+            "tools.chars",
+            "delegate_tasks.description_chars",
+            "delegate_tasks.description_digest",
+        }
+
+
 def test_capture_reports_the_schema_default_profile() -> None:
     """The wire schema defaults ``profile_id`` to one profile: the default is itself a statement."""
 
-    fingerprint = _arm_capture(contract.ARMS[0])["fingerprint"]
+    fingerprint = _arm_capture(contract.ARMS_BY_ID["C0"])["fingerprint"]
     assert fingerprint["delegate_tasks"]["profile_default"] == contract.RESEARCH
     assert fingerprint["delegate_tasks"]["profile_enum"] is None
 
@@ -162,6 +204,29 @@ def test_native_arm_exposure_is_not_the_shipped_description() -> None:
         DEFAULT_DESCRIPTION
     )
     assert result["session"]["delegation_controls"]["exposure"]["level"] == arm.exposure
+
+
+@pytest.mark.parametrize("arm_id", ["C4", "C5"])
+def test_control_arm_keeps_the_shipped_description(arm_id: str) -> None:
+    """A ``none`` arm must be the shipped bytes, so it cannot smuggle a capability hint in."""
+
+    arm = contract.ARMS_BY_ID[arm_id]
+    result = _arm_capture(arm)
+    block = result["fingerprint"]["delegate_tasks"]
+    assert block["description_digest"] == capture.digest_text(DEFAULT_DESCRIPTION)
+    assert block["description_chars"] == len(DEFAULT_DESCRIPTION)
+    assert result["session"]["delegation_controls"]["exposure"]["level"] == "none"
+    assert result["session"]["delegation_controls"]["exposure"]["cards"] == []
+    # The capability is still real for C5: only the disclosure is absent.
+    assert arm.profile_id == (contract.CODING if arm_id == "C5" else contract.RESEARCH)
+
+
+def test_coding_control_arm_still_grants_a_write_scope() -> None:
+    arm = contract.ARMS_BY_ID["C5"]
+    assert arm.grant_for(contract.TASKS[0].task_id) == {
+        contract.CODING: contract.TASK_WRITE_SCOPE[contract.TASKS[0].task_id]
+    }
+    assert contract.ARMS_BY_ID["C4"].grant_for(contract.TASKS[0].task_id) == {}
 
 
 def test_exposure_evidence_records_the_effective_profile_shape() -> None:
@@ -269,42 +334,63 @@ def test_unoffered_profile_is_refused_by_the_router() -> None:
 # -- authorization ------------------------------------------------------------------------------
 
 
+def _plan_and_identity() -> tuple[dict, dict, str]:
+    plan = contract.scope_plan(contract.SCOPE_CANARY)
+    identity = executor.executor_identity()
+    return plan, identity, authority.protocol_digest(contract.protocol_document())
+
+
+def _signed(
+    plan: dict,
+    identity: dict,
+    digest: str,
+    *,
+    head: str,
+    cost_stop: float = 1.0,
+    per_cell: float = 0.5,
+) -> dict:
+    pending = authority.pending_record(plan, protocol_digest_value=digest, executor=identity)
+    body = {"statement": "integration test", "scope": plan["scope"]}
+    return authority.sign(
+        pending,
+        approved_by="test",
+        approved_at="2026-11-25T00:00:00Z",
+        owner_statement="integration test, not an approval",
+        reviewed_head=head,
+        execution_head=head,
+        cost_stop_usd=cost_stop,
+        per_cell_cost_stop_usd=per_cell,
+        provenance={
+            "kind": "external_file",
+            "path": "/nonexistent/owner.json",
+            "sha256": authority.digest_of(body),
+            "content_digest": authority.digest_of(body),
+            "body": body,
+        },
+    )
+
+
 def test_pending_authorization_refuses_execution() -> None:
-    document = contract.protocol_document()
-    digest = offline.protocol_digest_of(document)
-    record = offline._authorization_record(digest)
-    gate = offline.approval_gate(record, protocol_digest=digest)
-    assert gate["execution_ready"] is False
+    plan, identity, digest = _plan_and_identity()
+    head = executor.git_head()
+    record = authority.pending_record(plan, protocol_digest_value=digest, executor=identity)
+    verdict = authority.verify(
+        record, plan=plan, head=head, executor=identity, protocol_digest_value=digest
+    )
+    assert verdict["ready"] is False
     with pytest.raises(PermissionError):
-        offline.require_approval(record=record, protocol_digest=digest)
+        authority.require(
+            record, plan=plan, head=head, executor=identity, protocol_digest_value=digest
+        )
 
 
 def test_a_signed_record_for_another_digest_refuses_execution() -> None:
-    document = contract.protocol_document()
-    digest = offline.protocol_digest_of(document)
-    record = dict(
-        offline._authorization_record(digest),
-        status="APPROVED",
-        approved_by="owner",
-        approval_commit="deadbeef",
-        approved_at="2026-11-25T00:00:00Z",
-        cost_ceiling_usd=3.0,
-        protocol_digest="sha256:" + "1" * 64,
+    plan, identity, digest = _plan_and_identity()
+    head = executor.git_head()
+    record = _signed(plan, identity, digest, head=head)
+    other = dict(record, plan_digest="sha256:" + "1" * 64)
+    verdict = authority.verify(
+        other, plan=plan, head=head, executor=identity, protocol_digest_value=digest
     )
-    assert offline.approval_gate(record, protocol_digest=digest)["execution_ready"] is False
-
-
-def test_a_fully_signed_record_for_this_digest_would_pass() -> None:
-    """The gate is not a permanent refusal: it refuses an *unsigned* record."""
-
-    document = contract.protocol_document()
-    digest = offline.protocol_digest_of(document)
-    record = dict(
-        offline._authorization_record(digest),
-        status="APPROVED",
-        approved_by="owner",
-        approval_commit="deadbeef",
-        approved_at="2026-11-25T00:00:00Z",
-        cost_ceiling_usd=3.0,
-    )
-    assert offline.approval_gate(record, protocol_digest=digest)["execution_ready"] is True
+    assert verdict["ready"] is False
+    assert any("plan_digest" in item for item in verdict["problems"])

@@ -1,0 +1,126 @@
+{
+  "stage": "B+",
+  "protocol_version": "bplus-2.0.0",
+  "plan_id": "stage-b-plus-diagnostic-canary-v1",
+  "plan": {
+    "plan_id": "stage-b-plus-diagnostic-canary-v1",
+    "scope": "CANARY_ONLY",
+    "tasks": [
+      "closure2-pipeline-migration"
+    ],
+    "arms": [
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5"
+    ],
+    "repetitions": 1,
+    "cells_count": 6,
+    "cells": [
+      {
+        "cell_id": "canary.closure2-pipeline-migration.C0.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C0",
+        "repetition": 1,
+        "round": 1,
+        "order": 1,
+        "scope": "CANARY_ONLY",
+        "plan_id": "stage-b-plus-diagnostic-canary-v1",
+        "is_benchmark_sample": false
+      },
+      {
+        "cell_id": "canary.closure2-pipeline-migration.C1.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C1",
+        "repetition": 1,
+        "round": 2,
+        "order": 2,
+        "scope": "CANARY_ONLY",
+        "plan_id": "stage-b-plus-diagnostic-canary-v1",
+        "is_benchmark_sample": false
+      },
+      {
+        "cell_id": "canary.closure2-pipeline-migration.C2.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C2",
+        "repetition": 1,
+        "round": 3,
+        "order": 3,
+        "scope": "CANARY_ONLY",
+        "plan_id": "stage-b-plus-diagnostic-canary-v1",
+        "is_benchmark_sample": false
+      },
+      {
+        "cell_id": "canary.closure2-pipeline-migration.C3.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C3",
+        "repetition": 1,
+        "round": 4,
+        "order": 4,
+        "scope": "CANARY_ONLY",
+        "plan_id": "stage-b-plus-diagnostic-canary-v1",
+        "is_benchmark_sample": false
+      },
+      {
+        "cell_id": "canary.closure2-pipeline-migration.C4.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C4",
+        "repetition": 1,
+        "round": 5,
+        "order": 5,
+        "scope": "CANARY_ONLY",
+        "plan_id": "stage-b-plus-diagnostic-canary-v1",
+        "is_benchmark_sample": false
+      },
+      {
+        "cell_id": "canary.closure2-pipeline-migration.C5.r1",
+        "task_id": "closure2-pipeline-migration",
+        "arm_id": "C5",
+        "repetition": 1,
+        "round": 6,
+        "order": 6,
+        "scope": "CANARY_ONLY",
+        "plan_id": "stage-b-plus-diagnostic-canary-v1",
+        "is_benchmark_sample": false
+      }
+    ],
+    "digest": "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575",
+    "balance": {
+      "cells": 6,
+      "arms": [
+        "C0",
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5"
+      ],
+      "tasks": [
+        "closure2-pipeline-migration"
+      ],
+      "each_task_meets_each_arm": true,
+      "each_arm_exactly_once_per_task": true,
+      "every_arm_run_equally_often": true,
+      "arm_cell_counts": {
+        "C0": 1,
+        "C1": 1,
+        "C2": 1,
+        "C3": 1,
+        "C4": 1,
+        "C5": 1
+      },
+      "first_arm_by_repetition": {
+        "1": "C0"
+      },
+      "first_arm_differs_across_repetitions": true,
+      "each_arm_in_each_round": null
+    },
+    "claim_namespace": "bplus-claim/stage-b-plus-diagnostic-canary-v1",
+    "runs_subdir": "runs/stage-b-plus/stage-b-plus-diagnostic-canary-v1",
+    "evidence_subdir": "evidence/stage-b-plus/stage-b-plus-diagnostic-canary-v1",
+    "is_benchmark_sample": false,
+    "nominal_token_capacity": 3000000
+  }
+}

@@ -1,6 +1,6 @@
 {
   "stage": "B+",
-  "cells": 24,
+  "protocol_version": "bplus-2.0.0",
   "pricing": {
     "cache_hit_input_per_million": 0.006,
     "cache_miss_input_per_million": 0.3,
@@ -20,74 +20,242 @@
     "s06_cells": 36,
     "s06_provider_requests": 432,
     "s06_tokens_per_request": 6807.5,
-    "per_cell_from_s06": {
-      "main_prompt_hit_tokens": 76508.4,
-      "main_prompt_miss_tokens": 5182.0,
-      "child_prompt_tokens": 0.0,
-      "main_completion_tokens": 2536.5,
-      "child_completion_tokens": 0.0
+    "s06_hit_ratio": 0.9366,
+    "child_shape": {
+      "first_prompt_tokens": 1200.0,
+      "growth_per_turn": 900.0,
+      "completion_per_turn": 260.0,
+      "children_per_delegating_cell": 2,
+      "delegated_share": 0.6,
+      "measured": false
     }
   },
-  "scenarios": {
-    "S0_s06_basis": {
-      "assumption": "one B+ cell costs exactly one S06 cell; S06 delegated in 0 cells, so this is a lower bound",
-      "per_cell_tokens": 84226.9,
-      "total_tokens": 2021445.6,
-      "per_cell_cost_usd": 0.005057,
-      "total_cost_usd": 0.1214
+  "scopes": {
+    "stage-b-plus-diagnostic-canary-v1": {
+      "plan_id": "stage-b-plus-diagnostic-canary-v1",
+      "scope": "CANARY_ONLY",
+      "cells": 6,
+      "nominal_capacity": {
+        "tokens": 3000000,
+        "cost_usd_at_s06_cache_mixture": 0.7651,
+        "note": "nominal capacity is the admission ceiling, not a forecast"
+      },
+      "scenarios": {
+        "S0_reference": {
+          "assumption": "one B+ cell costs exactly one S06 cell; a reference scenario, not a lower bound (different task, different turn cap, different prompt)",
+          "total_tokens": 505361.4,
+          "total_cost_usd": 0.0303
+        },
+        "S1b_delegated_6_turns": {
+          "assumption": "60% of cells delegate 2 children at 6 ",
+          "per_cell_tokens": 110938.9,
+          "total_tokens": 665633.4,
+          "per_cell_cost_usd": 0.014755,
+          "total_cost_usd": 0.0885,
+          "budget_filled_cost_usd": 0.399,
+          "main_hit_ratio": 0.9366,
+          "child_turns": 6,
+          "delegated_share": 0.6,
+          "usage_per_cell": {
+            "main_prompt_hit_tokens": 76511.2,
+            "main_prompt_miss_tokens": 5179.2,
+            "main_completion_tokens": 2536.5,
+            "child_prompt_tokens": 24840.0,
+            "child_completion_tokens": 1872.0
+          }
+        },
+        "S1_delegated": {
+          "assumption": "60% of cells delegate 2 children at 20 turns; a child turn costs 1200+900x turn prompt tokens",
+          "per_cell_tokens": 324466.9,
+          "total_tokens": 1946801.4,
+          "per_cell_cost_usd": 0.082745,
+          "total_cost_usd": 0.4965,
+          "budget_filled_cost_usd": 0.7651,
+          "main_hit_ratio": 0.9366,
+          "child_turns": 20,
+          "delegated_share": 0.6,
+          "usage_per_cell": {
+            "main_prompt_hit_tokens": 76511.2,
+            "main_prompt_miss_tokens": 5179.2,
+            "main_completion_tokens": 2536.5,
+            "child_prompt_tokens": 234000.0,
+            "child_completion_tokens": 6240.0
+          }
+        },
+        "S2_budget_fill": {
+          "assumption": "every cell consumes its whole 500 000-token budget, priced at S06's measured cache mixture; not an absolute HIGH",
+          "total_tokens": 3000000,
+          "total_cost_usd": 0.1801
+        }
+      },
+      "sensitivity": [
+        {
+          "id": "low_cache_hit",
+          "assumption": "the Main's cache-hit share falls from S06's 93.7 % to 50 %",
+          "total_tokens": 1946801.4,
+          "total_cost_usd": 0.5594
+        },
+        {
+          "id": "child_prompt_all_miss",
+          "assumption": "every child prompt token is a miss (the base assumption, stated alone)",
+          "total_tokens": 1946801.4,
+          "total_cost_usd": 0.4965
+        },
+        {
+          "id": "high_output_share",
+          "assumption": "completion tokens are 1.6x the base estimate",
+          "total_tokens": 1955932.8,
+          "total_cost_usd": 0.5074
+        },
+        {
+          "id": "higher_delegation_share",
+          "assumption": "90 % of cells delegate two children instead of 60 %",
+          "total_tokens": 2667521.4,
+          "total_cost_usd": 0.7295
+        },
+        {
+          "id": "worker_near_cap",
+          "assumption": "children run to the 20-turn cap in every delegating cell",
+          "total_tokens": 2907761.4,
+          "total_cost_usd": 0.8072
+        }
+      ],
+      "range": {
+        "low_usd": 0.0303,
+        "high_usd": 0.8072
+      },
+      "dominant_variable": {
+        "field": "delegation rate x worker turn cap",
+        "evidence": "20 turns costs 5.6x the 6-turn shape; the child prompt is priced as a cache miss because the provider reports no child cache split"
+      }
     },
-    "S1_delegated": {
-      "assumption": "60% of cells delegate 2 children at 20 turns each; a child turn costs 1200+900x turn prompt tokens",
-      "child_turns": 20,
-      "delegated_cells": 14.4,
-      "child_prompt_tokens_total": 5616000.0,
-      "child_completion_tokens_total": 149760.0,
-      "per_cell_tokens": 324466.9,
-      "total_tokens": 7787205.6,
-      "per_cell_cost_usd": 0.082745,
-      "total_cost_usd": 1.9859
-    },
-    "S1b_delegated_6_turns": {
-      "assumption": "the same delegation shape at S06's 6-turn child cap, which no S06 child ever reached because no worker was ever created",
-      "child_turns": 6,
-      "delegated_cells": 14.4,
-      "child_prompt_tokens_total": 596160.0,
-      "child_completion_tokens_total": 44928.0,
-      "per_cell_tokens": 110938.9,
-      "total_tokens": 2662533.6,
-      "per_cell_cost_usd": 0.014756,
-      "total_cost_usd": 0.3541
-    },
-    "S2_budget_fill": {
-      "assumption": "every cell consumes its whole 500 000-token admission budget",
-      "total_tokens": 12000000.0,
-      "total_cost_usd": 0.7205
+    "stage-b-plus-formal-matrix-v1": {
+      "plan_id": "stage-b-plus-formal-matrix-v1",
+      "scope": "FORMAL_MATRIX_ONLY",
+      "cells": 24,
+      "nominal_capacity": {
+        "tokens": 12000000,
+        "cost_usd_at_s06_cache_mixture": 3.0602,
+        "note": "nominal capacity is the admission ceiling, not a forecast"
+      },
+      "scenarios": {
+        "S0_reference": {
+          "assumption": "one B+ cell costs exactly one S06 cell; a reference scenario, not a lower bound (different task, different turn cap, different prompt)",
+          "total_tokens": 2021445.6,
+          "total_cost_usd": 0.1214
+        },
+        "S1b_delegated_6_turns": {
+          "assumption": "60% of cells delegate 2 children at 6 ",
+          "per_cell_tokens": 110938.9,
+          "total_tokens": 2662533.6,
+          "per_cell_cost_usd": 0.014755,
+          "total_cost_usd": 0.3541,
+          "budget_filled_cost_usd": 1.596,
+          "main_hit_ratio": 0.9366,
+          "child_turns": 6,
+          "delegated_share": 0.6,
+          "usage_per_cell": {
+            "main_prompt_hit_tokens": 76511.2,
+            "main_prompt_miss_tokens": 5179.2,
+            "main_completion_tokens": 2536.5,
+            "child_prompt_tokens": 24840.0,
+            "child_completion_tokens": 1872.0
+          }
+        },
+        "S1_delegated": {
+          "assumption": "60% of cells delegate 2 children at 20 turns; a child turn costs 1200+900x turn prompt tokens",
+          "per_cell_tokens": 324466.9,
+          "total_tokens": 7787205.6,
+          "per_cell_cost_usd": 0.082745,
+          "total_cost_usd": 1.9859,
+          "budget_filled_cost_usd": 3.0602,
+          "main_hit_ratio": 0.9366,
+          "child_turns": 20,
+          "delegated_share": 0.6,
+          "usage_per_cell": {
+            "main_prompt_hit_tokens": 76511.2,
+            "main_prompt_miss_tokens": 5179.2,
+            "main_completion_tokens": 2536.5,
+            "child_prompt_tokens": 234000.0,
+            "child_completion_tokens": 6240.0
+          }
+        },
+        "S2_budget_fill": {
+          "assumption": "every cell consumes its whole 500 000-token budget, priced at S06's measured cache mixture; not an absolute HIGH",
+          "total_tokens": 12000000,
+          "total_cost_usd": 0.7204
+        }
+      },
+      "sensitivity": [
+        {
+          "id": "low_cache_hit",
+          "assumption": "the Main's cache-hit share falls from S06's 93.7 % to 50 %",
+          "total_tokens": 7787205.6,
+          "total_cost_usd": 2.2375
+        },
+        {
+          "id": "child_prompt_all_miss",
+          "assumption": "every child prompt token is a miss (the base assumption, stated alone)",
+          "total_tokens": 7787205.6,
+          "total_cost_usd": 1.9859
+        },
+        {
+          "id": "high_output_share",
+          "assumption": "completion tokens are 1.6x the base estimate",
+          "total_tokens": 7823731.2,
+          "total_cost_usd": 2.0297
+        },
+        {
+          "id": "higher_delegation_share",
+          "assumption": "90 % of cells delegate two children instead of 60 %",
+          "total_tokens": 10670085.6,
+          "total_cost_usd": 2.9181
+        },
+        {
+          "id": "worker_near_cap",
+          "assumption": "children run to the 20-turn cap in every delegating cell",
+          "total_tokens": 11631045.6,
+          "total_cost_usd": 3.2289
+        }
+      ],
+      "range": {
+        "low_usd": 0.1214,
+        "high_usd": 3.2289
+      },
+      "dominant_variable": {
+        "field": "delegation rate x worker turn cap",
+        "evidence": "20 turns costs 5.6x the 6-turn shape; the child prompt is priced as a cache miss because the provider reports no child cache split"
+      }
     }
-  },
-  "nominal_capacity": {
-    "tokens": 12000000,
-    "cost_usd_at_s06_cache_mixture": 0.7205,
-    "note": "nominal capacity is the admission ceiling, not a forecast. At S06's 93.7 % cache-hit mixture it is cheap; the same tokens with child prompts priced as misses cost what S1 says, which is why S1 and S2 do not order the way their token totals do"
-  },
-  "dominant_variable": {
-    "field": "worker turn cap",
-    "evidence": "20 turns costs 5.6x the 6-turn shape: the child prompt is re-sent every turn and is priced as a cache miss",
-    "decision": "S06 requested 6 turns for a profile that caps at 6, so requested and effective agreed. B+ requests 20. The Owner should decide the cap on cost grounds rather than inherit it from a budget sheet"
   },
   "proposed": {
-    "cumulative_cost_stop_usd": 3.0,
-    "rationale": "covers S1 with margin; S2 is cheaper because it assumes the S06 cache mixture over the whole budget",
-    "canary_cells": 4,
-    "canary_stop_usd": 0.4,
-    "canary_shape": "one cell per arm on P1, repetition 1, in matrix order",
-    "approved": false,
+    "canary": {
+      "plan_id": "stage-b-plus-diagnostic-canary-v1",
+      "scope": "CANARY_ONLY",
+      "cells": 6,
+      "cost_stop_usd": 0.6,
+      "per_cell_cost_stop_usd": 0.15,
+      "token_stop": 3000000,
+      "basis": "covers S1 (0.50) and the low-cache-hit row (0.56) with a little room; replaces the withdrawn 0.40 figure for the four-cell shape",
+      "approved": false
+    },
+    "formal": {
+      "plan_id": "stage-b-plus-formal-matrix-v1",
+      "scope": "FORMAL_MATRIX_ONLY",
+      "cells": 24,
+      "cost_stop_usd": 3.0,
+      "per_cell_cost_stop_usd": 0.25,
+      "token_stop": 12000000,
+      "basis": "still a candidate; it covers S1 with margin and does not cover the low_cache_hit sensitivity with margin, which is why the stop is a stop",
+      "approved": false
+    },
     "reuses_s06_or_s08_balance": false,
-    "note": "a candidate for the Owner to accept or lower; this module authorizes nothing and no S06 or S08 remainder is carried forward"
+    "note": "no value here is an approval; the canary and the matrix are separate scopes"
   },
   "limitations": [
-    "S06 measured a no-delegation regime on different tasks; its mixture is an anchor, not a forecast",
-    "the child shape is an assumption: no B+ child has ever run, and a 20-turn cap is three times S06's never-exercised 6",
-    "child prompt tokens are priced as cache misses because the provider reports no child cache split",
+    "S06 measured a no-delegation regime on different tasks; its mixture is an anchor",
+    "the child shape is an assumption: no B+ child has ever run",
+    "child prompt tokens are priced as misses because the provider reports no child split",
     "the price is the repository's frozen snapshot, not a live quote",
     "whether these cells delegate at all is the largest single cost variable"
   ]

@@ -1,0 +1,13 @@
+{
+  "stage": "B+",
+  "executor_version": "bplus-executor-1.0",
+  "executor_digest": "sha256:917d95e46b1575bb6da44427c43b48f68ee8af1ded59e3662758efa951f49590",
+  "files": {
+    "experiments/stage_b_plus/executor.py": "sha256:c72697e5042f16ee06882d461a42906f9a299bb0ee1ef01f5280363d01092f74",
+    "experiments/stage_b_plus/authority.py": "sha256:594b6578723aa45e0fa9c9469b1410120cf3cece44fd489f8c563eb8fa01a1f1",
+    "experiments/stage_b_plus/contract.py": "sha256:5ac4a22030055202ad10843bca0e2b1db7a2695ac2abb2b486353452aa4e63fc",
+    "experiments/stage_b_plus/cost.py": "sha256:fa0db30eb622c6076f9b153618fc9e7bfaf990eb422d11946102d7c74a684c28"
+  },
+  "head_at_build": "542c1c4a76937ca24088ebfd87e2ec451e4ddde2",
+  "note": "a live authorization must carry these exact digests and the head the Owner actually reviews. head_at_build records what this artefact set was built on; it is not an approval, and it is not necessarily the reviewed commit"
+}
