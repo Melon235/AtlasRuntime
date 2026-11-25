@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -410,6 +411,20 @@ STRUCTURE_OF: dict[str, str] = {task.task_id: task.family for task in TASKS}
 #: (``docs/INTERFACE.md``), so the goal does not have to restate it.
 GOAL_OF: dict[str, str] = {task.task_id: task.prompt for task in TASKS}
 
+
+def goal_for(cell: Mapping[str, Any]) -> str:
+    """The goal a cell executes.
+
+    A Stage B+ cell carries no ``goal`` of its own, so it resolves to the frozen task prompt: byte
+    for byte what every B+ run executed. A diagnostic plan may bind its own goal into the cell (and
+    therefore into the plan digest); that text wins, and nothing else about the cell changes.
+    """
+
+    goal = cell.get("goal")
+    if isinstance(goal, str) and goal:
+        return goal
+    return GOAL_OF[cell["task_id"]]
+
 FORBIDDEN_GOAL_PHRASES: tuple[str, ...] = (
     "you must delegate",
     "call delegate_tasks",
@@ -686,8 +701,15 @@ EXECUTION_CONTRACT: dict[str, Any] = {
 }
 EXECUTION_CONTRACT_DIGEST = "sha256:" + canonical_digest(EXECUTION_CONTRACT)
 
-#: The canary runs one P1 task. P1 is the only family with two genuinely disjoint module write sets,
-#: so it is the only one where a coding pair can be admitted at all.
+#: The canary runs one P1 task, and stays on P1: its plan digest is consumed and must not move.
+#:
+#: The reason first written here — "P1 is the only family with two genuinely disjoint module write
+#: sets, so it is the only one where a coding pair can be admitted at all" — is **wrong**, and Stage
+#: C1 measured it rather than assuming: P2's ``csv`` and ``json`` steps declare disjoint owned paths
+#: (``plugins/csv_*.py`` versus ``plugins/json_*.py``) and the frozen router admits both, with
+#: ``DELEGATION_ADMITTED`` and route ``delegate_parallel``
+#: (``experiments/stage_c1/checks.py``, check C05). P1 remains the canary's task because that
+#: identity is frozen, not because P2 is inadmissible.
 CANARY_TASK_IDS: tuple[str, ...] = ("closure2-pipeline-migration",)
 
 
@@ -727,6 +749,12 @@ def canary_cells() -> list[dict[str, Any]]:
 def scope_plan(scope_or_id: str) -> dict[str, Any]:
     """The plan record for one scope. ``scope_or_id`` accepts a scope type or a plan id."""
 
+    # A Stage C1 diagnostic plan declares itself in its own module; this is the one seam, so a new
+    # single-cell plan reuses ``executor.dispatch`` instead of a second executor.
+    from experiments.stage_c1 import plan as c1_plan
+
+    if scope_or_id in (c1_plan.SCOPE, c1_plan.PLAN_ID):
+        return c1_plan.plan_record()
     if scope_or_id in SUPERSEDED_CANARY_PLAN_IDS:
         raise ValueError(
             f"{scope_or_id} was dispatched once and its claim is consumed; it is superseded by "
@@ -1216,6 +1244,7 @@ __all__ = [
     "FORMAL_PLAN_ID",
     "GOAL_OF",
     "INTERPRETATION",
+    "goal_for",
     "P3_DIGEST",
     "P3_LITERAL",
     "PRIMARY_METRICS",

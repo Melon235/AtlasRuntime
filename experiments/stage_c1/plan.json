@@ -1,0 +1,213 @@
+{
+  "stage": "C1",
+  "design_version": "c1-1.0.0",
+  "plan_id": "stage-c1-coding-delegation-positive-control-v1",
+  "scope": "C1_POSITIVE_CONTROL_ONLY",
+  "tasks": [
+    "closure2-plugin-migration"
+  ],
+  "arms": [
+    "C3"
+  ],
+  "repetitions": 1,
+  "cells_count": 1,
+  "cells": [
+    {
+      "cell_id": "c1.closure2-plugin-migration.C3.r1",
+      "task_id": "closure2-plugin-migration",
+      "arm_id": "C3",
+      "repetition": 1,
+      "round": 1,
+      "order": 1,
+      "scope": "C1_POSITIVE_CONTROL_ONLY",
+      "plan_id": "stage-c1-coding-delegation-positive-control-v1",
+      "is_benchmark_sample": false,
+      "execution_contract": "sha256:242fcef58a1f8e8b54a3caa48ebff958c85536bf3d4ce56339dc4d54e2b9e36e",
+      "goal_id": "c1-p2-requirement-plus-coding-delegation-appendix-v1",
+      "goal": "The plugin system is moving to the frozen v2 plugin interface in `plugins/base.py`. Two concrete plugins (`csv` and `json`) still implement the v1 `parse`-only shape and must migrate; the registry and the loader still call v1 and must be brought onto the same contract. The two plugins have genuinely different inputs \u2014 CSV rows with quoting versus nested JSON objects \u2014 so each has its own parsing edge cases, but both must return the same record shape.\n\nFor this task, use coding workers to implement independently executable parts of the migration.\n\nIdentify at least two independent implementation workstreams when the published interfaces and ownership boundaries permit it, and attempt to delegate them together before implementing those workstreams yourself.\n\nChoose the decomposition, writable scopes, worker inputs, and deliverables yourself using the available runtime capabilities.\n\nRespect all admission, ownership, and safety constraints. If no safe delegation is possible or the runtime rejects the proposal, explain the actual reason and continue appropriately.\n\nYou remain responsible for integration, public testing, and final task correctness.",
+      "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
+      "intervention_digest": "sha256:fad89af68cff6bf619401b838c55b2e5cfa62b1438b0d8b0e5656b7fd6ed47d8",
+      "main_prompt_version": "main-v2.1-rc1-bplus",
+      "main_prompt_digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+      "worker_profile": "coding_worker",
+      "worker_exposure": "card",
+      "attempt_limit": 1
+    }
+  ],
+  "digest": "sha256:e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad",
+  "balance": {
+    "cells": 1,
+    "arms": [
+      "C3"
+    ],
+    "tasks": [
+      "closure2-plugin-migration"
+    ],
+    "each_task_meets_each_arm": true,
+    "each_arm_exactly_once_per_task": true,
+    "every_arm_run_equally_often": true,
+    "arm_cell_counts": {
+      "C3": 1
+    },
+    "first_arm_by_repetition": {
+      "1": "C3"
+    },
+    "first_arm_differs_across_repetitions": true,
+    "each_arm_in_each_round": null
+  },
+  "claim_namespace": "c1-claim/stage-c1-coding-delegation-positive-control-v1",
+  "runs_subdir": "runs/stage-c1/stage-c1-coding-delegation-positive-control-v1",
+  "evidence_subdir": "evidence/stage-c1/stage-c1-coding-delegation-positive-control-v1",
+  "is_benchmark_sample": false,
+  "is_diagnostic": true,
+  "attempt_limit": 1,
+  "nominal_token_capacity": 500000,
+  "execution_contract": {
+    "revision": "bplus-exec-3.1",
+    "supersedes": "bplus-exec-3.0",
+    "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
+    "acceptance": "static presence checks only; correctness is never self-graded",
+    "oracle_runner": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
+    "scored_snapshot": "the exported workspace (artifacts.workspace_path), never the fixture",
+    "public_suite_separation": "the public suite is a different artifact from the hidden oracle",
+    "pre_claim_preflight": "run_live_preflight over the six production GoalRunOptions",
+    "export_identity": {
+      "archive": "artifacts.workspace_digest \u2014 the producer's sha256 of the transferred archive; recorded, not recomputable, never compared with a directory hash",
+      "directory": "directory_digest \u2014 computed by the host after export and before the oracle, recomputed at audit time",
+      "files": "workspace_files must equal the number of files the directory holds",
+      "same_object": "the runner's workspace_path and the session's must name the same directory",
+      "agreement": "the runner's and the session's archive digest must be the same value",
+      "provenance": "the directory identity must come from the runner; a value that exists only in the session has no source and is refused",
+      "fail_closed": "a missing directory identity, a changed directory, a count mismatch, a diverged path or a diverged archive digest stops the matrix"
+    },
+    "public_test_evidence": {
+      "source": "session.public_tests.runs \u2014 one entry per call, no top-level status",
+      "rule": "the last recorded run decides; a final record without a status is not the earlier PASS",
+      "not_run": "a suite that never ran is NOT_RUN and is never a pass",
+      "error": "an ERROR run leaves correctness unknown, it is not a failure and not a pass",
+      "completeness": "calls must equal the number of recorded runs; a call that returned no record leaves the last observation unknown and is INCOMPLETE",
+      "identity": "every run must name the frozen test id and command digest for its cell",
+      "order": "call_index must be the contiguous position of the record",
+      "outcome": "PASS must exit 0 and FAIL must exit non-zero; a contradiction is INVALID",
+      "required": "B+ always configures the public suite; NOT_CONFIGURED is refused",
+      "classification": "INCOMPLETE and INVALID are evidence-integrity stops; FAIL continues the matrix and is scored as a measured failure"
+    },
+    "v1_refusal": "live_preflight required a dynamic acceptance command; the B+ acceptance has none, and the oracle is a Host sandbox that runs after the run, so every cell was refused before the first model call",
+    "v2_refusal": "the audit compared the producer's archive digest with a directory hash and read a top-level public_tests.status that the producer never writes, so a cell whose independent oracle passed was recorded as an integrity failure"
+  },
+  "execution_contract_digest": "sha256:242fcef58a1f8e8b54a3caa48ebff958c85536bf3d4ce56339dc4d54e2b9e36e",
+  "intervention": {
+    "id": "c1-p2-requirement-plus-coding-delegation-appendix-v1",
+    "kind": "user_goal_appendix",
+    "text": "For this task, use coding workers to implement independently executable parts of the migration.\n\nIdentify at least two independent implementation workstreams when the published interfaces and ownership boundaries permit it, and attempt to delegate them together before implementing those workstreams yourself.\n\nChoose the decomposition, writable scopes, worker inputs, and deliverables yourself using the available runtime capabilities.\n\nRespect all admission, ownership, and safety constraints. If no safe delegation is possible or the runtime rejects the proposal, explain the actual reason and continue appropriately.\n\nYou remain responsible for integration, public testing, and final task correctness.",
+    "digest": "sha256:fad89af68cff6bf619401b838c55b2e5cfa62b1438b0d8b0e5656b7fd6ed47d8",
+    "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
+    "goal_chars": 1161,
+    "requirement_chars": 454,
+    "appendix_chars": 705,
+    "separator": "'\\n\\n'",
+    "main_prompt_modified": false,
+    "main_prompt_version": "main-v2.1-rc1-bplus",
+    "main_prompt_digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+    "worker_assignment_supplied": false,
+    "dag_supplied": false,
+    "writable_scopes_supplied": false,
+    "reference_implementation_supplied": false,
+    "hidden_tests_supplied": false
+  },
+  "goal_id": "c1-p2-requirement-plus-coding-delegation-appendix-v1",
+  "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
+  "main_prompt": {
+    "version": "main-v2.1-rc1-bplus",
+    "digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+    "unchanged_from_bplus": true,
+    "literal_p3_digest": "sha256:4147f19cab445241f79dde4a03db69a1a96961d775ec6e0da35dc24cb7cdd489"
+  },
+  "task": {
+    "task_id": "closure2-plugin-migration",
+    "family": "P2",
+    "write_scope": [
+      "plugins/**"
+    ],
+    "deliverables": [
+      "plugins/csv_plugin.py",
+      "plugins/json_plugin.py",
+      "plugins/loader.py",
+      "plugins/registry.py"
+    ],
+    "forbidden_paths": [
+      "plugins/base.py",
+      "test_public.py",
+      "docs/INTERFACE.md",
+      "README.md"
+    ],
+    "public_tests": [
+      "test_public.py"
+    ],
+    "frozen_workers": [
+      {
+        "task_id": "csv",
+        "owned_paths": [
+          "plugins/csv_fields.py",
+          "plugins/csv_plugin.py"
+        ]
+      },
+      {
+        "task_id": "json",
+        "owned_paths": [
+          "plugins/json_fields.py",
+          "plugins/json_plugin.py"
+        ]
+      },
+      {
+        "task_id": "register",
+        "owned_paths": [
+          "plugins/loader.py",
+          "plugins/registry.py"
+        ]
+      }
+    ]
+  },
+  "budget": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "main_max_turns": 20,
+    "child_max_turns": 20,
+    "worker_max_turns": 20,
+    "max_concurrent_children": 2,
+    "max_children_per_call": 2,
+    "max_delegation_rounds": 3,
+    "token_budget": 500000,
+    "result_preview_chars": 900,
+    "public_test_max_calls": 4,
+    "tool_error_mode": "corrected",
+    "network": "none",
+    "cpu": 1,
+    "memory_gib": 1.0,
+    "sandbox_provider": "opensandbox",
+    "image": "atlas-uat-python:3.12",
+    "router_policy": "m.1.0",
+    "sandbox_timeout_minutes": 30,
+    "matrix_concurrency": 1,
+    "repetitions": 2,
+    "seed": 20261119,
+    "sampling_seed_supported": false
+  },
+  "budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+  "envelope_candidate": {
+    "cost_stop_usd": 0.15,
+    "per_cell_cost_stop_usd": 0.15,
+    "token_stop": 500000,
+    "approved": false,
+    "basis": "one cell; covers the B+ S1 delegated estimate per cell (about 0.083 USD at the frozen price) with margin, and is the same per-cell ceiling Stage B+ proposed for its canary"
+  },
+  "does_not_modify": [
+    "experiments/stage_b_plus/contract.py::CANARY_TASK_IDS",
+    "experiments/stage_b_plus/contract.py::EXECUTION_CONTRACT",
+    "experiments/stage_b_plus/plan-canary.json",
+    "experiments/stage_b_plus/plan-formal.json",
+    "experiments/stage_b_plus/protocol.json",
+    "experiments/evaluation/closure2/*"
+  ],
+  "authorization_migrates": false
+}

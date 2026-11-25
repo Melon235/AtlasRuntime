@@ -56,7 +56,7 @@ from experiments.evaluation.sandboxed_oracle import (
 from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract, cost
 
-EXECUTOR_VERSION = "bplus-executor-1.2"
+EXECUTOR_VERSION = "bplus-executor-1.3"
 
 #: Files whose bytes *are* the executor identity. A dispatch is bound to their digests, so editing
 #: any of them invalidates an existing signature rather than silently running different code.
@@ -69,6 +69,9 @@ EXECUTOR_FILES: tuple[str, ...] = (
     "experiments/stage_b_plus/authority.py",
     "experiments/stage_b_plus/contract.py",
     "experiments/stage_b_plus/cost.py",
+    # The Stage C1 plan decides which goal, task, arm and intervention a cell executes, so its bytes
+    # belong in the identity the Owner signs. Stage B+ plans do not read this module.
+    "experiments/stage_c1/plan.py",
     "src/atlasos/app/live_preflight.py",
     "src/atlasos/app/goal_verification.py",
 )
@@ -1731,7 +1734,7 @@ def production_goal_options(
     arm = contract.ARMS_BY_ID[cell["arm_id"]]
     plan = config.sandbox_plan()
     return GoalRunOptions(
-        goal=contract.GOAL_OF[cell["task_id"]],
+        goal=contract.goal_for(cell),
         runs_root=evidence_root / "agent",
         workspace_root=evidence_root / "host-workspace",
         config=atlas_config(plan),

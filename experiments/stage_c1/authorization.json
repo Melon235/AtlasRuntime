@@ -1,0 +1,100 @@
+{
+  "authority_version": "bplus-authority-1.0",
+  "stage": "C1",
+  "protocol_version": "bplus-2.2.0",
+  "status": "PENDING_OWNER_APPROVAL",
+  "authorizes_live_execution": false,
+  "scope": "C1_POSITIVE_CONTROL_ONLY",
+  "plan_id": "stage-c1-coding-delegation-positive-control-v1",
+  "plan_digest": "sha256:e97a9b67421a0c326a22754ae0559b896eeabc9b4705bcada3f088c15acba2ad",
+  "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
+  "reviewed_head": null,
+  "execution_head": null,
+  "executor_digest": "sha256:47bfd5bd11940b0f73968b2a9a740d99173041c496cacb86f226ad3189ba0164",
+  "executor_version": "bplus-executor-1.3",
+  "cells_count": 1,
+  "cell_ids": [
+    "c1.closure2-plugin-migration.C3.r1"
+  ],
+  "cell_order": [
+    "c1.closure2-plugin-migration.C3.r1"
+  ],
+  "arms": [
+    "C3"
+  ],
+  "tasks": [
+    "closure2-plugin-migration"
+  ],
+  "repetitions": 1,
+  "budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+  "nominal_token_capacity": 500000,
+  "cost_stop_usd": null,
+  "per_cell_cost_stop_usd": null,
+  "token_stop": 500000,
+  "attempt_limit": 1,
+  "owner_statement": null,
+  "approved_by": null,
+  "approved_at": null,
+  "approval_provenance": null,
+  "reuses_s06_or_s08_balance": false,
+  "notes": "Stage C1 positive control. This record authorizes nothing. A live dispatch requires every null field filled, both cost fields to be finite and positive, and the provenance to name an external artefact whose bytes still hash to the values recorded here.",
+  "proposed_envelope": {
+    "cost_stop_usd": 0.15,
+    "per_cell_cost_stop_usd": 0.15,
+    "token_stop": 500000,
+    "approved": false,
+    "basis": "one cell; covers the B+ S1 delegated estimate per cell (about 0.083 USD at the frozen price) with margin, and is the same per-cell ceiling Stage B+ proposed for its canary",
+    "note": "a candidate for the Owner's decision; the signed fields above stay null until signed"
+  },
+  "review_surface": {
+    "plan_id": "stage-c1-coding-delegation-positive-control-v1",
+    "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
+    "intervention_digest": "sha256:fad89af68cff6bf619401b838c55b2e5cfa62b1438b0d8b0e5656b7fd6ed47d8",
+    "main_prompt_digest": "sha256:76ebb03d51b7d4ac7a905261ed59496c5bc94b00f685132c7ad14be2722f3bca",
+    "main_prompt_modified": false
+  },
+  "prelive_admission": {
+    "status": "BLOCKED_ADMISSION",
+    "gate": "GATE_M_PROPOSAL",
+    "reason_codes": [
+      "WRITE_SCOPE_NOT_GRANTED"
+    ],
+    "frozen_grant": {
+      "coding_worker": [
+        "plugins/**"
+      ]
+    },
+    "normalized_grant": {
+      "coding_worker": [
+        "plugins/"
+      ]
+    },
+    "normalized_outcome": {
+      "route": "delegate_parallel",
+      "reason_codes": [
+        "DELEGATION_ADMITTED"
+      ],
+      "admitted_children": [
+        "csv",
+        "json"
+      ]
+    },
+    "cause": "the Host grant is the task's glob (plugins/**) and reaches the router unchanged; the router matches a declared target with path_is_within, which only matches a normalised file or a directory declaration ending in '/', so every declared write path is refused before the coupling, parallel, risk and context gates are reached. The enforcement layer normalises the same grant with normalize_declared_path (plugins/ -> directory), so the two representations of one scope disagree at the admission gate only",
+    "source": [
+      "experiments/stage_b_plus/contract.py:236-238 (TASK_WRITE_SCOPE = task.allowed_paths)",
+      "experiments/stage_b_plus/contract.py:332-342 (Arm.grant_for)",
+      "src/atlasos/app/main_driven.py:711 (granted_write_paths=dict(options.child_write_grants))",
+      "src/atlasos/delegation/router.py:193-216 (_write_scope_problem, raw grant)",
+      "src/atlasos/ownership/models.py:145-156 (path_is_within)",
+      "src/atlasos/ownership/paths.py:66-84 (normalize_declared_path)",
+      "src/atlasos/ownership/manifest.py:114-118 (the enforcer does normalise the grant)"
+    ],
+    "scope_of_the_defect": "not P2-specific: any Closure-2 task's allowed_paths is a glob, so no coding child could be admitted under this grant form; the six Stage B+ V3 cells produced no proposal, so the path was never exercised",
+    "not_done_here": "the router was not modified, no grant was widened, and no special admission was added; expressing plugins/** as plugins/ would be the repository's own normalisation of the same scope, and that choice belongs to the Owner",
+    "owner_decisions": [
+      "A: authorize expressing the frozen write scope with normalize_declared_path (plugins/** -> plugins/) for the C1 cell only, then re-run this preparation",
+      "B: authorize a router fix that normalises the grant before matching, as its own reviewed change with regression tests, then re-run this preparation",
+      "C: sign this plan as-is, accepting that a write-declaring proposal is refused and the run can only reach A0 or A1 (predicted, not a positive control)"
+    ]
+  }
+}
