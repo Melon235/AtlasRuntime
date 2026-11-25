@@ -47,6 +47,11 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from experiments.evaluation.runner import RunnerSettings
 
+from experiments.evaluation.closure2.candidate_budget import (
+    FROZEN_PROFILE,
+    BudgetProfile,
+    profile_for_digest,
+)
 from experiments.evaluation.closure2.catalog import (
     BENCHMARK_ID,
     DATASET_VERSION,
@@ -263,11 +268,15 @@ class PilotPlan:
     repetitions: tuple[int, ...]
     max_cell_executions: int
     estimated_cost_ceiling_usd: float | None
+    #: The budget profile the plan executes under. ``None`` means the frozen table, which is what
+    #: every historical plan has; a plan that changes the budget binds the profile's digest here,
+    #: so approving the plan approves the numbers and a candidate cannot be read as the frozen one.
+    budget_profile_digest: str | None = None
 
     def payload(self) -> dict[str, Any]:
         """Every field that defines the scope. No timestamp, no path, no random id."""
 
-        return {
+        payload: dict[str, Any] = {
             "plan_id": self.plan_id,
             "benchmark_id": self.benchmark_id,
             "preregistration_digest": self.preregistration_digest,
@@ -277,6 +286,18 @@ class PilotPlan:
             "max_cell_executions": self.max_cell_executions,
             "estimated_cost_ceiling_usd": self.estimated_cost_ceiling_usd,
         }
+        # Omitted when ``None`` so the two consumed plans keep the digests their approval records
+        # name. ``None`` is the frozen budget, and its absence *is* the frozen identity.
+        if self.budget_profile_digest is not None:
+            payload["budget_profile_digest"] = self.budget_profile_digest
+        return payload
+
+    def budget_profile(self) -> BudgetProfile:
+        """Resolve the profile this plan executes under, failing closed on an unknown digest."""
+
+        if self.budget_profile_digest is None:
+            return FROZEN_PROFILE
+        return profile_for_digest(self.budget_profile_digest)
 
     def digest(self) -> str:
         return canonical_digest(self.payload())
@@ -370,28 +391,74 @@ ROUTING_PAIR_APPROVAL: dict[str, Any] = {
 }
 
 
+#: The three repetition-scoped formal plans, wired in S07 and still unauthorized. Plan ids are
+#: 1-based in the id and 0-based in the repetition, exactly as ``formal_plan.py`` builds them; the
+#: prefix lives here so both modules cannot drift apart.
+FORMAL_PLAN_ID_PREFIX = "closure2-formal-r"
+FORMAL_REPETITIONS: tuple[int, ...] = (0, 1, 2)
+FORMAL_PLAN_IDS: tuple[str, ...] = tuple(
+    f"{FORMAL_PLAN_ID_PREFIX}{repetition + 1}" for repetition in FORMAL_REPETITIONS
+)
+
+#: The S08 canary scope. Wired so that "not authorized" is a gate decision rather than a missing
+#: entry point; its approval record is ``PENDING_OWNER_APPROVAL`` by construction.
+S08_CANARY_PLAN_ID = "closure2-s08-canary-1"
+
+
+def _formal_scope(repetition: int) -> tuple[PilotPlan, dict[str, Any]]:
+    """The formal plan of one repetition, imported lazily: ``formal_plan`` imports this module."""
+
+    from experiments.evaluation.closure2 import formal_plan as formal_plan_module
+
+    return (
+        formal_plan_module.formal_plan(repetition),
+        formal_plan_module.candidate_approval(repetition),
+    )
+
+
+def _canary_scope() -> tuple[PilotPlan, dict[str, Any]]:
+    from experiments.evaluation.closure2 import s08_canary
+
+    return s08_canary.canary_plan(), s08_canary.CANARY_APPROVAL
+
+
 def pilot_scope(plan_id: str = PILOT_PLAN_ID) -> tuple[PilotPlan, dict[str, Any]]:
     """The fixed (plan, approval) pair a plan id names.
 
-    A closed set of two plans, dispatched by id: no registration hook, no caller-supplied scope,
-    no way to reach a third plan from the CLI. The globals are read **at call time** on purpose:
-    tests substitute ``PILOT_PLAN`` / ``PILOT_APPROVAL`` per test and must stay effective.
+    A closed set, dispatched by id: no registration hook, no caller-supplied scope, and no way to
+    invent a plan from the CLI. Every id is reachable — including the three formal plans and the S08
+    canary — and every one of those still carries a record that is not ``APPROVED``, so reachability
+    is not authorization. The globals are read **at call time** on purpose: tests substitute
+    ``PILOT_PLAN`` / ``PILOT_APPROVAL`` per test and must stay effective.
     """
 
     if plan_id == ROUTING_PAIR_PLAN_ID:
         return ROUTING_PAIR_PLAN, ROUTING_PAIR_APPROVAL
     if plan_id == PILOT_PLAN_ID:
         return PILOT_PLAN, PILOT_APPROVAL
+    if plan_id == S08_CANARY_PLAN_ID:
+        return _canary_scope()
+    if plan_id.startswith(FORMAL_PLAN_ID_PREFIX):
+        suffix = plan_id[len(FORMAL_PLAN_ID_PREFIX) :]
+        try:
+            repetition = int(suffix) - 1
+        except ValueError:
+            repetition = -1
+        if repetition in FORMAL_REPETITIONS:
+            return _formal_scope(repetition)
     raise PilotContractError(
-        f"unknown plan_id {plan_id!r}: known plans are {PILOT_PLAN_ID!r} and "
-        f"{ROUTING_PAIR_PLAN_ID!r}"
+        f"unknown plan_id {plan_id!r}: known plans are {list(plan_scope_ids())}"
     )
 
 
 def plan_scope_ids() -> tuple[str, ...]:
-    """The plan ids the CLI may name. Frozen order, so ``--help`` is deterministic."""
+    """The plan ids the CLI may name. Frozen order, so ``--help`` is deterministic.
 
-    return (PILOT_PLAN_ID, ROUTING_PAIR_PLAN_ID)
+    Two consumed plans, three formal repetitions and the canary. Being listed here means the
+    dispatcher can resolve the scope; it never means the scope is approved.
+    """
+
+    return (PILOT_PLAN_ID, ROUTING_PAIR_PLAN_ID, *FORMAL_PLAN_IDS, S08_CANARY_PLAN_ID)
 
 
 def routing_pair_cells() -> tuple[Cell, ...]:
@@ -416,20 +483,35 @@ def plan_cells_for(plan_id: str = PILOT_PLAN_ID) -> tuple[Cell, ...]:
         return routing_pair_cells()
     if plan_id == PILOT_PLAN_ID:
         return pilot_cells()
+    if plan_id in FORMAL_PLAN_IDS:
+        from experiments.evaluation.closure2 import formal_plan as formal_plan_module
+
+        repetition = FORMAL_PLAN_IDS.index(plan_id)
+        return formal_plan_module.repetition_cells(repetition)
+    if plan_id == S08_CANARY_PLAN_ID:
+        from experiments.evaluation.closure2 import s08_canary
+
+        return s08_canary.canary_cells()
     raise PilotContractError(f"unknown plan_id {plan_id!r}")
 
 
-#: One summary per plan: the pilot keeps the filename its 2026-11-18 artifact already has, and a
-#: routing run can never overwrite it even when both are pointed at the same ``--out`` directory.
+#: One summary per plan: the pilot keeps the filename its 2026-11-18 artifact already has, and no
+#: other plan can overwrite it even when every plan is pointed at the same ``--out`` directory.
 LIVE_SUMMARY_FILENAMES: dict[str, str] = {
     PILOT_PLAN_ID: "pilot-live-summary.json",
     ROUTING_PAIR_PLAN_ID: "routing-pair-live-summary.json",
+    **{plan_id: f"{plan_id}-live-summary.json" for plan_id in FORMAL_PLAN_IDS},
+    S08_CANARY_PLAN_ID: "s08-canary-live-summary.json",
 }
 
 #: Run roots are plan-scoped for the same reason: two plans never share a results tree.
 DEFAULT_RUNS_ROOTS: dict[str, Path] = {
     PILOT_PLAN_ID: DEFAULT_RUNS_ROOT,
     ROUTING_PAIR_PLAN_ID: REPO_ROOT / "experiments" / "runs" / "closure2-routing-pair",
+    **{
+        plan_id: REPO_ROOT / "experiments" / "runs" / plan_id
+        for plan_id in (*FORMAL_PLAN_IDS, S08_CANARY_PLAN_ID)
+    },
 }
 
 
@@ -565,6 +647,10 @@ def pilot_authorization_gate(
         problems.append("pilot approval has no approval timestamp")
     if target.preregistration_digest != C2A_R1_PREREGISTRATION_DIGEST:
         problems.append("pilot plan is pinned to a different preregistration digest")
+    try:
+        target.budget_profile()
+    except Exception as error:  # noqa: BLE001 - an unresolvable profile is a refusal, not a crash
+        problems.append(f"plan budget profile is not resolvable: {error}")
     if preregistration_digest() != target.preregistration_digest:
         problems.append(
             "the live preregistration digest differs from the one the pilot plan was pinned to"
@@ -742,36 +828,27 @@ def _cost_dispatch_state(records: list[dict[str, Any]], plan: PilotPlan) -> dict
     }
 
 
-def frozen_budget(topology: str) -> dict[str, Any]:
-    """The frozen resource table for one topology, with the invariants restated as assertions."""
+def frozen_budget(topology: str, *, profile: BudgetProfile | None = None) -> dict[str, Any]:
+    """The resource table for one topology, with the invariants restated as assertions.
 
-    if topology == "single":
-        block = BUDGET["single"]
-        expected = {
-            "max_turns": 36,
-            "token_budget": 260_000,
-            "max_tool_calls": 90,
-            "timeout_seconds": 1800,
-        }
-        kind = "single"
-    elif topology == "multi":
-        block = BUDGET["multi"]
-        expected = {
-            "max_turns_per_worker": 12,
-            "workers": 3,
-            "token_budget": 260_000,
-            "max_tool_calls": 90,
-            "timeout_seconds": 1800,
-        }
-        kind = "multi"
-    else:
+    Two separate checks, and they must not be confused:
+
+    * ``protocol.BUDGET`` must still be the **frozen** table whatever profile is requested — that is
+      what stops a candidate profile from being implemented by quietly editing the registration;
+    * the returned numbers come from the requested profile, so a delayed cell really admits against
+      500 000 tokens instead of merely documenting it.
+    """
+
+    active = profile or FROZEN_PROFILE
+    if topology not in ("single", "multi"):
         raise PilotContractError(f"unknown topology {topology!r}")
-    for key, value in expected.items():
+    block = BUDGET[topology]
+    for key, value in FROZEN_PROFILE.expectations(topology).items():
         if int(block[key]) != value:
             raise PilotContractError(
-                f"frozen budget drifted: {kind}.{key}={block[key]!r}, registered {value}"
+                f"frozen budget drifted: {topology}.{key}={block[key]!r}, registered {value}"
             )
-    return {**{key: block[key] for key in expected}, "topology": kind, "shared": BUDGET["shared"]}
+    return {**active.expectations(topology), "topology": topology, "shared": BUDGET["shared"]}
 
 
 def effective_model() -> str:
@@ -796,12 +873,24 @@ def _config_model(relative: str) -> str:
     return model
 
 
-def settings_for(cell: Cell, *, runs_root: Path, model: str | None = None) -> RunnerSettings:
-    """Build the frozen ``RunnerSettings`` for one cell.
+def settings_for(
+    cell: Cell,
+    *,
+    runs_root: Path,
+    model: str | None = None,
+    budget_profile: BudgetProfile | None = None,
+) -> RunnerSettings:
+    """Build the ``RunnerSettings`` for one cell under the requested budget profile.
 
     The defaults of ``RunnerSettings`` (14 turns, 120k tokens, 40 tools, 900 s, 4096 tokens) are all
-    *different* from the frozen contract, so every value that matters is passed explicitly. That is
-    the whole reason this function exists instead of ``RunnerSettings(...)`` at the call site.
+    *different* from the contract, so every value that matters is passed explicitly. That is the
+    whole reason this function exists instead of ``RunnerSettings(...)`` at the call site.
+
+    ``budget_profile`` defaults to the frozen table, which keeps every historical call — and every
+    settings digest already recorded in an artifact — byte-identical. A candidate profile moves the
+    token budget and, for multi cells only, sets ``worker_max_turns`` so the cap survives the frozen
+    catalogue's per-step ``max_turns=12``. Single cells never get that override: their 36-turn cap
+    was not part of the owner decision.
     """
 
     from experiments.evaluation.runner import (
@@ -810,9 +899,12 @@ def settings_for(cell: Cell, *, runs_root: Path, model: str | None = None) -> Ru
         RunnerSettings,
     )
 
-    budget = frozen_budget(cell.spec.topology)
-    per_worker_turns = int(
-        budget["max_turns"] if cell.spec.topology == "single" else budget["max_turns_per_worker"]
+    profile = budget_profile or FROZEN_PROFILE
+    budget = frozen_budget(cell.spec.topology, profile=profile)
+    per_worker_turns = profile.agent_max_turns(cell.spec.topology)
+    frozen_profile = profile.digest() == FROZEN_PROFILE.digest()
+    worker_max_turns = (
+        None if frozen_profile or cell.spec.topology != "multi" else profile.multi_worker_max_turns
     )
     atlas = cell.spec.is_atlas
     return RunnerSettings(
@@ -824,6 +916,7 @@ def settings_for(cell: Cell, *, runs_root: Path, model: str | None = None) -> Ru
         timeout_seconds=int(budget["timeout_seconds"]),
         temperature=FROZEN_TEMPERATURE,
         max_turns=per_worker_turns,
+        worker_max_turns=worker_max_turns,
         max_tokens=FROZEN_MAX_TOKENS_PER_REQUEST,
         token_budget=int(budget["token_budget"]),
         # The fairness difference is recorded, not removed: Atlas admits requests against a shared
@@ -1013,13 +1106,20 @@ def route_expectation(cell: Cell) -> dict[str, Any]:
     }
 
 
-def cell_descriptor(cell: Cell, *, runs_root: Path, model: str | None = None) -> dict[str, Any]:
+def cell_descriptor(
+    cell: Cell,
+    *,
+    runs_root: Path,
+    model: str | None = None,
+    budget_profile: BudgetProfile | None = None,
+) -> dict[str, Any]:
     """Everything one cell's identity depends on, with no host path and no execution."""
 
-    settings = settings_for(cell, runs_root=runs_root, model=model)
+    profile = budget_profile or FROZEN_PROFILE
+    settings = settings_for(cell, runs_root=runs_root, model=model, budget_profile=profile)
     task = cell.benchmark_task()
     expectation = route_expectation(cell)
-    budget = frozen_budget(cell.spec.topology)
+    budget = frozen_budget(cell.spec.topology, profile=profile)
     return {
         "cell_id": cell.cell_id,
         "benchmark_id": BENCHMARK_ID,
@@ -1054,6 +1154,17 @@ def cell_descriptor(cell: Cell, *, runs_root: Path, model: str | None = None) ->
             "max_tokens_per_request": FROZEN_MAX_TOKENS_PER_REQUEST,
             "temperature": FROZEN_TEMPERATURE,
             "sandbox": dict(FROZEN_RESOURCE_CONTRACT),
+            # Absent means "the frozen table": that is what the committed dry-run artifact records,
+            # and adding a key to it would move an artifact that already exists.
+            **(
+                {}
+                if profile.digest() == FROZEN_PROFILE.digest()
+                else {
+                    "budget_profile_revision": profile.revision,
+                    "budget_profile_digest": profile.digest(),
+                    "worker_max_turns_override": settings.worker_max_turns,
+                }
+            ),
         },
         "budget_semantics": cell.spec.budget_semantics,
         "oracle_mode": settings.oracle_mode,
@@ -1307,6 +1418,9 @@ async def run_live_pilot(
         cells=cells, repetition_id=repetition_id, plan=plan, record=approval_record
     )
     require_frozen_contract()
+    # The plan decides the budget, not the caller: a plan that names a candidate profile digest
+    # admits against it, and an unknown digest raises before the lease is taken.
+    budget_profile = plan.budget_profile()
 
     # The lease is taken after every approval and before any provider or sandbox work. If the plan
     # was ever claimed, this raises and nothing downstream runs — a crashed process does not give
@@ -1337,7 +1451,9 @@ async def run_live_pilot(
                 stopped_reason = state["reason"]
                 not_started = [pending.cell_id for pending in cells[index:]]
                 break
-        settings = settings_for(cell, runs_root=runs_root, model=model)
+        settings = settings_for(
+            cell, runs_root=runs_root, model=model, budget_profile=budget_profile
+        )
         task = cell.benchmark_task()
 
         # Phase A — durability before the side effect. If the RUNNING row cannot be written, the
@@ -1427,6 +1543,12 @@ async def run_live_pilot(
         "approved_digest": gate["approved_digest"],
         "pilot_plan_id": pilot_gate["plan_id"],
         "pilot_plan_digest": pilot_gate["plan_digest"],
+        "budget_profile": {
+            **budget_profile.payload(),
+            "digest": budget_profile.digest(),
+            "per_cell_token_budget": budget_profile.cell_token_budget,
+            "shared_by_main_and_workers": True,
+        },
         "authorized_cells": pilot_gate["approved_cells"],
         "authorized_repetitions": pilot_gate["approved_repetitions"],
         "max_cell_executions": pilot_gate["max_cell_executions"],

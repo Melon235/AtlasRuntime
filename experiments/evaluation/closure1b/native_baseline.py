@@ -63,6 +63,7 @@ from experiments.evaluation.models import (
     RunIdentity,
     RuntimeMetrics,
     canonical_digest,
+    effective_agent_max_turns,
     effective_public_task_digest,
 )
 from experiments.evaluation.runner import (
@@ -214,6 +215,7 @@ async def run_native_sample(
         "real_sandbox_provider": False,
         "temperature": settings.temperature,
         "max_turns": settings.max_turns,
+        "worker_max_turns": settings.worker_max_turns,
         "max_tokens": settings.max_tokens,
         "token_budget": settings.token_budget,
         "max_tool_calls": settings.max_tool_calls,
@@ -320,7 +322,11 @@ async def run_native_sample(
                 provider=provider_name,
                 system_prompt=_NATIVE_SYSTEM_TEMPLATE.format(environment_note=environment_note),
                 tools=list(NEUTRAL_TOOLS),
-                max_turns=step.max_turns or settings.max_turns,
+                max_turns=effective_agent_max_turns(
+                    step_max_turns=step.max_turns,
+                    settings_max_turns=settings.max_turns,
+                    worker_max_turns=settings.worker_max_turns,
+                ),
                 max_tokens=settings.max_tokens,
                 temperature=settings.temperature,
                 provider_resilience=evaluation_resilience(),

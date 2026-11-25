@@ -49,6 +49,7 @@ from experiments.evaluation.models import (
     RunIdentity,
     RuntimeMetrics,
     canonical_digest,
+    effective_agent_max_turns,
     effective_public_task_digest,
 )
 from experiments.evaluation.oracle import evaluate_oracle
@@ -206,6 +207,10 @@ class RunnerSettings:
     timeout_seconds: int = 900
     temperature: float = 0.0
     max_turns: int = 14
+    #: Run-level override of the per-agent turn cap. ``None`` keeps the historical rule
+    #: (``step.max_turns or max_turns``); a value wins over a per-step declaration, which is what
+    #: lets a candidate budget raise the cap without editing the frozen task data.
+    worker_max_turns: int | None = None
     max_tokens: int = 4096
     token_budget: int = 120_000
     budget_mode: str = "legacy"
@@ -243,37 +248,40 @@ class RunnerSettings:
     prompt_layout: str = PROMPT_LAYOUT_LEGACY
 
     def digest(self) -> str:
-        return canonical_digest(
-            {
-                "benchmark_id": self.benchmark_id,
-                "dataset_version": self.dataset_version,
-                "scorer_version": self.scorer_version,
-                "temperature": self.temperature,
-                "max_turns": self.max_turns,
-                "max_tokens": self.max_tokens,
-                "token_budget": self.token_budget,
-                "budget_mode": self.budget_mode,
-                "max_tool_calls": self.max_tool_calls,
-                "progressive_tools": self.progressive_tools,
-                "model_override": self.model_override,
-                "variant": self.variant,
-                "capture_evidence": self.capture_evidence,
-                "handoff_mode": self.handoff_mode,
-                "compaction_mode": self.compaction_mode,
-                "tool_error_mode": self.tool_error_mode,
-                "tool_result_mode": self.tool_result_mode,
-                "worker_contract_mode": self.worker_contract_mode,
-                "ownership_mode": self.ownership_mode,
-                "execution_integrity_mode": self.execution_integrity_mode,
-                "verification_mode": self.verification_mode,
-                "oracle_mode": self.oracle_mode,
-                "delegation_route_mode": self.delegation_route_mode,
-                "delegation_policy_version": self.delegation_policy_version,
-                "context_plane_expectation": self.context_plane_expectation,
-                "prompt_layout": self.prompt_layout,
-                "config": _config_digest(self.config_path),
-            }
-        )
+        payload: dict[str, Any] = {
+            "benchmark_id": self.benchmark_id,
+            "dataset_version": self.dataset_version,
+            "scorer_version": self.scorer_version,
+            "temperature": self.temperature,
+            "max_turns": self.max_turns,
+            "max_tokens": self.max_tokens,
+            "token_budget": self.token_budget,
+            "budget_mode": self.budget_mode,
+            "max_tool_calls": self.max_tool_calls,
+            "progressive_tools": self.progressive_tools,
+            "model_override": self.model_override,
+            "variant": self.variant,
+            "capture_evidence": self.capture_evidence,
+            "handoff_mode": self.handoff_mode,
+            "compaction_mode": self.compaction_mode,
+            "tool_error_mode": self.tool_error_mode,
+            "tool_result_mode": self.tool_result_mode,
+            "worker_contract_mode": self.worker_contract_mode,
+            "ownership_mode": self.ownership_mode,
+            "execution_integrity_mode": self.execution_integrity_mode,
+            "verification_mode": self.verification_mode,
+            "oracle_mode": self.oracle_mode,
+            "delegation_route_mode": self.delegation_route_mode,
+            "delegation_policy_version": self.delegation_policy_version,
+            "context_plane_expectation": self.context_plane_expectation,
+            "prompt_layout": self.prompt_layout,
+            "config": _config_digest(self.config_path),
+        }
+        # Only present when set: ``None`` *is* the historical semantics, and hashing it differently
+        # would move the settings digest of every run that already executed.
+        if self.worker_max_turns is not None:
+            payload["worker_max_turns"] = self.worker_max_turns
+        return canonical_digest(payload)
 
 
 #: A request that was observed at issue time and has not finished yet.
@@ -1859,6 +1867,7 @@ async def run_sample(
         "sandbox_provider": config.sandbox.provider,
         "temperature": settings.temperature,
         "max_turns": settings.max_turns,
+        "worker_max_turns": settings.worker_max_turns,
         "max_tokens": settings.max_tokens,
         "token_budget": settings.token_budget,
         "budget_mode": settings.budget_mode,
@@ -2307,7 +2316,11 @@ async def run_sample(
             worker_by_task[step.task_id].agent_config.model_copy(
                 update={
                     "provider": provider_name,
-                    "max_turns": step.max_turns or settings.max_turns,
+                    "max_turns": effective_agent_max_turns(
+                        step_max_turns=step.max_turns,
+                        settings_max_turns=settings.max_turns,
+                        worker_max_turns=settings.worker_max_turns,
+                    ),
                     "max_tokens": settings.max_tokens,
                     "temperature": settings.temperature,
                     "provider_resilience": evaluation_resilience(),

@@ -8,33 +8,40 @@
     "A2-P"
   ],
   "benchmark_id": "closure2-final-benchmark-v1",
+  "budget_profile": {
+    "cell_token_budget": 500000,
+    "digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
+    "max_tool_calls": 90,
+    "multi_worker_max_turns": 20,
+    "multi_workers": 3,
+    "revision": "closure-2-s07-candidate-budget-1",
+    "single_max_turns": 36,
+    "status": "CANDIDATE_NOT_FROZEN_NOT_AUTHORIZED",
+    "timeout_seconds": 1800
+  },
   "cells_per_repetition": 18,
   "contract_ok": true,
   "contract_problems": [],
   "frozen_preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
   "kind": "closure2_formal_matrix_candidate",
   "live_runnable": false,
-  "live_runnable_reason": "pilot_runner.plan_scope_ids() exposes two plans and neither is a formal-matrix plan; the candidate is refused by pilot_authorization_gate until an owner approval record names its digest",
+  "live_runnable_reason": "the three plans are wired into pilot_runner.plan_scope_ids() and plan_cells_for(), and every one of them is refused by pilot_authorization_gate because no approval record names its digest; the benchmark-definition approval alone authorizes no execution",
   "model_calls": 0,
-  "order_implementation": "tasks in frozen order, arms rotated left by 2 places per repetition; no randomisation, so no seed is recorded",
   "order_rule": "tasks x repetitions are the outer loop and arms the inner loop, with the arm order rotated per repetition; no arm is ever run to completion before the next one starts",
-  "plan_revision": "closure-2-s07-candidate-1",
+  "plan_ids": [
+    "closure2-formal-r1",
+    "closure2-formal-r2",
+    "closure2-formal-r3"
+  ],
+  "plan_revision": "closure-2-s07-candidate-2",
   "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
   "randomised": false,
   "repetitions": [
     {
-      "arm_order": [
-        "N0",
-        "N1",
-        "A0",
-        "A1-L",
-        "A1-P",
-        "A2-P"
-      ],
       "authorization_probe": {
         "cells": 18,
         "execution_ready": false,
-        "plan_digest": "96a85b7a7347b8b60d3a6b3eb637af27911cfdbe2433ac90906252f106c3890c",
+        "plan_digest": "79df2c0dc8f9474e93d73bbe4b3d54065fe62a9876794973f63d78227e1da14e",
         "plan_id": "closure2-formal-r1",
         "problems": [
           "pilot approval status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
@@ -44,11 +51,38 @@
         ],
         "repetition": 0
       },
+      "block_arm_orders": [
+        [
+          "N0",
+          "N1",
+          "A0",
+          "A1-L",
+          "A1-P",
+          "A2-P"
+        ],
+        [
+          "A0",
+          "A1-L",
+          "A1-P",
+          "A2-P",
+          "N0",
+          "N1"
+        ],
+        [
+          "A1-P",
+          "A2-P",
+          "N0",
+          "N1",
+          "A0",
+          "A1-L"
+        ]
+      ],
+      "budget_profile_digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
       "candidate_approval": {
         "approval_commit": null,
         "approved_at": null,
         "approved_by": null,
-        "approved_plan_digest": "96a85b7a7347b8b60d3a6b3eb637af27911cfdbe2433ac90906252f106c3890c",
+        "approved_plan_digest": "79df2c0dc8f9474e93d73bbe4b3d54065fe62a9876794973f63d78227e1da14e",
         "status": "PENDING_OWNER_APPROVAL"
       },
       "cells": [
@@ -107,24 +141,6 @@
           "topology": "multi"
         },
         {
-          "arm_id": "N0",
-          "cell_id": "closure2-plugin-migration::N0",
-          "prompt_layout": "native",
-          "route": "off",
-          "runner": "native",
-          "task_id": "closure2-plugin-migration",
-          "topology": "single"
-        },
-        {
-          "arm_id": "N1",
-          "cell_id": "closure2-plugin-migration::N1",
-          "prompt_layout": "native",
-          "route": "off",
-          "runner": "native",
-          "task_id": "closure2-plugin-migration",
-          "topology": "multi"
-        },
-        {
           "arm_id": "A0",
           "cell_id": "closure2-plugin-migration::A0",
           "prompt_layout": "legacy",
@@ -162,6 +178,42 @@
         },
         {
           "arm_id": "N0",
+          "cell_id": "closure2-plugin-migration::N0",
+          "prompt_layout": "native",
+          "route": "off",
+          "runner": "native",
+          "task_id": "closure2-plugin-migration",
+          "topology": "single"
+        },
+        {
+          "arm_id": "N1",
+          "cell_id": "closure2-plugin-migration::N1",
+          "prompt_layout": "native",
+          "route": "off",
+          "runner": "native",
+          "task_id": "closure2-plugin-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A1-P",
+          "cell_id": "closure2-state-machine-refactor::A1-P",
+          "prompt_layout": "shared_prefix",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-state-machine-refactor",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A2-P",
+          "cell_id": "closure2-state-machine-refactor::A2-P",
+          "prompt_layout": "shared_prefix",
+          "route": "selective",
+          "runner": "atlas",
+          "task_id": "closure2-state-machine-refactor",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "N0",
           "cell_id": "closure2-state-machine-refactor::N0",
           "prompt_layout": "native",
           "route": "off",
@@ -195,49 +247,28 @@
           "runner": "atlas",
           "task_id": "closure2-state-machine-refactor",
           "topology": "multi"
-        },
-        {
-          "arm_id": "A1-P",
-          "cell_id": "closure2-state-machine-refactor::A1-P",
-          "prompt_layout": "shared_prefix",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-state-machine-refactor",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "A2-P",
-          "cell_id": "closure2-state-machine-refactor::A2-P",
-          "prompt_layout": "shared_prefix",
-          "route": "selective",
-          "runner": "atlas",
-          "task_id": "closure2-state-machine-refactor",
-          "topology": "multi"
         }
       ],
-      "estimated_cost_ceiling_usd": 1.0,
+      "estimated_cost_ceiling_usd": 1.2,
       "max_cell_executions": 18,
-      "plan_digest": "96a85b7a7347b8b60d3a6b3eb637af27911cfdbe2433ac90906252f106c3890c",
+      "plan_digest": "79df2c0dc8f9474e93d73bbe4b3d54065fe62a9876794973f63d78227e1da14e",
       "plan_id": "closure2-formal-r1",
       "repetition": 0,
       "repetitions": [
         0
       ],
-      "runner_revision": "closure-2-s07-candidate-1"
+      "runner_revision": "closure-2-s07-candidate-2",
+      "task_order": [
+        "closure2-pipeline-migration",
+        "closure2-plugin-migration",
+        "closure2-state-machine-refactor"
+      ]
     },
     {
-      "arm_order": [
-        "A0",
-        "A1-L",
-        "A1-P",
-        "A2-P",
-        "N0",
-        "N1"
-      ],
       "authorization_probe": {
         "cells": 18,
         "execution_ready": false,
-        "plan_digest": "a82e9aadd3c1de19ebfba1ce0bab16f6d51421c45fc0fd2ef74e19c3f7e70111",
+        "plan_digest": "a23a8a6203c51ee0a1fa595b595a20cbda41000b7ba627e84b712a1696be0798",
         "plan_id": "closure2-formal-r2",
         "problems": [
           "pilot approval status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
@@ -247,68 +278,41 @@
         ],
         "repetition": 1
       },
+      "block_arm_orders": [
+        [
+          "A0",
+          "A1-L",
+          "A1-P",
+          "A2-P",
+          "N0",
+          "N1"
+        ],
+        [
+          "A1-P",
+          "A2-P",
+          "N0",
+          "N1",
+          "A0",
+          "A1-L"
+        ],
+        [
+          "N0",
+          "N1",
+          "A0",
+          "A1-L",
+          "A1-P",
+          "A2-P"
+        ]
+      ],
+      "budget_profile_digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
       "candidate_approval": {
         "approval_commit": null,
         "approved_at": null,
         "approved_by": null,
-        "approved_plan_digest": "a82e9aadd3c1de19ebfba1ce0bab16f6d51421c45fc0fd2ef74e19c3f7e70111",
+        "approved_plan_digest": "a23a8a6203c51ee0a1fa595b595a20cbda41000b7ba627e84b712a1696be0798",
         "status": "PENDING_OWNER_APPROVAL"
       },
       "cells": [
-        {
-          "arm_id": "A0",
-          "cell_id": "closure2-pipeline-migration::A0",
-          "prompt_layout": "legacy",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "single"
-        },
-        {
-          "arm_id": "A1-L",
-          "cell_id": "closure2-pipeline-migration::A1-L",
-          "prompt_layout": "legacy",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "A1-P",
-          "cell_id": "closure2-pipeline-migration::A1-P",
-          "prompt_layout": "shared_prefix",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "A2-P",
-          "cell_id": "closure2-pipeline-migration::A2-P",
-          "prompt_layout": "shared_prefix",
-          "route": "selective",
-          "runner": "atlas",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "N0",
-          "cell_id": "closure2-pipeline-migration::N0",
-          "prompt_layout": "native",
-          "route": "off",
-          "runner": "native",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "single"
-        },
-        {
-          "arm_id": "N1",
-          "cell_id": "closure2-pipeline-migration::N1",
-          "prompt_layout": "native",
-          "route": "off",
-          "runner": "native",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "multi"
-        },
         {
           "arm_id": "A0",
           "cell_id": "closure2-plugin-migration::A0",
@@ -364,24 +368,6 @@
           "topology": "multi"
         },
         {
-          "arm_id": "A0",
-          "cell_id": "closure2-state-machine-refactor::A0",
-          "prompt_layout": "legacy",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-state-machine-refactor",
-          "topology": "single"
-        },
-        {
-          "arm_id": "A1-L",
-          "cell_id": "closure2-state-machine-refactor::A1-L",
-          "prompt_layout": "legacy",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-state-machine-refactor",
-          "topology": "multi"
-        },
-        {
           "arm_id": "A1-P",
           "cell_id": "closure2-state-machine-refactor::A1-P",
           "prompt_layout": "shared_prefix",
@@ -416,31 +402,100 @@
           "runner": "native",
           "task_id": "closure2-state-machine-refactor",
           "topology": "multi"
+        },
+        {
+          "arm_id": "A0",
+          "cell_id": "closure2-state-machine-refactor::A0",
+          "prompt_layout": "legacy",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-state-machine-refactor",
+          "topology": "single"
+        },
+        {
+          "arm_id": "A1-L",
+          "cell_id": "closure2-state-machine-refactor::A1-L",
+          "prompt_layout": "legacy",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-state-machine-refactor",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "N0",
+          "cell_id": "closure2-pipeline-migration::N0",
+          "prompt_layout": "native",
+          "route": "off",
+          "runner": "native",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "single"
+        },
+        {
+          "arm_id": "N1",
+          "cell_id": "closure2-pipeline-migration::N1",
+          "prompt_layout": "native",
+          "route": "off",
+          "runner": "native",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A0",
+          "cell_id": "closure2-pipeline-migration::A0",
+          "prompt_layout": "legacy",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "single"
+        },
+        {
+          "arm_id": "A1-L",
+          "cell_id": "closure2-pipeline-migration::A1-L",
+          "prompt_layout": "legacy",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A1-P",
+          "cell_id": "closure2-pipeline-migration::A1-P",
+          "prompt_layout": "shared_prefix",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A2-P",
+          "cell_id": "closure2-pipeline-migration::A2-P",
+          "prompt_layout": "shared_prefix",
+          "route": "selective",
+          "runner": "atlas",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "multi"
         }
       ],
-      "estimated_cost_ceiling_usd": 1.0,
+      "estimated_cost_ceiling_usd": 1.2,
       "max_cell_executions": 18,
-      "plan_digest": "a82e9aadd3c1de19ebfba1ce0bab16f6d51421c45fc0fd2ef74e19c3f7e70111",
+      "plan_digest": "a23a8a6203c51ee0a1fa595b595a20cbda41000b7ba627e84b712a1696be0798",
       "plan_id": "closure2-formal-r2",
       "repetition": 1,
       "repetitions": [
         1
       ],
-      "runner_revision": "closure-2-s07-candidate-1"
+      "runner_revision": "closure-2-s07-candidate-2",
+      "task_order": [
+        "closure2-plugin-migration",
+        "closure2-state-machine-refactor",
+        "closure2-pipeline-migration"
+      ]
     },
     {
-      "arm_order": [
-        "A1-P",
-        "A2-P",
-        "N0",
-        "N1",
-        "A0",
-        "A1-L"
-      ],
       "authorization_probe": {
         "cells": 18,
         "execution_ready": false,
-        "plan_digest": "86257750d61272ac937508206d3117ce0c6f578b574c835fff57667245c9b931",
+        "plan_digest": "5462fde26fabe8cd06a8ce68f99789e09b28fbe40fd7c8557c8fd30783db4f3d",
         "plan_id": "closure2-formal-r3",
         "problems": [
           "pilot approval status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
@@ -450,122 +505,41 @@
         ],
         "repetition": 2
       },
+      "block_arm_orders": [
+        [
+          "A1-P",
+          "A2-P",
+          "N0",
+          "N1",
+          "A0",
+          "A1-L"
+        ],
+        [
+          "N0",
+          "N1",
+          "A0",
+          "A1-L",
+          "A1-P",
+          "A2-P"
+        ],
+        [
+          "A0",
+          "A1-L",
+          "A1-P",
+          "A2-P",
+          "N0",
+          "N1"
+        ]
+      ],
+      "budget_profile_digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
       "candidate_approval": {
         "approval_commit": null,
         "approved_at": null,
         "approved_by": null,
-        "approved_plan_digest": "86257750d61272ac937508206d3117ce0c6f578b574c835fff57667245c9b931",
+        "approved_plan_digest": "5462fde26fabe8cd06a8ce68f99789e09b28fbe40fd7c8557c8fd30783db4f3d",
         "status": "PENDING_OWNER_APPROVAL"
       },
       "cells": [
-        {
-          "arm_id": "A1-P",
-          "cell_id": "closure2-pipeline-migration::A1-P",
-          "prompt_layout": "shared_prefix",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "A2-P",
-          "cell_id": "closure2-pipeline-migration::A2-P",
-          "prompt_layout": "shared_prefix",
-          "route": "selective",
-          "runner": "atlas",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "N0",
-          "cell_id": "closure2-pipeline-migration::N0",
-          "prompt_layout": "native",
-          "route": "off",
-          "runner": "native",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "single"
-        },
-        {
-          "arm_id": "N1",
-          "cell_id": "closure2-pipeline-migration::N1",
-          "prompt_layout": "native",
-          "route": "off",
-          "runner": "native",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "A0",
-          "cell_id": "closure2-pipeline-migration::A0",
-          "prompt_layout": "legacy",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "single"
-        },
-        {
-          "arm_id": "A1-L",
-          "cell_id": "closure2-pipeline-migration::A1-L",
-          "prompt_layout": "legacy",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-pipeline-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "A1-P",
-          "cell_id": "closure2-plugin-migration::A1-P",
-          "prompt_layout": "shared_prefix",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-plugin-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "A2-P",
-          "cell_id": "closure2-plugin-migration::A2-P",
-          "prompt_layout": "shared_prefix",
-          "route": "selective",
-          "runner": "atlas",
-          "task_id": "closure2-plugin-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "N0",
-          "cell_id": "closure2-plugin-migration::N0",
-          "prompt_layout": "native",
-          "route": "off",
-          "runner": "native",
-          "task_id": "closure2-plugin-migration",
-          "topology": "single"
-        },
-        {
-          "arm_id": "N1",
-          "cell_id": "closure2-plugin-migration::N1",
-          "prompt_layout": "native",
-          "route": "off",
-          "runner": "native",
-          "task_id": "closure2-plugin-migration",
-          "topology": "multi"
-        },
-        {
-          "arm_id": "A0",
-          "cell_id": "closure2-plugin-migration::A0",
-          "prompt_layout": "legacy",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-plugin-migration",
-          "topology": "single"
-        },
-        {
-          "arm_id": "A1-L",
-          "cell_id": "closure2-plugin-migration::A1-L",
-          "prompt_layout": "legacy",
-          "route": "off",
-          "runner": "atlas",
-          "task_id": "closure2-plugin-migration",
-          "topology": "multi"
-        },
         {
           "arm_id": "A1-P",
           "cell_id": "closure2-state-machine-refactor::A1-P",
@@ -619,21 +593,1001 @@
           "runner": "atlas",
           "task_id": "closure2-state-machine-refactor",
           "topology": "multi"
+        },
+        {
+          "arm_id": "N0",
+          "cell_id": "closure2-pipeline-migration::N0",
+          "prompt_layout": "native",
+          "route": "off",
+          "runner": "native",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "single"
+        },
+        {
+          "arm_id": "N1",
+          "cell_id": "closure2-pipeline-migration::N1",
+          "prompt_layout": "native",
+          "route": "off",
+          "runner": "native",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A0",
+          "cell_id": "closure2-pipeline-migration::A0",
+          "prompt_layout": "legacy",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "single"
+        },
+        {
+          "arm_id": "A1-L",
+          "cell_id": "closure2-pipeline-migration::A1-L",
+          "prompt_layout": "legacy",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A1-P",
+          "cell_id": "closure2-pipeline-migration::A1-P",
+          "prompt_layout": "shared_prefix",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A2-P",
+          "cell_id": "closure2-pipeline-migration::A2-P",
+          "prompt_layout": "shared_prefix",
+          "route": "selective",
+          "runner": "atlas",
+          "task_id": "closure2-pipeline-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A0",
+          "cell_id": "closure2-plugin-migration::A0",
+          "prompt_layout": "legacy",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-plugin-migration",
+          "topology": "single"
+        },
+        {
+          "arm_id": "A1-L",
+          "cell_id": "closure2-plugin-migration::A1-L",
+          "prompt_layout": "legacy",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-plugin-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A1-P",
+          "cell_id": "closure2-plugin-migration::A1-P",
+          "prompt_layout": "shared_prefix",
+          "route": "off",
+          "runner": "atlas",
+          "task_id": "closure2-plugin-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "A2-P",
+          "cell_id": "closure2-plugin-migration::A2-P",
+          "prompt_layout": "shared_prefix",
+          "route": "selective",
+          "runner": "atlas",
+          "task_id": "closure2-plugin-migration",
+          "topology": "multi"
+        },
+        {
+          "arm_id": "N0",
+          "cell_id": "closure2-plugin-migration::N0",
+          "prompt_layout": "native",
+          "route": "off",
+          "runner": "native",
+          "task_id": "closure2-plugin-migration",
+          "topology": "single"
+        },
+        {
+          "arm_id": "N1",
+          "cell_id": "closure2-plugin-migration::N1",
+          "prompt_layout": "native",
+          "route": "off",
+          "runner": "native",
+          "task_id": "closure2-plugin-migration",
+          "topology": "multi"
         }
       ],
-      "estimated_cost_ceiling_usd": 1.0,
+      "estimated_cost_ceiling_usd": 1.2,
       "max_cell_executions": 18,
-      "plan_digest": "86257750d61272ac937508206d3117ce0c6f578b574c835fff57667245c9b931",
+      "plan_digest": "5462fde26fabe8cd06a8ce68f99789e09b28fbe40fd7c8557c8fd30783db4f3d",
       "plan_id": "closure2-formal-r3",
       "repetition": 2,
       "repetitions": [
         2
       ],
-      "runner_revision": "closure-2-s07-candidate-1"
+      "runner_revision": "closure-2-s07-candidate-2",
+      "task_order": [
+        "closure2-state-machine-refactor",
+        "closure2-pipeline-migration",
+        "closure2-plugin-migration"
+      ]
     }
   ],
   "repetitions_planned": 3,
   "sandbox_runs": 0,
+  "schedule": {
+    "arm_block_positions": {
+      "A0": [
+        2,
+        0,
+        4,
+        0,
+        4,
+        2,
+        4,
+        2,
+        0
+      ],
+      "A1-L": [
+        3,
+        1,
+        5,
+        1,
+        5,
+        3,
+        5,
+        3,
+        1
+      ],
+      "A1-P": [
+        4,
+        2,
+        0,
+        2,
+        0,
+        4,
+        0,
+        4,
+        2
+      ],
+      "A2-P": [
+        5,
+        3,
+        1,
+        3,
+        1,
+        5,
+        1,
+        5,
+        3
+      ],
+      "N0": [
+        0,
+        4,
+        2,
+        4,
+        2,
+        0,
+        2,
+        0,
+        4
+      ],
+      "N1": [
+        1,
+        5,
+        3,
+        5,
+        3,
+        1,
+        3,
+        1,
+        5
+      ]
+    },
+    "arm_execution_indices": {
+      "A0": [
+        2,
+        6,
+        16,
+        0,
+        10,
+        14,
+        4,
+        8,
+        12
+      ],
+      "A1-L": [
+        3,
+        7,
+        17,
+        1,
+        11,
+        15,
+        5,
+        9,
+        13
+      ],
+      "A1-P": [
+        4,
+        8,
+        12,
+        2,
+        6,
+        16,
+        0,
+        10,
+        14
+      ],
+      "A2-P": [
+        5,
+        9,
+        13,
+        3,
+        7,
+        17,
+        1,
+        11,
+        15
+      ],
+      "N0": [
+        0,
+        10,
+        14,
+        4,
+        8,
+        12,
+        2,
+        6,
+        16
+      ],
+      "N1": [
+        1,
+        11,
+        15,
+        5,
+        9,
+        13,
+        3,
+        7,
+        17
+      ]
+    },
+    "arm_rotation": 2,
+    "arm_third_counts": {
+      "A0": {
+        "early": 3,
+        "late": 3,
+        "middle": 3
+      },
+      "A1-L": {
+        "early": 3,
+        "late": 3,
+        "middle": 3
+      },
+      "A1-P": {
+        "early": 3,
+        "late": 3,
+        "middle": 3
+      },
+      "A2-P": {
+        "early": 3,
+        "late": 3,
+        "middle": 3
+      },
+      "N0": {
+        "early": 3,
+        "late": 3,
+        "middle": 3
+      },
+      "N1": {
+        "early": 3,
+        "late": 3,
+        "middle": 3
+      }
+    },
+    "every_arm_covers_every_third": true,
+    "every_arm_holds_three_block_positions": true,
+    "every_index_is_held_by_three_distinct_arms": true,
+    "every_task_in_each_third_once": true,
+    "repetitions": [
+      {
+        "block_arm_orders": [
+          [
+            "N0",
+            "N1",
+            "A0",
+            "A1-L",
+            "A1-P",
+            "A2-P"
+          ],
+          [
+            "A0",
+            "A1-L",
+            "A1-P",
+            "A2-P",
+            "N0",
+            "N1"
+          ],
+          [
+            "A1-P",
+            "A2-P",
+            "N0",
+            "N1",
+            "A0",
+            "A1-L"
+          ]
+        ],
+        "order": [
+          {
+            "arm_id": "N0",
+            "block_index": 0,
+            "cell_id": "closure2-pipeline-migration::N0",
+            "execution_index": 0,
+            "position_in_block": 0,
+            "task_id": "closure2-pipeline-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "N1",
+            "block_index": 0,
+            "cell_id": "closure2-pipeline-migration::N1",
+            "execution_index": 1,
+            "position_in_block": 1,
+            "task_id": "closure2-pipeline-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "A0",
+            "block_index": 0,
+            "cell_id": "closure2-pipeline-migration::A0",
+            "execution_index": 2,
+            "position_in_block": 2,
+            "task_id": "closure2-pipeline-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "A1-L",
+            "block_index": 0,
+            "cell_id": "closure2-pipeline-migration::A1-L",
+            "execution_index": 3,
+            "position_in_block": 3,
+            "task_id": "closure2-pipeline-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "A1-P",
+            "block_index": 0,
+            "cell_id": "closure2-pipeline-migration::A1-P",
+            "execution_index": 4,
+            "position_in_block": 4,
+            "task_id": "closure2-pipeline-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "A2-P",
+            "block_index": 0,
+            "cell_id": "closure2-pipeline-migration::A2-P",
+            "execution_index": 5,
+            "position_in_block": 5,
+            "task_id": "closure2-pipeline-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "A0",
+            "block_index": 1,
+            "cell_id": "closure2-plugin-migration::A0",
+            "execution_index": 6,
+            "position_in_block": 0,
+            "task_id": "closure2-plugin-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A1-L",
+            "block_index": 1,
+            "cell_id": "closure2-plugin-migration::A1-L",
+            "execution_index": 7,
+            "position_in_block": 1,
+            "task_id": "closure2-plugin-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A1-P",
+            "block_index": 1,
+            "cell_id": "closure2-plugin-migration::A1-P",
+            "execution_index": 8,
+            "position_in_block": 2,
+            "task_id": "closure2-plugin-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A2-P",
+            "block_index": 1,
+            "cell_id": "closure2-plugin-migration::A2-P",
+            "execution_index": 9,
+            "position_in_block": 3,
+            "task_id": "closure2-plugin-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "N0",
+            "block_index": 1,
+            "cell_id": "closure2-plugin-migration::N0",
+            "execution_index": 10,
+            "position_in_block": 4,
+            "task_id": "closure2-plugin-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "N1",
+            "block_index": 1,
+            "cell_id": "closure2-plugin-migration::N1",
+            "execution_index": 11,
+            "position_in_block": 5,
+            "task_id": "closure2-plugin-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A1-P",
+            "block_index": 2,
+            "cell_id": "closure2-state-machine-refactor::A1-P",
+            "execution_index": 12,
+            "position_in_block": 0,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "late"
+          },
+          {
+            "arm_id": "A2-P",
+            "block_index": 2,
+            "cell_id": "closure2-state-machine-refactor::A2-P",
+            "execution_index": 13,
+            "position_in_block": 1,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "late"
+          },
+          {
+            "arm_id": "N0",
+            "block_index": 2,
+            "cell_id": "closure2-state-machine-refactor::N0",
+            "execution_index": 14,
+            "position_in_block": 2,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "late"
+          },
+          {
+            "arm_id": "N1",
+            "block_index": 2,
+            "cell_id": "closure2-state-machine-refactor::N1",
+            "execution_index": 15,
+            "position_in_block": 3,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "late"
+          },
+          {
+            "arm_id": "A0",
+            "block_index": 2,
+            "cell_id": "closure2-state-machine-refactor::A0",
+            "execution_index": 16,
+            "position_in_block": 4,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "late"
+          },
+          {
+            "arm_id": "A1-L",
+            "block_index": 2,
+            "cell_id": "closure2-state-machine-refactor::A1-L",
+            "execution_index": 17,
+            "position_in_block": 5,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "late"
+          }
+        ],
+        "plan_id": "closure2-formal-r1",
+        "repetition": 0,
+        "task_order": [
+          "closure2-pipeline-migration",
+          "closure2-plugin-migration",
+          "closure2-state-machine-refactor"
+        ]
+      },
+      {
+        "block_arm_orders": [
+          [
+            "A0",
+            "A1-L",
+            "A1-P",
+            "A2-P",
+            "N0",
+            "N1"
+          ],
+          [
+            "A1-P",
+            "A2-P",
+            "N0",
+            "N1",
+            "A0",
+            "A1-L"
+          ],
+          [
+            "N0",
+            "N1",
+            "A0",
+            "A1-L",
+            "A1-P",
+            "A2-P"
+          ]
+        ],
+        "order": [
+          {
+            "arm_id": "A0",
+            "block_index": 0,
+            "cell_id": "closure2-plugin-migration::A0",
+            "execution_index": 0,
+            "position_in_block": 0,
+            "task_id": "closure2-plugin-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "A1-L",
+            "block_index": 0,
+            "cell_id": "closure2-plugin-migration::A1-L",
+            "execution_index": 1,
+            "position_in_block": 1,
+            "task_id": "closure2-plugin-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "A1-P",
+            "block_index": 0,
+            "cell_id": "closure2-plugin-migration::A1-P",
+            "execution_index": 2,
+            "position_in_block": 2,
+            "task_id": "closure2-plugin-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "A2-P",
+            "block_index": 0,
+            "cell_id": "closure2-plugin-migration::A2-P",
+            "execution_index": 3,
+            "position_in_block": 3,
+            "task_id": "closure2-plugin-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "N0",
+            "block_index": 0,
+            "cell_id": "closure2-plugin-migration::N0",
+            "execution_index": 4,
+            "position_in_block": 4,
+            "task_id": "closure2-plugin-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "N1",
+            "block_index": 0,
+            "cell_id": "closure2-plugin-migration::N1",
+            "execution_index": 5,
+            "position_in_block": 5,
+            "task_id": "closure2-plugin-migration",
+            "third": "early"
+          },
+          {
+            "arm_id": "A1-P",
+            "block_index": 1,
+            "cell_id": "closure2-state-machine-refactor::A1-P",
+            "execution_index": 6,
+            "position_in_block": 0,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A2-P",
+            "block_index": 1,
+            "cell_id": "closure2-state-machine-refactor::A2-P",
+            "execution_index": 7,
+            "position_in_block": 1,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "middle"
+          },
+          {
+            "arm_id": "N0",
+            "block_index": 1,
+            "cell_id": "closure2-state-machine-refactor::N0",
+            "execution_index": 8,
+            "position_in_block": 2,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "middle"
+          },
+          {
+            "arm_id": "N1",
+            "block_index": 1,
+            "cell_id": "closure2-state-machine-refactor::N1",
+            "execution_index": 9,
+            "position_in_block": 3,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A0",
+            "block_index": 1,
+            "cell_id": "closure2-state-machine-refactor::A0",
+            "execution_index": 10,
+            "position_in_block": 4,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A1-L",
+            "block_index": 1,
+            "cell_id": "closure2-state-machine-refactor::A1-L",
+            "execution_index": 11,
+            "position_in_block": 5,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "middle"
+          },
+          {
+            "arm_id": "N0",
+            "block_index": 2,
+            "cell_id": "closure2-pipeline-migration::N0",
+            "execution_index": 12,
+            "position_in_block": 0,
+            "task_id": "closure2-pipeline-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "N1",
+            "block_index": 2,
+            "cell_id": "closure2-pipeline-migration::N1",
+            "execution_index": 13,
+            "position_in_block": 1,
+            "task_id": "closure2-pipeline-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "A0",
+            "block_index": 2,
+            "cell_id": "closure2-pipeline-migration::A0",
+            "execution_index": 14,
+            "position_in_block": 2,
+            "task_id": "closure2-pipeline-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "A1-L",
+            "block_index": 2,
+            "cell_id": "closure2-pipeline-migration::A1-L",
+            "execution_index": 15,
+            "position_in_block": 3,
+            "task_id": "closure2-pipeline-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "A1-P",
+            "block_index": 2,
+            "cell_id": "closure2-pipeline-migration::A1-P",
+            "execution_index": 16,
+            "position_in_block": 4,
+            "task_id": "closure2-pipeline-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "A2-P",
+            "block_index": 2,
+            "cell_id": "closure2-pipeline-migration::A2-P",
+            "execution_index": 17,
+            "position_in_block": 5,
+            "task_id": "closure2-pipeline-migration",
+            "third": "late"
+          }
+        ],
+        "plan_id": "closure2-formal-r2",
+        "repetition": 1,
+        "task_order": [
+          "closure2-plugin-migration",
+          "closure2-state-machine-refactor",
+          "closure2-pipeline-migration"
+        ]
+      },
+      {
+        "block_arm_orders": [
+          [
+            "A1-P",
+            "A2-P",
+            "N0",
+            "N1",
+            "A0",
+            "A1-L"
+          ],
+          [
+            "N0",
+            "N1",
+            "A0",
+            "A1-L",
+            "A1-P",
+            "A2-P"
+          ],
+          [
+            "A0",
+            "A1-L",
+            "A1-P",
+            "A2-P",
+            "N0",
+            "N1"
+          ]
+        ],
+        "order": [
+          {
+            "arm_id": "A1-P",
+            "block_index": 0,
+            "cell_id": "closure2-state-machine-refactor::A1-P",
+            "execution_index": 0,
+            "position_in_block": 0,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "early"
+          },
+          {
+            "arm_id": "A2-P",
+            "block_index": 0,
+            "cell_id": "closure2-state-machine-refactor::A2-P",
+            "execution_index": 1,
+            "position_in_block": 1,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "early"
+          },
+          {
+            "arm_id": "N0",
+            "block_index": 0,
+            "cell_id": "closure2-state-machine-refactor::N0",
+            "execution_index": 2,
+            "position_in_block": 2,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "early"
+          },
+          {
+            "arm_id": "N1",
+            "block_index": 0,
+            "cell_id": "closure2-state-machine-refactor::N1",
+            "execution_index": 3,
+            "position_in_block": 3,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "early"
+          },
+          {
+            "arm_id": "A0",
+            "block_index": 0,
+            "cell_id": "closure2-state-machine-refactor::A0",
+            "execution_index": 4,
+            "position_in_block": 4,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "early"
+          },
+          {
+            "arm_id": "A1-L",
+            "block_index": 0,
+            "cell_id": "closure2-state-machine-refactor::A1-L",
+            "execution_index": 5,
+            "position_in_block": 5,
+            "task_id": "closure2-state-machine-refactor",
+            "third": "early"
+          },
+          {
+            "arm_id": "N0",
+            "block_index": 1,
+            "cell_id": "closure2-pipeline-migration::N0",
+            "execution_index": 6,
+            "position_in_block": 0,
+            "task_id": "closure2-pipeline-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "N1",
+            "block_index": 1,
+            "cell_id": "closure2-pipeline-migration::N1",
+            "execution_index": 7,
+            "position_in_block": 1,
+            "task_id": "closure2-pipeline-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A0",
+            "block_index": 1,
+            "cell_id": "closure2-pipeline-migration::A0",
+            "execution_index": 8,
+            "position_in_block": 2,
+            "task_id": "closure2-pipeline-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A1-L",
+            "block_index": 1,
+            "cell_id": "closure2-pipeline-migration::A1-L",
+            "execution_index": 9,
+            "position_in_block": 3,
+            "task_id": "closure2-pipeline-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A1-P",
+            "block_index": 1,
+            "cell_id": "closure2-pipeline-migration::A1-P",
+            "execution_index": 10,
+            "position_in_block": 4,
+            "task_id": "closure2-pipeline-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A2-P",
+            "block_index": 1,
+            "cell_id": "closure2-pipeline-migration::A2-P",
+            "execution_index": 11,
+            "position_in_block": 5,
+            "task_id": "closure2-pipeline-migration",
+            "third": "middle"
+          },
+          {
+            "arm_id": "A0",
+            "block_index": 2,
+            "cell_id": "closure2-plugin-migration::A0",
+            "execution_index": 12,
+            "position_in_block": 0,
+            "task_id": "closure2-plugin-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "A1-L",
+            "block_index": 2,
+            "cell_id": "closure2-plugin-migration::A1-L",
+            "execution_index": 13,
+            "position_in_block": 1,
+            "task_id": "closure2-plugin-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "A1-P",
+            "block_index": 2,
+            "cell_id": "closure2-plugin-migration::A1-P",
+            "execution_index": 14,
+            "position_in_block": 2,
+            "task_id": "closure2-plugin-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "A2-P",
+            "block_index": 2,
+            "cell_id": "closure2-plugin-migration::A2-P",
+            "execution_index": 15,
+            "position_in_block": 3,
+            "task_id": "closure2-plugin-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "N0",
+            "block_index": 2,
+            "cell_id": "closure2-plugin-migration::N0",
+            "execution_index": 16,
+            "position_in_block": 4,
+            "task_id": "closure2-plugin-migration",
+            "third": "late"
+          },
+          {
+            "arm_id": "N1",
+            "block_index": 2,
+            "cell_id": "closure2-plugin-migration::N1",
+            "execution_index": 17,
+            "position_in_block": 5,
+            "task_id": "closure2-plugin-migration",
+            "third": "late"
+          }
+        ],
+        "plan_id": "closure2-formal-r3",
+        "repetition": 2,
+        "task_order": [
+          "closure2-state-machine-refactor",
+          "closure2-pipeline-migration",
+          "closure2-plugin-migration"
+        ]
+      }
+    ],
+    "rule": "task blocks are the outer loop and arms the inner loop; the block starts rotate left by 2 places per (repetition + block) and the task order by 1 per repetition; no randomisation, so no seed is recorded and the order cannot drift",
+    "schedule": "balanced-double-rotation",
+    "task_rotation": 1,
+    "task_third_counts": {
+      "closure2-pipeline-migration": {
+        "early": 1,
+        "late": 1,
+        "middle": 1
+      },
+      "closure2-plugin-migration": {
+        "early": 1,
+        "late": 1,
+        "middle": 1
+      },
+      "closure2-state-machine-refactor": {
+        "early": 1,
+        "late": 1,
+        "middle": 1
+      }
+    },
+    "wired": true
+  },
+  "schedule_alternatives": {
+    "balanced-double-rotation": {
+      "every_arm_covers_every_third": true,
+      "every_task_in_each_third_once": true,
+      "task_orders": [
+        [
+          "closure2-pipeline-migration",
+          "closure2-plugin-migration",
+          "closure2-state-machine-refactor"
+        ],
+        [
+          "closure2-plugin-migration",
+          "closure2-state-machine-refactor",
+          "closure2-pipeline-migration"
+        ],
+        [
+          "closure2-state-machine-refactor",
+          "closure2-pipeline-migration",
+          "closure2-plugin-migration"
+        ]
+      ],
+      "task_third_counts": {
+        "closure2-pipeline-migration": {
+          "early": 1,
+          "late": 1,
+          "middle": 1
+        },
+        "closure2-plugin-migration": {
+          "early": 1,
+          "late": 1,
+          "middle": 1
+        },
+        "closure2-state-machine-refactor": {
+          "early": 1,
+          "late": 1,
+          "middle": 1
+        }
+      }
+    },
+    "s07-frozen-task-order": {
+      "every_arm_covers_every_third": true,
+      "every_task_in_each_third_once": false,
+      "task_orders": [
+        [
+          "closure2-pipeline-migration",
+          "closure2-plugin-migration",
+          "closure2-state-machine-refactor"
+        ],
+        [
+          "closure2-pipeline-migration",
+          "closure2-plugin-migration",
+          "closure2-state-machine-refactor"
+        ],
+        [
+          "closure2-pipeline-migration",
+          "closure2-plugin-migration",
+          "closure2-state-machine-refactor"
+        ]
+      ],
+      "task_third_counts": {
+        "closure2-pipeline-migration": {
+          "early": 3
+        },
+        "closure2-plugin-migration": {
+          "middle": 3
+        },
+        "closure2-state-machine-refactor": {
+          "late": 3
+        }
+      }
+    }
+  },
   "seed": null,
   "stage": "closure-2-s07",
   "status": "CANDIDATE_NOT_FROZEN_NOT_AUTHORIZED",

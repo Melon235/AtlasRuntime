@@ -1,0 +1,123 @@
+{
+  "budget_sharing": {
+    "covers": [
+      "the single agent",
+      "every worker of a multi-worker cell"
+    ],
+    "enforcement": {
+      "atlas": "refused before send when the reservation would breach the budget",
+      "native": "no in-run guard; the same threshold is applied after the run"
+    },
+    "mechanism": "atlasos.budget.RunBudgetState(limit_tokens=token_budget)",
+    "multi_theoretical_turns": "20 x 3 agents = 60 turns, inside one 500,000 token budget",
+    "scope": "one budget per cell/run; every agent of the run draws from it",
+    "turn_caps": "per agent, not shared: 36 for the single agent, 20 for each worker"
+  },
+  "candidate_profile": {
+    "cell_token_budget": 500000,
+    "digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
+    "max_tool_calls": 90,
+    "multi_worker_max_turns": 20,
+    "multi_workers": 3,
+    "revision": "closure-2-s07-candidate-budget-1",
+    "single_max_turns": 36,
+    "status": "CANDIDATE_NOT_FROZEN_NOT_AUTHORIZED",
+    "timeout_seconds": 1800
+  },
+  "candidate_registration_digest": "a1ce048a27c088761dd02da003681552377ed3230d951cb168e466cb2dd97503",
+  "changed_knobs": [
+    "multi.max_turns_per_worker",
+    "multi.token_budget",
+    "single.token_budget"
+  ],
+  "contract_problems": [],
+  "expected_changed_knobs": [
+    "multi.max_turns_per_worker",
+    "single.token_budget+multi.token_budget"
+  ],
+  "frozen_profile": {
+    "cell_token_budget": 260000,
+    "digest": "e1d5eea9aca7433ea0593b40c8ee9e7755e571a139e9b270a332e59cfad82dc4",
+    "max_tool_calls": 90,
+    "multi_worker_max_turns": 12,
+    "multi_workers": 3,
+    "revision": "closure-2a-r1",
+    "single_max_turns": 36,
+    "status": "FROZEN",
+    "timeout_seconds": 1800
+  },
+  "kind": "closure2_candidate_budget_revision",
+  "model_calls": 0,
+  "not_authorized": "this record authorizes no execution: it is a candidate configuration, and every plan that would use it still needs its own approval naming its own digest",
+  "owner_decision": {
+    "authorizes": "offline preparation only",
+    "decided_on": "2026-11-25",
+    "does_not_authorize": [
+      "any real model request",
+      "any sandbox creation",
+      "the S09/S11 parameter freeze"
+    ],
+    "per_cell_token_budget": 500000,
+    "replaces": {
+      "per_cell_token_budget": 260000,
+      "worker_max_turns": 12
+    },
+    "worker_max_turns": 20
+  },
+  "revision": "closure-2-s07-candidate-budget-1",
+  "sandbox_runs": 0,
+  "six_arm_comparability": {
+    "multi": {
+      "max_turns_per_worker": 20,
+      "note": "the token budget is identical in both topologies, so the single arm gets exactly the same admission budget as a multi arm and never less",
+      "token_budget": 500000,
+      "workers": 3
+    },
+    "multi_arms": [
+      "N1",
+      "A1-L",
+      "A1-P",
+      "A2-P"
+    ],
+    "single": {
+      "max_turns_per_agent": 36,
+      "note": "the single-agent cap was not part of the owner decision and did not move",
+      "token_budget": 500000
+    },
+    "single_arms": [
+      "N0",
+      "A0"
+    ]
+  },
+  "stage": "closure-2-s07",
+  "status": "CANDIDATE_NOT_FROZEN_NOT_AUTHORIZED",
+  "supersedes_for_future_stages_only": {
+    "budget": {
+      "multi": {
+        "max_tool_calls": 90,
+        "max_turns_per_worker": 12,
+        "theoretical_worker_turns": 36,
+        "timeout_seconds": 1800,
+        "token_budget": 260000,
+        "workers": 3
+      },
+      "single": {
+        "max_tool_calls": 90,
+        "max_turns": 36,
+        "timeout_seconds": 1800,
+        "token_budget": 260000
+      }
+    },
+    "note": "the frozen registration, its digest and every historical run keep the numbers they were executed with; this revision is not applied retroactively",
+    "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+    "protocol_revision": "closure-2a-r1"
+  },
+  "unchanged_knobs": [
+    "single.max_turns",
+    "multi.workers",
+    "single.max_tool_calls",
+    "multi.max_tool_calls",
+    "single.timeout_seconds",
+    "multi.timeout_seconds"
+  ]
+}

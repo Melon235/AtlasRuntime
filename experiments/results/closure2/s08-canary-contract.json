@@ -1,0 +1,382 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion": "all seven cells are dispatched and observed, none is not_started",
+      "evidence": "summary.cell_count == 7, summary.not_started_cells == []",
+      "id": "A1"
+    },
+    {
+      "criterion": "the durable record confirms every cell",
+      "evidence": "summary.execution_integrity_status == 'COMPLETE'",
+      "id": "A2"
+    },
+    {
+      "criterion": "the positive multi path really creates workers",
+      "evidence": "cell P1::A1-P: executed_worker_count == 3, multi_worker_execution is True, and the run's lifecycle evidence lists three distinct worker ids with the two wave-0 workers before the dependent one",
+      "id": "A3"
+    },
+    {
+      "criterion": "a worker is able to write, inside its own declared paths",
+      "evidence": "P1::A1-P tool-call evidence contains at least one file_write/file_edit by a worker, and no path outside that worker's owned_paths; the ownership guard is not assumed, it is read off the tool calls",
+      "id": "A4"
+    },
+    {
+      "criterion": "the artifact handoff reaches the downstream node",
+      "evidence": "P1::A1-P request evidence shows the 'integrate' request carrying both dependency outputs; if it does not, the run records HANDOFF_NOT_OBSERVED and this criterion fails",
+      "id": "A5"
+    },
+    {
+      "criterion": "the positive wave is observable as a wave",
+      "evidence": "two wave-0 workers with no dependency between them, both starting before 'integrate' starts. Wall-clock overlap is NOT observable (parallel_overlap_evidence is null); the canary records the wave structure and never reports an overlap number",
+      "id": "A6"
+    },
+    {
+      "criterion": "the selective arm refuses the negative task",
+      "evidence": "N1::A2-P: resolved_route == 'direct', executed_worker_count == 1, and the router audit carries SHARED_WRITE_RISK plus a blocked GATE_2_DEPENDENCY_COUPLING",
+      "id": "A7"
+    },
+    {
+      "criterion": "the selective arm admits the positive task",
+      "evidence": "P1::A2-P: resolved_route in {'delegate_parallel', 'delegate'} with executed_worker_count == 3, i.e. the router did not collapse a parallelisable plan",
+      "id": "A8"
+    },
+    {
+      "criterion": "worker usage is inside the run totals",
+      "evidence": "every cell records provider_prompt_tokens and its cache split status; the multi cells report several times the single cell's request count, and no field claims a per-agent token split the runtime does not measure",
+      "id": "A9"
+    },
+    {
+      "criterion": "the oracle is independent",
+      "evidence": "oracle_mode == 'sandbox' for all seven cells; each cell records oracle_passed next to the executor verdict, and no cell is reclassified because the two disagree",
+      "id": "A10"
+    },
+    {
+      "criterion": "sandboxes are cleaned up",
+      "evidence": "agent_sandbox_runs_confirmed_min == 7, confirmed_not_created == 0, unknown == 0, and no residual container is left on the endpoint",
+      "id": "A11"
+    },
+    {
+      "criterion": "the evidence is complete and outside the repository",
+      "evidence": "per-cell raw run directories plus a summary and an evidence index of byte lengths and SHA-256, held outside the checkout; the repository keeps only the sanitized aggregate",
+      "id": "A12"
+    },
+    {
+      "criterion": "the canary is never counted as a benchmark sample",
+      "evidence": "the summary and the published table carry canary_id and is_benchmark_sample == False; no canary row appears in the S11 aggregate",
+      "id": "A13"
+    }
+  ],
+  "attempts": 1,
+  "authorization_status": "PENDING_OWNER_APPROVAL",
+  "authorization_template": {
+    "approval_commit": null,
+    "approved_at": null,
+    "approved_by": null,
+    "approved_plan_digest": "f3d09a8523ae3312872be31dfcc1c1544104de1afa3c9db3b6a5f10108589fbd",
+    "cannot_be_satisfied_by": [
+      "protocol.APPROVAL_RECORD: it approves the benchmark definition, not an execution scope",
+      "the S06 authorization: a different stage, a different digest, already spent",
+      "closure2-pilot-1 / closure2-routing-pair-1 / closure2-connectivity-canary-v1: consumed",
+      "any of the three formal plans: a different digest and a different cell list"
+    ],
+    "granting_requires": "a new commit that sets status=APPROVED with an approver, that commit's hash, a timestamp and exactly the digest above",
+    "scope": {
+      "attempts": 1,
+      "budget_profile_digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
+      "cells": [
+        "closure2-pipeline-migration::N0",
+        "closure2-pipeline-migration::A0",
+        "closure2-pipeline-migration::N1",
+        "closure2-pipeline-migration::A1-L",
+        "closure2-pipeline-migration::A1-P",
+        "closure2-pipeline-migration::A2-P",
+        "closure2-state-machine-refactor::A2-P"
+      ],
+      "estimated_cost_stop_usd": 0.45,
+      "max_cell_executions": 7,
+      "per_cell_token_budget": 500000,
+      "plan_id": "closure2-s08-canary-1",
+      "repetitions": [
+        0
+      ],
+      "worker_max_turns": 20
+    },
+    "status": "PENDING_OWNER_APPROVAL"
+  },
+  "authorized": false,
+  "benchmark_id": "closure2_s08_canary_scope",
+  "budget_profile": {
+    "cell_token_budget": 500000,
+    "digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
+    "max_tool_calls": 90,
+    "multi_worker_max_turns": 20,
+    "multi_workers": 3,
+    "revision": "closure-2-s07-candidate-budget-1",
+    "single_max_turns": 36,
+    "status": "CANDIDATE_NOT_FROZEN_NOT_AUTHORIZED",
+    "timeout_seconds": 1800
+  },
+  "canary_id": "closure2-s08-canary-1",
+  "cell_count": 7,
+  "cells": [
+    {
+      "arm_id": "N0",
+      "cell_id": "closure2-pipeline-migration::N0",
+      "covers": [
+        "native_single",
+        "provider_sandbox_oracle_chain"
+      ],
+      "engine": "native",
+      "order": 1,
+      "prompt_layout": "native",
+      "route": "off",
+      "task_id": "closure2-pipeline-migration",
+      "topology": "single"
+    },
+    {
+      "arm_id": "A0",
+      "cell_id": "closure2-pipeline-migration::A0",
+      "covers": [
+        "atlas_single",
+        "context_plane_task_scoped"
+      ],
+      "engine": "atlas",
+      "order": 2,
+      "prompt_layout": "legacy",
+      "route": "off",
+      "task_id": "closure2-pipeline-migration",
+      "topology": "single"
+    },
+    {
+      "arm_id": "N1",
+      "cell_id": "closure2-pipeline-migration::N1",
+      "covers": [
+        "native_multi_dag",
+        "independent_write_sets"
+      ],
+      "engine": "native",
+      "order": 3,
+      "prompt_layout": "native",
+      "route": "off",
+      "task_id": "closure2-pipeline-migration",
+      "topology": "multi"
+    },
+    {
+      "arm_id": "A1-L",
+      "cell_id": "closure2-pipeline-migration::A1-L",
+      "covers": [
+        "atlas_multi_dag",
+        "legacy_prompt_layout"
+      ],
+      "engine": "atlas",
+      "order": 4,
+      "prompt_layout": "legacy",
+      "route": "off",
+      "task_id": "closure2-pipeline-migration",
+      "topology": "multi"
+    },
+    {
+      "arm_id": "A1-P",
+      "cell_id": "closure2-pipeline-migration::A1-P",
+      "covers": [
+        "atlas_multi_dag",
+        "shared_prefix_prompt_layout",
+        "worker_creation",
+        "worker_capability",
+        "artifact_handoff",
+        "worker_usage_counted"
+      ],
+      "engine": "atlas",
+      "order": 5,
+      "prompt_layout": "shared_prefix",
+      "route": "off",
+      "task_id": "closure2-pipeline-migration",
+      "topology": "multi"
+    },
+    {
+      "arm_id": "A2-P",
+      "cell_id": "closure2-pipeline-migration::A2-P",
+      "covers": [
+        "selective_arm_admits_positive_task",
+        "router_audit"
+      ],
+      "engine": "atlas",
+      "order": 6,
+      "prompt_layout": "shared_prefix",
+      "route": "selective",
+      "task_id": "closure2-pipeline-migration",
+      "topology": "multi"
+    },
+    {
+      "arm_id": "A2-P",
+      "cell_id": "closure2-state-machine-refactor::A2-P",
+      "covers": [
+        "selective_arm_refuses_negative_task",
+        "gate_2_dependency_coupling",
+        "shared_write_risk"
+      ],
+      "engine": "atlas",
+      "order": 7,
+      "prompt_layout": "shared_prefix",
+      "route": "selective",
+      "task_id": "closure2-state-machine-refactor",
+      "topology": "multi"
+    }
+  ],
+  "contract_problems": [],
+  "cost": {
+    "expected": {
+      "basis": "measured 2026-11-18 per-cell usage, inherited where a cell was never run, x1.25 for multi cells",
+      "estimated_cost_usd": 0.0822,
+      "main_tokens": 78719,
+      "status": "ESTIMATE_CONDITIONAL_ON_ASSUMPTION",
+      "system_total_tokens": 885685,
+      "worker_tokens": 806966
+    },
+    "high": {
+      "basis": "the same tokens priced at a 0 % prompt-cache hit",
+      "estimated_cost_usd": 0.3031,
+      "status": "ESTIMATE_ZERO_CACHE_HIT",
+      "system_total_tokens": 885685
+    },
+    "nominal_capacity": {
+      "cost_if_every_cell_spent_the_budget_at_the_miss_price_usd": 1.05,
+      "status": "NOT_AN_ESTIMATE",
+      "system_total_tokens": 3500000,
+      "token_budget_per_cell": 500000
+    },
+    "proposed_stop": {
+      "per_plan_usd": null,
+      "rule": "1.5x the HIGH estimate, rounded up to 5 cents; it must stay at or below 60 % of the nominal envelope",
+      "share_of_nominal_envelope": 0.4286,
+      "status": "PROPOSED_NOT_APPROVED",
+      "times_expected": 5.48,
+      "usd": 0.45
+    }
+  },
+  "coverage": {
+    "artifact_handoff": [
+      "closure2-pipeline-migration::A1-P"
+    ],
+    "atlas_multi_dag": [
+      "closure2-pipeline-migration::A1-L",
+      "closure2-pipeline-migration::A1-P"
+    ],
+    "atlas_single": [
+      "closure2-pipeline-migration::A0"
+    ],
+    "context_plane_task_scoped": [
+      "closure2-pipeline-migration::A0"
+    ],
+    "gate_2_dependency_coupling": [
+      "closure2-state-machine-refactor::A2-P"
+    ],
+    "independent_write_sets": [
+      "closure2-pipeline-migration::N1"
+    ],
+    "legacy_prompt_layout": [
+      "closure2-pipeline-migration::A1-L"
+    ],
+    "native_multi_dag": [
+      "closure2-pipeline-migration::N1"
+    ],
+    "native_single": [
+      "closure2-pipeline-migration::N0"
+    ],
+    "provider_sandbox_oracle_chain": [
+      "closure2-pipeline-migration::N0"
+    ],
+    "router_audit": [
+      "closure2-pipeline-migration::A2-P"
+    ],
+    "selective_arm_admits_positive_task": [
+      "closure2-pipeline-migration::A2-P"
+    ],
+    "selective_arm_refuses_negative_task": [
+      "closure2-state-machine-refactor::A2-P"
+    ],
+    "shared_prefix_prompt_layout": [
+      "closure2-pipeline-migration::A1-P"
+    ],
+    "shared_write_risk": [
+      "closure2-state-machine-refactor::A2-P"
+    ],
+    "worker_capability": [
+      "closure2-pipeline-migration::A1-P"
+    ],
+    "worker_creation": [
+      "closure2-pipeline-migration::A1-P"
+    ],
+    "worker_usage_counted": [
+      "closure2-pipeline-migration::A1-P"
+    ]
+  },
+  "coverage_complete": true,
+  "evidence_contract": {
+    "never_published": [
+      "hidden oracle tests",
+      "API keys or provider payloads",
+      "the raw container filesystem or a patch of the hidden fixtures"
+    ],
+    "per_cell": [
+      "cell_id, task_id, arm_id, topology, runner, prompt_layout, requested_route",
+      "resolved_route and reason codes, when the arm runs the router",
+      "executed_worker_count and single_worker_downgrade",
+      "oracle_passed, oracle_failure_kind, task_success, failure_class",
+      "provider_prompt_tokens, provider_completion_tokens",
+      "cache_hit_tokens, cache_miss_tokens, cache_split_status",
+      "estimated_cost_usd and its state, model_calls and their source",
+      "budget verdict, basis and admission rejections",
+      "sandbox creation status and destruction status",
+      "raw_result_path and run_dir"
+    ],
+    "per_run": [
+      "pilot_plan_id, pilot_plan_digest, approved_plan_digest, approval_status",
+      "budget_profile revision and digest",
+      "cell_count, execution_claim (attempt id, ledger path, CONSUMED)",
+      "execution_integrity_status, stopped_reason, not_started_cells",
+      "cost_policy, cost ceiling state and breach flag",
+      "agent sandbox counts, confirmed/not-created/unknown"
+    ],
+    "published": [
+      "a sanitized aggregate built from the summary, never the raw workspace",
+      "an evidence index of byte lengths and SHA-256 for every published file",
+      "the sentence 'not a benchmark sample' next to every canary number"
+    ]
+  },
+  "exclusions": {
+    "declared_before_execution": true,
+    "formal_identity_note": "the canary repeats the (cell, repetition 0) identities of formal r1. The formal plan still runs them: a canary result is never reused as a formal sample, and the formal r1 claim is a separate one-shot claim on a separate plan digest.",
+    "statement": "canary cells are structure evidence. They are excluded from the S11 aggregate even when they pass, because they are a single unreplicated observation of a path the formal matrix measures three times."
+  },
+  "execution_order": [
+    "closure2-pipeline-migration::N0",
+    "closure2-pipeline-migration::A0",
+    "closure2-pipeline-migration::N1",
+    "closure2-pipeline-migration::A1-L",
+    "closure2-pipeline-migration::A1-P",
+    "closure2-pipeline-migration::A2-P",
+    "closure2-state-machine-refactor::A2-P"
+  ],
+  "kind": "closure2_s08_canary_contract",
+  "live_runnable_reason": "the plan is wired and refused: pilot_authorization_gate rejects it because the record is pending, and no other approval in the repository names this digest",
+  "model_calls": 0,
+  "not_authorized": [
+    "no model request is made by this module",
+    "no sandbox is created by this module",
+    "preparing the contract authorizes nothing: S08 stays closed until the record above is approved by the owner in its own commit"
+  ],
+  "per_cell_token_budget": 500000,
+  "plan_digest": "f3d09a8523ae3312872be31dfcc1c1544104de1afa3c9db3b6a5f10108589fbd",
+  "plan_id": "closure2-s08-canary-1",
+  "plan_revision": "closure-2-s08-canary-1",
+  "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+  "repetitions": [
+    0
+  ],
+  "sandbox_runs": 0,
+  "single_agent_max_turns": 36,
+  "stage": "closure-2-s07",
+  "status": "PREPARED_PENDING_AUTHORIZATION",
+  "worker_max_turns": 20
+}

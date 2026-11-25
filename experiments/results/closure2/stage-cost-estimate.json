@@ -1,0 +1,153 @@
+{
+  "budget_profile": {
+    "cell_token_budget": 500000,
+    "digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
+    "multi_max_turns_per_worker": 20,
+    "revision": "closure-2-s07-candidate-budget-1",
+    "single_max_turns": 36,
+    "status": "CANDIDATE_NOT_FROZEN_NOT_AUTHORIZED"
+  },
+  "contract_problems": [],
+  "formal_cap_sensitivity_usd": {
+    "cap_uplift_none": 0.5297,
+    "cap_uplift_plus50": 0.7514
+  },
+  "frozen_reference_profile": {
+    "cell_token_budget": 260000,
+    "digest": "e1d5eea9aca7433ea0593b40c8ee9e7755e571a139e9b270a332e59cfad82dc4",
+    "multi_max_turns_per_worker": 12,
+    "note": "historical runs keep these numbers; nothing here re-prices them",
+    "revision": "closure-2a-r1"
+  },
+  "kind": "closure2_stage_cost_estimate",
+  "measured_run_date": "2026-11-18",
+  "measured_source": "experiments/results/closure2/pilot-live-summary.json",
+  "model_calls": 0,
+  "pricing": {
+    "cache_hit_input_per_million": 0.006,
+    "cache_miss_input_per_million": 0.3,
+    "live_verified": false,
+    "output_per_million": 1.2,
+    "snapshot_date": "2026-11-06",
+    "source": "experiments/configs/final4-context.yaml"
+  },
+  "rules": [
+    "a nominal token budget is a capacity, never an expected spend",
+    "the S06 authorization balance is not reused and is not a budget for this matrix",
+    "a missing cache split has no cost, and is never costed as a miss",
+    "no estimate here is a bill, and none includes sandbox provisioning"
+  ],
+  "sandbox_runs": 0,
+  "stage": "closure-2-s07",
+  "stages": {
+    "canary": {
+      "cells": 7,
+      "cells_per_plan": 7,
+      "expected": {
+        "basis": "measured 2026-11-18 per-cell usage, inherited where a cell was never run, x1.25 for multi cells",
+        "estimated_cost_usd": 0.0822,
+        "main_tokens": 78719,
+        "status": "ESTIMATE_CONDITIONAL_ON_ASSUMPTION",
+        "system_total_tokens": 885685,
+        "worker_tokens": 806966
+      },
+      "high": {
+        "basis": "the same tokens priced at a 0 % prompt-cache hit",
+        "estimated_cost_usd": 0.3031,
+        "status": "ESTIMATE_ZERO_CACHE_HIT",
+        "system_total_tokens": 885685
+      },
+      "nominal_capacity": {
+        "cost_if_every_cell_spent_the_budget_at_the_miss_price_usd": 1.05,
+        "status": "NOT_AN_ESTIMATE",
+        "system_total_tokens": 3500000,
+        "token_budget_per_cell": 500000
+      },
+      "plans": 1,
+      "proposed_stop": {
+        "per_plan_usd": null,
+        "rule": "1.5x the HIGH estimate, rounded up to 5 cents; it must stay at or below 60 % of the nominal envelope",
+        "share_of_nominal_envelope": 0.4286,
+        "status": "PROPOSED_NOT_APPROVED",
+        "times_expected": 5.48,
+        "usd": 0.45
+      },
+      "stage": "S08_CANARY"
+    },
+    "formal": {
+      "cells": 54,
+      "cells_per_plan": 18,
+      "expected": {
+        "basis": "measured 2026-11-18 per-cell usage, inherited where a cell was never run, x1.25 for multi cells",
+        "estimated_cost_usd": 0.6406,
+        "main_tokens": 679554,
+        "status": "ESTIMATE_CONDITIONAL_ON_ASSUMPTION",
+        "system_total_tokens": 6902850,
+        "worker_tokens": 6223296
+      },
+      "high": {
+        "basis": "the same tokens priced at a 0 % prompt-cache hit",
+        "estimated_cost_usd": 2.3601,
+        "status": "ESTIMATE_ZERO_CACHE_HIT",
+        "system_total_tokens": 6902850
+      },
+      "nominal_capacity": {
+        "cost_if_every_cell_spent_the_budget_at_the_miss_price_usd": 8.1,
+        "status": "NOT_AN_ESTIMATE",
+        "system_total_tokens": 27000000,
+        "token_budget_per_cell": 500000
+      },
+      "plans": 3,
+      "proposed_stop": {
+        "per_plan_usd": 1.2,
+        "rule": "1.5x the HIGH estimate, rounded up to 5 cents; it must stay at or below 60 % of the nominal envelope",
+        "share_of_nominal_envelope": 0.4444,
+        "status": "PROPOSED_NOT_APPROVED",
+        "times_expected": 5.62,
+        "usd": 3.6
+      },
+      "stage": "S11_FORMAL_MATRIX"
+    },
+    "pilot": {
+      "cells": 6,
+      "cells_per_plan": 6,
+      "expected": {
+        "basis": "measured 2026-11-18 per-cell usage, inherited where a cell was never run, x1.25 for multi cells",
+        "estimated_cost_usd": 0.0775,
+        "main_tokens": 78719,
+        "status": "ESTIMATE_CONDITIONAL_ON_ASSUMPTION",
+        "system_total_tokens": 840472,
+        "worker_tokens": 761752
+      },
+      "high": {
+        "basis": "the same tokens priced at a 0 % prompt-cache hit",
+        "estimated_cost_usd": 0.2871,
+        "status": "ESTIMATE_ZERO_CACHE_HIT",
+        "system_total_tokens": 840472
+      },
+      "nominal_capacity": {
+        "cost_if_every_cell_spent_the_budget_at_the_miss_price_usd": 0.9,
+        "status": "NOT_AN_ESTIMATE",
+        "system_total_tokens": 3000000,
+        "token_budget_per_cell": 500000
+      },
+      "plans": 1,
+      "proposed_stop": {
+        "per_plan_usd": null,
+        "rule": "1.5x the HIGH estimate, rounded up to 5 cents; it must stay at or below 60 % of the nominal envelope",
+        "share_of_nominal_envelope": 0.5,
+        "status": "PROPOSED_NOT_APPROVED",
+        "times_expected": 5.8,
+        "usd": 0.45
+      },
+      "stage": "S09_PILOT"
+    }
+  },
+  "status": "PROPOSED_NOT_APPROVED",
+  "totals": {
+    "expected_usd": 0.8003,
+    "high_usd": 2.9503,
+    "note": "the previous USD 3.40 candidate was a ceiling derived from the 260 k profile and is not carried forward; nothing here is approved",
+    "proposed_cumulative_stop_usd": 4.5
+  }
+}

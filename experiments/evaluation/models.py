@@ -103,6 +103,32 @@ def effective_public_task_digest(task: BenchmarkTask) -> str:
     return canonical_digest(effective_public_task_payload(task))
 
 
+def effective_agent_max_turns(
+    *,
+    step_max_turns: int | None,
+    settings_max_turns: int,
+    worker_max_turns: int | None = None,
+) -> int:
+    """The turn cap an agent is really created with — one rule for both engines.
+
+    Before this existed the two engines carried the same expression inline
+    (``step.max_turns or settings.max_turns``), and a run-level override had nowhere to go: the
+    frozen catalogue declares 12 per worker, so a plan that changed only ``protocol.BUDGET`` would
+    have executed 12 and *reported* 20.
+
+    Order: an explicit run-level override, then the step's own declaration, then the run default.
+    The override is deliberately first — a candidate budget profile has to be able to raise a cap
+    that the frozen task data declares, without editing that data (its turn cap is part of
+    ``effective_public_task_digest``).
+    """
+
+    if worker_max_turns is not None:
+        return int(worker_max_turns)
+    if step_max_turns:
+        return int(step_max_turns)
+    return int(settings_max_turns)
+
+
 @dataclass(frozen=True)
 class WorkerStep:
     """One worker/task node in an evaluation workflow.
