@@ -311,6 +311,197 @@ def _context_metrics_from_live_evidence(
     return ok, detail, evidence
 
 
+def _admission_checks(scratch: Path) -> list[dict[str, Any]]:
+    """Task A/B: the admission contract, proved on the real preflight and the real options.
+
+    Nothing here calls a model or creates a sandbox. ``run_live_preflight`` reads configuration and
+    the filesystem; the fixtures are Host-side git repositories in a throwaway directory.
+    """
+
+    import dataclasses
+
+    from atlasos.app.goal_verification import ORACLE_MODE_EXTERNAL, GoalAcceptance
+    from atlasos.app.live_preflight import run_live_preflight
+
+    plan = contract.scope_plan(contract.CANARY_PLAN_ID)
+    work = scratch / "admission"
+    executor.remove_tree(work)
+    work.mkdir(parents=True, exist_ok=True)
+    checks: list[dict[str, Any]] = []
+
+    report = executor.run_admission_preflight(plan, scratch_root=work / "arms")
+    contract_failures = list(report["contract_blocking_failures"])
+    per_arm = [
+        {
+            "cell_id": item["cell_id"],
+            "status": item["status"],
+            "checks": item["checks"],
+            "blocking": item["blocking_failures"],
+            "profile": item["worker_profile"],
+            "exposure": item["worker_exposure"],
+            "provider_factory_injected": item["provider_factory_injected"],
+        }
+        for item in report["cells"]
+    ]
+    ready = sum(1 for item in per_arm if item["status"] == "READY")
+    checks.append(
+        _check(
+            "L26_six_arm_production_admission",
+            not contract_failures
+            and len(per_arm) == len(plan["cells"])
+            and all(item["provider_factory_injected"] is False for item in per_arm),
+            f"{ready}/6 arms READY against the real run_live_preflight; contract failures="
+            f"{contract_failures or 'none'}; credential_present={report['credential_present']}",
+            cells=per_arm,
+            credential_present=report["credential_present"],
+            status=report["status"],
+        )
+    )
+
+    cell = plan["cells"][2]
+    fixture = executor.prepare_fixture(
+        contract.TASKS_BY_ID[cell["task_id"]], work / "repro-fixture"
+    )
+    options = executor.production_goal_options(
+        cell,
+        evidence_root=work / "repro-evidence",
+        fixture_dir=work / "repro-fixture",
+        config=executor.RunnerConfig(),
+        run_id="repro",
+    )
+    acceptance = options.acceptance
+
+    # The exact shape v1 shipped: a static acceptance with no dynamic command, declared as in-run.
+    v1_acceptance = GoalAcceptance(
+        spec=acceptance.spec, dynamic_command=None, require_dynamic=False
+    )
+    v1_report = run_live_preflight(dataclasses.replace(options, acceptance=v1_acceptance))
+    checks.append(
+        _check(
+            "L27_v1_admission_refusal_reproduced",
+            v1_report["status"] == "BLOCKED"
+            and set(v1_report["blocking_failures"])
+            == {"public_tests_separate_from_oracle", "acceptance_configured"},
+            "the v1 contract shape is still refused on exactly the two checks that stopped the "
+            "real canary",
+            blocking_failures=v1_report["blocking_failures"],
+        )
+    )
+
+    external = acceptance.external_oracle
+    hidden = set(getattr(external, "hidden_paths", ()) or ())
+    public = set(getattr(external, "public_paths", ()) or ())
+    staged = sorted(name for name in hidden if (Path(str(fixture["path"])) / name).exists())
+    checks.append(
+        _check(
+            "L28_external_oracle_contract_is_bound",
+            acceptance.oracle_mode == ORACLE_MODE_EXTERNAL
+            and external is not None
+            and not external.problems()
+            and external.declared_digest == external.contract_digest
+            and bool(hidden)
+            and not (hidden & public)
+            and not staged,
+            f"oracle={getattr(external, 'oracle_id', None)} "
+            f"digest={str(getattr(external, 'declared_digest', ''))[:23]}…; hidden and public "
+            f"artifacts are disjoint and no hidden file is staged in the fixture",
+            oracle_mode=acceptance.oracle_mode,
+            hidden=sorted(hidden),
+            public=sorted(public),
+            staged=staged,
+        )
+    )
+
+    def _blocked(candidate: Any) -> set[str]:
+        outcome = run_live_preflight(dataclasses.replace(options, acceptance=candidate))
+        return set(outcome["blocking_failures"]) if outcome["status"] == "BLOCKED" else set()
+
+    assert external is not None  # the production contract declares one; L28 asserts it
+
+    missing_contract = _blocked(
+        GoalAcceptance(
+            spec=acceptance.spec, oracle_mode=ORACLE_MODE_EXTERNAL, external_oracle=None
+        )
+    )
+    overlap = _blocked(
+        GoalAcceptance(
+            spec=acceptance.spec,
+            oracle_mode=ORACLE_MODE_EXTERNAL,
+            external_oracle=dataclasses.replace(
+                external, hidden_paths=tuple(sorted(public)) or ("test_public.py",)
+            ),
+        )
+    )
+    tampered = _blocked(
+        GoalAcceptance(
+            spec=acceptance.spec,
+            oracle_mode=ORACLE_MODE_EXTERNAL,
+            external_oracle=dataclasses.replace(external, declared_digest="sha256:" + "0" * 64),
+        )
+    )
+    no_digest = _blocked(
+        GoalAcceptance(
+            spec=dataclasses.replace(acceptance.spec, declared_digest=None),
+            oracle_mode=ORACLE_MODE_EXTERNAL,
+            external_oracle=external,
+        )
+    )
+    checks.append(
+        _check(
+            "L29_external_oracle_negative_controls",
+            "acceptance_configured" in missing_contract
+            and "public_tests_separate_from_oracle" in overlap
+            and "acceptance_configured" in tampered
+            and "acceptance_digest_declared" in no_digest,
+            "a missing external contract, an overlapping hidden suite, a tampered oracle digest "
+            "and an undeclared verification spec are each refused",
+            missing=sorted(missing_contract),
+            overlap=sorted(overlap),
+            tampered=sorted(tampered),
+            no_digest=sorted(no_digest),
+        )
+    )
+
+    in_run = run_live_preflight(
+        dataclasses.replace(
+            options,
+            acceptance=GoalAcceptance(
+                spec=acceptance.spec,
+                dynamic_command="python3 -m pytest -q " + " ".join(sorted(public)),
+            ),
+        )
+    )
+    in_run_missing = _blocked(
+        GoalAcceptance(spec=acceptance.spec, dynamic_command=None, require_dynamic=False)
+    )
+    checks.append(
+        _check(
+            "L30_in_run_oracle_contract_unchanged",
+            in_run["status"] == "READY"
+            and "public_tests_separate_from_oracle" in in_run_missing
+            and "acceptance_configured" in in_run_missing,
+            "the stage-P in-run contract still passes when its command is configured, and is still "
+            "refused when it is absent",
+            in_run_blocking=in_run["blocking_failures"],
+        )
+    )
+
+    with executor.claim_root_override(work / "claims"):
+        claim = executor.claim_path(plan["digest"])
+        before = claim.exists()
+        executor.run_admission_preflight(plan, scratch_root=work / "gate")
+        after = claim.exists()
+    checks.append(
+        _check(
+            "L31_admission_consumes_no_claim",
+            not before and not after,
+            "a full six-arm admission pass writes no claim, so a refused configuration still "
+            "leaves the single attempt intact",
+        )
+    )
+    return checks
+
+
 # -- synthetic cells for the gate ---------------------------------------------------------------
 
 
@@ -1162,6 +1353,9 @@ def run_checks(
             report_flag=canary_report.get("aggregate_includes_sample"),
         )
     )
+
+    # Task A/B — the admission contract, on the real preflight and the real options
+    checks.extend(_admission_checks(scratch))
 
     # beyond the list: the contract, the freeze and the isolation
     checks.append(

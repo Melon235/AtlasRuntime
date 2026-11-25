@@ -41,7 +41,7 @@ STAGE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = STAGE_DIR.parents[1]
 
 STAGE_ID = "B+"
-PROTOCOL_VERSION = "bplus-2.0.0"
+PROTOCOL_VERSION = "bplus-2.1.0"
 #: What this contract is *not*: it supersedes no frozen Stage B document and changes none of them.
 SUPERSEDES: None = None
 DOES_NOT_MODIFY = (
@@ -50,19 +50,52 @@ DOES_NOT_MODIFY = (
     "experiments/evaluation/closure2/*",
 )
 
-#: The approved revision. ``bplus-1.0.0`` was a candidate that was never authorized and never ran;
-#: superseding it is not superseding an executed identity, and the old digests stay recorded so a
-#: reader can tell the two apart.
+#: The one execution this stage has actually performed, kept as a record rather than as a note.
+#:
+#: v1 was authorized at ``a4e1836`` and dispatched once. It stopped on the first cell, before any
+#: model call, because the runtime's admission demanded a dynamic acceptance command. The claim is
+#: consumed and stays consumed; the authorization does not migrate to v2.
+SUPERSEDED_CANARY: dict[str, Any] = {
+    "plan_id": "stage-b-plus-diagnostic-canary-v1",
+    "plan_digest": (
+        "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575"
+    ),
+    "execution_head": "a4e1836b3953207db262d28dc4d58e32b66d2f35",
+    "executor_version": "bplus-executor-1.1",
+    "executor_digest": (
+        "sha256:4826d81acf1df64fa9754ba8f85fdf34600ff9ea4096fec8dc08b7f0ee138c73"
+    ),
+    "claim": "CONSUMED",
+    "attempt_limit": 1,
+    "cells_planned": 6,
+    "cells_started": 1,
+    "cells_valid": 0,
+    "cells_not_run": 5,
+    "model_requests": 0,
+    "sandbox_creations": 0,
+    "oracle_executions": 0,
+    "process_exit": 4,
+    "raw_stop_reason": "PROVIDER_FAILURE",
+    "classification": "LIVE_PREFLIGHT_CONTRACT_MISMATCH",
+    "authorization_migrates": False,
+}
+
+#: The approved revision. ``bplus-1.0.0`` was a candidate that was never authorized and never ran.
+#: ``bplus-2.0.0`` *was* authorized and dispatched once: the record below says what happened to it,
+#: because a revision that supersedes an executed identity has to say so.
 REVISION: dict[str, Any] = {
-    "version": "bplus-2.0.0",
-    "previous_version": "bplus-1.0.0",
+    "version": "bplus-2.1.0",
+    "previous_version": "bplus-2.0.0",
     "previous_protocol_digest": (
-        "sha256:789bce6eca752491689aa21ef0d651acdc165a04e6e44cfe0a1ef54f649e08c5"
+        "sha256:c7dad972f4882e5808dbcaa47f4b4532e101f7e2e44d9e1c90e0eb2c14620067"
+    ),
+    "previous_canary_plan_digest": (
+        "sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575"
     ),
     "previous_formal_plan_digest": (
         "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72"
     ),
-    "previous_execution": "NONE — never authorized, never dispatched",
+    "previous_execution": dict(SUPERSEDED_CANARY),
     "approval": "OWNER_DESIGN_DECISIONS_CONFIRMED on 2026-11-25",
     "changes": [
         "R-B+1 accepted: main-v2.1-rc1-bplus becomes the matrix prompt",
@@ -73,11 +106,17 @@ REVISION: dict[str, Any] = {
         "an executable entry point with an authority contract, a one-shot dispatch claim and a "
         "post-cell gate",
         "the formal non-delegation scenario is no longer described as a mathematical lower bound",
+        "the acceptance contract declares its oracle mode: IN_RUN_ORACLE or "
+        "EXTERNAL_SANDBOX_ORACLE",
+        "a live dispatch admits the six production configurations before the claim is written",
+        "an admission refusal is classified as LIVE_PREFLIGHT_BLOCKED, not as a provider failure",
+        "the executor identity covers the two files that decide what admission allows",
     ],
     "unchanged": [
         "the four-arm formal matrix (same cells, same order, same digest)",
         "the three Closure-2 tasks, the prompts, the model and every budget field",
         "Stage B Freeze 1.6, the Closure-2 tree and the S06/S08 authorization remain untouched",
+        "the six canary cells: same arms, same order, same task, same prompt, same turns",
     ],
 }
 
@@ -521,11 +560,38 @@ def cells() -> list[dict[str, Any]]:
     )
 
 
-CANARY_PLAN_ID = "stage-b-plus-diagnostic-canary-v1"
+CANARY_PLAN_ID = "stage-b-plus-diagnostic-canary-v2"
+#: v1 was dispatched once and its claim is consumed. The id is kept here so a reader can find it,
+#: and ``scope_plan`` refuses it: the plan it names cannot be rebuilt into a dispatchable record.
+CANARY_PLAN_ID_V1 = "stage-b-plus-diagnostic-canary-v1"
+SUPERSEDED_CANARY_PLAN_IDS: tuple[str, ...] = (CANARY_PLAN_ID_V1,)
 FORMAL_PLAN_ID = "stage-b-plus-formal-matrix-v1"
 SCOPE_CANARY = "CANARY_ONLY"
 SCOPE_FORMAL = "FORMAL_MATRIX_ONLY"
 SCOPES: tuple[str, ...] = (SCOPE_CANARY, SCOPE_FORMAL)
+
+#: The execution contract, as a value.
+#:
+#: v1 was refused by ``run_goal``'s live admission because the B+ acceptance is static and the
+#: oracle is external, while the admission contract demanded an in-run dynamic command. That is a
+#: change to *what it means to run a cell*, so it belongs in the plan identity: the digest below is
+#: stamped into every canary cell, which is why the v2 plan digest cannot be produced by renaming.
+EXECUTION_CONTRACT: dict[str, Any] = {
+    "revision": "bplus-exec-2.0",
+    "supersedes": "bplus-exec-1.0",
+    "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
+    "acceptance": "static presence checks only; correctness is never self-graded",
+    "oracle_runner": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
+    "scored_snapshot": "the exported workspace (artifacts.workspace_path), never the fixture",
+    "public_suite_separation": "the public suite is a different artifact from the hidden oracle",
+    "pre_claim_preflight": "run_live_preflight over the six production GoalRunOptions",
+    "v1_refusal": (
+        "live_preflight required a dynamic acceptance command; the B+ acceptance has none, and the "
+        "oracle is a Host sandbox that runs after the run, so every cell was refused before the "
+        "first model call"
+    ),
+}
+EXECUTION_CONTRACT_DIGEST = "sha256:" + canonical_digest(EXECUTION_CONTRACT)
 
 #: The canary runs one P1 task. P1 is the only family with two genuinely disjoint module write sets,
 #: so it is the only one where a coding pair can be admitted at all.
@@ -557,6 +623,9 @@ def canary_cells() -> list[dict[str, Any]]:
                 "scope": SCOPE_CANARY,
                 "plan_id": CANARY_PLAN_ID,
                 "is_benchmark_sample": False,
+                # The contract revision is part of the cell, so it is part of the plan digest. A
+                # rename alone cannot produce a new identity.
+                "execution_contract": EXECUTION_CONTRACT_DIGEST,
             }
         )
     return cells_out
@@ -565,6 +634,11 @@ def canary_cells() -> list[dict[str, Any]]:
 def scope_plan(scope_or_id: str) -> dict[str, Any]:
     """The plan record for one scope. ``scope_or_id`` accepts a scope type or a plan id."""
 
+    if scope_or_id in SUPERSEDED_CANARY_PLAN_IDS:
+        raise ValueError(
+            f"{scope_or_id} was dispatched once and its claim is consumed; it is superseded by "
+            f"{CANARY_PLAN_ID} and cannot be rebuilt into a dispatchable plan"
+        )
     if scope_or_id in (SCOPE_CANARY, CANARY_PLAN_ID):
         scope, plan_id = SCOPE_CANARY, CANARY_PLAN_ID
         plan_cells = canary_cells()
@@ -594,6 +668,12 @@ def scope_plan(scope_or_id: str) -> dict[str, Any]:
         "evidence_subdir": f"evidence/stage-b-plus/{plan_id}",
         "is_benchmark_sample": scope == SCOPE_FORMAL,
         "nominal_token_capacity": len(plan_cells) * int(BUDGET["token_budget"]),
+        "execution_contract": dict(EXECUTION_CONTRACT),
+        "execution_contract_digest": EXECUTION_CONTRACT_DIGEST,
+        "supersedes": CANARY_PLAN_ID_V1 if scope == SCOPE_CANARY else None,
+        "supersedes_record": dict(SUPERSEDED_CANARY) if scope == SCOPE_CANARY else None,
+        # An approval for one plan never carries over to another: the Owner signs a digest.
+        "authorization_migrates": False,
     }
 
 
@@ -728,6 +808,9 @@ def protocol_document() -> dict[str, Any]:
         "tasks": [task_record(task) for task in TASKS],
         "structures": [task.family for task in TASKS],
         "run_config": dict(BUDGET),
+        "execution_contract": dict(EXECUTION_CONTRACT),
+        "execution_contract_digest": EXECUTION_CONTRACT_DIGEST,
+        "superseded_execution": dict(SUPERSEDED_CANARY),
         "s06_reference": dict(S06_REFERENCE),
         "delegation_ladder": {name: text for name, text in DELEGATION_LEVELS},
         "proposal_states": list(PROPOSAL_STATES),
@@ -830,6 +913,16 @@ def validate(document: dict[str, Any]) -> list[str]:
         problems.append("the canary is not a single repetition")
     if canary.get("digest") != matrix.plan_digest(canary_cells):
         problems.append("canary plan digest does not match its cells")
+    if any(cell.get("execution_contract") != EXECUTION_CONTRACT_DIGEST for cell in canary_cells):
+        problems.append("a canary cell is not bound to the current execution contract")
+    if canary.get("execution_contract_digest") != EXECUTION_CONTRACT_DIGEST:
+        problems.append("the canary plan does not declare the current execution contract")
+    if canary.get("supersedes") != CANARY_PLAN_ID_V1:
+        problems.append("the canary plan does not say which plan it supersedes")
+    if (canary.get("supersedes_record") or {}).get("claim") != "CONSUMED":
+        problems.append("the superseded plan is not recorded as having consumed its claim")
+    if canary.get("authorization_migrates") is not False:
+        problems.append("the canary plan claims an authorization migrates to it")
 
     formal = plans.get(FORMAL_PLAN_ID) or {}
     cell_list = formal.get("cells") or []
@@ -911,9 +1004,16 @@ def acceptance_spec(task: closure2.Task) -> Any:
     Static only. The hidden oracle is *not* the acceptance command: it is run by the Host after the
     run, on the exported workspace, and its verdict is recorded separately so a self-graded Main
     cannot be mistaken for a verified one.
+
+    The contract says so explicitly (``oracle_mode``), instead of leaving admission to infer it from
+    a missing command. v1 left it implicit and every cell was refused by the in-run admission rule.
     """
 
-    from atlasos.app.goal_verification import GoalAcceptance
+    from atlasos.app.goal_verification import (
+        ORACLE_MODE_EXTERNAL,
+        ExternalOracleContract,
+        GoalAcceptance,
+    )
     from atlasos.verification.models import CheckKind, CheckSpec, VerificationSpec
 
     checks = tuple(
@@ -933,7 +1033,40 @@ def acceptance_spec(task: closure2.Task) -> Any:
         checks=checks,
         notes="Stage B+ acceptance: the deliverables exist. Correctness is the Host oracle's job.",
     ).with_declared_digest()
-    return GoalAcceptance(spec=spec, dynamic_command=None, require_dynamic=False)
+
+    hidden = tuple(sorted(task.oracle_tests))
+    public = tuple(sorted(task.public_tests))
+    body = {
+        "oracle_id": f"bplus-external-{task.task_id}",
+        "task_id": task.task_id,
+        "suite": "experiments.evaluation.closure2 (hidden tests, Host-owned)",
+        "runner": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
+        "hidden_paths": list(hidden),
+        "public_paths": list(public),
+        "artifact_root": "artifacts.workspace_path",
+        "scored_snapshot": "the exported workspace, never the fixture",
+        "sandbox": "a second throwaway sandbox, created after the agent sandbox is destroyed",
+        "verdict_field": "oracle.status",
+        "host_only": True,
+    }
+    external = ExternalOracleContract(
+        oracle_id=f"bplus-external-{task.task_id}",
+        task_id=task.task_id,
+        artifact_root="artifacts.workspace_path",
+        body=body,
+        hidden_paths=hidden,
+        public_paths=public,
+        sandbox_required=True,
+        independent_sandbox=True,
+        declared_digest="sha256:" + canonical_digest(body),
+    )
+    return GoalAcceptance(
+        spec=spec,
+        dynamic_command=None,
+        require_dynamic=False,
+        oracle_mode=ORACLE_MODE_EXTERNAL,
+        external_oracle=external,
+    )
 
 
 def write_document(document: dict[str, Any], path: Path) -> Path:
@@ -950,12 +1083,15 @@ __all__ = [
     "BPLUS_VERSION",
     "BUDGET",
     "CANARY_PLAN_ID",
+    "CANARY_PLAN_ID_V1",
     "CANARY_TASK_IDS",
     "CODING",
     "CONTEXT_METRICS",
     "CONTROL_ARM_IDS",
     "COUPLING_DISCLOSURE",
     "DELEGATION_LEVELS",
+    "EXECUTION_CONTRACT",
+    "EXECUTION_CONTRACT_DIGEST",
     "EXPOSURES",
     "EXPOSURE_TERMS",
     "FORBIDDEN_GOAL_PHRASES",
@@ -977,6 +1113,8 @@ __all__ = [
     "SCOPE_FORMAL",
     "STAGE_ID",
     "STRUCTURE_OF",
+    "SUPERSEDED_CANARY",
+    "SUPERSEDED_CANARY_PLAN_IDS",
     "TASKS",
     "TASKS_BY_ID",
     "TASK_IDS",

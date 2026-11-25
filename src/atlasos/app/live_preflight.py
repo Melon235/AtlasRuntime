@@ -19,6 +19,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from atlasos.app.goal_verification import (
+    ORACLE_MODE_EXTERNAL,
+    ORACLE_MODE_IN_RUN,
+    ORACLE_MODES,
+)
+
 READY = "READY"
 BLOCKED = "BLOCKED"
 
@@ -176,27 +182,139 @@ def run_live_preflight(options: Any) -> dict[str, Any]:
         )
     )
 
-    oracle_command = str(getattr(acceptance, "dynamic_command", "") or "").strip()
-    public_command = str(getattr(public_tests, "command", "") or "").strip() if public_tests else ""
-    separate = bool(oracle_command) and bool(public_command) and oracle_command != public_command
+    oracle_mode = str(getattr(acceptance, "oracle_mode", ORACLE_MODE_IN_RUN) or ORACLE_MODE_IN_RUN)
     checks.append(
         _check(
-            "public_tests_separate_from_oracle",
-            separate,
-            "public and oracle commands must differ, otherwise the Main observes the oracle"
-            if public_command and oracle_command
-            else "one of the two commands is not configured",
+            "oracle_mode_known",
+            oracle_mode in ORACLE_MODES,
+            f"oracle_mode={oracle_mode!r}; expected one of {list(ORACLE_MODES)}",
         )
     )
 
-    checks.append(
-        _check(
-            "acceptance_configured",
-            acceptance is not None and bool(oracle_command),
-            "an acceptance contract with a dynamic command is required; "
-            "'NOT_CONFIGURED' can never be a pipeline PASS",
+    oracle_command = str(getattr(acceptance, "dynamic_command", "") or "").strip()
+    public_command = str(getattr(public_tests, "command", "") or "").strip() if public_tests else ""
+    external = getattr(acceptance, "external_oracle", None) if acceptance is not None else None
+
+    if oracle_mode == ORACLE_MODE_IN_RUN:
+        # The stage-P contract, unchanged: a fixed command the harness runs, different from the
+        # one the Main can run.
+        separate = (
+            bool(oracle_command) and bool(public_command) and oracle_command != public_command
         )
-    )
+        checks.append(
+            _check(
+                "public_tests_separate_from_oracle",
+                separate,
+                "public and oracle commands must differ, otherwise the Main observes the oracle"
+                if public_command and oracle_command
+                else "one of the two commands is not configured",
+            )
+        )
+        checks.append(
+            _check(
+                "acceptance_configured",
+                acceptance is not None and bool(oracle_command),
+                "an acceptance contract with a dynamic command is required; "
+                "'NOT_CONFIGURED' can never be a pipeline PASS",
+            )
+        )
+    elif oracle_mode == ORACLE_MODE_EXTERNAL:
+        # The stage-B+ contract: correctness is decided after the run, by a Host oracle that scores
+        # the exported workspace in its own sandbox. What admission can verify is that the
+        # declaration is complete, bound, and structurally separated from the public suite.
+        source_repo = getattr(sandbox, "source_repo", None) if sandbox is not None else None
+        hidden = tuple(getattr(external, "hidden_paths", ()) or ()) if external else ()
+        public_paths = tuple(getattr(external, "public_paths", ()) or ()) if external else ()
+        overlap = sorted(set(hidden) & set(public_paths))
+        staged: list[str] = []
+        for name in hidden:
+            if source_repo is not None:
+                try:
+                    if (Path(str(source_repo)) / name).exists():
+                        staged.append(name)
+                except OSError:  # pragma: no cover - a path the Host cannot stat
+                    staged.append(name)
+        write_paths = tuple(getattr(options, "main_write_paths", ()) or ())
+        reachable_by_main = sorted(
+            name
+            for name in hidden
+            if any(
+                name == str(item) or name.startswith(str(item).rstrip("*")) for item in write_paths
+            )
+        )
+        separate = bool(public_command) and not overlap and not staged and not reachable_by_main
+        detail = (
+            "the public suite and the hidden oracle are separate artifacts"
+            if separate
+            else "the hidden oracle is not separated from the public suite"
+            if not public_command
+            else f"hidden paths overlap the public suite: {overlap[:3]}"
+            if overlap
+            else f"hidden files are staged in the agent workspace: {staged[:3]}"
+            if staged
+            else f"hidden files are inside the Main's write scope: {reachable_by_main[:3]}"
+        )
+        checks.append(_check("public_tests_separate_from_oracle", separate, detail))
+
+        declaration = list(external.problems()) if external is not None else [
+            "the acceptance contract declares an external oracle but carries none"
+        ]
+        checks.append(
+            _check(
+                "acceptance_configured",
+                acceptance is not None and external is not None and not declaration,
+                "; ".join(declaration)
+                if declaration
+                else f"external sandbox oracle {getattr(external, 'oracle_id', None)!r} is "
+                "declared",
+            )
+        )
+        if external is not None:
+            spec_id = str(getattr(getattr(acceptance, "spec", None), "spec_id", "") or "")
+            checks.append(
+                _check(
+                    "external_oracle_task_binding",
+                    bool(external.task_id) and external.task_id in spec_id,
+                    f"oracle task_id={external.task_id!r} must appear in the acceptance spec id "
+                    f"{spec_id!r}",
+                )
+            )
+            artifact_root = str(getattr(external, "artifact_root", "") or "").strip()
+            inside_repo = False
+            symbolic = bool(artifact_root) and not Path(artifact_root).is_absolute()
+            if source_repo is not None and artifact_root and not symbolic:
+                try:
+                    Path(artifact_root).resolve().relative_to(Path(str(source_repo)).resolve())
+                    inside_repo = True
+                except (ValueError, OSError):
+                    inside_repo = False
+            checks.append(
+                _check(
+                    "external_oracle_artifact_root",
+                    bool(artifact_root) and not inside_repo,
+                    f"the oracle scores {artifact_root!r}; a symbolic session field is accepted, "
+                    "an absolute path inside the agent's source repository is not",
+                )
+            )
+            checks.append(
+                _check(
+                    "external_oracle_independent_sandbox",
+                    bool(getattr(external, "sandbox_required", False))
+                    and bool(getattr(external, "independent_sandbox", False)),
+                    "the oracle must run in its own sandbox, after the agent sandbox is gone",
+                )
+            )
+    else:
+        # An unknown mode is not silently treated as one of the two known shapes.
+        for check_id in ("acceptance_configured", "public_tests_separate_from_oracle"):
+            checks.append(
+                _check(
+                    check_id,
+                    False,
+                    f"oracle_mode={oracle_mode!r} is not a known contract shape",
+                )
+            )
+
     if acceptance is not None:
         spec = getattr(acceptance, "spec", None)
         declared = bool(getattr(spec, "declared_digest", None))

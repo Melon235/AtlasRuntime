@@ -12,8 +12,10 @@ A run passes only when both pass. "The command could not run" is ``INCONCLUSIVE`
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -23,6 +25,83 @@ from atlasos.verification.models import Category, CheckSpec, VerificationSpec
 VERDICT_PASS = "PASS"
 VERDICT_FAIL = "FAIL"
 VERDICT_INCONCLUSIVE = "INCONCLUSIVE"
+
+#: Where correctness comes from.
+#:
+#: ``IN_RUN_ORACLE`` is the stage-P shape: the harness runs a fixed command inside the still-live
+#: sandbox and the run passes only when the static and dynamic observations both pass.
+#:
+#: ``EXTERNAL_SANDBOX_ORACLE`` is the stage-B+ shape: the run itself is scored afterwards, by a Host
+#: oracle that runs in its own sandbox on the *exported* workspace. There is no in-run dynamic
+#: command, so a preflight that demands one refuses every cell of that design. The mode is declared
+#: here, by the Host-owned contract, and never inferred at runtime.
+ORACLE_MODE_IN_RUN = "IN_RUN_ORACLE"
+ORACLE_MODE_EXTERNAL = "EXTERNAL_SANDBOX_ORACLE"
+ORACLE_MODES: tuple[str, ...] = (ORACLE_MODE_IN_RUN, ORACLE_MODE_EXTERNAL)
+
+
+def _canonical(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _digest(value: Any) -> str:
+    return "sha256:" + hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class ExternalOracleContract:
+    """The Host's declaration of the oracle that decides correctness *after* the run.
+
+    It is a declaration, not a proof: it says which oracle, on which artifact, over which paths, in
+    which sandbox. ``contract_digest`` is recomputed from ``body`` so a contract that names one
+    oracle and carries another cannot verify. Nothing here runs the oracle.
+    """
+
+    oracle_id: str
+    task_id: str
+    artifact_root: str
+    body: Mapping[str, Any] = field(default_factory=dict)
+    hidden_paths: tuple[str, ...] = ()
+    public_paths: tuple[str, ...] = ()
+    sandbox_required: bool = True
+    independent_sandbox: bool = True
+    #: The digest the Host recorded when it authored the contract. Kept separate from ``body`` so a
+    #: body that was edited after signing no longer matches the identity that was signed.
+    declared_digest: str = ""
+
+    @property
+    def contract_digest(self) -> str:
+        return _digest(dict(self.body))
+
+    def problems(self) -> list[str]:
+        """What makes this declaration unusable as an admission basis."""
+
+        problems: list[str] = []
+        if not self.oracle_id.strip():
+            problems.append("the external oracle has no identity")
+        if not self.task_id.strip():
+            problems.append("the external oracle is not bound to a task")
+        if not self.artifact_root.strip():
+            problems.append("the external oracle does not name the artifact it scores")
+        if not self.body:
+            problems.append("the external oracle carries no contract body")
+        if not self.declared_digest:
+            problems.append("the external oracle declares no contract digest")
+        elif self.declared_digest != self.contract_digest:
+            problems.append(
+                f"the external oracle digest is {self.declared_digest}, its body hashes to "
+                f"{self.contract_digest}"
+            )
+        if not self.hidden_paths:
+            problems.append("the external oracle names no hidden paths")
+        if not self.sandbox_required:
+            problems.append("the external oracle does not require a sandbox")
+        if not self.independent_sandbox:
+            problems.append("the external oracle is not declared independent of the agent sandbox")
+        overlap = sorted(set(self.hidden_paths) & set(self.public_paths))
+        if overlap:
+            problems.append(f"the hidden paths overlap the public suite: {overlap[:3]}")
+        return problems
 
 
 class SandboxCheckRunner(Protocol):
@@ -48,6 +127,11 @@ class GoalAcceptance:
     dynamic_timeout_seconds: int = 300
     #: When ``True`` a missing dynamic result makes the run ``INCONCLUSIVE`` instead of ``PASS``.
     require_dynamic: bool = True
+    #: Which observation decides correctness. Defaults to the stage-P in-run oracle so every
+    #: existing caller keeps exactly the semantics it had before this field existed.
+    oracle_mode: str = ORACLE_MODE_IN_RUN
+    #: Present only for ``EXTERNAL_SANDBOX_ORACLE``; the Host declaration the preflight verifies.
+    external_oracle: ExternalOracleContract | None = None
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any]) -> GoalAcceptance:
@@ -77,11 +161,27 @@ class GoalAcceptance:
             notes=str(raw.get("notes") or ""),
         ).with_declared_digest()
         command = payload.get("dynamic_command")
+        external_raw = payload.get("external_oracle")
+        external = None
+        if isinstance(external_raw, Mapping):
+            external = ExternalOracleContract(
+                oracle_id=str(external_raw.get("oracle_id") or ""),
+                task_id=str(external_raw.get("task_id") or ""),
+                artifact_root=str(external_raw.get("artifact_root") or ""),
+                body=dict(external_raw.get("body") or {}),
+                hidden_paths=tuple(str(item) for item in external_raw.get("hidden_paths") or ()),
+                public_paths=tuple(str(item) for item in external_raw.get("public_paths") or ()),
+                sandbox_required=bool(external_raw.get("sandbox_required", True)),
+                independent_sandbox=bool(external_raw.get("independent_sandbox", True)),
+                declared_digest=str(external_raw.get("declared_digest") or ""),
+            )
         return cls(
             spec=spec,
             dynamic_command=str(command) if command else None,
             dynamic_timeout_seconds=int(payload.get("dynamic_timeout_seconds", 300)),
             require_dynamic=bool(payload.get("require_dynamic", True)),
+            oracle_mode=str(payload.get("oracle_mode") or ORACLE_MODE_IN_RUN),
+            external_oracle=external,
         )
 
 
@@ -132,6 +232,7 @@ async def verify_goal(
     else:
         verdict = VERDICT_PASS
 
+    external = acceptance.external_oracle
     return {
         "verdict": verdict,
         "spec_id": acceptance.spec.spec_id,
@@ -140,11 +241,33 @@ async def verify_goal(
         "static": static,
         "dynamic": dynamic,
         "snapshot": str(snapshot),
+        "oracle_mode": acceptance.oracle_mode,
+        # A static PASS is not a correctness verdict when the oracle is external. The field is here
+        # so no reader of this record can mistake the two, whatever they do with ``verdict``.
+        "final_correctness": (
+            "EXTERNAL_ORACLE_PENDING"
+            if acceptance.oracle_mode == ORACLE_MODE_EXTERNAL
+            else verdict
+        ),
+        "external_oracle": (
+            None
+            if external is None
+            else {
+                "oracle_id": external.oracle_id,
+                "task_id": external.task_id,
+                "contract_digest": external.contract_digest,
+                "artifact_root": external.artifact_root,
+            }
+        ),
     }
 
 
 __all__ = [
+    "ExternalOracleContract",
     "GoalAcceptance",
+    "ORACLE_MODES",
+    "ORACLE_MODE_EXTERNAL",
+    "ORACLE_MODE_IN_RUN",
     "SandboxCheckRunner",
     "VERDICT_FAIL",
     "VERDICT_INCONCLUSIVE",

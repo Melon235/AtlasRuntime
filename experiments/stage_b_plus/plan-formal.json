@@ -1,6 +1,6 @@
 {
   "stage": "B+",
-  "protocol_version": "bplus-2.0.0",
+  "protocol_version": "bplus-2.1.0",
   "plan_id": "stage-b-plus-formal-matrix-v1",
   "plan": {
     "plan_id": "stage-b-plus-formal-matrix-v1",
@@ -246,6 +246,21 @@
     "runs_subdir": "runs/stage-b-plus/stage-b-plus-formal-matrix-v1",
     "evidence_subdir": "evidence/stage-b-plus/stage-b-plus-formal-matrix-v1",
     "is_benchmark_sample": true,
-    "nominal_token_capacity": 12000000
+    "nominal_token_capacity": 12000000,
+    "execution_contract": {
+      "revision": "bplus-exec-2.0",
+      "supersedes": "bplus-exec-1.0",
+      "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
+      "acceptance": "static presence checks only; correctness is never self-graded",
+      "oracle_runner": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
+      "scored_snapshot": "the exported workspace (artifacts.workspace_path), never the fixture",
+      "public_suite_separation": "the public suite is a different artifact from the hidden oracle",
+      "pre_claim_preflight": "run_live_preflight over the six production GoalRunOptions",
+      "v1_refusal": "live_preflight required a dynamic acceptance command; the B+ acceptance has none, and the oracle is a Host sandbox that runs after the run, so every cell was refused before the first model call"
+    },
+    "execution_contract_digest": "sha256:a4d74b4d5e2aab3fc5cbb2d5d66edcf158515da8701075a786e547c6f31aaaad",
+    "supersedes": null,
+    "supersedes_record": null,
+    "authorization_migrates": false
   }
 }

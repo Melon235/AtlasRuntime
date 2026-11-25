@@ -1,6 +1,6 @@
 {
   "stage": "B+",
-  "protocol_version": "bplus-2.0.0",
+  "protocol_version": "bplus-2.1.0",
   "pricing": {
     "cache_hit_input_per_million": 0.006,
     "cache_miss_input_per_million": 0.3,
@@ -31,8 +31,8 @@
     }
   },
   "scopes": {
-    "stage-b-plus-diagnostic-canary-v1": {
-      "plan_id": "stage-b-plus-diagnostic-canary-v1",
+    "stage-b-plus-diagnostic-canary-v2": {
+      "plan_id": "stage-b-plus-diagnostic-canary-v2",
       "scope": "CANARY_ONLY",
       "cells": 6,
       "nominal_capacity": {
@@ -230,7 +230,7 @@
   },
   "proposed": {
     "canary": {
-      "plan_id": "stage-b-plus-diagnostic-canary-v1",
+      "plan_id": "stage-b-plus-diagnostic-canary-v2",
       "scope": "CANARY_ONLY",
       "cells": 6,
       "cost_stop_usd": 0.6,

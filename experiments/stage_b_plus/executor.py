@@ -33,6 +33,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
@@ -55,15 +56,21 @@ from experiments.evaluation.sandboxed_oracle import (
 from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract, cost
 
-EXECUTOR_VERSION = "bplus-executor-1.1"
+EXECUTOR_VERSION = "bplus-executor-1.2"
 
 #: Files whose bytes *are* the executor identity. A dispatch is bound to their digests, so editing
 #: any of them invalidates an existing signature rather than silently running different code.
+#:
+#: The two admission files were added after v1: the preflight decides whether a cell may start at
+#: all, so leaving it outside the identity meant a signature could survive a change in what it
+#: admits. The runtime's admission behaviour is part of what the Owner approves.
 EXECUTOR_FILES: tuple[str, ...] = (
     "experiments/stage_b_plus/executor.py",
     "experiments/stage_b_plus/authority.py",
     "experiments/stage_b_plus/contract.py",
     "experiments/stage_b_plus/cost.py",
+    "src/atlasos/app/live_preflight.py",
+    "src/atlasos/app/goal_verification.py",
 )
 
 #: A live dispatch and an offline proof are different operations with different privileges.
@@ -97,6 +104,9 @@ STOP_COST_REACHED = "COST_STOP_REACHED"
 STOP_TOKEN_REACHED = "TOKEN_STOP_REACHED"
 STOP_NOT_AUTHORIZED = "NOT_AUTHORIZED"
 STOP_MODE_VIOLATION = "MODE_VIOLATION"
+#: The run never reached the model: admission refused the configuration. Distinct from a provider
+#: failure, which means a request was attempted and failed.
+STOP_LIVE_PREFLIGHT = "LIVE_PREFLIGHT_BLOCKED"
 
 #: A failure the runtime measured. These continue: they are the experiment's subject matter, not an
 #: infrastructure defect. Anything else stops, including an unclassified exception.
@@ -842,6 +852,8 @@ def _lifecycle_stop(problems: list[str]) -> str:
 
 
 def _exception_stop(run: CellRun) -> str:
+    if run.error_kind == "preflight":
+        return STOP_LIVE_PREFLIGHT
     if run.error_kind in {"provider", "timeout"}:
         return STOP_PROVIDER_FAILURE
     if run.error_kind == "sandbox":
@@ -997,6 +1009,34 @@ async def dispatch(
             json.dumps(report, indent=2) + "\n", encoding="utf-8"
         )
         return report
+
+    # A live dispatch admits the six production configurations *before* the claim exists, so a
+    # configuration that cannot run costs no attempt. v1 discovered its refusal on the first cell,
+    # after the claim was spent.
+    admission: dict[str, Any] | None = None
+    if not offline:
+        admission = admission_gate(plan, repo_root=repo_root)
+        if admission is not None:
+            report = _refused_report(
+                plan,
+                identity,
+                actual_head,
+                list(admission["blocking_failures"]),
+                STOP_LIVE_PREFLIGHT,
+                clock,
+                mode,
+                admission=admission,
+            )
+            (evidence / "dispatch-refused.json").write_text(
+                json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8"
+            )
+            (evidence / "admission.json").write_text(
+                json.dumps(admission, indent=2, default=str) + "\n", encoding="utf-8"
+            )
+            return report
+        (evidence / "admission.json").write_text(
+            json.dumps(admission, indent=2, default=str) + "\n", encoding="utf-8"
+        )
 
     ledger_path = evidence / "ledger.jsonl"
     if not _fresh_ledger(ledger_path):
@@ -1220,8 +1260,10 @@ def _refused_report(
     stop: str,
     clock: Callable[[], str],
     mode: str,
+    *,
+    admission: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    report: dict[str, Any] = {
         "stage": contract.STAGE_ID,
         "executor_version": identity["executor_version"],
         "executor_digest": identity["executor_digest"],
@@ -1241,6 +1283,9 @@ def _refused_report(
         "refused": True,
         "retry": "FORBIDDEN",
     }
+    if admission is not None:
+        report["admission"] = dict(admission)
+    return report
 
 
 def _write_analysis(
@@ -1406,6 +1451,210 @@ def _sandbox_provider(config: RunnerConfig, root: Path) -> Any:
     )
 
 
+def production_goal_options(
+    cell: Mapping[str, Any],
+    *,
+    evidence_root: Path,
+    fixture_dir: Path,
+    config: RunnerConfig,
+    run_id: str,
+) -> Any:
+    """The one place a production ``GoalRunOptions`` is built.
+
+    The live runner and the pre-claim admission proof both call this, so the configuration that is
+    admitted and the configuration that runs cannot drift apart. Nothing here executes anything.
+    """
+
+    from atlasos.app.goal_sandbox import GoalSandboxOptions
+    from atlasos.app.main_driven import GoalRunOptions
+    from atlasos.app.public_tests import PublicTestContract
+
+    task = contract.TASKS_BY_ID[cell["task_id"]]
+    arm = contract.ARMS_BY_ID[cell["arm_id"]]
+    plan = config.sandbox_plan()
+    return GoalRunOptions(
+        goal=contract.GOAL_OF[cell["task_id"]],
+        runs_root=evidence_root / "agent",
+        workspace_root=evidence_root / "host-workspace",
+        config=atlas_config(plan),
+        delegation=contract.delegation_config(),
+        provider=config.llm_provider,
+        model=contract.BUDGET["model"],
+        max_turns=config.main_max_turns,
+        token_budget=int(contract.BUDGET["token_budget"]),
+        main_write_paths=tuple(task.allowed_paths),
+        child_write_grants=arm.grant_for(cell["task_id"]),
+        worker_profiles=(arm.profile_id,),
+        worker_max_turns=int(contract.BUDGET["worker_max_turns"]),
+        worker_exposure=arm.exposure,
+        provider_factory=config.llm_factory,
+        run_id=run_id,
+        main_prompt=contract.main_prompt_spec(),
+        public_tests=PublicTestContract(
+            test_id="bplus-public",
+            command="python3 -B -m pytest -q " + " ".join(sorted(task.public_tests)),
+            timeout_seconds=240,
+            max_output_chars=6000,
+            max_calls=int(contract.BUDGET["public_test_max_calls"]),
+        ),
+        acceptance=contract.acceptance_spec(task),
+        sandbox=GoalSandboxOptions(
+            provider=plan.provider_name,
+            source_repo=fixture_dir,
+            image=plan.image,
+            require_real=plan.require_real,
+            provider_factory=config.sandbox_factory,
+        ),
+    )
+
+
+def _dotenv_like_production() -> None:
+    """Load the same ``.env`` the goal path loads, at the same point, and nothing else.
+
+    ``run_goal`` calls ``load_dotenv(REPO_ROOT / ".env", override=False)`` immediately before it
+    checks for the credential. Admission has to see the same environment it would decide on, or the
+    pre-claim report describes a different configuration from the one that runs.
+    """
+
+    try:
+        from dotenv import load_dotenv
+    except ImportError:  # pragma: no cover - python-dotenv is a declared dependency
+        return
+    load_dotenv(contract.REPO_ROOT / ".env", override=False)
+
+
+def run_admission_preflight(
+    plan: Mapping[str, Any],
+    *,
+    repo_root: Path | None = None,
+    scratch_root: Path | None = None,
+    config: RunnerConfig | None = None,
+) -> dict[str, Any]:
+    """Admit every cell's production configuration before the one-shot claim is consumed.
+
+    This is the same ``run_live_preflight`` that ``run_goal`` applies, run on the same
+    ``GoalRunOptions`` the live runner builds. The fixture is materialised in a throwaway
+    directory so the ``source_repo_clean`` and hidden-path checks read real bytes. Nothing is
+    executed: no provider is built, no model is called, no sandbox is created, no oracle runs, and
+    no claim is written.
+
+    ``contract_blocking_failures`` excludes ``api_key_present``: a missing credential is an
+    environment fact about the machine, not a defect in the execution contract, and the two are
+    reported separately rather than one being hidden inside the other.
+    """
+
+    from atlasos.app.live_preflight import BLOCKED, READY, run_live_preflight
+
+    active = config or RunnerConfig()
+    root = (
+        Path(scratch_root)
+        if scratch_root is not None
+        else Path(tempfile.mkdtemp(prefix="bplus-admission-"))
+    )
+    _dotenv_like_production()
+    cells: list[dict[str, Any]] = []
+    failures: list[str] = []
+    try:
+        for cell in plan["cells"]:
+            key = f"c{int(cell['order']):02d}"
+            evidence = root / key
+            fixture_dir = root / "fixtures" / cell["cell_id"]
+            try:
+                fixture = prepare_fixture(contract.TASKS_BY_ID[cell["task_id"]], fixture_dir)
+            except Exception as error:  # noqa: BLE001 - an unusable fixture is a refusal
+                detail = f"{type(error).__name__}: {error}"[:200]
+                cells.append(
+                    {
+                        "cell_id": cell["cell_id"],
+                        "arm_id": cell["arm_id"],
+                        "status": BLOCKED,
+                        "blocking_failures": ["fixture_preparation"],
+                        "checks": 0,
+                        "detail": detail,
+                    }
+                )
+                failures.append(f"{cell['cell_id']}: fixture_preparation ({detail})")
+                continue
+            options = production_goal_options(
+                cell,
+                evidence_root=evidence,
+                fixture_dir=fixture_dir,
+                config=active,
+                run_id=f"admission-{key}",
+            )
+            report = run_live_preflight(options)
+            blocked = list(report["blocking_failures"])
+            cells.append(
+                {
+                    "cell_id": cell["cell_id"],
+                    "arm_id": cell["arm_id"],
+                    "status": report["status"],
+                    "blocking_failures": blocked,
+                    "checks": len(report["checks"]),
+                    "provider_factory_injected": options.provider_factory is not None,
+                    "fixture_matches_frozen_seed": bool(fixture.get("matches_frozen_seed")),
+                    "worker_profile": (options.worker_profiles or (None,))[0],
+                    "worker_exposure": options.worker_exposure,
+                    "oracle_mode": getattr(options.acceptance, "oracle_mode", None),
+                }
+            )
+            failures.extend(f"{cell['cell_id']}: {item}" for item in blocked)
+    finally:
+        if scratch_root is None:
+            remove_tree(root)
+
+    contract_failures = [item for item in failures if not item.endswith(": api_key_present")]
+    credential_present = bool(os.environ.get("DEEPSEEK_API_KEY", "").strip())
+    return {
+        "status": READY if not failures else BLOCKED,
+        "generated_at": now(),
+        "execution_head": git_head(repo_root),
+        "cells": cells,
+        "blocking_failures": failures,
+        "contract_blocking_failures": contract_failures,
+        "credential_present": credential_present,
+        "environment_note": (
+            "a missing DEEPSEEK_API_KEY blocks a live run but is reported apart from the contract "
+            "checks; it is a fact about this machine, not about the experiment"
+        ),
+    }
+
+
+def admission_gate(
+    plan: Mapping[str, Any],
+    *,
+    repo_root: Path | None = None,
+    config: RunnerConfig | None = None,
+) -> dict[str, Any] | None:
+    """Return the admission report when dispatch must be refused, else ``None``.
+
+    Called before the claim exists, so a refused configuration costs no attempt.
+    """
+
+    report = run_admission_preflight(plan, repo_root=repo_root, config=config)
+    return None if report["status"] == "READY" else report
+
+
+def _exception_kind(error: BaseException, run_dir: Path | None) -> str:
+    """Classify a raised exception from the run's own evidence first, and its type second.
+
+    ``run_goal`` writes ``preflight.json`` before it refuses, so an admission refusal is read from
+    the report it produced rather than guessed from a message. v1 classified that refusal as a
+    provider failure because every unrecognised exception was assumed to come from the provider.
+    """
+
+    if run_dir is not None:
+        report = _read_json(Path(run_dir) / "preflight.json")
+        if isinstance(report, dict) and report.get("status") == "BLOCKED":
+            return "preflight"
+    name = type(error).__name__.lower()
+    if "sandbox" in name:
+        return "sandbox"
+    if "provider" in name or "transport" in name:
+        return "provider"
+    return "exception"
+
+
 def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
     """The production cell: real model, real sandbox, per-cell fixture, sandboxed oracle.
 
@@ -1417,12 +1666,9 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
     active = config or RunnerConfig()
 
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> CellRun:
-        from atlasos.app.goal_sandbox import GoalSandboxOptions
-        from atlasos.app.main_driven import GoalRunOptions, run_goal
-        from atlasos.app.public_tests import PublicTestContract
+        from atlasos.app.main_driven import run_goal
 
         task = contract.TASKS_BY_ID[cell["task_id"]]
-        arm = contract.ARMS_BY_ID[cell["arm_id"]]
         # A short, stable directory key: the cell id is 40+ characters and the sandbox nests a git
         # repository several levels deep, which a Windows Host should not have to reach.
         key = f"c{int(cell['order']):02d}"
@@ -1447,39 +1693,12 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
                 expected_run_id=run_id,
             )
 
-        options = GoalRunOptions(
-            goal=contract.GOAL_OF[cell["task_id"]],
-            runs_root=evidence / "agent",
-            workspace_root=evidence / "host-workspace",
-            config=atlas_config(plan),
-            delegation=contract.delegation_config(),
-            provider=active.llm_provider,
-            model=contract.BUDGET["model"],
-            max_turns=active.main_max_turns,
-            token_budget=int(contract.BUDGET["token_budget"]),
-            main_write_paths=tuple(task.allowed_paths),
-            child_write_grants=arm.grant_for(cell["task_id"]),
-            worker_profiles=(arm.profile_id,),
-            worker_max_turns=int(contract.BUDGET["worker_max_turns"]),
-            worker_exposure=arm.exposure,
-            provider_factory=active.llm_factory,
+        options = production_goal_options(
+            cell,
+            evidence_root=evidence,
+            fixture_dir=fixture_dir,
+            config=active,
             run_id=run_id,
-            main_prompt=contract.main_prompt_spec(),
-            public_tests=PublicTestContract(
-                test_id="bplus-public",
-                command="python3 -B -m pytest -q " + " ".join(sorted(task.public_tests)),
-                timeout_seconds=240,
-                max_output_chars=6000,
-                max_calls=int(contract.BUDGET["public_test_max_calls"]),
-            ),
-            acceptance=contract.acceptance_spec(task),
-            sandbox=GoalSandboxOptions(
-                provider=plan.provider_name,
-                source_repo=fixture_dir,
-                image=plan.image,
-                require_real=plan.require_real,
-                provider_factory=active.sandbox_factory,
-            ),
         )
 
         try:
@@ -1492,7 +1711,7 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
                 oracle=None,
                 duration_s=time.monotonic() - started,
                 error=f"{type(error).__name__}: {error}"[:500],
-                error_kind="sandbox" if "Sandbox" in type(error).__name__ else "provider",
+                error_kind=_exception_kind(error, options.runs_root / run_id),
                 fixture=fixture,
                 sandbox_plan=plan.as_dict(),
                 expected_run_id=run_id,
@@ -1569,6 +1788,7 @@ __all__ = [
     "NORMAL_FAILURE_KINDS",
     "RunnerConfig",
     "SandboxPlan",
+    "admission_gate",
     "atlas_config",
     "audit_cell",
     "cell_cost",
@@ -1583,6 +1803,9 @@ __all__ = [
     "live_cell_runner",
     "now",
     "prepare_fixture",
+    "production_goal_options",
+    "remove_tree",
+    "run_admission_preflight",
     "sandbox_plan",
     "validate_usage",
 ]
