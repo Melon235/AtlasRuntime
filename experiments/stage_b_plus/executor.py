@@ -56,7 +56,7 @@ from experiments.evaluation.sandboxed_oracle import (
 from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract, cost
 
-EXECUTOR_VERSION = "bplus-executor-1.5"
+EXECUTOR_VERSION = "bplus-executor-1.6"
 
 #: Files whose bytes *are* the executor identity. A dispatch is bound to their digests, so editing
 #: any of them invalidates an existing signature rather than silently running different code.
@@ -69,12 +69,13 @@ EXECUTOR_FILES: tuple[str, ...] = (
     "experiments/stage_b_plus/authority.py",
     "experiments/stage_b_plus/contract.py",
     "experiments/stage_b_plus/cost.py",
-    # The Stage C1 / C1-B plans decide which goal, task, arm, prompt and intervention a cell
-    # executes, so their bytes belong in the identity the Owner signs. Stage B+ plans do not read
-    # these modules.
+    # Stage C1 / C1-B / C1-C plans decide which goal, task, arm, prompt, budget and intervention a
+    # cell executes, so their bytes belong in the identity the Owner signs. Stage B+ plans do not
+    # read these modules.
     "experiments/stage_c1/plan.py",
     "experiments/stage_c1b/plan.py",
     "experiments/stage_c1b/prompts.py",
+    "experiments/stage_c1c/plan.py",
     # Stage C1-B: the worker completion contract and the failure classification are part of what a
     # cell executes, so a signature has to cover them.
     "src/atlasos/workers/catalog.py",
@@ -1755,7 +1756,10 @@ def production_goal_options(
         provider=config.llm_provider,
         model=contract.BUDGET["model"],
         max_turns=config.main_max_turns,
-        token_budget=int(contract.BUDGET["token_budget"]),
+        # The cell's effective budget, not the frozen default: a plan whose one intervention is a
+        # resource parameter binds it into the cell, and this is the single place it becomes a
+        # ``GoalRunOptions.token_budget`` — and therefore ``RunBudgetState(limit_tokens=…)``.
+        token_budget=contract.token_budget_for(cell),
         main_write_paths=tuple(task.allowed_paths),
         child_write_grants=contract.child_grants_for(cell),
         worker_profiles=(arm.profile_id,),

@@ -1,0 +1,382 @@
+{
+  "stage": "C1C",
+  "design_version": "c1c-1.0.0",
+  "plan_id": "stage-c1c-completion-headroom-control-v1",
+  "scope": "C1C_HEADROOM_CONTROL_ONLY",
+  "plan_digest": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+  "protocol_version": "bplus-2.2.0",
+  "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
+  "bplus_protocol_unchanged": true,
+  "executor_version": "bplus-executor-1.6",
+  "executor_digest": "sha256:59152911c7465b4252763c5e9d07ca4bac26cd5fe23b70d6d5bf5b4ae163714a",
+  "c1b_executor_digest": "sha256:145f6c83822c3d38e21f86d4999057250518b2587d273aaa5451b6f5b2bccba4",
+  "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
+  "activation_digest": "sha256:fad89af68cff6bf619401b838c55b2e5cfa62b1438b0d8b0e5656b7fd6ed47d8",
+  "intervention_digest": "sha256:d08c43c7469ef843d5822532831e5c7976ad45f13c524cd4ff7e85c3c4cc9f70",
+  "main_prompt_version": "main-v2.2-rc1-c1b",
+  "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+  "worker_contract": {
+    "profile_id": "coding_worker",
+    "contract_version": "c1b-1.0",
+    "instructions_digest": "sha256:0776e1c6c580093b6888d532d5609d1921277c4c6225e8b80e126f27879d3528",
+    "rendered_prompt_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
+    "rendered_prompt_chars": 1958,
+    "base_tools": [
+      "bash",
+      "dispatch_action",
+      "file_edit",
+      "file_read",
+      "file_write",
+      "grep",
+      "list_files",
+      "tool_search"
+    ],
+    "profile_max_turns": 8,
+    "source": "src/atlasos/workers/catalog.py"
+  },
+  "budget_digest": "sha256:d05da33924cee578b6f2c32040651a57848d68a93760b865db0b115a440f7717",
+  "frozen_budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+  "nominal_token_capacity": 750000,
+  "execution_contract_digest": "sha256:242fcef58a1f8e8b54a3caa48ebff958c85536bf3d4ce56339dc4d54e2b9e36e",
+  "write_grant": {
+    "raw": {
+      "coding_worker": [
+        "plugins/**"
+      ]
+    },
+    "effective": {
+      "coding_worker": [
+        "plugins/"
+      ]
+    },
+    "normalizer": "atlasos.ownership.paths.normalize_declared_path",
+    "workspace_root": "/workspace/project",
+    "changes": [
+      {
+        "raw": "plugins/**",
+        "effective": "plugins/"
+      }
+    ],
+    "scope_changed": false,
+    "profile_changed": false,
+    "matches_frozen_task_scope": true,
+    "denied_by_runtime": [
+      "test_public.py",
+      "docs/INTERFACE.md",
+      "README.md"
+    ],
+    "forbidden_inside_grant": [
+      "plugins/base.py"
+    ],
+    "forbidden_inside_grant_protection": "task instruction plus independent oracle, not ownership"
+  },
+  "budget_intervention": {
+    "before": 500000,
+    "after": 750000,
+    "delta": 250000,
+    "relative": 0.5
+  },
+  "built_from_head": "fa0268e71a35a28048e5b3ab38611c4720f8f24f",
+  "ok": true,
+  "checks": [
+    {
+      "check_id": "C01_plan_entry_resolves_the_c1c_plan_and_nothing_else_moved",
+      "ok": true,
+      "detail": "stage-c1c-completion-headroom-control-v1 and its scope both resolve to sha256:4481bba2d3a0\u2026; C1, C1-B and both B+ entries are unchanged; 4 ids remain rejected",
+      "resolved_digest": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+      "rejected": [
+        "stage-b-plus-diagnostic-canary-v1",
+        "stage-b-plus-diagnostic-canary-v2",
+        "stage-c1c-unknown-plan",
+        "C1C_UNKNOWN_SCOPE"
+      ],
+      "unchanged": {
+        "c1": "sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2",
+        "c1b": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+        "bplus-canary": "sha256:0b58ab2500325d11cf27763dd0d8dde8498d5bca9ca11f602e6e410a37e572f6",
+        "bplus-formal": "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72"
+      }
+    },
+    {
+      "check_id": "C02_effective_budget_is_bound_and_the_historical_digest_is_unchanged",
+      "ok": true,
+      "detail": "the cell binds 750000 tokens and sha256:d05da33924ce\u2026; the plan's capacity is 750000; the frozen budget stays 500000 / sha256:a6ea43679649\u2026 for B+, C1 and C1-B",
+      "effective_budget_digest": "sha256:d05da33924cee578b6f2c32040651a57848d68a93760b865db0b115a440f7717",
+      "frozen_budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+      "nominal_token_capacity": 750000,
+      "older": {
+        "bplus-canary": {
+          "budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+          "token_budget": 500000,
+          "nominal_token_capacity": 3000000
+        },
+        "bplus-formal": {
+          "budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+          "token_budget": 500000,
+          "nominal_token_capacity": 12000000
+        },
+        "c1": {
+          "budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+          "token_budget": 500000,
+          "nominal_token_capacity": 500000
+        },
+        "c1b": {
+          "budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+          "token_budget": 500000,
+          "nominal_token_capacity": 500000
+        }
+      }
+    },
+    {
+      "check_id": "C03_production_options_and_the_run_budget_state_carry_750000",
+      "ok": true,
+      "detail": "GoalRunOptions carries 750000 tokens, 20/20 turns, the C1-B prompt (sha256:4f742d08c6ed\u2026), the C1-B goal and the C1-B grant; a real run_goal builds RunBudgetState(limit_tokens=750000)",
+      "options_token_budget": 750000,
+      "run_budget": {
+        "options_token_budget": 750000,
+        "session_status": "succeeded",
+        "run_budget_limit_tokens": 750000,
+        "run_budget_mode": "guarded",
+        "source": "atlasos.app.main_driven.run_goal: RunBudgetState(limit_tokens=options.token_budget)"
+      }
+    },
+    {
+      "check_id": "C04_authority_binds_the_c1c_budget_and_refuses_the_old_identities",
+      "ok": true,
+      "detail": "the pending record authorizes nothing (11 stated reasons); a correctly signed record is accepted; the old budget digest, the old executor, the old plan digest and the C1-B record are each refused",
+      "pending_problems": [
+        "status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
+        "authorizes_live_execution is not true",
+        "approved_by is empty",
+        "approved_at is empty",
+        "owner_statement is empty",
+        "approval_provenance is empty",
+        "reviewed_head is None, actual head is 'fa0268e71a35a28048e5b3ab38611c4720f8f24f'",
+        "execution_head is None, actual head is 'fa0268e71a35a28048e5b3ab38611c4720f8f24f'",
+        "cost_stop_usd is None; it must be finite and positive",
+        "per_cell_cost_stop_usd is None; it must be finite and positive",
+        "approval_provenance is empty"
+      ],
+      "negatives": {
+        "old_budget_digest": {
+          "ready": false,
+          "problems": [
+            "budget_digest is 'sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9', expected 'sha256:d05da33924cee578b6f2c32040651a57848d68a93760b865db0b115a440f7717'"
+          ]
+        },
+        "old_executor": {
+          "ready": false,
+          "problems": [
+            "executor_digest is 'sha256:145f6c83822c3d38e21f86d4999057250518b2587d273aaa5451b6f5b2bccba4', expected 'sha256:59152911c7465b4252763c5e9d07ca4bac26cd5fe23b70d6d5bf5b4ae163714a'"
+          ]
+        },
+        "old_plan_digest": {
+          "ready": false,
+          "problems": [
+            "plan_digest is 'sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c', expected 'sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb'"
+          ]
+        },
+        "old_protocol_digest": {
+          "ready": false,
+          "problems": [
+            "protocol_digest is 'sha256:0000000000000000000000000000000000000000000000000000000000000000', expected 'sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460'"
+          ]
+        },
+        "c1b_authority_for_c1c": {
+          "ready": false,
+          "problems": [
+            "record scope is 'C1B_COMPLETION_CONTROL_ONLY'; this plan is 'C1C_HEADROOM_CONTROL_ONLY'",
+            "record plan_id is 'stage-c1b-coding-delegation-completion-v1', not 'stage-c1c-completion-headroom-control-v1'",
+            "plan_digest is 'sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c', expected 'sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb'",
+            "budget_digest is 'sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9', expected 'sha256:d05da33924cee578b6f2c32040651a57848d68a93760b865db0b115a440f7717'"
+          ]
+        }
+      }
+    },
+    {
+      "check_id": "C05_router_still_admits_the_p2_pair_and_the_boundary_is_unchanged",
+      "ok": true,
+      "detail": "the production grant plugins/ admits both children as a two-wide wave under m.1.0; the raw glob is still refused and all five boundary codes are unchanged",
+      "production_grant": {
+        "coding_worker": [
+          "plugins/"
+        ]
+      },
+      "children": [
+        "csv",
+        "json"
+      ],
+      "boundary": {
+        "shared_write": [
+          "SHARED_WRITE_RISK"
+        ],
+        "declared_dependency": [
+          "DEPENDENCY_NOT_SUPPORTED"
+        ],
+        "outside_grant": [
+          "WRITE_SCOPE_NOT_GRANTED"
+        ],
+        "path_escape": [
+          "INVALID_PLAN"
+        ],
+        "research_write": [
+          "WRITE_SCOPE_NOT_GRANTED"
+        ]
+      }
+    },
+    {
+      "check_id": "C06_real_dispatch_entry_runs_the_offline_control_flow",
+      "ok": true,
+      "detail": "dispatch('stage-c1c-completion-headroom-control-v1') resolved, verified against the C1-C budget digest, claimed in a throwaway root, ran one synthetic cell and wrote the audit + matrix report (verdict PASS, 17 audit checks, token_stop 750000)",
+      "report": {
+        "plan_id": "stage-c1c-completion-headroom-control-v1",
+        "scope": "C1C_HEADROOM_CONTROL_ONLY",
+        "plan_digest": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+        "mode": "offline_proof",
+        "complete": true,
+        "cells_planned": 1,
+        "cells_started": 1,
+        "cells_passed": 1,
+        "stop_reason": "NONE",
+        "aggregate_includes_sample": false,
+        "token_stop": 750000,
+        "cost_stop_usd": 0.25,
+        "per_cell_cost_stop_usd": 0.25
+      },
+      "cell": {
+        "cell_id": "c1c.closure2-plugin-migration.C3.r1",
+        "verdict": "PASS",
+        "execution_integrity": "PASS",
+        "goal_correctness": true,
+        "public_test_status": "PASS",
+        "oracle_passed": true,
+        "stops": [],
+        "failed_checks": [],
+        "check_count": 17
+      },
+      "evidence_exists": {
+        "matrix_report": true,
+        "ledger": true,
+        "analysis": true,
+        "attempt": true
+      },
+      "token_stop": 750000,
+      "cost_stop_usd": 0.25
+    },
+    {
+      "check_id": "C07_production_admission_is_ready",
+      "ok": true,
+      "detail": "the pre-claim gate accepts the C1-C cell (READY); the credential (present=True) is reported apart from the contract",
+      "status": "READY",
+      "blocking_failures": [],
+      "contract_blocking_failures": [],
+      "credential_present": true,
+      "checks": 23
+    },
+    {
+      "check_id": "C08_history_claims_evidence_and_the_failed_launch_are_preserved",
+      "ok": true,
+      "detail": "5/5 consumed claims are byte-identical before and after this preparation, no claim exists for sha256:4481bba2d3a0\u2026, the C1-B evidence index re-hashes to sha256:c8505498234f\u2026 (35 files), the failed first launch is intact, and the C1-B plan/authorization/executor/offline identities are still the frozen ones",
+      "claims": {
+        "v1": true,
+        "v2": true,
+        "v3": true,
+        "c1": true,
+        "c1b": true
+      },
+      "claim_path": "C:\\Users\\86180\\AppData\\Local\\AtlasRuntime\\stage-b-plus\\claims\\4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb.claim",
+      "claim_root": "C:\\Users\\86180\\AppData\\Local\\AtlasRuntime\\stage-b-plus\\claims",
+      "evidence_index": {
+        "mounted": true,
+        "root": "D:\\Work\\AtlasRuntime-runs\\stage-c1b-completion-2",
+        "files": 35,
+        "index_digest": "sha256:c8505498234f2fc9a81d498309e2fef8179b4fc7c5dfa655d3fafafc5e7cce25",
+        "index_digest_as_declared": "sha256:c8505498234f2fc9a81d498309e2fef8179b4fc7c5dfa655d3fafafc5e7cce25",
+        "declared_in_file": "sha256:c8505498234f2fc9a81d498309e2fef8179b4fc7c5dfa655d3fafafc5e7cce25",
+        "plan_digest": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+        "ok": true
+      },
+      "failed_launch": {
+        "mounted": true,
+        "path": "D:\\Work\\AtlasRuntime-runs\\stage-c1b-completion\\PRE_CLAIM_DISPATCH_ENTRY_FAILURE.json",
+        "sha256": "sha256:f629f8d7557484b2afee52e1d920bfd7a595e925efff9e62502c3a89e8f4f293",
+        "incident": "PRE_CLAIM_DISPATCH_ENTRY_FAILURE",
+        "plan_digest": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+        "claim_consumed": false,
+        "cells_started": 0,
+        "model_requests": 0,
+        "sandboxes_created": 0,
+        "preserved_unchanged": true,
+        "note": "the failed first launch is left exactly as it was; this stage reads it only",
+        "ok": true
+      },
+      "frozen_artefacts": {
+        "plan_digest": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+        "plan_digest_recomputes": true,
+        "authorization_plan_digest": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+        "authorization_status": "PENDING_OWNER_APPROVAL",
+        "executor_version": "bplus-executor-1.5",
+        "executor_digest": "sha256:145f6c83822c3d38e21f86d4999057250518b2587d273aaa5451b6f5b2bccba4",
+        "offline_plan_digest": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+        "offline_executor_digest": "sha256:145f6c83822c3d38e21f86d4999057250518b2587d273aaa5451b6f5b2bccba4"
+      }
+    },
+    {
+      "check_id": "C09_plan_contract_invariants",
+      "ok": true,
+      "detail": "the frozen design invariants hold on the record itself",
+      "problems": []
+    },
+    {
+      "check_id": "C10_c1b_metric_categories_reconcile",
+      "ok": true,
+      "detail": "485340 system tokens = 209711 Main prompt (cache 195072/14639) + 5143 Main completion + 257950 child prompt + 12536 child completion; the public PASS at turn 10 precedes the last code change at turn 16",
+      "mounted": true,
+      "verified": true,
+      "categories": {
+        "prompt_tokens_main": 209711,
+        "cache_hit_tokens": 195072,
+        "cache_miss_tokens": 14639,
+        "completion_tokens_main": 5143,
+        "prompt_tokens_children": 257950,
+        "completion_tokens_children": 12536,
+        "main_total_tokens": 214854,
+        "child_total_tokens": 270486,
+        "system_total_tokens": 485340,
+        "budget_accounting_tokens": 485340,
+        "budget_limit_tokens": 500000,
+        "budget_remaining_tokens": 14660,
+        "post_write_input_tokens": 0,
+        "post_public_pass_input_tokens": 112262,
+        "cache_hits_are_part_of_prompt_tokens": true,
+        "note": "a cache hit is inside prompt tokens; hit and miss are never added on top"
+      },
+      "turns": {
+        "public_pass_turn": 10,
+        "last_write_turn": 16
+      },
+      "identities": {
+        "parts_reconcile_to_system_total": true,
+        "cache_split_reconciles_to_main_input": true,
+        "main_total_is_input_plus_completion": true,
+        "child_totals_reconcile": true,
+        "budget_used_is_the_system_total": true,
+        "budget_remaining_reconciles": true,
+        "reported_categories_match_the_record": true,
+        "main_completion_is_the_reported_remainder": true,
+        "public_pass_precedes_the_last_code_change": true
+      }
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": []
+  },
+  "status": "STAGE_C1C_HEADROOM_CONTROL_READY_FOR_LIVE_AUTHORIZATION",
+  "live_execution_authorized": false,
+  "real_model_calls": 0,
+  "real_sandboxes": 0,
+  "real_cells": 0,
+  "claims_consumed": 0
+}

@@ -1,0 +1,131 @@
+{
+  "authority_version": "bplus-authority-1.0",
+  "stage": "C1C",
+  "protocol_version": "bplus-2.2.0",
+  "status": "PENDING_OWNER_APPROVAL",
+  "authorizes_live_execution": false,
+  "scope": "C1C_HEADROOM_CONTROL_ONLY",
+  "plan_id": "stage-c1c-completion-headroom-control-v1",
+  "plan_digest": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+  "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
+  "reviewed_head": null,
+  "execution_head": null,
+  "executor_digest": "sha256:59152911c7465b4252763c5e9d07ca4bac26cd5fe23b70d6d5bf5b4ae163714a",
+  "executor_version": "bplus-executor-1.6",
+  "cells_count": 1,
+  "cell_ids": [
+    "c1c.closure2-plugin-migration.C3.r1"
+  ],
+  "cell_order": [
+    "c1c.closure2-plugin-migration.C3.r1"
+  ],
+  "arms": [
+    "C3"
+  ],
+  "tasks": [
+    "closure2-plugin-migration"
+  ],
+  "repetitions": 1,
+  "budget_digest": "sha256:d05da33924cee578b6f2c32040651a57848d68a93760b865db0b115a440f7717",
+  "nominal_token_capacity": 750000,
+  "cost_stop_usd": null,
+  "per_cell_cost_stop_usd": null,
+  "token_stop": 750000,
+  "attempt_limit": 1,
+  "owner_statement": null,
+  "approved_by": null,
+  "approved_at": null,
+  "approval_provenance": null,
+  "reuses_s06_or_s08_balance": false,
+  "notes": "Stage C1-C. This record authorizes nothing. It covers one cell and one attempt in which the only parameter that moved is the shared nominal token budget: 500000 -> 750000. The prompt, the worker completion contract, the goal, the grant, the router and the oracle are Stage C1-B's, byte for byte. A live dispatch needs every null field filled, both cost fields finite and positive, and an external provenance artefact whose bytes still hash to the recorded value.",
+  "proposed_envelope": {
+    "cost_stop_usd": 0.25,
+    "per_cell_cost_stop_usd": 0.25,
+    "token_stop": 750000,
+    "approved": false,
+    "basis": "one cell, one attempt; the cost ceiling is about 2.4x the C1-B observed cost (USD 0.104162) and both cost fields stay candidates until the Owner signs",
+    "note": "a candidate for the Owner's decision; the signed fields stay null until signed"
+  },
+  "intervention": {
+    "kind": "resource_headroom_control",
+    "parts": [
+      "shared_token_budget"
+    ],
+    "resource": "shared_nominal_token_budget",
+    "shared_token_budget_before": 500000,
+    "shared_token_budget_after": 750000,
+    "main_prompt_changed": false,
+    "worker_contract_changed": false,
+    "goal_changed": false,
+    "task_changed": false,
+    "turns_changed": false,
+    "router_changed": false,
+    "grant_changed": false,
+    "oracle_changed": false,
+    "single_variable_ablation": true,
+    "statistical_claim": false,
+    "inference": "one cell, one attempt: a mechanism diagnostic on whether more headroom converts the C1-B A3 into a delivered run. It is not a significance claim and not an estimate of a causal effect of budget size",
+    "cost_stop": {
+      "changed": true,
+      "before": 0.15,
+      "after_candidate": 0.25,
+      "per_cell_before": 0.15,
+      "per_cell_after_candidate": 0.25,
+      "approved": false,
+      "note": "the matching authorization boundary for the resource change; a candidate"
+    },
+    "basis": "C1-B used 485,340 of 500,000 tokens and was refused request 17 with 14,660 tokens left against an estimate of 26,501; the workers had already completed and the Main had already integrated, so the stop was headroom, not mechanism. 750,000 is +50% over the nominal budget and leaves 264,660 tokens over the observed consumption"
+  },
+  "review_surface": {
+    "plan_id": "stage-c1c-completion-headroom-control-v1",
+    "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
+    "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+    "worker_contract_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
+    "write_grant": {
+      "raw": {
+        "coding_worker": [
+          "plugins/**"
+        ]
+      },
+      "effective": {
+        "coding_worker": [
+          "plugins/"
+        ]
+      },
+      "normalizer": "atlasos.ownership.paths.normalize_declared_path",
+      "workspace_root": "/workspace/project",
+      "changes": [
+        {
+          "raw": "plugins/**",
+          "effective": "plugins/"
+        }
+      ],
+      "scope_changed": false,
+      "profile_changed": false,
+      "matches_frozen_task_scope": true,
+      "denied_by_runtime": [
+        "test_public.py",
+        "docs/INTERFACE.md",
+        "README.md"
+      ],
+      "forbidden_inside_grant": [
+        "plugins/base.py"
+      ],
+      "forbidden_inside_grant_protection": "task instruction plus independent oracle, not ownership"
+    },
+    "effective_budget_digest": "sha256:d05da33924cee578b6f2c32040651a57848d68a93760b865db0b115a440f7717",
+    "budget_intervention": {
+      "before": 500000,
+      "after": 750000,
+      "delta": 250000,
+      "relative": 0.5
+    },
+    "cost_stop_candidate": {
+      "cost_stop_usd": 0.25,
+      "per_cell_cost_stop_usd": 0.25,
+      "approved": false
+    },
+    "single_variable_ablation": true,
+    "statistical_claim": false
+  }
+}

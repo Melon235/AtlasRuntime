@@ -421,6 +421,35 @@ def child_grants_for(cell: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
     return ARMS_BY_ID[cell["arm_id"]].grant_for(cell["task_id"])
 
 
+def budget_for(cell: Mapping[str, Any]) -> dict[str, Any]:
+    """The run configuration one cell executes.
+
+    A Stage B+ cell carries none of its own, so the frozen :data:`BUDGET` applies — that is what
+    every Stage B+ / C1 / C1-B cell does, and their budget digest does not move. A diagnostic plan
+    may bind its own complete budget into the cell when its one intervention *is* a resource
+    parameter (Stage C1-C raises the shared token budget); the cell's record then wins, and because
+    the cell is hashed into the plan digest the declaration cannot be separated from the identity
+    that runs.
+
+    The record travels through the same resolver the pre-claim admission and the live runner both
+    call (:func:`experiments.stage_b_plus.executor.production_goal_options`), so an admitted budget
+    and an executed budget cannot differ.
+    """
+
+    declared = cell.get("budget")
+    if isinstance(declared, Mapping) and declared:
+        merged = dict(BUDGET)
+        merged.update({str(key): value for key, value in declared.items()})
+        return merged
+    return dict(BUDGET)
+
+
+def token_budget_for(cell: Mapping[str, Any]) -> int:
+    """``GoalRunOptions.token_budget`` for one cell: the effective shared nominal budget."""
+
+    return int(budget_for(cell)["token_budget"])
+
+
 def goal_for(cell: Mapping[str, Any]) -> str:
     """The goal a cell executes.
 
@@ -759,15 +788,18 @@ def canary_cells() -> list[dict[str, Any]]:
 def scope_plan(scope_or_id: str) -> dict[str, Any]:
     """The plan record for one scope. ``scope_or_id`` accepts a scope type or a plan id."""
 
-    # A Stage C1 / C1-B diagnostic plan declares itself in its own module; this is the one seam, so
-    # a new single-cell plan reuses ``executor.dispatch`` instead of a second executor.
+    # A Stage C1 / C1-B / C1-C diagnostic plan declares itself in its own module; this is the one
+    # seam, so a new single-cell plan reuses ``executor.dispatch`` instead of a second executor.
     from experiments.stage_c1 import plan as c1_plan
     from experiments.stage_c1b import plan as c1b_plan
+    from experiments.stage_c1c import plan as c1c_plan
 
     if scope_or_id in (c1_plan.SCOPE, c1_plan.PLAN_ID):
         return c1_plan.plan_record()
     if scope_or_id in (c1b_plan.SCOPE, c1b_plan.PLAN_ID):
         return c1b_plan.plan_record()
+    if scope_or_id in (c1c_plan.SCOPE, c1c_plan.PLAN_ID):
+        return c1c_plan.plan_record()
     if scope_or_id in SUPERSEDED_CANARY_PLAN_IDS:
         raise ValueError(
             f"{scope_or_id} was dispatched once and its claim is consumed; it is superseded by "
@@ -1272,6 +1304,7 @@ __all__ = [
     "FORMAL_PLAN_ID",
     "GOAL_OF",
     "INTERPRETATION",
+    "budget_for",
     "child_grants_for",
     "goal_for",
     "P3_DIGEST",
@@ -1310,6 +1343,7 @@ __all__ = [
     "remove_capability_section",
     "scope_plan",
     "task_record",
+    "token_budget_for",
     "validate",
     "write_document",
 ]

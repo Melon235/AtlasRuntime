@@ -169,20 +169,33 @@ def test_the_real_dispatch_entry_runs_the_offline_control_flow(tmp_path: Path) -
     assert all(report["evidence_exists"].values())
 
 
-def test_the_checked_in_artefacts_match_the_current_code() -> None:
+def test_the_checked_in_artefacts_are_the_frozen_history() -> None:
+    """The C1-B artefacts record the run that happened; later stages must not rewrite them.
+
+    This used to assert that the artefacts matched the *current* code. That is only true while the
+    stage is the newest one: from Stage C1-C onwards the shared executor (`contract.py`,
+    `authority.py`, `executor.py`) legitimately moves, so the recorded identity has to be frozen at
+    the value the C1-B live run executed under. Stage C1's artefacts are checked the same way.
+    """
+
     stage = REPO_ROOT / "experiments" / "stage_c1b"
     plan_file = json.loads((stage / "plan.json").read_text(encoding="utf-8"))
-    identity = executor.executor_identity(REPO_ROOT)
     executor_file = json.loads((stage / "executor.json").read_text(encoding="utf-8"))
     offline = json.loads((stage / "offline.json").read_text(encoding="utf-8"))
 
+    assert plan_file["digest"] == (
+        "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c"
+    )
     assert plan_file["digest"] == plan.plan_record()["digest"]
-    assert executor_file["executor_digest"] == identity["executor_digest"]
-    assert executor_file["files"] == identity["files"]
+    assert executor_file["executor_version"] == "bplus-executor-1.5"
+    assert executor_file["executor_digest"] == (
+        "sha256:145f6c83822c3d38e21f86d4999057250518b2587d273aaa5451b6f5b2bccba4"
+    )
     assert offline["plan_digest"] == plan_file["digest"]
-    assert offline["executor_digest"] == identity["executor_digest"]
+    assert offline["executor_digest"] == executor_file["executor_digest"]
     assert offline["summary"]["failed"] == []
     assert offline["status"] == "STAGE_C1B_COMPLETION_CONTROL_READY_FOR_LIVE_AUTHORIZATION"
+    assert offline["live_execution_authorized"] is False
 
 
 def test_pending_authorization_authorizes_nothing() -> None:
@@ -207,7 +220,15 @@ def test_pending_authorization_authorizes_nothing() -> None:
     assert pending["review_surface"]["combined_intervention"] is True
 
 
-def test_history_is_intact_and_no_c1b_claim_exists() -> None:
+def test_history_is_intact_and_the_c1b_claim_is_consumed() -> None:
+    """After the live run the C1-B claim exists and is spent; before it, it must not exist.
+
+    The stage was prepared with `assert not claim.exists()`. That is a statement about the world
+    *before* the one attempt, and the run then spent it — exactly like Stage C1. What has to hold
+    afterwards is that the claim is this plan's, that it was a live claim, and that no earlier claim
+    moved.
+    """
+
     record = plan.plan_record()
 
     assert (
@@ -220,10 +241,19 @@ def test_history_is_intact_and_no_c1b_claim_exists() -> None:
         assert executor.claim_path(digest).is_file()
     for previous in (c1.plan_record()["digest"], c1_checks.BPLUS_CANARY_PLAN_DIGEST):
         assert previous != record["digest"]
-    assert not executor.claim_path(record["digest"]).exists()
+
+    claim = executor.claim_path(record["digest"])
+    assert claim.is_file()
+    payload = json.loads(claim.read_text(encoding="utf-8"))
+    assert payload["plan_digest"] == record["digest"]
+    assert payload["plan_id"] == plan.PLAN_ID
+    assert payload["mode"] == "live"
+    assert len(str(payload["execution_head"])) == 40
 
 
-def test_every_check_passes_on_this_repository(tmp_path: Path) -> None:
+def test_only_the_claim_check_fails_after_the_live_run(tmp_path: Path) -> None:
+    """The preparation gate still holds everywhere except where the run changed the world."""
+
     record = plan.plan_record()
     identity = executor.executor_identity(REPO_ROOT)
     protocol = authority.protocol_digest(contract.protocol_document())
@@ -239,7 +269,7 @@ def test_every_check_passes_on_this_repository(tmp_path: Path) -> None:
     )
 
     failed = [item["check_id"] for item in report if not item["ok"]]
-    assert failed == []
+    assert failed == ["C10_history_claims_intact_and_no_c1b_claim"]
     assert len(report) == 14
 
 

@@ -1,0 +1,26 @@
+{
+  "stage": "C1C",
+  "executor_version": "bplus-executor-1.6",
+  "executor_digest": "sha256:59152911c7465b4252763c5e9d07ca4bac26cd5fe23b70d6d5bf5b4ae163714a",
+  "files": {
+    "experiments/stage_b_plus/executor.py": "sha256:38dd5c7099efba33447fd297db54d75c2baa8ced09a7e2015e6a606ce72134b8",
+    "experiments/stage_b_plus/authority.py": "sha256:76bbe86c77654593e10aa62017e6ab2661618e0211bedbf3ddd0bcd52c03cd34",
+    "experiments/stage_b_plus/contract.py": "sha256:e9e6ae7fdb7df3bf320cc133be1a013234171f872ae6be845cb6e7060f01ef4e",
+    "experiments/stage_b_plus/cost.py": "sha256:fa0db30eb622c6076f9b153618fc9e7bfaf990eb422d11946102d7c74a684c28",
+    "experiments/stage_c1/plan.py": "sha256:b01723fc3117608c72196b99b57dfe3e841586fe36250babd363b0ebc1c326cd",
+    "experiments/stage_c1b/plan.py": "sha256:a461875d9e06056cf3ffaa342ad656d4165c590b67451d5989ec259f7ce99264",
+    "experiments/stage_c1b/prompts.py": "sha256:9b289e73a3b9cb23e46e65bdabc6eb7f7529c86f680fa65fd4987bdf3b56be34",
+    "experiments/stage_c1c/plan.py": "sha256:159af1f317224943f7ce560b03732986e439810376beb417a97a8275b6314e19",
+    "src/atlasos/workers/catalog.py": "sha256:f5ffb8958b7000cdcd0dd5db5950e49da94b3fa387f6b6d5fe6d7bb93966df6c",
+    "src/atlasos/app/main_driven.py": "sha256:b183f7aa4d987aa9f1128f3e115c571a41f515008201418e78da6af36a5809cb",
+    "src/atlasos/app/live_preflight.py": "sha256:861518f226e29f1baee50721daf5dbf24b1db7f1deb16e357c27a922353d46d0",
+    "src/atlasos/app/goal_verification.py": "sha256:7ee0a0bf03e9c5d49618ab117e4af5d5d25f4f5665aa5a6438048497ba1072be"
+  },
+  "built_from_head": "fa0268e71a35a28048e5b3ab38611c4720f8f24f",
+  "supersedes": {
+    "executor_version": "bplus-executor-1.5",
+    "executor_digest": "sha256:145f6c83822c3d38e21f86d4999057250518b2587d273aaa5451b6f5b2bccba4",
+    "scope": "Stage B+, C1 and C1-B plans only; their evidence is not rebuilt"
+  },
+  "note": "the identity now covers experiments/stage_c1c/plan.py, because the cell's budget is part of what runs; the budget resolver itself lives in contract.py and executor.py, which were already covered"
+}

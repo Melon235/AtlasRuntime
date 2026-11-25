@@ -529,10 +529,14 @@ def _offline_signed(
     head: str,
     identity: Mapping[str, Any],
     protocol_digest: str,
+    cost_stop_usd: float | None = None,
+    per_cell_cost_stop_usd: float | None = None,
 ) -> dict[str, Any]:
     """A record signed in memory for the offline control-flow proof.
 
-    It is never written to the production claim root and never presented as an approval.
+    It is never written to the production claim root and never presented as an approval. A later
+    stage that reuses this proof for its own plan passes its own candidate stops, so a proof report
+    never mixes one stage's envelope into another stage's run.
     """
 
     pending = authority.pending_record(
@@ -559,8 +563,14 @@ def _offline_signed(
         owner_statement="offline control-flow check, not an approval",
         reviewed_head=head,
         execution_head=head,
-        cost_stop_usd=float(c1.ENVELOPE_CANDIDATE["cost_stop_usd"]),
-        per_cell_cost_stop_usd=float(c1.ENVELOPE_CANDIDATE["per_cell_cost_stop_usd"]),
+        cost_stop_usd=float(
+            c1.ENVELOPE_CANDIDATE["cost_stop_usd"] if cost_stop_usd is None else cost_stop_usd
+        ),
+        per_cell_cost_stop_usd=float(
+            c1.ENVELOPE_CANDIDATE["per_cell_cost_stop_usd"]
+            if per_cell_cost_stop_usd is None
+            else per_cell_cost_stop_usd
+        ),
         provenance=provenance,
     )
 
@@ -579,11 +589,19 @@ def dispatch_report(
     head: str,
     identity: Mapping[str, Any],
     protocol_digest: str,
+    cost_stop_usd: float | None = None,
+    per_cell_cost_stop_usd: float | None = None,
 ) -> dict[str, Any]:
     import asyncio
 
     record = _offline_signed(
-        plan, scratch=scratch, head=head, identity=identity, protocol_digest=protocol_digest
+        plan,
+        scratch=scratch,
+        head=head,
+        identity=identity,
+        protocol_digest=protocol_digest,
+        cost_stop_usd=cost_stop_usd,
+        per_cell_cost_stop_usd=per_cell_cost_stop_usd,
     )
     authority_path = scratch / "offline-authorization.json"
     authority_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
@@ -614,6 +632,9 @@ def dispatch_report(
             "cells_passed": report.get("cells_passed"),
             "stop_reason": report.get("stop_reason"),
             "aggregate_includes_sample": report.get("aggregate_includes_sample"),
+            "token_stop": report.get("token_stop"),
+            "cost_stop_usd": report.get("cost_stop_usd"),
+            "per_cell_cost_stop_usd": report.get("per_cell_cost_stop_usd"),
         },
         "cell": {
             "cell_id": cell.get("cell_id"),

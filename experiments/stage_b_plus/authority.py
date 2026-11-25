@@ -94,9 +94,17 @@ def _is_ancestor(repo_root: Path, commit: str, head: str) -> bool:
 
 
 def plan_facts(plan: Mapping[str, Any]) -> dict[str, Any]:
-    """What a signature has to be checked against, taken from the plan itself."""
+    """What a signature has to be checked against, taken from the plan itself.
+
+    The budget digest is computed from the budget the plan declares, not from the frozen default.
+    For a plan that binds no budget (Stage B+ canary/formal, Stage C1, Stage C1-B) those are the
+    same record, so their digest is unchanged; Stage C1-C binds its own and a signed record carrying
+    the 500,000-token digest is refused by the comparison below.
+    """
 
     cells = plan["cells"]
+    declared = plan.get("budget")
+    budget = dict(declared) if isinstance(declared, Mapping) and declared else dict(contract.BUDGET)
     return {
         "plan_id": plan["plan_id"],
         "scope": plan["scope"],
@@ -107,7 +115,8 @@ def plan_facts(plan: Mapping[str, Any]) -> dict[str, Any]:
         "arms": list(plan["arms"]),
         "tasks": list(plan["tasks"]),
         "repetitions": int(plan["repetitions"]),
-        "budget_digest": digest_of(dict(contract.BUDGET)),
+        "budget_digest": digest_of(budget),
+        "token_budget": int(budget["token_budget"]),
         "nominal_token_capacity": int(plan["nominal_token_capacity"]),
     }
 
