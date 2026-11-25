@@ -395,7 +395,7 @@ def test_usage_validation_rejects_what_is_not_a_counter() -> None:
         ("system_total_tokens", None),
         ("main_cumulative_input_tokens", 9.5),
     ):
-        patched = dict(base)
+        patched: dict[str, Any] = dict(base)
         patched[field] = value
         assert executor.validate_usage(patched)["ok"] is False, field
 
@@ -562,7 +562,10 @@ def test_one_cell_through_the_live_runner(tmp_path: Path) -> None:
         "runs_root": tmp_path / "runs",
         "evidence_root": tmp_path / "evidence",
     }
-    run = asyncio.run(runner(cell, context))
+    async def _await_run() -> executor.CellRun:
+        return await runner(cell, context)
+
+    run = asyncio.run(_await_run())
 
     assert run.error is None, run.error
     # the fixture is per cell, clean, and unchanged by the run
@@ -607,6 +610,7 @@ def test_audit_stops_when_the_export_disappears(tmp_path: Path) -> None:
 
     cell = contract.canary_cells()[0]
     run = offline.synthetic_cell_run(cell, tmp_path)
+    assert run.export is not None
     shutil.rmtree(run.export["workspace_path"])
     outcome = _audit(cell, run)
     assert executor.STOP_EXPORT in outcome["stops"]

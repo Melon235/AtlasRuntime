@@ -2,7 +2,7 @@
   "stage": "B+",
   "protocol_version": "bplus-2.0.0",
   "protocol_digest": "sha256:c7dad972f4882e5808dbcaa47f4b4532e101f7e2e44d9e1c90e0eb2c14620067",
-  "head_at_build": "84343757fe4cf9590667d9c33871a80bfa23eaa3",
+  "head_at_build": "0562db515beb7d708316363c7dd10ad0129f3f80",
   "executor_digest": "sha256:4826d81acf1df64fa9754ba8f85fdf34600ff9ea4096fec8dc08b7f0ee138c73",
   "plans": {
     "stage-b-plus-diagnostic-canary-v1": {
@@ -326,7 +326,7 @@
     {
       "check_id": "L11_live_path_fixture_export_oracle",
       "ok": true,
-      "detail": "one cell through the live runner for canary.closure2-pipeline-migration.C2.r1: fixture_commit=f2faa39d export_files=10 oracle=FAIL in sandbox (sandbox sandbox-1), usage_ok=True",
+      "detail": "one cell through the live runner for canary.closure2-pipeline-migration.C2.r1: fixture_commit=a6791098 export_files=10 oracle=FAIL in sandbox (sandbox sandbox-1), usage_ok=True",
       "cell_id": "canary.closure2-pipeline-migration.C2.r1",
       "arm": {
         "profile": "coding_worker",
@@ -339,14 +339,14 @@
       "effective_max_turns": 20,
       "fixture": {
         "path_is_per_cell": true,
-        "commit": "f2faa39d85c348c535cfc4bb3e1272b44ff292b9",
+        "commit": "a679109801678d90a9536301deda9cb646812352",
         "seed_digest": "f9378c44a0ee564962e0a56ac7172ad616904d098fbc8dabb0806c4cdbbef515",
         "matches_frozen_seed": true,
         "files": 10
       },
       "export": {
         "workspace_files": 10,
-        "workspace_digest": "sha256:a86dc5ae04d353301a901d7a03ac20d84abfc2b2ce581d6df4b199a77dc41ee4",
+        "workspace_digest": "sha256:74590653185dccf30b84c694da12eb2758180d7466aa64762c7f0e5b4411b340",
         "patch_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "oracle": {
@@ -440,8 +440,8 @@
         "approved_at is empty",
         "owner_statement is empty",
         "approval_provenance is empty",
-        "reviewed_head is None, actual head is '84343757fe4cf9590667d9c33871a80bfa23eaa3'",
-        "execution_head is None, actual head is '84343757fe4cf9590667d9c33871a80bfa23eaa3'",
+        "reviewed_head is None, actual head is '0562db515beb7d708316363c7dd10ad0129f3f80'",
+        "execution_head is None, actual head is '0562db515beb7d708316363c7dd10ad0129f3f80'",
         "cost_stop_usd is None; it must be finite and positive",
         "per_cell_cost_stop_usd is None; it must be finite and positive",
         "approval_provenance is empty"
@@ -452,8 +452,8 @@
       "ok": true,
       "detail": "a signed canary record is refused when the head or the plan digest moves",
       "head_problems": [
-        "reviewed_head is '84343757fe4cf9590667d9c33871a80bfa23eaa3', actual head is '0000000000000000000000000000000000000000'",
-        "execution_head is '84343757fe4cf9590667d9c33871a80bfa23eaa3', actual head is '0000000000000000000000000000000000000000'"
+        "reviewed_head is '0562db515beb7d708316363c7dd10ad0129f3f80', actual head is '0000000000000000000000000000000000000000'",
+        "execution_head is '0562db515beb7d708316363c7dd10ad0129f3f80', actual head is '0000000000000000000000000000000000000000'"
       ],
       "digest_problems": [
         "plan_digest is 'sha256:0000000000000000000000000000000000000000000000000000000000000000', expected 'sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575'"

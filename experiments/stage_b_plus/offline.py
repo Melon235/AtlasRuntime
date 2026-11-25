@@ -139,7 +139,10 @@ def _live_path_proof(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
         "runs_root": scratch / "live-proof" / "runs",
         "evidence_root": scratch / "live-proof" / "evidence",
     }
-    run = asyncio.run(runner(cell, context))
+    async def _await_run() -> executor.CellRun:
+        return await runner(cell, context)
+
+    run = asyncio.run(_await_run())
     session = run.session or {}
     controls = session.get("delegation_controls") or {}
     exposure = (controls.get("exposure") or {}).get("level")
@@ -820,7 +823,7 @@ def run_checks(
     checks.append(
         _check(
             "L13_head_or_digest_mismatch_refuses",
-            signed_canary
+            bool(signed_canary)
             and not wrong_head["ready"]
             and not wrong_digest["ready"]
             and any("plan_digest" in item for item in wrong_digest["problems"]),
