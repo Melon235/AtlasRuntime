@@ -1,0 +1,234 @@
+{
+  "authority_version": "bplus-authority-1.0",
+  "stage": "C2",
+  "protocol_version": "bplus-2.2.0",
+  "status": "PENDING_OWNER_APPROVAL",
+  "authorizes_live_execution": false,
+  "scope": "C2_NATURAL_DELEGATION_DIAGNOSTIC_ONLY",
+  "plan_id": "stage-c2-coding-aware-natural-delegation-v1",
+  "plan_digest": "sha256:d0a4c212fda8bf76b20efd995115474b326cf78f787bd162b05c75829bc16038",
+  "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
+  "reviewed_head": null,
+  "execution_head": null,
+  "executor_digest": "sha256:e7d7bf87822976c11d497c75ed9a0799d19d57ec39ecc33de5858591f0859b12",
+  "executor_version": "bplus-executor-1.7",
+  "cells_count": 4,
+  "cell_ids": [
+    "c2.closure2-pipeline-migration.C3.B0.r1",
+    "c2.closure2-state-machine-refactor.C3.B0.r1",
+    "c2.closure2-pipeline-migration.C3.B1.r1",
+    "c2.closure2-state-machine-refactor.C3.B1.r1"
+  ],
+  "cell_order": [
+    "c2.closure2-pipeline-migration.C3.B0.r1",
+    "c2.closure2-state-machine-refactor.C3.B0.r1",
+    "c2.closure2-pipeline-migration.C3.B1.r1",
+    "c2.closure2-state-machine-refactor.C3.B1.r1"
+  ],
+  "arms": [
+    "C3"
+  ],
+  "tasks": [
+    "closure2-pipeline-migration",
+    "closure2-state-machine-refactor"
+  ],
+  "repetitions": 1,
+  "budget_digest": "sha256:d05da33924cee578b6f2c32040651a57848d68a93760b865db0b115a440f7717",
+  "nominal_token_capacity": 3000000,
+  "cost_stop_usd": null,
+  "per_cell_cost_stop_usd": null,
+  "token_stop": 3000000,
+  "attempt_limit": 1,
+  "owner_statement": null,
+  "approved_by": null,
+  "approved_at": null,
+  "approval_provenance": null,
+  "reuses_s06_or_s08_balance": false,
+  "notes": "Stage C2. This record authorizes nothing. It covers four cells and one attempt each: two tasks x two Main decision prompts (B0 byte-identical to Stage C1-B, B1 the coding-aware revision). The goal carries no delegation appendix, the task, grant, worker contract, router, oracle, turns and delegation limits are the frozen ones, and the shared token budget is 750000 per cell. A live dispatch needs every null field filled, both cost fields finite and positive, and an external provenance artefact whose bytes still hash to the recorded value.",
+  "proposed_envelope": {
+    "cost_stop_usd": 1.0,
+    "per_cell_cost_stop_usd": 0.25,
+    "token_stop": 3000000,
+    "attempt_limit": 1,
+    "approved": false,
+    "basis": "four cells, one attempt each, 750,000 shared tokens per cell; the cumulative stop is 4 x the per-cell cost candidate. C1-C measured USD 0.086984 for one cell, so the candidate is about 2.9x that per cell. Every field stays a candidate until the Owner signs it",
+    "note": "a candidate for the Owner's decision; the signed fields stay null until signed"
+  },
+  "intervention": {
+    "kind": "main_decision_prompt_ablation",
+    "parts": [
+      "main_decision_prompt"
+    ],
+    "axis": "main_decision_prompt",
+    "baseline": {
+      "arm": "B0",
+      "version": "main-v2.2-rc1-c1b",
+      "digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+      "source": "experiments/stage_c1b/prompts.py (byte-identical reuse)"
+    },
+    "treatment": {
+      "arm": "B1",
+      "version": "main-v3.0-rc1-coding-aware",
+      "digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+      "changed_sections": [
+        "## EARLY PLANNING CHECKPOINT",
+        "## DELEGATION CONTRACT",
+        "## HANDOFF-FIRST INTEGRATION"
+      ]
+    },
+    "cells_per_task": {
+      "closure2-pipeline-migration": [
+        "c2.closure2-pipeline-migration.C3.B0.r1",
+        "c2.closure2-pipeline-migration.C3.B1.r1"
+      ],
+      "closure2-state-machine-refactor": [
+        "c2.closure2-state-machine-refactor.C3.B0.r1",
+        "c2.closure2-state-machine-refactor.C3.B1.r1"
+      ]
+    },
+    "goal_changed": false,
+    "task_changed": false,
+    "worker_contract_changed": false,
+    "worker_profile_changed": false,
+    "router_changed": false,
+    "ownership_changed": false,
+    "budget_changed_against_c1c": false,
+    "turns_changed": false,
+    "grant_changed": false,
+    "oracle_changed": false,
+    "activation_appendix_removed": true,
+    "single_variable_ablation": true,
+    "single_variable_scope": "within each task; the two arms share every other parameter",
+    "statistical_claim": false,
+    "inference": "four cells, one attempt each: a decision diagnostic. It can show that a route was chosen under one prompt and not the other on these two tasks; it cannot estimate a rate, a causal effect, or a benefit of delegation",
+    "cost_stop_candidate": {
+      "cost_stop_usd": 1.0,
+      "per_cell_cost_stop_usd": 0.25,
+      "approved": false
+    },
+    "basis": "C1/C1-B/C1-C all ran a goal with an explicit delegation appendix, so none of them measured whether the Main proposes delegation on its own. Removing the appendix and varying only the decision prompt is the smallest change that makes that question observable"
+  },
+  "review_surface": {
+    "plan_id": "stage-c2-coding-aware-natural-delegation-v1",
+    "decision_axis": "main_decision_prompt",
+    "cells": [
+      {
+        "cell_id": "c2.closure2-pipeline-migration.C3.B0.r1",
+        "task_id": "closure2-pipeline-migration",
+        "prompt_arm": "B0",
+        "goal_digest": "sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa",
+        "main_prompt_version": "main-v2.2-rc1-c1b",
+        "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+        "child_write_grants": {
+          "coding_worker": [
+            "pipeline/"
+          ]
+        }
+      },
+      {
+        "cell_id": "c2.closure2-state-machine-refactor.C3.B0.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "prompt_arm": "B0",
+        "goal_digest": "sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538",
+        "main_prompt_version": "main-v2.2-rc1-c1b",
+        "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+        "child_write_grants": {
+          "coding_worker": [
+            "lifecycle/"
+          ]
+        }
+      },
+      {
+        "cell_id": "c2.closure2-pipeline-migration.C3.B1.r1",
+        "task_id": "closure2-pipeline-migration",
+        "prompt_arm": "B1",
+        "goal_digest": "sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa",
+        "main_prompt_version": "main-v3.0-rc1-coding-aware",
+        "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+        "child_write_grants": {
+          "coding_worker": [
+            "pipeline/"
+          ]
+        }
+      },
+      {
+        "cell_id": "c2.closure2-state-machine-refactor.C3.B1.r1",
+        "task_id": "closure2-state-machine-refactor",
+        "prompt_arm": "B1",
+        "goal_digest": "sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538",
+        "main_prompt_version": "main-v3.0-rc1-coding-aware",
+        "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+        "child_write_grants": {
+          "coding_worker": [
+            "lifecycle/"
+          ]
+        }
+      }
+    ],
+    "prompts": {
+      "B0": {
+        "version": "main-v2.2-rc1-c1b",
+        "digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af"
+      },
+      "B1": {
+        "version": "main-v3.0-rc1-coding-aware",
+        "digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c"
+      }
+    },
+    "worker_contract_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
+    "effective_budget_digest": "sha256:d05da33924cee578b6f2c32040651a57848d68a93760b865db0b115a440f7717",
+    "budget_change": {
+      "before": 500000,
+      "after": 750000,
+      "delta": 250000,
+      "relative": 0.5
+    },
+    "cost_stop_candidate": {
+      "cost_stop_usd": 1.0,
+      "per_cell_cost_stop_usd": 0.25,
+      "approved": false
+    },
+    "reporting_contract": {
+      "version": "c2-reporting-1.0",
+      "final_correctness": {
+        "source": "the cell audit's oracle verdict (executor CellRun.oracle.status / .passed)",
+        "not": "experiments.stage_benchmark.reconstruct verification.oracle / L6_goal_correctness, which is the in-run static acceptance and reads PASS while an independent oracle fails",
+        "reported_separately": [
+          "static_acceptance",
+          "public_test",
+          "independent_oracle",
+          "main_completion",
+          "execution_integrity"
+        ]
+      },
+      "cache": {
+        "main": [
+          "main_cache_hit_tokens",
+          "main_cache_miss_tokens"
+        ],
+        "children": [
+          "delegation.totals.cache_hit_tokens",
+          "delegation.totals.cache_miss_tokens"
+        ],
+        "rule": "hit and miss are the provider's own usage fields and are part of prompt tokens; they are never added on top of a prompt total, and UNKNOWN is not zero",
+        "not": "reconstruct child_cache_visibility, which reports UNKNOWN with a split available"
+      },
+      "handoff": {
+        "preview_delivered": [
+          "delegation.batches[].result_chars",
+          "delegation.batches[].result_truncated"
+        ],
+        "full_reference_read": "delegate.read calls in the Main transcript",
+        "shared_file_consumption": "Main file_read/file_edit on worker-owned paths after the batch; a shared workspace makes this possible without a delegate.read call",
+        "rule": "the three are counted apart; one is never reported as another"
+      },
+      "delegation_decision": {
+        "natural_proposal": "a delegate_tasks call the goal did not ask for",
+        "first_proposal_turn": "the Main turn of that call",
+        "not_a_target": "the number of delegations; Direct is a valid decision on either task"
+      }
+    },
+    "single_variable_ablation": true,
+    "statistical_claim": false
+  }
+}

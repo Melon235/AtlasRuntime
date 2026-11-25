@@ -1,0 +1,1018 @@
+{
+  "stage": "C2",
+  "design_version": "c2-1.0.0",
+  "plan_id": "stage-c2-coding-aware-natural-delegation-v1",
+  "scope": "C2_NATURAL_DELEGATION_DIAGNOSTIC_ONLY",
+  "plan_digest": "sha256:d0a4c212fda8bf76b20efd995115474b326cf78f787bd162b05c75829bc16038",
+  "protocol_version": "bplus-2.2.0",
+  "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
+  "bplus_protocol_unchanged": true,
+  "executor_version": "bplus-executor-1.7",
+  "executor_digest": "sha256:e7d7bf87822976c11d497c75ed9a0799d19d57ec39ecc33de5858591f0859b12",
+  "c1c_executor_digest": "sha256:59152911c7465b4252763c5e9d07ca4bac26cd5fe23b70d6d5bf5b4ae163714a",
+  "budget_digest": "sha256:d05da33924cee578b6f2c32040651a57848d68a93760b865db0b115a440f7717",
+  "frozen_budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+  "nominal_token_capacity": 3000000,
+  "execution_contract_digest": "sha256:242fcef58a1f8e8b54a3caa48ebff958c85536bf3d4ce56339dc4d54e2b9e36e",
+  "prompts": {
+    "B0": {
+      "version": "main-v2.2-rc1-c1b",
+      "digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+      "chars": 9768
+    },
+    "B1": {
+      "version": "main-v3.0-rc1-coding-aware",
+      "digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+      "chars": 13414
+    }
+  },
+  "prompt_changes": [
+    {
+      "id": "R1",
+      "section": "## EARLY PLANNING CHECKPOINT",
+      "problem": "the checkpoint recognises only investigation work, so two disjoint implementation halves are never a candidate; it also gives no property list to assess them by",
+      "change": "identifies investigation and implementation work separately, adds the seven assessment properties, adds a coding-delegation candidate list, and keeps the Direct decision valid when coordination would cost more than it saves",
+      "before_chars": "2042",
+      "after_chars": "4162",
+      "before_digest": "sha256:3d10f8cb25d2908d86ba272f6860af4ca6ce857e0c739b9ad9cbceeb717bffbb",
+      "after_digest": "sha256:0a4d9567fccade2d82e3adb110457d4f60c6c7ffd8699acc3932330e138eaab6"
+    },
+    {
+      "id": "R2",
+      "section": "## DELEGATION CONTRACT",
+      "problem": "the contract describes a bounded research task only: nothing says who may write where, that a concurrent batch must not share a writable path, or what an implementation worker returns",
+      "change": "adds the implementation-task fields (writable ownership, disjoint paths in one wave, the completion report) without changing any research instruction",
+      "before_chars": "1163",
+      "after_chars": "1900",
+      "before_digest": "sha256:d840af9059b11e2d81e77112ff4f04198bb58a5371e30d5214191d528fa6a2b3",
+      "after_digest": "sha256:877dd2c7d4d86e00fc1300856c96d9c034cd7684e09806418c9372ca8ca853be"
+    },
+    {
+      "id": "R3",
+      "section": "## HANDOFF-FIRST INTEGRATION",
+      "problem": "the handoff section assumes the artefact is findings; after a coding batch it is code in a shared workspace, and the boundary between 'consume the report' and 'verify the change' is not stated",
+      "change": "names the code-plus-report artefact, requires the changed files to be read before they are relied on, frees the Main from re-implementing a reviewed module, and keeps verification mandatory",
+      "before_chars": "817",
+      "after_chars": "1606",
+      "before_digest": "sha256:39101df6f649dea49fa9b198dbc75dcaf92b9587d72b320bc3b305823a6309ce",
+      "after_digest": "sha256:6979c5cd2ce7f7d03085b332a696def99cc8425f5f06af3976484619fc60c63d"
+    }
+  ],
+  "intervention_digest": "sha256:3de893055cdbc0a15dc60549d3c7a6e9cdda8addd93f65a2d5e67a32896fb3a2",
+  "budget_change": {
+    "before": 500000,
+    "after": 750000,
+    "delta": 250000,
+    "relative": 0.5
+  },
+  "selection": "P+ = closure2-pipeline-migration (independent pair admitted by structure); N- = closure2-state-machine-refactor (both candidate steps own one shared module)",
+  "cells": [
+    {
+      "cell_id": "c2.closure2-pipeline-migration.C3.B0.r1",
+      "order": 1,
+      "task_id": "closure2-pipeline-migration",
+      "prompt_arm": "B0",
+      "goal_digest": "sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa",
+      "main_prompt_version": "main-v2.2-rc1-c1b",
+      "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+      "child_write_grants": {
+        "coding_worker": [
+          "pipeline/"
+        ]
+      }
+    },
+    {
+      "cell_id": "c2.closure2-state-machine-refactor.C3.B0.r1",
+      "order": 2,
+      "task_id": "closure2-state-machine-refactor",
+      "prompt_arm": "B0",
+      "goal_digest": "sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538",
+      "main_prompt_version": "main-v2.2-rc1-c1b",
+      "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+      "child_write_grants": {
+        "coding_worker": [
+          "lifecycle/"
+        ]
+      }
+    },
+    {
+      "cell_id": "c2.closure2-pipeline-migration.C3.B1.r1",
+      "order": 3,
+      "task_id": "closure2-pipeline-migration",
+      "prompt_arm": "B1",
+      "goal_digest": "sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa",
+      "main_prompt_version": "main-v3.0-rc1-coding-aware",
+      "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+      "child_write_grants": {
+        "coding_worker": [
+          "pipeline/"
+        ]
+      }
+    },
+    {
+      "cell_id": "c2.closure2-state-machine-refactor.C3.B1.r1",
+      "order": 4,
+      "task_id": "closure2-state-machine-refactor",
+      "prompt_arm": "B1",
+      "goal_digest": "sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538",
+      "main_prompt_version": "main-v3.0-rc1-coding-aware",
+      "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+      "child_write_grants": {
+        "coding_worker": [
+          "lifecycle/"
+        ]
+      }
+    }
+  ],
+  "built_from_head": "4fb99c23953b06da7b77cdfc054db27eff3e09ba",
+  "ok": true,
+  "checks": [
+    {
+      "check_id": "C00_selection_is_measured_on_the_frozen_catalog",
+      "ok": true,
+      "detail": "P+ closure2-pipeline-migration: 10 seed files / 160 lines, independent pair ['parse+aggregate'], no shared write, integration seam ['pipeline/api.py', 'pipeline/report.py']; N- closure2-state-machine-refactor: shared write ['lifecycle/state.py'], no independent pair; both grants admit every deliverable and both have a public suite and an oracle",
+      "selection": "P+ = closure2-pipeline-migration (independent pair admitted by structure); N- = closure2-state-machine-refactor (both candidate steps own one shared module)",
+      "tasks": {
+        "closure2-pipeline-migration": {
+          "family": "P1",
+          "role": "P+",
+          "seed_files": 10,
+          "seed_lines": 160,
+          "seed_chars": 4926,
+          "reference_files": 6,
+          "reference_lines": 71,
+          "public_tests": 1,
+          "public_test_functions": 9,
+          "oracle_files": 1,
+          "oracle_test_functions": 11,
+          "deliverables": 6,
+          "workers": 3,
+          "worker_ownership": {
+            "parse": {
+              "owned_paths": [
+                "pipeline/normalise.py",
+                "pipeline/parsing.py"
+              ],
+              "depends_on": []
+            },
+            "aggregate": {
+              "owned_paths": [
+                "pipeline/aggregate.py",
+                "pipeline/store.py"
+              ],
+              "depends_on": []
+            },
+            "integrate": {
+              "owned_paths": [
+                "pipeline/api.py",
+                "pipeline/report.py"
+              ],
+              "depends_on": [
+                "aggregate",
+                "parse"
+              ]
+            }
+          },
+          "worker_pairs": [
+            {
+              "left": "parse",
+              "right": "aggregate",
+              "shared_write_paths": [],
+              "declared_dependency": [],
+              "independent": true,
+              "left_owned": [
+                "pipeline/normalise.py",
+                "pipeline/parsing.py"
+              ],
+              "right_owned": [
+                "pipeline/aggregate.py",
+                "pipeline/store.py"
+              ]
+            },
+            {
+              "left": "parse",
+              "right": "integrate",
+              "shared_write_paths": [],
+              "declared_dependency": [
+                "parse"
+              ],
+              "independent": false,
+              "left_owned": [
+                "pipeline/normalise.py",
+                "pipeline/parsing.py"
+              ],
+              "right_owned": [
+                "pipeline/api.py",
+                "pipeline/report.py"
+              ]
+            },
+            {
+              "left": "aggregate",
+              "right": "integrate",
+              "shared_write_paths": [],
+              "declared_dependency": [
+                "aggregate"
+              ],
+              "independent": false,
+              "left_owned": [
+                "pipeline/aggregate.py",
+                "pipeline/store.py"
+              ],
+              "right_owned": [
+                "pipeline/api.py",
+                "pipeline/report.py"
+              ]
+            }
+          ],
+          "independent_pairs": [
+            "parse+aggregate"
+          ],
+          "shared_write_paths": [],
+          "frozen_interface_files": [
+            "README.md",
+            "docs/INTERFACE.md",
+            "test_public.py"
+          ],
+          "interface_chars": 3744,
+          "integration_seam_after_the_independent_pair": [
+            "pipeline/api.py",
+            "pipeline/report.py"
+          ],
+          "grant_admits_every_deliverable": true,
+          "context_load_chars": 9310,
+          "public_suite_available": true,
+          "independent_oracle_available": true,
+          "reference_implementation_available": true,
+          "simple_fixture": true,
+          "criteria": {
+            "two_substantive_independent_workstreams": true,
+            "stable_public_interface": true,
+            "exclusive_writable_scope_for_an_independent_pair": true,
+            "no_worker_communication_needed": true,
+            "main_integration_need": true,
+            "context_load_present": true,
+            "direct_mode_feasible": true,
+            "delegated_mode_feasible": true,
+            "public_test_and_oracle_available": true
+          },
+          "assessment": "structural: derived from the frozen write sets and dependency edges. The fixture is small in absolute line count; P+'s suitability rests on disjoint ownership plus a published interface plus a remaining integration seam, not on file count. Whether a fixture this size *should* be delegated is the question this stage measures, not a property of the fixture"
+        },
+        "closure2-state-machine-refactor": {
+          "family": "N1",
+          "role": "N-",
+          "seed_files": 8,
+          "seed_lines": 105,
+          "seed_chars": 3389,
+          "reference_files": 4,
+          "reference_lines": 50,
+          "public_tests": 1,
+          "public_test_functions": 7,
+          "oracle_files": 1,
+          "oracle_test_functions": 7,
+          "deliverables": 4,
+          "workers": 2,
+          "worker_ownership": {
+            "machine": {
+              "owned_paths": [
+                "lifecycle/state.py"
+              ],
+              "depends_on": []
+            },
+            "callers": {
+              "owned_paths": [
+                "lifecycle/approval.py",
+                "lifecycle/audit.py",
+                "lifecycle/shipping.py",
+                "lifecycle/state.py"
+              ],
+              "depends_on": [
+                "machine"
+              ]
+            }
+          },
+          "worker_pairs": [
+            {
+              "left": "machine",
+              "right": "callers",
+              "shared_write_paths": [
+                "lifecycle/state.py"
+              ],
+              "declared_dependency": [
+                "machine"
+              ],
+              "independent": false,
+              "left_owned": [
+                "lifecycle/state.py"
+              ],
+              "right_owned": [
+                "lifecycle/approval.py",
+                "lifecycle/audit.py",
+                "lifecycle/shipping.py",
+                "lifecycle/state.py"
+              ]
+            }
+          ],
+          "independent_pairs": [],
+          "shared_write_paths": [
+            "lifecycle/state.py"
+          ],
+          "frozen_interface_files": [
+            "README.md",
+            "docs/INTERFACE.md",
+            "test_public.py"
+          ],
+          "interface_chars": 2766,
+          "integration_seam_after_the_independent_pair": [
+            "lifecycle/approval.py",
+            "lifecycle/audit.py",
+            "lifecycle/shipping.py",
+            "lifecycle/state.py"
+          ],
+          "grant_admits_every_deliverable": true,
+          "context_load_chars": 6917,
+          "public_suite_available": true,
+          "independent_oracle_available": true,
+          "reference_implementation_available": true,
+          "simple_fixture": true,
+          "criteria": {
+            "two_substantive_independent_workstreams": false,
+            "stable_public_interface": true,
+            "exclusive_writable_scope_for_an_independent_pair": false,
+            "no_worker_communication_needed": false,
+            "main_integration_need": true,
+            "context_load_present": true,
+            "direct_mode_feasible": true,
+            "delegated_mode_feasible": false,
+            "public_test_and_oracle_available": true
+          },
+          "assessment": "structural: derived from the frozen write sets and dependency edges. The fixture is small in absolute line count; P+'s suitability rests on disjoint ownership plus a published interface plus a remaining integration seam, not on file count. Whether a fixture this size *should* be delegated is the question this stage measures, not a property of the fixture"
+        }
+      },
+      "catalog_unchanged": true
+    },
+    {
+      "check_id": "C01_plan_entry_resolves_the_c2_plan_and_nothing_else_moved",
+      "ok": true,
+      "detail": "stage-c2-coding-aware-natural-delegation-v1 and its scope both resolve to sha256:d0a4c212fda8\u2026; C1, C1-B, C1-C and both B+ entries are unchanged; 4 ids remain rejected",
+      "resolved_digest": "sha256:d0a4c212fda8bf76b20efd995115474b326cf78f787bd162b05c75829bc16038",
+      "rejected": [
+        "stage-b-plus-diagnostic-canary-v1",
+        "stage-b-plus-diagnostic-canary-v2",
+        "stage-c2-unknown-plan",
+        "C2_UNKNOWN_SCOPE"
+      ],
+      "unchanged": {
+        "c1": "sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2",
+        "c1b": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+        "c1c": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+        "bplus-canary": "sha256:0b58ab2500325d11cf27763dd0d8dde8498d5bca9ca11f602e6e410a37e572f6",
+        "bplus-formal": "sha256:ab4d0e509962885c9a24d981446c4697f00e794b6b03e5a5d9bf42cfe91aee72"
+      }
+    },
+    {
+      "check_id": "C02_within_a_task_only_the_main_prompt_moves",
+      "ok": true,
+      "detail": "each task's two cells differ only in the Main prompt (and the fixed execution position); B0 = main-v2.2-rc1-c1b (sha256:4f742d08c6ed\u2026), B1 = main-v3.0-rc1-coding-aware (sha256:32e082a7116b\u2026)",
+      "pairs": {
+        "closure2-pipeline-migration": {
+          "arms": [
+            "B0",
+            "B1"
+          ],
+          "differing_fields": [
+            "cell_id",
+            "main_prompt",
+            "main_prompt_digest",
+            "main_prompt_version",
+            "order",
+            "prompt_arm",
+            "round"
+          ],
+          "prompt_digests": {
+            "B0": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+            "B1": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c"
+          }
+        },
+        "closure2-state-machine-refactor": {
+          "arms": [
+            "B0",
+            "B1"
+          ],
+          "differing_fields": [
+            "cell_id",
+            "main_prompt",
+            "main_prompt_digest",
+            "main_prompt_version",
+            "order",
+            "prompt_arm",
+            "round"
+          ],
+          "prompt_digests": {
+            "B0": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+            "B1": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c"
+          }
+        }
+      },
+      "prompt_only_fields": [
+        "cell_id",
+        "main_prompt",
+        "main_prompt_digest",
+        "main_prompt_version",
+        "order",
+        "prompt_arm",
+        "round"
+      ]
+    },
+    {
+      "check_id": "C03_every_cell_executes_its_own_task",
+      "ok": true,
+      "detail": "four cells over two frozen tasks; each cell carries its own task's requirement bytes, normalised grant, public suite and oracle, and each task's fixture is the frozen seed with no hidden test in it",
+      "tasks": {
+        "closure2-pipeline-migration": {
+          "family": "P1",
+          "cells": [
+            {
+              "cell_id": "c2.closure2-pipeline-migration.C3.B0.r1",
+              "prompt_arm": "B0",
+              "goal_digest": "sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa",
+              "grant": {
+                "coding_worker": [
+                  "pipeline/"
+                ]
+              },
+              "public_tests": [
+                "test_public.py"
+              ],
+              "oracle_tests": [
+                "test_hidden_pipeline.py"
+              ]
+            },
+            {
+              "cell_id": "c2.closure2-pipeline-migration.C3.B1.r1",
+              "prompt_arm": "B1",
+              "goal_digest": "sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa",
+              "grant": {
+                "coding_worker": [
+                  "pipeline/"
+                ]
+              },
+              "public_tests": [
+                "test_public.py"
+              ],
+              "oracle_tests": [
+                "test_hidden_pipeline.py"
+              ]
+            }
+          ]
+        },
+        "closure2-state-machine-refactor": {
+          "family": "N1",
+          "cells": [
+            {
+              "cell_id": "c2.closure2-state-machine-refactor.C3.B0.r1",
+              "prompt_arm": "B0",
+              "goal_digest": "sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538",
+              "grant": {
+                "coding_worker": [
+                  "lifecycle/"
+                ]
+              },
+              "public_tests": [
+                "test_public.py"
+              ],
+              "oracle_tests": [
+                "test_hidden_lifecycle.py"
+              ]
+            },
+            {
+              "cell_id": "c2.closure2-state-machine-refactor.C3.B1.r1",
+              "prompt_arm": "B1",
+              "goal_digest": "sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538",
+              "grant": {
+                "coding_worker": [
+                  "lifecycle/"
+                ]
+              },
+              "public_tests": [
+                "test_public.py"
+              ],
+              "oracle_tests": [
+                "test_hidden_lifecycle.py"
+              ]
+            }
+          ]
+        }
+      },
+      "fixtures": {
+        "closure2-pipeline-migration": {
+          "matches_frozen_seed": true,
+          "seed_digest": "f9378c44a0ee564962e0a56ac7172ad616904d098fbc8dabb0806c4cdbbef515",
+          "frozen_seed_digest": "f9378c44a0ee564962e0a56ac7172ad616904d098fbc8dabb0806c4cdbbef515",
+          "files": 10,
+          "public_suite_present": true,
+          "hidden_files_in_fixture": []
+        },
+        "closure2-state-machine-refactor": {
+          "matches_frozen_seed": true,
+          "seed_digest": "400f56d38c1425757835701e73db4feb8ee3beea5764f008006058bd6a9e4012",
+          "frozen_seed_digest": "400f56d38c1425757835701e73db4feb8ee3beea5764f008006058bd6a9e4012",
+          "files": 8,
+          "public_suite_present": true,
+          "hidden_files_in_fixture": []
+        }
+      }
+    },
+    {
+      "check_id": "C04_budget_prompt_and_permissions_take_effect",
+      "ok": true,
+      "detail": "all four cells build GoalRunOptions with 750000 tokens, 20/20 turns, their own arm's prompt bytes, their own task's goal and grant, and the frozen delegation limits; a real run_goal builds RunBudgetState(limit_tokens=750000) for B0 and B1",
+      "options": {
+        "c2.closure2-pipeline-migration.C3.B0.r1": {
+          "token_budget": 750000,
+          "max_turns": 20,
+          "worker_max_turns": 20,
+          "main_prompt_version": "main-v2.2-rc1-c1b",
+          "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+          "grant": {
+            "coding_worker": [
+              "pipeline/"
+            ]
+          },
+          "main_write_paths": [
+            "pipeline/**"
+          ],
+          "delegation": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          },
+          "public_test_max_calls": 4
+        },
+        "c2.closure2-state-machine-refactor.C3.B0.r1": {
+          "token_budget": 750000,
+          "max_turns": 20,
+          "worker_max_turns": 20,
+          "main_prompt_version": "main-v2.2-rc1-c1b",
+          "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+          "grant": {
+            "coding_worker": [
+              "lifecycle/"
+            ]
+          },
+          "main_write_paths": [
+            "lifecycle/**"
+          ],
+          "delegation": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          },
+          "public_test_max_calls": 4
+        },
+        "c2.closure2-pipeline-migration.C3.B1.r1": {
+          "token_budget": 750000,
+          "max_turns": 20,
+          "worker_max_turns": 20,
+          "main_prompt_version": "main-v3.0-rc1-coding-aware",
+          "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+          "grant": {
+            "coding_worker": [
+              "pipeline/"
+            ]
+          },
+          "main_write_paths": [
+            "pipeline/**"
+          ],
+          "delegation": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          },
+          "public_test_max_calls": 4
+        },
+        "c2.closure2-state-machine-refactor.C3.B1.r1": {
+          "token_budget": 750000,
+          "max_turns": 20,
+          "worker_max_turns": 20,
+          "main_prompt_version": "main-v3.0-rc1-coding-aware",
+          "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+          "grant": {
+            "coding_worker": [
+              "lifecycle/"
+            ]
+          },
+          "main_write_paths": [
+            "lifecycle/**"
+          ],
+          "delegation": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          },
+          "public_test_max_calls": 4
+        }
+      },
+      "run_budget": {
+        "B0": {
+          "options_token_budget": 750000,
+          "session_status": "succeeded",
+          "run_budget_limit_tokens": 750000,
+          "run_budget_mode": "guarded",
+          "source": "atlasos.app.main_driven.run_goal: RunBudgetState(limit_tokens=options.token_budget)"
+        },
+        "B1": {
+          "options_token_budget": 750000,
+          "session_status": "succeeded",
+          "run_budget_limit_tokens": 750000,
+          "run_budget_mode": "guarded",
+          "source": "atlasos.app.main_driven.run_goal: RunBudgetState(limit_tokens=options.token_budget)"
+        }
+      }
+    },
+    {
+      "check_id": "C05_router_admits_the_independent_pair_and_refuses_the_shared_write",
+      "ok": true,
+      "detail": "the P+ pair ['parse', 'aggregate'] is admitted as a 2-wide parallel wave under m.1.0; the N- shared write is refused SHARED_WRITE_RISK and its frozen DAG DEPENDENCY_NOT_SUPPORTED; the four boundary shapes are unchanged",
+      "independent": {
+        "route": "delegate_parallel",
+        "reason_codes": [
+          "DELEGATION_ADMITTED"
+        ],
+        "blocked_gates": [],
+        "admitted_children": [
+          "parse",
+          "aggregate"
+        ],
+        "max_wave_width": 2,
+        "policy_version": "m.1.0"
+      },
+      "shared_write": {
+        "route": "direct",
+        "reason_codes": [
+          "SHARED_WRITE_RISK"
+        ],
+        "blocked_gates": [
+          "GATE_2_DEPENDENCY_COUPLING"
+        ],
+        "admitted_children": [],
+        "max_wave_width": 2,
+        "policy_version": "m.1.0"
+      },
+      "frozen_dag": {
+        "route": "direct",
+        "reason_codes": [
+          "DEPENDENCY_NOT_SUPPORTED"
+        ],
+        "blocked_gates": [
+          "GATE_M_PROPOSAL"
+        ],
+        "admitted_children": [],
+        "max_wave_width": 0,
+        "policy_version": "m.1.0"
+      },
+      "boundary": {
+        "shared_write": {
+          "route": "direct",
+          "reason_codes": [
+            "SHARED_WRITE_RISK"
+          ],
+          "blocked_gates": [
+            "GATE_2_DEPENDENCY_COUPLING"
+          ],
+          "admitted_children": [],
+          "max_wave_width": 2,
+          "policy_version": "m.1.0"
+        },
+        "outside_grant": {
+          "route": "direct",
+          "reason_codes": [
+            "WRITE_SCOPE_NOT_GRANTED"
+          ],
+          "blocked_gates": [
+            "GATE_M_PROPOSAL"
+          ],
+          "admitted_children": [],
+          "max_wave_width": 0,
+          "policy_version": "m.1.0"
+        },
+        "path_escape": {
+          "route": "direct",
+          "reason_codes": [
+            "INVALID_PLAN"
+          ],
+          "blocked_gates": [
+            "GATE_M_PROPOSAL"
+          ],
+          "admitted_children": [],
+          "max_wave_width": 0,
+          "policy_version": "m.1.0"
+        },
+        "research_write": {
+          "route": "direct",
+          "reason_codes": [
+            "WRITE_SCOPE_NOT_GRANTED"
+          ],
+          "blocked_gates": [
+            "GATE_M_PROPOSAL"
+          ],
+          "admitted_children": [],
+          "max_wave_width": 0,
+          "policy_version": "m.1.0"
+        }
+      },
+      "production_grant": {
+        "p_plus": {
+          "coding_worker": [
+            "pipeline/"
+          ]
+        },
+        "n_minus": {
+          "coding_worker": [
+            "lifecycle/"
+          ]
+        }
+      }
+    },
+    {
+      "check_id": "C06_real_dispatch_entry_runs_four_offline_cells",
+      "ok": true,
+      "detail": "dispatch('stage-c2-coding-aware-natural-delegation-v1') resolved the plan, verified the signed record, claimed in a throwaway root, ran four synthetic cells and wrote the audit + matrix report (verdicts ['PASS', 'PASS', 'PASS', 'PASS'], token_stop 3000000, cost_stop 1.0)",
+      "report": {
+        "plan_id": "stage-c2-coding-aware-natural-delegation-v1",
+        "scope": "C2_NATURAL_DELEGATION_DIAGNOSTIC_ONLY",
+        "plan_digest": "sha256:d0a4c212fda8bf76b20efd995115474b326cf78f787bd162b05c75829bc16038",
+        "mode": "offline_proof",
+        "complete": true,
+        "cells_planned": 4,
+        "cells_started": 4,
+        "cells_passed": 4,
+        "stop_reason": "NONE",
+        "aggregate_includes_sample": false,
+        "token_stop": 3000000,
+        "cost_stop_usd": 1.0,
+        "per_cell_cost_stop_usd": 0.25
+      },
+      "cells": [
+        {
+          "cell_id": "c2.closure2-pipeline-migration.C3.B0.r1",
+          "position": 1,
+          "verdict": "PASS",
+          "execution_integrity": "PASS",
+          "goal_correctness": true,
+          "public_test_status": "PASS",
+          "oracle_passed": true,
+          "stops": [],
+          "failed_checks": [],
+          "check_count": 17
+        },
+        {
+          "cell_id": "c2.closure2-state-machine-refactor.C3.B0.r1",
+          "position": 2,
+          "verdict": "PASS",
+          "execution_integrity": "PASS",
+          "goal_correctness": true,
+          "public_test_status": "PASS",
+          "oracle_passed": true,
+          "stops": [],
+          "failed_checks": [],
+          "check_count": 17
+        },
+        {
+          "cell_id": "c2.closure2-pipeline-migration.C3.B1.r1",
+          "position": 3,
+          "verdict": "PASS",
+          "execution_integrity": "PASS",
+          "goal_correctness": true,
+          "public_test_status": "PASS",
+          "oracle_passed": true,
+          "stops": [],
+          "failed_checks": [],
+          "check_count": 17
+        },
+        {
+          "cell_id": "c2.closure2-state-machine-refactor.C3.B1.r1",
+          "position": 4,
+          "verdict": "PASS",
+          "execution_integrity": "PASS",
+          "goal_correctness": true,
+          "public_test_status": "PASS",
+          "oracle_passed": true,
+          "stops": [],
+          "failed_checks": [],
+          "check_count": 17
+        }
+      ],
+      "matrix_report": {
+        "plan_digest": "sha256:d0a4c212fda8bf76b20efd995115474b326cf78f787bd162b05c75829bc16038",
+        "token_stop": 3000000,
+        "cells": 4
+      },
+      "evidence_exists": {
+        "matrix_report": true,
+        "ledger": true,
+        "attempts": true,
+        "analyses": true
+      }
+    },
+    {
+      "check_id": "C07_production_admission_is_ready_for_all_four_cells",
+      "ok": true,
+      "detail": "the pre-claim gate accepts all four C2 cells (READY); the credential (present=True) is reported apart from the contract",
+      "status": "READY",
+      "blocking_failures": [],
+      "contract_blocking_failures": [],
+      "credential_present": true,
+      "cells": [
+        {
+          "cell_id": "c2.closure2-pipeline-migration.C3.B0.r1",
+          "status": "READY",
+          "worker_profile": "coding_worker",
+          "worker_exposure": "card",
+          "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
+          "fixture_matches_frozen_seed": true,
+          "checks": 23
+        },
+        {
+          "cell_id": "c2.closure2-state-machine-refactor.C3.B0.r1",
+          "status": "READY",
+          "worker_profile": "coding_worker",
+          "worker_exposure": "card",
+          "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
+          "fixture_matches_frozen_seed": true,
+          "checks": 23
+        },
+        {
+          "cell_id": "c2.closure2-pipeline-migration.C3.B1.r1",
+          "status": "READY",
+          "worker_profile": "coding_worker",
+          "worker_exposure": "card",
+          "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
+          "fixture_matches_frozen_seed": true,
+          "checks": 23
+        },
+        {
+          "cell_id": "c2.closure2-state-machine-refactor.C3.B1.r1",
+          "status": "READY",
+          "worker_profile": "coding_worker",
+          "worker_exposure": "card",
+          "oracle_mode": "EXTERNAL_SANDBOX_ORACLE",
+          "fixture_matches_frozen_seed": true,
+          "checks": 23
+        }
+      ]
+    },
+    {
+      "check_id": "C08_older_plan_and_stage_identities_are_preserved",
+      "ok": true,
+      "detail": "B+ canary/formal, C1, C1-B and C1-C plans still digest to their recorded values; the protocol is still sha256:65e0b9937961\u2026; both superseded canary ids remain refused; the C1-C artefacts are still the ones its own stage wrote",
+      "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
+      "refused": [
+        "stage-b-plus-diagnostic-canary-v1",
+        "stage-b-plus-diagnostic-canary-v2"
+      ],
+      "frozen_artefacts": {
+        "plan_digest": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+        "plan_digest_recomputes": true,
+        "authorization_plan_digest": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+        "authorization_status": "PENDING_OWNER_APPROVAL",
+        "executor_version": "bplus-executor-1.6",
+        "executor_digest": "sha256:59152911c7465b4252763c5e9d07ca4bac26cd5fe23b70d6d5bf5b4ae163714a",
+        "offline_plan_digest": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+        "offline_executor_digest": "sha256:59152911c7465b4252763c5e9d07ca4bac26cd5fe23b70d6d5bf5b4ae163714a",
+        "offline_status": "STAGE_C1C_HEADROOM_CONTROL_READY_FOR_LIVE_AUTHORIZATION"
+      }
+    },
+    {
+      "check_id": "C09_historical_claims_are_intact_and_no_c2_claim_exists",
+      "ok": true,
+      "detail": "6/6 consumed claims are byte-identical before and after this preparation, no claim exists for sha256:d0a4c212fda8\u2026, and the C1-C evidence index re-hashes to sha256:5defb4cd5bdf\u2026 (35 files)",
+      "claims": {
+        "v1": true,
+        "v2": true,
+        "v3": true,
+        "c1": true,
+        "c1b": true,
+        "c1c": true
+      },
+      "claim_path": "C:\\Users\\86180\\AppData\\Local\\AtlasRuntime\\stage-b-plus\\claims\\d0a4c212fda8bf76b20efd995115474b326cf78f787bd162b05c75829bc16038.claim",
+      "claim_root": "C:\\Users\\86180\\AppData\\Local\\AtlasRuntime\\stage-b-plus\\claims",
+      "evidence_index": {
+        "mounted": true,
+        "root": "D:\\Work\\AtlasRuntime-runs\\stage-c1c-headroom-control",
+        "files": 35,
+        "index_digest": "sha256:5defb4cd5bdfe27c0d54c24acc5ed563ab6a5fbbccf9bc85d01f2fef1f01d57b",
+        "declared_in_file": "sha256:5defb4cd5bdfe27c0d54c24acc5ed563ab6a5fbbccf9bc85d01f2fef1f01d57b",
+        "plan_digest": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+        "ok": true
+      }
+    },
+    {
+      "check_id": "C10_pending_authorization_authorizes_nothing",
+      "ok": true,
+      "detail": "status PENDING_OWNER_APPROVAL, authorizes_live_execution false, both cost ceilings null, token stop 3000000 over four cells and one attempt; the verifier refuses it for 11 stated reasons",
+      "blocked_by": [
+        "status is 'PENDING_OWNER_APPROVAL', not 'APPROVED'",
+        "authorizes_live_execution is not true",
+        "approved_by is empty",
+        "approved_at is empty",
+        "owner_statement is empty",
+        "approval_provenance is empty",
+        "reviewed_head is None, actual head is '4fb99c23953b06da7b77cdfc054db27eff3e09ba'",
+        "execution_head is None, actual head is '4fb99c23953b06da7b77cdfc054db27eff3e09ba'",
+        "cost_stop_usd is None; it must be finite and positive",
+        "per_cell_cost_stop_usd is None; it must be finite and positive",
+        "approval_provenance is empty"
+      ],
+      "envelope_candidate": {
+        "cost_stop_usd": 1.0,
+        "per_cell_cost_stop_usd": 0.25,
+        "token_stop": 3000000,
+        "attempt_limit": 1,
+        "approved": false,
+        "basis": "four cells, one attempt each, 750,000 shared tokens per cell; the cumulative stop is 4 x the per-cell cost candidate. C1-C measured USD 0.086984 for one cell, so the candidate is about 2.9x that per cell. Every field stays a candidate until the Owner signs it"
+      }
+    },
+    {
+      "check_id": "C11_plan_contract_invariants",
+      "ok": true,
+      "detail": "the frozen design invariants hold on the record itself",
+      "problems": []
+    },
+    {
+      "check_id": "C12_reporting_sources_are_the_runtime_fields_not_the_analyzer",
+      "ok": true,
+      "detail": "final correctness is the cell audit's oracle verdict (CellRun.oracle), never the analyzer's L6_goal_correctness; the child cache split is DelegationTotals.cache_hit/miss_tokens, not child_cache_visibility; handoff preview, full reference read and shared-file consumption are three separate entries",
+      "analyzer": {
+        "analyzer_version": "stage-b-reconstruct/1.1",
+        "levels": [
+          "L1_proposal",
+          "L2_admission",
+          "L3_worker_completion",
+          "L4_handoff_delivery",
+          "L5_main_continuation",
+          "L6_goal_correctness"
+        ],
+        "child_cache_visibility": "UNKNOWN"
+      },
+      "runtime_fields": {
+        "delegation_totals": [
+          "cache_hit_tokens",
+          "cache_miss_tokens",
+          "children_cancelled",
+          "children_completed",
+          "children_failed",
+          "children_started",
+          "children_timed_out",
+          "completion_tokens",
+          "prompt_tokens",
+          "total_prompt_tokens"
+        ],
+        "delegation_batch": [
+          "batch_span_ms",
+          "children",
+          "decision",
+          "max_observed_concurrency",
+          "result_chars",
+          "result_truncated",
+          "round",
+          "route",
+          "totals"
+        ],
+        "cell_run": [
+          "duration_s",
+          "error",
+          "error_kind",
+          "expected_run_id",
+          "export",
+          "fixture",
+          "fixture_root",
+          "notes",
+          "oracle",
+          "oracle_sandbox",
+          "run_dir",
+          "sandbox_plan",
+          "session"
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "passed": 13,
+    "failed": []
+  },
+  "status": "STAGE_C2_NATURAL_DELEGATION_READY_FOR_LIVE_AUTHORIZATION",
+  "live_execution_authorized": false,
+  "real_model_calls": 0,
+  "real_sandboxes": 0,
+  "real_cells": 0,
+  "claims_consumed": 0
+}

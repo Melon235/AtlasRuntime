@@ -56,7 +56,7 @@ from experiments.evaluation.sandboxed_oracle import (
 from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract, cost
 
-EXECUTOR_VERSION = "bplus-executor-1.6"
+EXECUTOR_VERSION = "bplus-executor-1.7"
 
 #: Files whose bytes *are* the executor identity. A dispatch is bound to their digests, so editing
 #: any of them invalidates an existing signature rather than silently running different code.
@@ -69,13 +69,16 @@ EXECUTOR_FILES: tuple[str, ...] = (
     "experiments/stage_b_plus/authority.py",
     "experiments/stage_b_plus/contract.py",
     "experiments/stage_b_plus/cost.py",
-    # Stage C1 / C1-B / C1-C plans decide which goal, task, arm, prompt, budget and intervention a
-    # cell executes, so their bytes belong in the identity the Owner signs. Stage B+ plans do not
-    # read these modules.
+    # Stage C1 / C1-B / C1-C / C2 plans decide which goal, task, arm, prompt, budget and
+    # intervention a cell executes, so their bytes belong in the identity the Owner signs. Stage B+
+    # plans do not read these modules.
     "experiments/stage_c1/plan.py",
     "experiments/stage_c1b/plan.py",
     "experiments/stage_c1b/prompts.py",
     "experiments/stage_c1c/plan.py",
+    # Stage C2 adds a Main decision prompt; the two prompt objects are what its cells vary.
+    "experiments/stage_c2/plan.py",
+    "experiments/stage_c2/prompts.py",
     # Stage C1-B: the worker completion contract and the failure classification are part of what a
     # cell executes, so a signature has to cover them.
     "src/atlasos/workers/catalog.py",

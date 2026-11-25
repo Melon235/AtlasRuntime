@@ -21,6 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 FROZEN_BUDGET_DIGEST = "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9"
 C1B_PLAN_DIGEST = "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c"
+C1C_EXECUTOR_DIGEST = "sha256:59152911c7465b4252763c5e9d07ca4bac26cd5fe23b70d6d5bf5b4ae163714a"
 
 
 def _options(tmp_path: Path):
@@ -261,21 +262,28 @@ def test_an_old_budget_digest_or_old_executor_cannot_authorize_the_cell() -> Non
     assert any("executor_digest" in item for item in old_executor["problems"])
 
 
-def test_the_checked_in_artefacts_match_the_current_code() -> None:
+def test_the_checked_in_artefacts_are_the_frozen_history() -> None:
+    """The C1-C artefacts record the preparation, and its executor identity is frozen.
+
+    This used to compare the recorded executor with the *current* identity. That is only true while
+    the stage is the newest one: Stage C2 moves the shared executor (`contract.py` gains the C2 plan
+    entry and the identity covers the new modules), so the recorded identity stays at the value the
+    C1-C preparation ran under. Stage C1 and Stage C1-B are checked the same way.
+    """
+
     stage = REPO_ROOT / "experiments" / "stage_c1c"
     plan_file = json.loads((stage / "plan.json").read_text(encoding="utf-8"))
-    identity = executor.executor_identity(REPO_ROOT)
     executor_file = json.loads((stage / "executor.json").read_text(encoding="utf-8"))
     offline = json.loads((stage / "offline.json").read_text(encoding="utf-8"))
     authorization = json.loads((stage / "authorization.json").read_text(encoding="utf-8"))
 
     assert plan_file["digest"] == plan.plan_record()["digest"]
     assert plan_file["budget_digest"] == plan.plan_record()["budget_digest"]
-    assert executor_file["executor_digest"] == identity["executor_digest"]
-    assert executor_file["files"] == identity["files"]
+    assert executor_file["executor_version"] == "bplus-executor-1.6"
+    assert executor_file["executor_digest"] == C1C_EXECUTOR_DIGEST
     assert offline["plan_digest"] == plan_file["digest"]
     assert offline["budget_digest"] == plan_file["budget_digest"]
-    assert offline["executor_digest"] == identity["executor_digest"]
+    assert offline["executor_digest"] == executor_file["executor_digest"]
     assert offline["nominal_token_capacity"] == 750_000
     assert offline["summary"]["failed"] == []
     assert offline["status"] == "STAGE_C1C_HEADROOM_CONTROL_READY_FOR_LIVE_AUTHORIZATION"
@@ -284,14 +292,19 @@ def test_the_checked_in_artefacts_match_the_current_code() -> None:
     assert authorization["token_stop"] == 750_000
 
 
-def test_five_historical_claims_are_present_and_no_c1c_claim_exists() -> None:
+def test_five_earlier_claims_and_the_c1c_claim_are_present() -> None:
+    """Stage C1-C ran once after this preparation, so its own claim is now a consumed fact."""
+
     record = plan.plan_record()
 
     labels = [label for label, _ in checks.CONSUMED_CLAIMS]
     assert labels == ["v1", "v2", "v3", "c1", "c1b"]
     for _, digest in checks.CONSUMED_CLAIMS:
         assert executor.claim_path(digest).is_file()
-    assert not executor.claim_path(record["digest"]).exists()
+
+    c1c_claim = executor.claim_path(record["digest"])
+    assert c1c_claim.is_file()
+    assert json.loads(c1c_claim.read_text(encoding="utf-8"))["plan_digest"] == record["digest"]
 
 
 def test_every_check_passes_on_this_repository(tmp_path: Path) -> None:

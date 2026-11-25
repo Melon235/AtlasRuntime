@@ -723,8 +723,17 @@ def _check_history(
         problems.append(f"{len(present)} of {len(CONSUMED_CLAIMS)} consumed claims are present")
     if before.get("claims") != after.get("claims"):
         problems.append("a consumed claim changed during this preparation")
-    if executor.claim_path(plan["digest"]).exists():
-        problems.append("a claim exists for the C1-C plan")
+    # Stage C1-C ran once, after this preparation was written. Its claim therefore exists now, and
+    # that is a fact of history rather than a defect: what stays checkable is that an existing claim
+    # is *this* plan's claim and that nothing moved while this preparation ran (the snapshots
+    # above).
+    claim_file = executor.claim_path(plan["digest"])
+    claim_state = "ABSENT"
+    if claim_file.exists():
+        claim_state = "PRESENT"
+        recorded = (_read_json(claim_file) or {}).get("plan_digest")
+        if recorded != plan["digest"]:
+            problems.append(f"the C1-C claim carries {recorded!r}, not this plan's digest")
     if not after["root_is_default"]:
         problems.append("the production claim root is not in force")
 
@@ -764,13 +773,15 @@ def _check_history(
         ok,
         "; ".join(problems)
         or (
-            f"{len(present)}/{len(CONSUMED_CLAIMS)} consumed claims are byte-identical before and "
-            f"after this preparation, no claim exists for {plan['digest'][:19]}…, {index_detail}, "
-            f"the failed first launch is intact, and the C1-B plan/authorization/executor/offline "
-            f"identities are still the frozen ones"
+            f"{len(present)}/{len(CONSUMED_CLAIMS)} earlier consumed claims are byte-identical "
+            f"before and after this preparation, the C1-C claim for {plan['digest'][:19]}… is "
+            f"{claim_state} and carries this plan's digest, {index_detail}, the failed first "
+            f"launch is intact, and the C1-B plan/authorization/executor/offline identities "
+            f"are still the frozen ones"
         ),
         claims=states,
-        claim_path=str(executor.claim_path(plan["digest"])),
+        claim_path=str(claim_file),
+        claim_state=claim_state,
         claim_root=after["root"],
         evidence_index=index,
         failed_launch=launch,
