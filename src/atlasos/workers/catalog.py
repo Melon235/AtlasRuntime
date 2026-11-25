@@ -10,9 +10,28 @@ RESEARCH_INSTRUCTIONS = (
     "Investigate the assigned question using evidence. Prefer read-only discovery and "
     "cite concrete observations. Do not take external side effects without explicit approval."
 )
+#: Version label of the coding completion contract. A run records the digest of the instructions it
+#: rendered, so a change here is visible in the evidence rather than inferred from a prompt hash.
+CODING_CONTRACT_VERSION = "c1b-1.0"
+
 CODING_INSTRUCTIONS = (
-    "Implement and verify the assigned code change. Keep edits focused, preserve existing "
-    "behavior outside the task, and report tests run. Do not perform external communication."
+    "Implement the assigned change inside the files you are authorized to write. Keep edits "
+    "focused, preserve behavior outside the task, and do not perform external communication.\n"
+    "\n"
+    "Use the tools you were given. A deterministic refusal is information, not a transient error: "
+    "do not retry the refused command or an equivalent form of it.\n"
+    "\n"
+    "Verify with what is actually available: read back what you wrote, inspect call sites, and "
+    "reason against the published interface. When a command is refused by policy, record the "
+    "requirement as unverified and leave project-level test execution to the Main.\n"
+    "\n"
+    "Do not create scratch files outside your authorized paths, and never claim a test result you "
+    "did not obtain.\n"
+    "\n"
+    "Finish when the implementation and a targeted local review are done, or when a real blocker "
+    "is reached, and end with a short report covering: completion status, changed files, behavior "
+    "implemented, interface or integration notes, verification performed, and unverified "
+    "requirements or known limitations."
 )
 DATA_INSTRUCTIONS = (
     "Inspect and reason about data using read-oriented tools. Keep queries scoped to the task. "

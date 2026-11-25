@@ -156,8 +156,6 @@ MAIN_SYSTEM_PROMPT = (
 MAIN_PROMPT_V1_VERSION = "main-v1.0"
 
 
-
-
 @dataclass(frozen=True)
 class MainPromptSpec:
     """One selectable Main system prompt: a version label plus the exact bytes it injects.
@@ -405,6 +403,64 @@ def _usage_evidence(usage: Any | None) -> dict[str, int]:
         "cache_hit_tokens": hit,
         "cache_miss_tokens": miss,
         "completion_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+    }
+
+
+#: Kinds this producer is allowed to name. They are exactly the ones the runtime recorded a
+#: structured stop for; anything else stays unclassified so the consuming audit fails closed.
+CLASSIFIED_FAILURE_KINDS: tuple[str, ...] = (
+    "budget_exhaustion",
+    "main_max_turns",
+    "acceptance_failed",
+)
+
+
+def classify_failure(
+    *,
+    failure_text: str | None,
+    main_result: Any | None,
+    acceptance_verdict: str,
+    budget_state: RunBudgetState | None,
+    succeeded: bool,
+) -> dict[str, Any] | None:
+    """Turn the recorded stop evidence into the structured failure the audit classifies.
+
+    Stage C1 stopped with ``UNKNOWN_FAILURE_KIND`` although the runtime had recorded
+    ``main.stop_reason = "budget_exceeded"`` and the budget's own message: the goal path emitted a
+    bare string (or nothing), so ``failure.kind`` was always missing and every failed Main run would
+    stop a dispatch. This maps only what the runtime actually recorded and leaves everything else
+    unclassified, so an unknown failure still fails closed.
+    """
+
+    if succeeded:
+        return None
+    stop = getattr(main_result, "stop_reason", None) if main_result is not None else None
+    stop_code = getattr(stop, "code", None)
+    stop_message = getattr(stop, "message", None)
+    budget = budget_state.as_dict() if budget_state is not None else {}
+    kind: str | None = None
+    if failure_text is None:
+        if stop_code == "budget_exceeded":
+            kind = "budget_exhaustion"
+        elif stop_code == "max_turns":
+            kind = "main_max_turns"
+        elif acceptance_verdict == "FAIL":
+            kind = "acceptance_failed"
+    # For a budget rejection the budget's own message is the evidence, not the stop code's label.
+    evidence_message = budget.get("stop_reason") if kind == "budget_exhaustion" else None
+    return {
+        "kind": kind,
+        "classified_from": "recorded_stop_evidence" if kind else "unclassified",
+        "message": failure_text
+        or (str(evidence_message) if evidence_message else None)
+        or (str(stop_message) if stop_message else None)
+        or (
+            f"main stopped: {stop_code}" if stop_code else "the run failed without a recorded stop"
+        ),
+        "main_stop_reason": stop_code,
+        "main_stop_message": stop_message,
+        "budget_stop_reason": budget.get("stop_reason"),
+        "acceptance_verdict": acceptance_verdict,
     }
 
 
@@ -834,6 +890,13 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         acceptance_result["verdict"] if acceptance_result is not None else "NOT_CONFIGURED"
     )
     succeeded = execution_succeeded and acceptance_verdict in ("PASS", "NOT_CONFIGURED")
+    failure_record = classify_failure(
+        failure_text=failure,
+        main_result=main_result,
+        acceptance_verdict=acceptance_verdict,
+        budget_state=budget_state,
+        succeeded=succeeded,
+    )
     session: dict[str, Any] = {
         "run_id": run_id,
         "mode": "main_driven",
@@ -851,7 +914,10 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         ),
         "status": "succeeded" if succeeded else "failed",
         "execution_succeeded": execution_succeeded,
-        "failure": failure,
+        # A structured record, not a bare string: the audit classifies a cell by ``failure.kind``,
+        # and a run that produced no kind used to stop every dispatch as UNKNOWN_FAILURE_KIND even
+        # when the runtime had recorded exactly why it stopped (Stage C1-B).
+        "failure": failure_record,
         "main": {
             "agent": main_agent_name,
             "worker_id": main_worker_id,

@@ -223,11 +223,20 @@ def test_stage_b_plus_identity_did_not_move() -> None:
             contract.scope_plan(plan_id)
 
 
-def test_no_stage_c1_claim_exists() -> None:
+def test_the_c1_claim_was_consumed_exactly_once() -> None:
+    """The one-shot claim exists, names this plan and head, and cannot be recreated."""
+
     plan = c1.plan_record()
     for _, digest in checks.CONSUMED_CLAIMS:
         assert digest != plan["digest"]
-    assert not executor.claim_path(plan["digest"]).exists()
+    path = executor.claim_path(plan["digest"])
+    assert path.is_file()
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    assert claim["plan_digest"] == plan["digest"]
+    assert claim["plan_id"] == plan["plan_id"]
+    assert claim["execution_head"] == "1101b6689bf968997f0ec037109ac821d1de24b9"
+    assert claim["mode"] == "live"
+    assert claim["claim_root_is_default"] is True
 
 
 def test_pending_authorization_authorizes_nothing() -> None:
@@ -252,26 +261,36 @@ def test_pending_authorization_authorizes_nothing() -> None:
     assert record["proposed_envelope"]["approved"] is False
 
 
-def test_the_checked_in_artefacts_match_the_current_code() -> None:
-    """A committed plan/authorization that no longer matches the code is a signature trap."""
+def test_the_checked_in_artefacts_are_the_frozen_history() -> None:
+    """The C1 artefacts record the run that happened; later stages must not rewrite them.
+
+    This used to assert that the artefacts matched the *current* code, which was true while the
+    stage was only prepared. After the live run the plan digest must still be the C1 digest and the
+    executor digest must still be the 1.3 identity that ran, whatever later stages build.
+    """
 
     stage = REPO_ROOT / "experiments" / "stage_c1"
     plan_file = json.loads((stage / "plan.json").read_text(encoding="utf-8"))
-    assert plan_file["digest"] == c1.plan_record()["digest"]
-
     executor_file = json.loads((stage / "executor.json").read_text(encoding="utf-8"))
-    identity = executor.executor_identity(REPO_ROOT)
-    assert executor_file["executor_digest"] == identity["executor_digest"]
-    assert executor_file["files"] == identity["files"]
-
     offline = json.loads((stage / "offline.json").read_text(encoding="utf-8"))
+
+    assert plan_file["digest"] == (
+        "sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2"
+    )
+    assert plan_file["digest"] == c1.plan_record()["digest"]
+    assert executor_file["executor_version"] == "bplus-executor-1.3"
+    assert executor_file["executor_digest"] == (
+        "sha256:c7f3c4c88a86c91be82792fb5da640f8a62e0922840fd9d492606ea8a279937d"
+    )
     assert offline["plan_digest"] == plan_file["digest"]
-    assert offline["executor_digest"] == identity["executor_digest"]
+    assert offline["executor_digest"] == executor_file["executor_digest"]
     assert offline["live_execution_authorized"] is False
     assert offline["summary"]["failed"] == []
 
 
-def test_every_check_passes_on_this_repository(tmp_path: Path) -> None:
+def test_only_the_claim_check_fails_after_the_live_run(tmp_path: Path) -> None:
+    """The preparation gate still holds everywhere except where the run changed the world."""
+
     plan = c1.plan_record()
     identity = executor.executor_identity(REPO_ROOT)
     protocol = authority.protocol_digest(contract.protocol_document())
@@ -285,5 +304,6 @@ def test_every_check_passes_on_this_repository(tmp_path: Path) -> None:
         pending=pending,
     )
     failed = [item["check_id"] for item in report if not item["ok"]]
-    assert failed == []
+
+    assert failed == ["C09_new_plan_claim_is_not_created"]
     assert len(report) == 12

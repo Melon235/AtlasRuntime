@@ -1133,6 +1133,24 @@ def main_prompt_spec() -> Any:
     return MainPromptSpec(version=prompt_version("p3-bplus"), text=prompt_text("p3-bplus"))
 
 
+def main_prompt_for(cell: Mapping[str, Any]) -> Any:
+    """The Main prompt a cell executes with.
+
+    A Stage B+ cell carries none of its own, so the frozen B+ prompt applies. A diagnostic plan may
+    bind its own prompt into the cell — and therefore into the plan digest — when its intervention
+    is a prompt change; the text travels with the cell so the digest covers the bytes that ran.
+    """
+
+    from atlasos.app.main_driven import MainPromptSpec
+
+    override = cell.get("main_prompt")
+    if isinstance(override, Mapping) and str(override.get("text") or "").strip():
+        return MainPromptSpec(
+            version=str(override["version"]), text=str(override["text"])
+        )
+    return main_prompt_spec()
+
+
 def public_test_spec(task: closure2.Task) -> Any:
     """The frozen public suite for one cell.
 
@@ -1282,6 +1300,7 @@ __all__ = [
     "canary_cells",
     "cells",
     "delegation_config",
+    "main_prompt_for",
     "main_prompt_spec",
     "p3_text",
     "prompt_text",

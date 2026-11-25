@@ -1,0 +1,124 @@
+{
+  "authority_version": "bplus-authority-1.0",
+  "stage": "C1B",
+  "protocol_version": "bplus-2.2.0",
+  "status": "PENDING_OWNER_APPROVAL",
+  "authorizes_live_execution": false,
+  "scope": "C1B_COMPLETION_CONTROL_ONLY",
+  "plan_id": "stage-c1b-coding-delegation-completion-v1",
+  "plan_digest": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+  "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
+  "reviewed_head": null,
+  "execution_head": null,
+  "executor_digest": "sha256:ba7591a727fe6fc0822528531a545ab13db966b8cbb7efe6134ee8c826a2582e",
+  "executor_version": "bplus-executor-1.4",
+  "cells_count": 1,
+  "cell_ids": [
+    "c1b.closure2-plugin-migration.C3.r1"
+  ],
+  "cell_order": [
+    "c1b.closure2-plugin-migration.C3.r1"
+  ],
+  "arms": [
+    "C3"
+  ],
+  "tasks": [
+    "closure2-plugin-migration"
+  ],
+  "repetitions": 1,
+  "budget_digest": "sha256:a6ea43679649cb39c6c4f55f3bbb915b8a0287abcddce511a725ec6abee23eb9",
+  "nominal_token_capacity": 500000,
+  "cost_stop_usd": null,
+  "per_cell_cost_stop_usd": null,
+  "token_stop": 500000,
+  "attempt_limit": 1,
+  "owner_statement": null,
+  "approved_by": null,
+  "approved_at": null,
+  "approval_provenance": null,
+  "reuses_s06_or_s08_balance": false,
+  "notes": "Stage C1-B. This record authorizes nothing. It covers one cell and one attempt of a combined intervention: the coding worker completion contract and the Main verification discipline. A live dispatch needs every null field filled, both cost fields finite and positive, and an external provenance artefact whose bytes still hash to the recorded value.",
+  "proposed_envelope": {
+    "cost_stop_usd": 0.15,
+    "per_cell_cost_stop_usd": 0.15,
+    "token_stop": 500000,
+    "approved": false,
+    "basis": "unchanged from Stage C1: the budget was exhausted by refused verification turns, so a larger ceiling would have bought more refused attempts rather than completion",
+    "note": "a candidate for the Owner's decision; the signed fields stay null until signed"
+  },
+  "intervention": {
+    "kind": "combined_mechanism_fix",
+    "parts": [
+      "worker_completion_contract",
+      "main_verification_discipline"
+    ],
+    "goal_changed": false,
+    "main_prompt_version": "main-v2.2-rc1-c1b",
+    "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+    "main_prompt_section_replaced": "## TESTING AND RECOVERY",
+    "worker_contract": {
+      "profile_id": "coding_worker",
+      "contract_version": "c1b-1.0",
+      "instructions_digest": "sha256:0776e1c6c580093b6888d532d5609d1921277c4c6225e8b80e126f27879d3528",
+      "rendered_prompt_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
+      "rendered_prompt_chars": 1958,
+      "base_tools": [
+        "bash",
+        "dispatch_action",
+        "file_edit",
+        "file_read",
+        "file_write",
+        "grep",
+        "list_files",
+        "tool_search"
+      ],
+      "profile_max_turns": 8,
+      "source": "src/atlasos/workers/catalog.py"
+    },
+    "budget_changed": false,
+    "turns_changed": false,
+    "grant_changed": false,
+    "router_changed": false,
+    "single_variable_ablation": false
+  },
+  "review_surface": {
+    "plan_id": "stage-c1b-coding-delegation-completion-v1",
+    "goal_digest": "sha256:1496055dfef64496f2efb570b835cbb0936a32bf67ba2df5b97a1e1e1d508e07",
+    "main_prompt_digest": "sha256:4f742d08c6ed04c6ecd07ac446825e17bc8cdf78ec04e956845d64c3092093af",
+    "worker_contract_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
+    "write_grant": {
+      "raw": {
+        "coding_worker": [
+          "plugins/**"
+        ]
+      },
+      "effective": {
+        "coding_worker": [
+          "plugins/"
+        ]
+      },
+      "normalizer": "atlasos.ownership.paths.normalize_declared_path",
+      "workspace_root": "/workspace/project",
+      "changes": [
+        {
+          "raw": "plugins/**",
+          "effective": "plugins/"
+        }
+      ],
+      "scope_changed": false,
+      "profile_changed": false,
+      "matches_frozen_task_scope": true,
+      "denied_by_runtime": [
+        "test_public.py",
+        "docs/INTERFACE.md",
+        "README.md"
+      ],
+      "forbidden_inside_grant": [
+        "plugins/base.py"
+      ],
+      "forbidden_inside_grant_protection": "task instruction plus independent oracle, not ownership"
+    },
+    "combined_intervention": true,
+    "single_variable_ablation": false
+  }
+}

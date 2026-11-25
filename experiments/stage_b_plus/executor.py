@@ -56,7 +56,7 @@ from experiments.evaluation.sandboxed_oracle import (
 from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract, cost
 
-EXECUTOR_VERSION = "bplus-executor-1.3"
+EXECUTOR_VERSION = "bplus-executor-1.4"
 
 #: Files whose bytes *are* the executor identity. A dispatch is bound to their digests, so editing
 #: any of them invalidates an existing signature rather than silently running different code.
@@ -69,9 +69,16 @@ EXECUTOR_FILES: tuple[str, ...] = (
     "experiments/stage_b_plus/authority.py",
     "experiments/stage_b_plus/contract.py",
     "experiments/stage_b_plus/cost.py",
-    # The Stage C1 plan decides which goal, task, arm and intervention a cell executes, so its bytes
-    # belong in the identity the Owner signs. Stage B+ plans do not read this module.
+    # The Stage C1 / C1-B plans decide which goal, task, arm, prompt and intervention a cell
+    # executes, so their bytes belong in the identity the Owner signs. Stage B+ plans do not read
+    # these modules.
     "experiments/stage_c1/plan.py",
+    "experiments/stage_c1b/plan.py",
+    "experiments/stage_c1b/prompts.py",
+    # Stage C1-B: the worker completion contract and the failure classification are part of what a
+    # cell executes, so a signature has to cover them.
+    "src/atlasos/workers/catalog.py",
+    "src/atlasos/app/main_driven.py",
     "src/atlasos/app/live_preflight.py",
     "src/atlasos/app/goal_verification.py",
 )
@@ -1756,7 +1763,7 @@ def production_goal_options(
         worker_exposure=arm.exposure,
         provider_factory=config.llm_factory,
         run_id=run_id,
-        main_prompt=contract.main_prompt_spec(),
+        main_prompt=contract.main_prompt_for(cell),
         public_tests=contract.public_test_spec(task),
         acceptance=contract.acceptance_spec(task),
         sandbox=GoalSandboxOptions(
