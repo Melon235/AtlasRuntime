@@ -200,9 +200,9 @@ def _live_path_proof(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
         "arm": {"profile": arm.profile_id, "exposure": arm.exposure},
         "applied_exposure": exposure,
         "applied_profiles": profiles,
-        "effective_max_turns": (controls.get("profiles") or {}).get(arm.profile_id, {}).get(
-            "effective_max_turns"
-        ),
+        "effective_max_turns": (controls.get("profiles") or {})
+        .get(arm.profile_id, {})
+        .get("effective_max_turns"),
         "fixture": {
             "path_is_per_cell": cell["cell_id"] in str(fixture.get("path")),
             "commit": fixture.get("commit"),
@@ -254,14 +254,18 @@ def _ladder_from_live_evidence(run_dir: str | None) -> tuple[bool, str, dict[str
     met = levels.get("met") or {}
     expected = {name for name, _ in contract.DELEGATION_LEVELS}
     ok = set(met) == expected and levels.get("level_reached") is not None
-    return ok, (
-        f"the Stage B analyzer rebuilds {len(met)} levels from a live-runner run directory "
-        f"(level_reached={levels.get('level_reached')})"
-    ), {
-        "levels": sorted(met),
-        "level_reached": levels.get("level_reached"),
-        "proposals": (record.get("delegation") or {}).get("admission", {}).get("proposals"),
-    }
+    return (
+        ok,
+        (
+            f"the Stage B analyzer rebuilds {len(met)} levels from a live-runner run directory "
+            f"(level_reached={levels.get('level_reached')})"
+        ),
+        {
+            "levels": sorted(met),
+            "level_reached": levels.get("level_reached"),
+            "proposals": (record.get("delegation") or {}).get("admission", {}).get("proposals"),
+        },
+    )
 
 
 def _context_metrics_from_live_evidence(
@@ -366,18 +370,22 @@ def _public_test_agreement(run_dir: str | None) -> tuple[bool, str, dict[str, An
     same_statuses = list(theirs.get("public_test_statuses") or []) == mine["statuses"]
     same_pass = (theirs.get("public_tests_passed") is True) == (mine["passed"] is True)
     ok = same_statuses and same_pass
-    return ok, (
-        f"the gate and the Stage B analyzer read {mine['runs']} public run(s) the same way "
-        f"(state={mine['state']}, statuses={mine['statuses']})"
-    ), {
-        "gate": mine,
-        "analyzer": {
-            "statuses": theirs.get("public_test_statuses"),
-            "passed": theirs.get("public_tests_passed"),
+    return (
+        ok,
+        (
+            f"the gate and the Stage B analyzer read {mine['runs']} public run(s) the same way "
+            f"(state={mine['state']}, statuses={mine['statuses']})"
+        ),
+        {
+            "gate": mine,
+            "analyzer": {
+                "statuses": theirs.get("public_test_statuses"),
+                "passed": theirs.get("public_tests_passed"),
+            },
+            "same_statuses": same_statuses,
+            "same_pass": same_pass,
         },
-        "same_statuses": same_statuses,
-        "same_pass": same_pass,
-    }
+    )
 
 
 def _admission_checks(scratch: Path) -> list[dict[str, Any]]:
@@ -488,9 +496,7 @@ def _admission_checks(scratch: Path) -> list[dict[str, Any]]:
     assert external is not None  # the production contract declares one; L28 asserts it
 
     missing_contract = _blocked(
-        GoalAcceptance(
-            spec=acceptance.spec, oracle_mode=ORACLE_MODE_EXTERNAL, external_oracle=None
-        )
+        GoalAcceptance(spec=acceptance.spec, oracle_mode=ORACLE_MODE_EXTERNAL, external_oracle=None)
     )
     overlap = _blocked(
         GoalAcceptance(
@@ -776,8 +782,20 @@ def _synthetic_session(
 
     from experiments.evaluation.fixtures import workspace_digest
 
-    arm = contract.ARMS_BY_ID[cell["arm_id"]]
-    task = contract.TASKS_BY_ID[cell["task_id"]]
+    # A Stage F execution arm is not in the B+ capability registry; it names its own profile and
+    # exposure on the cell, which is what the synthetic session has to carry.
+    arm = contract.ARMS_BY_ID.get(str(cell["arm_id"]))
+    declared_profiles = list(cell.get("worker_profiles") or ())
+    profile_id = (
+        arm.profile_id
+        if arm
+        else str(
+            cell.get("worker_profile")
+            or (declared_profiles[0] if declared_profiles else contract.CODING)
+        )
+    )
+    exposure = arm.exposure if arm else str(cell.get("worker_exposure") or "card")
+    task = executor.task_for_cell(cell)
     suite_contract = contract.public_test_spec(task)
     key = f"c{int(cell['order']):02d}"
     cell_root = root / key
@@ -791,9 +809,9 @@ def _synthetic_session(
     # The producer records an *archive* digest, which is a different object from the directory
     # hash. The synthetic value stands in for it and is deliberately not the directory digest, so a
     # regression that compares the two fails here instead of on a live cell.
-    archive = "sha256:" + hashlib.sha256(
-        ("synthetic-archive:" + directory).encode("utf-8")
-    ).hexdigest()
+    archive = (
+        "sha256:" + hashlib.sha256(("synthetic-archive:" + directory).encode("utf-8")).hexdigest()
+    )
     artifacts = {
         "workspace_path": str(export_dir),
         "workspace_digest": archive,
@@ -833,10 +851,10 @@ def _synthetic_session(
             "export_files": artifacts["workspace_files"],
         },
         "delegation_controls": {
-            "exposure": {"level": arm.exposure},
+            "exposure": {"level": exposure},
             "profiles": {
-                arm.profile_id: {
-                    "profile_id": arm.profile_id,
+                profile_id: {
+                    "profile_id": profile_id,
                     "effective_max_turns": int(contract.BUDGET["worker_max_turns"]),
                 }
             },
@@ -909,8 +927,9 @@ def synthetic_cell_run(
         "sandbox_id": f"oracle-{key_of(cell)}",
     }
     if behaviour == "oracle_error":
-        oracle = dict(oracle, status="ERROR", kind="ORACLE_TIMEOUT", passed=False,
-                      environment_failure=True)
+        oracle = dict(
+            oracle, status="ERROR", kind="ORACLE_TIMEOUT", passed=False, environment_failure=True
+        )
     if behaviour == "oracle_cleanup_failure":
         oracle = dict(oracle, cleanup_failure="destroy refused")
     if behaviour == "oracle_fail":
@@ -924,8 +943,12 @@ def synthetic_cell_run(
             "public_pass_then_fail": ["PASS", "FAIL"],
         }[behaviour]
         suite["runs"] = [
-            dict(suite["runs"][0], call_index=index, status=status,
-                 exit_code=0 if status == "PASS" else 1)
+            dict(
+                suite["runs"][0],
+                call_index=index,
+                status=status,
+                exit_code=0 if status == "PASS" else 1,
+            )
             for index, status in enumerate(statuses, start=1)
         ]
         suite["calls"] = len(statuses)
@@ -1210,8 +1233,9 @@ def run_checks(
         ]["effective_max_turns"]
         for item in captures
     }
-    native_caps = {pid: shipped_catalog.profiles[pid].max_turns for pid in (contract.RESEARCH,
-                                                                           contract.CODING)}
+    native_caps = {
+        pid: shipped_catalog.profiles[pid].max_turns for pid in (contract.RESEARCH, contract.CODING)
+    }
     checks.append(
         _check(
             "L05_effective_worker_turns",
@@ -1271,9 +1295,7 @@ def run_checks(
     # L11 — one cell through the production runner: fixture, export, sandboxed oracle, usage
     ok, detail, evidence = _live_path_proof(scratch)
     checks.append(_check("L11_live_path_fixture_export_oracle", ok, detail, **evidence))
-    ladder_ok, ladder_detail, ladder_evidence = _ladder_from_live_evidence(
-        evidence.get("run_dir")
-    )
+    ladder_ok, ladder_detail, ladder_evidence = _ladder_from_live_evidence(evidence.get("run_dir"))
     checks.append(
         _check("X06_l1_l6_rebuilt_from_live_evidence", ladder_ok, ladder_detail, **ladder_evidence)
     )
@@ -1363,7 +1385,10 @@ def run_checks(
         (formal, canary, "formal_authority_cannot_run_canary"),
     ):
         record = _signed(
-            source_plan, scratch=history, head=head, identity=identity,
+            source_plan,
+            scratch=history,
+            head=head,
+            identity=identity,
             protocol_digest=protocol_digest,
         )
         verdict = authority.verify(
@@ -1396,8 +1421,13 @@ def run_checks(
 
     # L16..L23 — the dispatch loop, with synthetic cell results
     canary_signed = _signed(
-        canary, scratch=history, head=head, identity=identity, protocol_digest=protocol_digest,
-        cost_stop=100.0, per_cell=0.5,
+        canary,
+        scratch=history,
+        head=head,
+        identity=identity,
+        protocol_digest=protocol_digest,
+        cost_stop=100.0,
+        per_cell=0.5,
     )
     authority_path = history / "canary-approved.json"
     authority_path.write_text(json.dumps(canary_signed, indent=2) + "\n", encoding="utf-8")
@@ -1512,8 +1542,7 @@ def run_checks(
     checks.append(
         _check(
             "L21_unknown_usage_stops",
-            unknown["complete"] is False
-            and unknown["stop_reason"] == executor.STOP_UNKNOWN_USAGE,
+            unknown["complete"] is False and unknown["stop_reason"] == executor.STOP_UNKNOWN_USAGE,
             "a counter the provider did not report stops the matrix instead of being written as 0",
             stop_reason=unknown["stop_reason"],
         )
@@ -1563,9 +1592,7 @@ def run_checks(
     )
 
     # oracle environment failure stops
-    oracle_env = _run(
-        "oracle-env", {canary["cells"][0]["cell_id"]: {"behaviour": "oracle_error"}}
-    )
+    oracle_env = _run("oracle-env", {canary["cells"][0]["cell_id"]: {"behaviour": "oracle_error"}})
     checks.append(
         _check(
             "L23c_oracle_environment_failure_stops",
@@ -1577,9 +1604,7 @@ def run_checks(
     )
 
     # agent claims success, oracle says FAIL: a measured failure, not a pass and not a stop
-    oracle_fail = _run(
-        "oracle-fail", {canary["cells"][0]["cell_id"]: {"behaviour": "oracle_fail"}}
-    )
+    oracle_fail = _run("oracle-fail", {canary["cells"][0]["cell_id"]: {"behaviour": "oracle_fail"}})
     checks.append(
         _check(
             "L23d_agent_success_oracle_fail_is_measured",
@@ -1809,9 +1834,7 @@ def _closure2_isolation() -> tuple[bool, str]:
     changed = [line.strip() for line in output.splitlines() if line.strip()] if code == 0 else []
     if code != 0:
         problems.append("git diff against the baseline failed")
-    touched = [
-        path for path in changed if path.startswith(PROTECTED_PREFIXES)
-    ]
+    touched = [path for path in changed if path.startswith(PROTECTED_PREFIXES)]
     if touched:
         problems.append(f"protected paths changed: {touched}")
     code, output = _git("status", "--porcelain", "--", *PROTECTED_PREFIXES)
@@ -1851,9 +1874,7 @@ def build(scratch: Path | None = None) -> dict[str, Any]:
     captures = _all_captures()
     (STAGE_DIR / "inputs").mkdir(parents=True, exist_ok=True)
     for item in captures:
-        capture_module.write_capture(
-            item, STAGE_DIR / "inputs" / f"request-{item['arm_id']}.json"
-        )
+        capture_module.write_capture(item, STAGE_DIR / "inputs" / f"request-{item['arm_id']}.json")
     diff = capture_module.compare(captures)
     capture_module.write_capture(
         {
@@ -1917,10 +1938,15 @@ def build(scratch: Path | None = None) -> dict[str, Any]:
         "head_at_build": head,
         "executor_digest": identity["executor_digest"],
         "plans": {
-            plan["plan_id"]: {"scope": plan["scope"], "cells": plan["cells_count"],
-                              "digest": plan["digest"]}
-            for plan in (contract.scope_plan(contract.SCOPE_CANARY),
-                         contract.scope_plan(contract.SCOPE_FORMAL))
+            plan["plan_id"]: {
+                "scope": plan["scope"],
+                "cells": plan["cells_count"],
+                "digest": plan["digest"],
+            }
+            for plan in (
+                contract.scope_plan(contract.SCOPE_CANARY),
+                contract.scope_plan(contract.SCOPE_FORMAL),
+            )
         },
         "ok": all(check["ok"] for check in checks),
         "checks": checks,

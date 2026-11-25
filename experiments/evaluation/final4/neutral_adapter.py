@@ -412,11 +412,19 @@ def neutral_tool_definitions(backend: ToolBackend) -> tuple[ToolDefinition, ...]
 
 
 class NeutralEngine(AnyCode):
-    """AnyCode with its own registry/executor; no Atlas gate, ledger, context or budget."""
+    """AnyCode with its own registry/executor; no Atlas gate, ledger, context or budget.
 
-    def __init__(self, backend: ToolBackend, config: Any = None) -> None:
+    ``agent_hooks`` is the one deliberate seam: a caller may pass an upstream AnyCode turn hook (for
+    instance a shared token-budget hook) without this module importing anything from AtlasRuntime.
+    Nothing is passed by default, which is the historical behaviour.
+    """
+
+    def __init__(
+        self, backend: ToolBackend, config: Any = None, *, agent_hooks: Any = None
+    ) -> None:
         super().__init__(config)
         self.backend = backend
+        self._agent_hooks = agent_hooks
         registry = ToolRegistry()
         for tool in neutral_tool_definitions(backend):
             registry.register(tool)
@@ -427,9 +435,20 @@ class NeutralEngine(AnyCode):
         self, config: AgentConfig | dict[str, object], *, output_schema: Any = None
     ) -> Agent:
         agent_config = AgentConfig.model_validate(config) if isinstance(config, dict) else config
+        hooks: tuple[Any, ...] = ()
+        if self._agent_hooks is not None:
+            produced = (
+                self._agent_hooks(agent_config)
+                if callable(self._agent_hooks)
+                else self._agent_hooks
+            )
+            hooks = tuple(produced or ())
+        kwargs: dict[str, Any] = {"output_schema": output_schema}
+        if hooks:
+            kwargs["hooks"] = hooks
         return Agent(
             agent_config,
             self._neutral_registry,
             self._neutral_executor,
-            output_schema=output_schema,
+            **kwargs,
         )

@@ -56,7 +56,7 @@ from experiments.evaluation.sandboxed_oracle import (
 from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract, cost
 
-EXECUTOR_VERSION = "bplus-executor-1.7"
+EXECUTOR_VERSION = "bplus-executor-1.8"
 
 #: Files whose bytes *are* the executor identity. A dispatch is bound to their digests, so editing
 #: any of them invalidates an existing signature rather than silently running different code.
@@ -79,6 +79,11 @@ EXECUTOR_FILES: tuple[str, ...] = (
     # Stage C2 adds a Main decision prompt; the two prompt objects are what its cells vary.
     "experiments/stage_c2/plan.py",
     "experiments/stage_c2/prompts.py",
+    # Stage F decides which of four execution architectures a cell runs, what its evidence schema is
+    # and how the 96-cell matrix is ordered, so those bytes are part of the signed identity too.
+    "experiments/stage_f/arms.py",
+    "experiments/stage_f/plan.py",
+    "experiments/stage_f/normalize.py",
     # Stage C1-B: the worker completion contract and the failure classification are part of what a
     # cell executes, so a signature has to cover them.
     "src/atlasos/workers/catalog.py",
@@ -843,7 +848,21 @@ def audit_cell(
 
     Pure: it reads the run and the plan, writes nothing. Every integrity failure produces a stop
     code, so no cell can be reported ``PASS`` while one of its own checks failed.
+
+    A cell whose arm has no main-driven session (Stage F ``A0``/``A2``) carries Unified Cell
+    instead. That record is audited by its own schema, which is the only honest way to score a run
+    that has no Main: the alternative would be inventing session fields for it.
     """
+
+    from experiments.stage_f import normalize as stage_f_normalize
+
+    if (
+        isinstance(run.session, Mapping)
+        and run.session.get("schema_version") == stage_f_normalize.SCHEMA_VERSION
+    ):
+        from experiments.stage_f import runners as stage_f_runners
+
+        return stage_f_runners.audit_stage_f_cell(cell=cell, run=run, plan=plan)
 
     stops: list[str] = []
     checks: list[dict[str, Any]] = []
@@ -855,7 +874,16 @@ def audit_cell(
             stops.append(stop)
         return bool(ok)
 
-    arm = contract.ARMS_BY_ID[cell["arm_id"]]
+    # A Stage F cell names an execution arm, which is not in the B+ capability registry; it carries
+    # its own profile and exposure instead.
+    arm = contract.ARMS_BY_ID.get(str(cell["arm_id"]))
+    declared_profiles = list(cell.get("worker_profiles") or ())
+    expected_profile = (
+        arm.profile_id
+        if arm
+        else cell.get("worker_profile") or (declared_profiles[0] if declared_profiles else None)
+    )
+    expected_exposure = arm.exposure if arm else cell.get("worker_exposure")
     check(
         "identity_matches_plan",
         cell.get("plan_id") == plan["plan_id"] and cell.get("scope") == plan["scope"],
@@ -875,8 +903,8 @@ def audit_cell(
             "cell_id": cell["cell_id"],
             "arm_id": cell["arm_id"],
             "task_id": cell["task_id"],
-            "profile_id": arm.profile_id,
-            "exposure": arm.exposure,
+            "profile_id": expected_profile,
+            "exposure": expected_exposure,
             "checks": checks,
             "stops": stops,
             "agent_success": None,
@@ -952,26 +980,37 @@ def audit_cell(
     controls = session.get("delegation_controls") or {}
     profiles = controls.get("profiles") or {}
     exposure = (controls.get("exposure") or {}).get("level")
-    profile = profiles.get(arm.profile_id) or {}
-    check(
-        "worker_profile_matches_arm",
-        bool(profile) and profile.get("profile_id", arm.profile_id) == arm.profile_id,
-        f"offered={list(profiles)} expected={arm.profile_id}",
-        STOP_IDENTITY_MISMATCH,
-    )
-    check(
-        "exposure_matches_arm",
-        exposure == arm.exposure,
-        f"applied={exposure!r} expected={arm.exposure!r}",
-        STOP_IDENTITY_MISMATCH,
-    )
-    check(
-        "worker_turns_effective",
-        profile.get("effective_max_turns") == int(contract.BUDGET["worker_max_turns"]),
-        f"effective={profile.get('effective_max_turns')} "
-        f"expected={contract.BUDGET['worker_max_turns']}",
-        STOP_IDENTITY_MISMATCH,
-    )
+    profile = profiles.get(expected_profile or "") or {}
+    # An arm with no Atlas worker profile (the native single agent) has nothing to compare here;
+    # that is NOT_APPLICABLE, not a mismatch, and it is said out loud instead of being skipped.
+    if expected_profile is None:
+        check(
+            "worker_profile_matches_arm",
+            True,
+            "NOT_APPLICABLE: this arm runs no Atlas worker profile",
+        )
+        check("exposure_matches_arm", True, "NOT_APPLICABLE: native tool exposure")
+        check("worker_turns_effective", True, "NOT_APPLICABLE: no Atlas worker turn cap")
+    else:
+        check(
+            "worker_profile_matches_arm",
+            bool(profile) and profile.get("profile_id", expected_profile) == expected_profile,
+            f"offered={list(profiles)} expected={expected_profile}",
+            STOP_IDENTITY_MISMATCH,
+        )
+        check(
+            "exposure_matches_arm",
+            exposure == expected_exposure,
+            f"applied={exposure!r} expected={expected_exposure!r}",
+            STOP_IDENTITY_MISMATCH,
+        )
+        check(
+            "worker_turns_effective",
+            profile.get("effective_max_turns") == int(contract.BUDGET["worker_max_turns"]),
+            f"effective={profile.get('effective_max_turns')} "
+            f"expected={contract.BUDGET['worker_max_turns']}",
+            STOP_IDENTITY_MISMATCH,
+        )
 
     # usage and cost: unknown stays unknown
     usage_report = validate_usage(session.get("metrics"))
@@ -1056,7 +1095,7 @@ def audit_cell(
 
     suite = public_test_verdict(
         session.get("public_tests") if isinstance(session.get("public_tests"), Mapping) else None,
-        expected=contract.public_test_spec(contract.TASKS_BY_ID[cell["task_id"]]),
+        expected=contract.public_test_spec(task_for_cell(cell)),
     )
     acceptance = session.get("acceptance")
     # The evidence consistency the reader computed is part of the gate, not a diagnostic it drops.
@@ -1100,8 +1139,8 @@ def audit_cell(
         "cell_id": cell["cell_id"],
         "arm_id": cell["arm_id"],
         "task_id": cell["task_id"],
-        "profile_id": arm.profile_id,
-        "exposure": arm.exposure,
+        "profile_id": expected_profile,
+        "exposure": expected_exposure,
         "status": status,
         "failure_kind": kind or None,
         "agent_success": agent_success,
@@ -1407,7 +1446,10 @@ async def dispatch(
         )
 
         try:
-            run = await runner(cell, context)
+            # A Stage F plan routes every cell to the runner of its execution mode. A plan with
+            # ``execution_mode`` keeps the one live runner, so every earlier stage is unchanged.
+            cell_runner_for_cell = cell_runner or cell_runner_for(cell, fallback=runner)
+            run = await cell_runner_for_cell(cell, context)
         except asyncio.CancelledError:
             raise
         except BaseException as error:  # noqa: BLE001 - an exception is a stop, not a shrug
@@ -1620,7 +1662,9 @@ def prepare_fixture(task: Any, destination: Path) -> dict[str, Any]:
         if path.is_file() and ".git" not in path.relative_to(destination).parts
     }
     seed_digest = canonical_digest(dict(sorted(written.items())))
-    frozen = closure2_catalog.task_digests(task)["seed_digest"]
+    # The same value ``task_digests`` reports, computed directly: a Stage F task may declare one
+    # worker, and that helper also builds the multi-worker topology, which such a task cannot have.
+    frozen = canonical_digest(dict(sorted(task.seed.items())))
     return {
         "path": str(destination),
         "commit": commit,
@@ -1730,6 +1774,63 @@ def _sandbox_provider(config: RunnerConfig, root: Path) -> Any:
     )
 
 
+def task_for_cell(cell: Mapping[str, Any]) -> Any:
+    """A cell's task, from whichever catalog declares it.
+
+    The Stage B+ / C-series plans use the three frozen Closure-2 tasks; a Stage F plan uses the
+    eight-task Stage F catalog. Both are the same frozen ``Task`` dataclass, so nothing downstream
+    needs to know which one answered.
+    """
+
+    task_id = str(cell["task_id"])
+    if task_id in contract.TASKS_BY_ID:
+        return contract.TASKS_BY_ID[task_id]
+    from experiments.stage_f.tasks import TASKS_BY_ID as stage_f_tasks
+
+    if task_id in stage_f_tasks:
+        return stage_f_tasks[task_id]
+    raise KeyError(f"unknown task {task_id!r} in any catalog")
+
+
+def _delegation_for_cell(cell: Mapping[str, Any]) -> Any:
+    """The cell's own delegation switch and limits, for an arm that declares them."""
+
+    from atlasos.delegation.config import DelegationConfig
+
+    limits = (cell.get("delegation") or {}).get("limits") or {}
+    return DelegationConfig(
+        enabled=bool((cell.get("delegation") or {}).get("enabled", True)),
+        max_parallel_children=int(limits.get("max_parallel_children", 2)),
+        max_children_per_call=int(limits.get("max_children_per_call", 2)),
+        max_delegation_rounds=int(limits.get("max_delegation_rounds", 3)),
+        child_timeout_seconds=180.0,
+        child_max_turns=int(limits.get("child_max_turns", 20)),
+        result_preview_chars=int(limits.get("result_preview_chars", 900)),
+    )
+
+
+def cell_runner_for(cell: Mapping[str, Any], *, fallback: CellRunner | None = None) -> CellRunner:
+    """The runner for a cell's execution mode.
+
+    ``None`` and every main-driven mode use the goal-runtime runner, which is what every earlier
+    stage runs. Only the two non-goal topologies need their own entry, and both live in
+    ``experiments.stage_f.runners`` so this module keeps no Stage F logic.
+    """
+
+    mode = str(cell.get("execution_mode") or "main_driven")
+    if mode in ("main_driven", "atlas_direct", "atlas_dynamic"):
+        if fallback is not None:
+            return fallback
+        return live_cell_runner()
+    from experiments.stage_f import runners
+
+    if mode == "native":
+        return runners.native_cell_runner()
+    if mode == "atlas_static_dag":
+        return runners.static_dag_cell_runner()
+    raise ValueError(f"unknown execution mode {mode!r}")
+
+
 def production_goal_options(
     cell: Mapping[str, Any],
     *,
@@ -1747,15 +1848,23 @@ def production_goal_options(
     from atlasos.app.goal_sandbox import GoalSandboxOptions
     from atlasos.app.main_driven import GoalRunOptions
 
-    task = contract.TASKS_BY_ID[cell["task_id"]]
-    arm = contract.ARMS_BY_ID[cell["arm_id"]]
+    task = task_for_cell(cell)
+    arm = contract.ARMS_BY_ID.get(str(cell.get("arm_id")))
+    # A Stage F arm is an execution architecture, not a worker-capability arm: it declares its own
+    # profile and exposure on the cell and is not in the frozen B+ arm registry.
+    profile_id = arm.profile_id if arm else str(cell.get("worker_profile") or contract.CODING)
+    exposure = arm.exposure if arm else str(cell.get("worker_exposure") or "card")
     plan = config.sandbox_plan()
     return GoalRunOptions(
         goal=contract.goal_for(cell),
         runs_root=evidence_root / "agent",
         workspace_root=evidence_root / "host-workspace",
         config=atlas_config(plan),
-        delegation=contract.delegation_config(),
+        # A cell that declares its own delegation block (a Stage F execution arm) uses it; a B+ or
+        # C-series cell carries none and keeps the frozen configuration.
+        delegation=_delegation_for_cell(cell)
+        if "enabled" in (cell.get("delegation") or {})
+        else contract.delegation_config(),
         provider=config.llm_provider,
         model=contract.BUDGET["model"],
         max_turns=config.main_max_turns,
@@ -1765,9 +1874,9 @@ def production_goal_options(
         token_budget=contract.token_budget_for(cell),
         main_write_paths=tuple(task.allowed_paths),
         child_write_grants=contract.child_grants_for(cell),
-        worker_profiles=(arm.profile_id,),
-        worker_max_turns=int(contract.BUDGET["worker_max_turns"]),
-        worker_exposure=arm.exposure,
+        worker_profiles=tuple(cell.get("worker_profiles") or (profile_id,)),
+        worker_max_turns=int(cell.get("worker_max_turns") or contract.BUDGET["worker_max_turns"]),
+        worker_exposure=exposure,
         provider_factory=config.llm_factory,
         run_id=run_id,
         main_prompt=contract.main_prompt_for(cell),

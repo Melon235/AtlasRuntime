@@ -133,6 +133,7 @@ async def run_native_sample(
     provider_name: str | None = None,
     turn_timeout_seconds: int | None = None,
     task_events: list[dict[str, Any]] | None = None,
+    budget_limit_tokens: int | None = None,
 ) -> EvalRunResult:
     """Run one sample through native AnyCode inside a real OpenSandbox container.
 
@@ -311,7 +312,32 @@ async def run_native_sample(
 
         # Native semantics: upstream agent loop, DAG scheduler and tool registry. ``NeutralEngine``
         # only swaps in the registry/executor pair that executes the six tools in the container.
-        engine = NeutralEngine(backend, OrchestratorConfig(on_progress=on_progress))
+        #
+        # The optional budget hook is a *metering* seam, not an Atlas mechanism: one shared state is
+        # admitted per request, so the native arm can carry the same one-million-token cell ceiling
+        # as the Atlas arms. Nothing else from AtlasRuntime is added to this path.
+        budget_state = None
+        agent_hooks = None
+        if budget_limit_tokens:
+            from atlasos.budget import RunBudgetHook, RunBudgetState
+
+            budget_state = RunBudgetState(limit_tokens=int(budget_limit_tokens))
+            environment["budget_enforcement"] = "pre_admission_guard"
+
+            def agent_hooks(config: Any) -> list[Any]:
+                return [
+                    RunBudgetHook(
+                        budget_state,
+                        worker=str(getattr(config, "name", "native")),
+                        model=str(getattr(config, "model", model)),
+                        system_prompt=str(getattr(config, "system_prompt", "") or ""),
+                        completion_reserve=int(getattr(config, "max_tokens", 0) or 0),
+                    )
+                ]
+
+        engine = NeutralEngine(
+            backend, OrchestratorConfig(on_progress=on_progress), agent_hooks=agent_hooks
+        )
         environment_note = _environment_note(project_config.workspace_root)
         agent_configs = [
             AgentConfig(

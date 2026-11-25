@@ -1,0 +1,533 @@
+{
+  "stage": "F",
+  "design_version": "stage-f-1.0.0",
+  "master_id": "stage-f-96-manifest-v1",
+  "scope": "F_UNIFIED_96_CELL_EVALUATION",
+  "executor_version": "bplus-executor-1.8",
+  "executor_digest": "sha256:ed677d7d124f4100c590bde9d106e87532d556fbda141c9cd26bffb9b6727e18",
+  "adapter_version": "stage-f-cell-adapter/1.0",
+  "manifest_digest": "sha256:495adb9380616b87c062d7b51d1e9ac32fd8c77c6d35094edaa9c8ce87efb428",
+  "budget_digest": "sha256:fc61bc3dacc971c087fa0a61c97ac75bc31ae817cff4b3d7c3ee5bfca10def82",
+  "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+  "worker_contract_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
+  "ok": true,
+  "status": "STAGE_F_UNIFIED_96_CELL_EVALUATION_READY_FOR_LIVE_AUTHORIZATION",
+  "failed": [],
+  "checks": [
+    {
+      "check_id": "F01_task_qualification",
+      "ok": true,
+      "detail": "all eight tasks: the seed fails both suites, the reference passes both",
+      "tasks": [
+        {
+          "task_id": "closure2-pipeline-migration",
+          "family": "S",
+          "seed_public_rc": 1,
+          "seed_oracle_rc": 1,
+          "reference_public_rc": 0,
+          "reference_oracle_rc": 0,
+          "seed_files": 10,
+          "reference_files": 6,
+          "public_tests": [
+            "test_public.py"
+          ],
+          "oracle_tests": [
+            "test_hidden_pipeline.py"
+          ],
+          "deliverables": 6,
+          "workers": 3,
+          "seed_lines": 160,
+          "reference_lines": 71,
+          "qualified": true
+        },
+        {
+          "task_id": "closure2-state-machine-refactor",
+          "family": "S",
+          "seed_public_rc": 2,
+          "seed_oracle_rc": 2,
+          "reference_public_rc": 0,
+          "reference_oracle_rc": 0,
+          "seed_files": 8,
+          "reference_files": 4,
+          "public_tests": [
+            "test_public.py"
+          ],
+          "oracle_tests": [
+            "test_hidden_lifecycle.py"
+          ],
+          "deliverables": 4,
+          "workers": 2,
+          "seed_lines": 105,
+          "reference_lines": 50,
+          "qualified": true
+        },
+        {
+          "task_id": "f-p1-connector-migration",
+          "family": "P",
+          "seed_public_rc": 1,
+          "seed_oracle_rc": 1,
+          "reference_public_rc": 0,
+          "reference_oracle_rc": 0,
+          "seed_files": 10,
+          "reference_files": 4,
+          "public_tests": [
+            "test_public.py"
+          ],
+          "oracle_tests": [
+            "test_hidden_p1.py"
+          ],
+          "deliverables": 4,
+          "workers": 3,
+          "seed_lines": 136,
+          "reference_lines": 89,
+          "qualified": true
+        },
+        {
+          "task_id": "f-p2-protocol-adapter",
+          "family": "P",
+          "seed_public_rc": 1,
+          "seed_oracle_rc": 1,
+          "reference_public_rc": 0,
+          "reference_oracle_rc": 0,
+          "seed_files": 8,
+          "reference_files": 3,
+          "public_tests": [
+            "test_public.py"
+          ],
+          "oracle_tests": [
+            "test_hidden_p2.py"
+          ],
+          "deliverables": 3,
+          "workers": 3,
+          "seed_lines": 102,
+          "reference_lines": 67,
+          "qualified": true
+        },
+        {
+          "task_id": "f-x1-api-compat-audit",
+          "family": "X",
+          "seed_public_rc": 1,
+          "seed_oracle_rc": 1,
+          "reference_public_rc": 0,
+          "reference_oracle_rc": 0,
+          "seed_files": 13,
+          "reference_files": 4,
+          "public_tests": [
+            "test_public.py"
+          ],
+          "oracle_tests": [
+            "test_hidden_x1.py"
+          ],
+          "deliverables": 4,
+          "workers": 2,
+          "seed_lines": 77,
+          "reference_lines": 30,
+          "qualified": true
+        },
+        {
+          "task_id": "f-x2-distributed-diagnosis",
+          "family": "X",
+          "seed_public_rc": 1,
+          "seed_oracle_rc": 1,
+          "reference_public_rc": 0,
+          "reference_oracle_rc": 0,
+          "seed_files": 9,
+          "reference_files": 2,
+          "public_tests": [
+            "test_public.py"
+          ],
+          "oracle_tests": [
+            "test_hidden_x2.py"
+          ],
+          "deliverables": 2,
+          "workers": 2,
+          "seed_lines": 108,
+          "reference_lines": 65,
+          "qualified": true
+        },
+        {
+          "task_id": "f-c1-config-lifecycle",
+          "family": "C",
+          "seed_public_rc": 1,
+          "seed_oracle_rc": 1,
+          "reference_public_rc": 0,
+          "reference_oracle_rc": 0,
+          "seed_files": 9,
+          "reference_files": 4,
+          "public_tests": [
+            "test_public.py"
+          ],
+          "oracle_tests": [
+            "test_hidden_c1.py"
+          ],
+          "deliverables": 4,
+          "workers": 1,
+          "seed_lines": 88,
+          "reference_lines": 66,
+          "qualified": true
+        },
+        {
+          "task_id": "f-c2-scheduler-retry",
+          "family": "C",
+          "seed_public_rc": 1,
+          "seed_oracle_rc": 1,
+          "reference_public_rc": 0,
+          "reference_oracle_rc": 0,
+          "seed_files": 8,
+          "reference_files": 3,
+          "public_tests": [
+            "test_public.py"
+          ],
+          "oracle_tests": [
+            "test_hidden_c2.py"
+          ],
+          "deliverables": 3,
+          "workers": 3,
+          "seed_lines": 113,
+          "reference_lines": 84,
+          "qualified": true
+        }
+      ]
+    },
+    {
+      "check_id": "F02_arm_configuration",
+      "ok": true,
+      "detail": "A1/A3 build GoalRunOptions with 1,000,000 tokens, 40/20 turns, the frozen prompt and their own delegation switch; A0/A2 declare the same budget on the cell; the frozen 500,000 default is unchanged",
+      "arms": {
+        "A0": {
+          "execution_mode": "native",
+          "attribution": "single_agent",
+          "delegation_enabled": false,
+          "tools_visible": false,
+          "profiles": [],
+          "exposure": "native",
+          "token_budget": 1000000,
+          "main_max_turns": 40,
+          "worker_max_turns": 20,
+          "prompt_digest": null,
+          "delegation_enabled_effective": null,
+          "worker_profiles_effective": null
+        },
+        "A1": {
+          "execution_mode": "atlas_direct",
+          "attribution": "main_child",
+          "delegation_enabled": false,
+          "tools_visible": false,
+          "profiles": [
+            "coding_worker"
+          ],
+          "exposure": "card",
+          "token_budget": 1000000,
+          "main_max_turns": 40,
+          "worker_max_turns": 20,
+          "prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+          "delegation_enabled_effective": false,
+          "worker_profiles_effective": [
+            "coding_worker"
+          ]
+        },
+        "A3": {
+          "execution_mode": "atlas_dynamic",
+          "attribution": "main_child",
+          "delegation_enabled": true,
+          "tools_visible": true,
+          "profiles": [
+            "research_worker",
+            "coding_worker"
+          ],
+          "exposure": "card",
+          "token_budget": 1000000,
+          "main_max_turns": 40,
+          "worker_max_turns": 20,
+          "prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+          "delegation_enabled_effective": true,
+          "worker_profiles_effective": [
+            "research_worker",
+            "coding_worker"
+          ]
+        },
+        "A2": {
+          "execution_mode": "atlas_static_dag",
+          "attribution": "dag_all_children",
+          "delegation_enabled": false,
+          "tools_visible": false,
+          "profiles": [
+            "coding_worker"
+          ],
+          "exposure": "card",
+          "token_budget": 1000000,
+          "main_max_turns": 40,
+          "worker_max_turns": 20,
+          "prompt_digest": null,
+          "delegation_enabled_effective": null,
+          "worker_profiles_effective": null
+        }
+      },
+      "frozen_budget": 500000
+    },
+    {
+      "check_id": "F03_native_budget_hook",
+      "ok": true,
+      "detail": "NeutralEngine.build_agent attaches the shared RunBudgetHook; with an exhausted state the hook raises before the turn is admitted, so no provider request is made",
+      "refuses": {
+        "admitted_turns": 0,
+        "refused_before_request": true,
+        "limit_tokens": 1000
+      }
+    },
+    {
+      "check_id": "F04_static_dag_legality",
+      "ok": true,
+      "detail": "every decomposition is acyclic, every dependency is real, and no two concurrent nodes write the same path",
+      "tasks": {
+        "closure2-pipeline-migration": {
+          "nodes": 3,
+          "max_concurrency": 2,
+          "writes_disjoint_when_concurrent": true,
+          "dag_digest": "sha256:93264d94ab061a1c451655d02ec298265125f1cc3173994d3b056978706aa1c8"
+        },
+        "closure2-state-machine-refactor": {
+          "nodes": 2,
+          "max_concurrency": 1,
+          "writes_disjoint_when_concurrent": true,
+          "dag_digest": "sha256:033cb2dfe64d9104bbfbdd6c8d53b9f74bfba507bee59e5ac15f89fe038be0bb"
+        },
+        "f-p1-connector-migration": {
+          "nodes": 3,
+          "max_concurrency": 2,
+          "writes_disjoint_when_concurrent": true,
+          "dag_digest": "sha256:6b997e7e9bcf12c0c72276361f4e6bf1ca6cde846fdf11e5cfce6b96578f2e75"
+        },
+        "f-p2-protocol-adapter": {
+          "nodes": 3,
+          "max_concurrency": 2,
+          "writes_disjoint_when_concurrent": true,
+          "dag_digest": "sha256:1eee3897e2f6b81810f2ba39bf994609c085c50289cc69843bf69e4c73131f6a"
+        },
+        "f-x1-api-compat-audit": {
+          "nodes": 2,
+          "max_concurrency": 2,
+          "writes_disjoint_when_concurrent": true,
+          "dag_digest": "sha256:43866322c452f7e793d2aa0554f9d6c6f9aec017348f511bc500ec8e9b18af6c"
+        },
+        "f-x2-distributed-diagnosis": {
+          "nodes": 2,
+          "max_concurrency": 1,
+          "writes_disjoint_when_concurrent": true,
+          "dag_digest": "sha256:0893dc84cd10a116528c0295cc23ad3614bbf39d530554015986a0a77825b91b"
+        },
+        "f-c1-config-lifecycle": {
+          "nodes": 1,
+          "max_concurrency": 1,
+          "writes_disjoint_when_concurrent": true,
+          "dag_digest": "sha256:9655fc795e5e260120a1662ca69449b07dc0d26a69ec288d31c2aca077bf96c6"
+        },
+        "f-c2-scheduler-retry": {
+          "nodes": 3,
+          "max_concurrency": 2,
+          "writes_disjoint_when_concurrent": true,
+          "dag_digest": "sha256:5f6c46772f9343da5811f8d14c2917bcd98ea12f5c1200f2004672c12b746b64"
+        }
+      }
+    },
+    {
+      "check_id": "F05_delegation_tool_surface",
+      "ok": true,
+      "detail": "A1 runs with `DelegationConfig(enabled=False)`, so main_driven builds an empty delegation tool list; A3 enables both tools and discloses research_worker + coding_worker through the card",
+      "arms": {
+        "A1": {
+          "delegation_enabled": false,
+          "tools_visible": false,
+          "profiles": [
+            "coding_worker"
+          ],
+          "exposure": "card"
+        },
+        "A3": {
+          "delegation_enabled": true,
+          "tools_visible": true,
+          "profiles": [
+            "research_worker",
+            "coding_worker"
+          ],
+          "exposure": "card"
+        }
+      }
+    },
+    {
+      "check_id": "F06_evidence_adapters",
+      "ok": true,
+      "detail": "the native and DAG normalisers produce valid Unified Cell Evidence: no Main metrics, NOT_APPLICABLE instead of zero, the integration node recorded on its own, and the main-driven adapter reads only fields the session actually carries",
+      "sample": {
+        "A0": {
+          "primary_agent_peak_context": 900,
+          "primary_agent_cumulative_input": 1200,
+          "main_peak_context": "NOT_APPLICABLE",
+          "main_cumulative_input": "NOT_APPLICABLE",
+          "integration_node_context": "NOT_APPLICABLE",
+          "system_max_agent_context": 900,
+          "per_request_input_tokens": null
+        },
+        "A2": {
+          "primary_agent_peak_context": "NOT_APPLICABLE",
+          "primary_agent_cumulative_input": "NOT_APPLICABLE",
+          "main_peak_context": "NOT_APPLICABLE",
+          "main_cumulative_input": "NOT_APPLICABLE",
+          "integration_node_context": 1500,
+          "system_max_agent_context": 2100,
+          "per_request_input_tokens": "UNKNOWN"
+        }
+      }
+    },
+    {
+      "check_id": "F07_plan_resolution",
+      "ok": true,
+      "detail": "all three batch plans and the master manifest resolve through contract.scope_plan",
+      "batches": {
+        "stage-f-96-b1": {
+          "digest": "sha256:555af83bb6f295324c727437e99430532fa540ae735b5c36509af554f28adfc2",
+          "cells": 32,
+          "batch": 1
+        },
+        "stage-f-96-b2": {
+          "digest": "sha256:7ba96594423bacd23148509a5ec67047165161a8380b7313132a959368544fb9",
+          "cells": 32,
+          "batch": 2
+        },
+        "stage-f-96-b3": {
+          "digest": "sha256:96deb4f5137e4834be74a50de5f7c848b12258f401ab9ca676a86e881ccd860f",
+          "cells": 32,
+          "batch": 3
+        }
+      },
+      "master_digest": "sha256:e26f6fe7866d83136e48c23f70cc54e08839d27ee5ca9b7e198067943b21c8b5"
+    },
+    {
+      "check_id": "F08_offline_dispatch",
+      "ok": true,
+      "detail": "all three batches resolve, claim in a throwaway root and pass 32/32 synthetic cells",
+      "batches": {
+        "stage-f-96-b1": {
+          "complete": true,
+          "cells_planned": 32,
+          "cells_passed": 32,
+          "stop_reason": "NONE",
+          "token_stop": 32000000
+        },
+        "stage-f-96-b2": {
+          "complete": true,
+          "cells_planned": 32,
+          "cells_passed": 32,
+          "stop_reason": "NONE",
+          "token_stop": 32000000
+        },
+        "stage-f-96-b3": {
+          "complete": true,
+          "cells_planned": 32,
+          "cells_passed": 32,
+          "stop_reason": "NONE",
+          "token_stop": 32000000
+        }
+      }
+    },
+    {
+      "check_id": "F09_failure_classification",
+      "ok": true,
+      "detail": "the measured-failure classes are unchanged",
+      "normal_failure_kinds": [
+        "oracle_failed",
+        "public_tests_failed",
+        "budget_exhaustion",
+        "main_max_turns",
+        "acceptance_failed",
+        "child_failed"
+      ],
+      "stops": [
+        "COST_STOP_REACHED",
+        "TOKEN_STOP_REACHED",
+        "MODE_VIOLATION",
+        "CLAIM_CONSUMED"
+      ]
+    },
+    {
+      "check_id": "F10_history_preserved",
+      "ok": true,
+      "detail": "all six consumed claims are present, no Stage F claim exists, and the C1/C1-B/C1-C/C2 plan identities are unchanged",
+      "claims": {
+        "v1": true,
+        "v2": true,
+        "v3": true,
+        "c1": true,
+        "c1b": true,
+        "c1c": true
+      },
+      "earlier": {
+        "c1": "sha256:537508bf0fc10056987ef9342d9899008609aa9ba9c1734f7de53a3d3bc7ecd2",
+        "c1b": "sha256:d74c4d6f4634e16afedf9f42b21abfb966b8f6ac029dec4bbfc92eb1b76a284c",
+        "c1c": "sha256:4481bba2d3a0a9e0e3b7b04c5de3c851c70f1d4d03892043e23046782ab727bb",
+        "c2": "sha256:d0a4c212fda8bf76b20efd995115474b326cf78f787bd162b05c75829bc16038"
+      }
+    },
+    {
+      "check_id": "F11_pending_authorization",
+      "ok": true,
+      "detail": "all three pending records refuse to authorize; the cost fields stay null",
+      "batches": {
+        "stage-f-96-b1": {
+          "status": "PENDING_OWNER_APPROVAL",
+          "ready": false,
+          "problems": 11,
+          "cost_stop_usd": null,
+          "token_stop": 32000000
+        },
+        "stage-f-96-b2": {
+          "status": "PENDING_OWNER_APPROVAL",
+          "ready": false,
+          "problems": 11,
+          "cost_stop_usd": null,
+          "token_stop": 32000000
+        },
+        "stage-f-96-b3": {
+          "status": "PENDING_OWNER_APPROVAL",
+          "ready": false,
+          "problems": 11,
+          "cost_stop_usd": null,
+          "token_stop": 32000000
+        }
+      }
+    },
+    {
+      "check_id": "F12_matrix_invariants",
+      "ok": true,
+      "detail": "96 cells, 24 per arm, 3 per task/arm, three balanced batches, three distinct sequences per task",
+      "cells": 96
+    }
+  ],
+  "live_execution_authorized": false,
+  "real_model_calls": 0,
+  "real_sandboxes": 0,
+  "batch_plans": {
+    "stage-f-96-b1": {
+      "digest": "sha256:555af83bb6f295324c727437e99430532fa540ae735b5c36509af554f28adfc2",
+      "cells": 32
+    },
+    "stage-f-96-b2": {
+      "digest": "sha256:7ba96594423bacd23148509a5ec67047165161a8380b7313132a959368544fb9",
+      "cells": 32
+    },
+    "stage-f-96-b3": {
+      "digest": "sha256:96deb4f5137e4834be74a50de5f7c848b12258f401ab9ca676a86e881ccd860f",
+      "cells": 32
+    }
+  },
+  "qualification": {
+    "closure2-pipeline-migration": true,
+    "closure2-state-machine-refactor": true,
+    "f-p1-connector-migration": true,
+    "f-p2-protocol-adapter": true,
+    "f-x1-api-compat-audit": true,
+    "f-x2-distributed-diagnosis": true,
+    "f-c1-config-lifecycle": true,
+    "f-c2-scheduler-retry": true
+  }
+}

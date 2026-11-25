@@ -1,0 +1,665 @@
+{
+  "stage": "F",
+  "design_version": "stage-f-1.0.0",
+  "master_id": "stage-f-96-manifest-v1",
+  "scope": "F_UNIFIED_96_CELL_EVALUATION",
+  "tasks": [
+    "closure2-pipeline-migration",
+    "closure2-state-machine-refactor",
+    "f-p1-connector-migration",
+    "f-p2-protocol-adapter",
+    "f-x1-api-compat-audit",
+    "f-x2-distributed-diagnosis",
+    "f-c1-config-lifecycle",
+    "f-c2-scheduler-retry"
+  ],
+  "families": {
+    "closure2-pipeline-migration": "S",
+    "closure2-state-machine-refactor": "S",
+    "f-p1-connector-migration": "P",
+    "f-p2-protocol-adapter": "P",
+    "f-x1-api-compat-audit": "X",
+    "f-x2-distributed-diagnosis": "X",
+    "f-c1-config-lifecycle": "C",
+    "f-c2-scheduler-retry": "C"
+  },
+  "arms": [
+    {
+      "arm_id": "A0",
+      "name": "AnyCode native single agent with common sandbox and budget controls",
+      "execution_mode": "native",
+      "usage_attribution": "single_agent",
+      "delegation_enabled": false,
+      "delegation_tools_visible": false,
+      "worker_profiles": [],
+      "worker_exposure": "native",
+      "main_prompt": false,
+      "notes": "AnyCode 0.9.0 native loop and scheduler with the neutral six-tool OpenSandbox adapter; no context plane, no router, no ownership policy, no action gate. Guarded one-million-token cell budget and per-request metering are added by the evaluation adapter only."
+    },
+    {
+      "arm_id": "A1",
+      "name": "AtlasRuntime direct-only main-driven runtime",
+      "execution_mode": "atlas_direct",
+      "usage_attribution": "main_child",
+      "delegation_enabled": false,
+      "delegation_tools_visible": false,
+      "worker_profiles": [
+        "coding_worker"
+      ],
+      "worker_exposure": "card",
+      "main_prompt": true,
+      "notes": "the full goal runtime with `DelegationConfig(enabled=False)`: neither `delegate_tasks` nor `delegate.read` exists in the tool surface."
+    },
+    {
+      "arm_id": "A2",
+      "name": "AtlasRuntime static DAG",
+      "execution_mode": "atlas_static_dag",
+      "usage_attribution": "dag_all_children",
+      "delegation_enabled": false,
+      "delegation_tools_visible": false,
+      "worker_profiles": [
+        "coding_worker"
+      ],
+      "worker_exposure": "card",
+      "main_prompt": false,
+      "notes": "a human-authored decomposition frozen into the plan and executed by the AnyCode scheduler; one shared budget and one shared workspace; no Main exists."
+    },
+    {
+      "arm_id": "A3",
+      "name": "AtlasRuntime dynamic selective delegation",
+      "execution_mode": "atlas_dynamic",
+      "usage_attribution": "main_child",
+      "delegation_enabled": true,
+      "delegation_tools_visible": true,
+      "worker_profiles": [
+        "research_worker",
+        "coding_worker"
+      ],
+      "worker_exposure": "card",
+      "main_prompt": true,
+      "notes": "the same goal runtime with delegation enabled, router m.1.0, both worker profiles disclosed through the capability card."
+    }
+  ],
+  "task_facts": {
+    "closure2-pipeline-migration": {
+      "family": "S",
+      "goal_digest": "sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa",
+      "grant_digest": "sha256:0758dec7b37f85e3da4da0032707ca507cd83d029cc2589cc8e952e1cd0f12e4",
+      "static_dag_digest": "sha256:93264d94ab061a1c451655d02ec298265125f1cc3173994d3b056978706aa1c8",
+      "static_dag": [
+        {
+          "task_id": "parse",
+          "owned_paths": [
+            "pipeline/parsing.py",
+            "pipeline/normalise.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "aggregate",
+          "owned_paths": [
+            "pipeline/aggregate.py",
+            "pipeline/store.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "integrate",
+          "owned_paths": [
+            "pipeline/api.py",
+            "pipeline/report.py"
+          ],
+          "depends_on": [
+            "parse",
+            "aggregate"
+          ],
+          "max_turns": 20
+        }
+      ],
+      "deliverables": [
+        "pipeline/aggregate.py",
+        "pipeline/api.py",
+        "pipeline/normalise.py",
+        "pipeline/parsing.py",
+        "pipeline/report.py",
+        "pipeline/store.py"
+      ],
+      "public_tests": [
+        "test_public.py"
+      ],
+      "oracle_tests": [
+        "test_hidden_pipeline.py"
+      ],
+      "allowed_paths": [
+        "pipeline/**"
+      ],
+      "forbidden_paths": [
+        "test_public.py",
+        "docs/INTERFACE.md",
+        "README.md"
+      ]
+    },
+    "closure2-state-machine-refactor": {
+      "family": "S",
+      "goal_digest": "sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538",
+      "grant_digest": "sha256:5ec73b17d7cc93c4ce0ae0f6d5619a04cedcd7761c6766d3c51f8928d188f469",
+      "static_dag_digest": "sha256:033cb2dfe64d9104bbfbdd6c8d53b9f74bfba507bee59e5ac15f89fe038be0bb",
+      "static_dag": [
+        {
+          "task_id": "machine",
+          "owned_paths": [
+            "lifecycle/state.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "callers",
+          "owned_paths": [
+            "lifecycle/approval.py",
+            "lifecycle/audit.py",
+            "lifecycle/shipping.py",
+            "lifecycle/state.py"
+          ],
+          "depends_on": [
+            "machine"
+          ],
+          "max_turns": 20
+        }
+      ],
+      "deliverables": [
+        "lifecycle/approval.py",
+        "lifecycle/audit.py",
+        "lifecycle/shipping.py",
+        "lifecycle/state.py"
+      ],
+      "public_tests": [
+        "test_public.py"
+      ],
+      "oracle_tests": [
+        "test_hidden_lifecycle.py"
+      ],
+      "allowed_paths": [
+        "lifecycle/**"
+      ],
+      "forbidden_paths": [
+        "test_public.py",
+        "docs/INTERFACE.md",
+        "README.md"
+      ]
+    },
+    "f-p1-connector-migration": {
+      "family": "P",
+      "goal_digest": "sha256:a8f365f11972a9d566f3428103e06598f6a72d0f9fe6096b920279fd6aacb670",
+      "grant_digest": "sha256:a87891b6a5bb2afeb46c05457bfa092870370ea6979c13c259adcfad0b07cdbb",
+      "static_dag_digest": "sha256:6b997e7e9bcf12c0c72276361f4e6bf1ca6cde846fdf11e5cfce6b96578f2e75",
+      "static_dag": [
+        {
+          "task_id": "csv",
+          "owned_paths": [
+            "sources/csv_source.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "jsonl",
+          "owned_paths": [
+            "sources/jsonl_source.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "integrate",
+          "owned_paths": [
+            "sources/registry.py",
+            "pipeline/merge.py"
+          ],
+          "depends_on": [
+            "csv",
+            "jsonl"
+          ],
+          "max_turns": 20
+        }
+      ],
+      "deliverables": [
+        "sources/csv_source.py",
+        "sources/jsonl_source.py",
+        "sources/registry.py",
+        "pipeline/merge.py"
+      ],
+      "public_tests": [
+        "test_public.py"
+      ],
+      "oracle_tests": [
+        "test_hidden_p1.py"
+      ],
+      "allowed_paths": [
+        "sources/",
+        "pipeline/"
+      ],
+      "forbidden_paths": [
+        "docs/",
+        "test_public.py",
+        "sources/base.py",
+        ".git/"
+      ]
+    },
+    "f-p2-protocol-adapter": {
+      "family": "P",
+      "goal_digest": "sha256:5fc5b9a8e46187c428543df6f9e779169fdf50e4aeaa14c36e72bbc1a92c1b34",
+      "grant_digest": "sha256:a678e59ca2fb8b9a4a053f9e52f4869be6bcc7bba5cbaf089c091b802f7b34ed",
+      "static_dag_digest": "sha256:1eee3897e2f6b81810f2ba39bf994609c085c50289cc69843bf69e4c73131f6a",
+      "static_dag": [
+        {
+          "task_id": "frame",
+          "owned_paths": [
+            "wire/frame.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "ack",
+          "owned_paths": [
+            "wire/ack.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "dispatch",
+          "owned_paths": [
+            "wire/dispatch.py"
+          ],
+          "depends_on": [
+            "frame",
+            "ack"
+          ],
+          "max_turns": 20
+        }
+      ],
+      "deliverables": [
+        "wire/frame.py",
+        "wire/ack.py",
+        "wire/dispatch.py"
+      ],
+      "public_tests": [
+        "test_public.py"
+      ],
+      "oracle_tests": [
+        "test_hidden_p2.py"
+      ],
+      "allowed_paths": [
+        "wire/"
+      ],
+      "forbidden_paths": [
+        "docs/",
+        "test_public.py",
+        "wire/errors.py",
+        ".git/"
+      ]
+    },
+    "f-x1-api-compat-audit": {
+      "family": "X",
+      "goal_digest": "sha256:0dbe88b7534a37de6b29e36360c5f206663abd5b8f34d2b9a16bcd7472c97d8f",
+      "grant_digest": "sha256:b99b364ec48a1e5508e809a29eb1922d05d8e5aab4d21319814b856ea804717b",
+      "static_dag_digest": "sha256:43866322c452f7e793d2aa0554f9d6c6f9aec017348f511bc500ec8e9b18af6c",
+      "static_dag": [
+        {
+          "task_id": "billing",
+          "owned_paths": [
+            "billing/"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "reports",
+          "owned_paths": [
+            "reports/"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        }
+      ],
+      "deliverables": [
+        "billing/charge.py",
+        "billing/refund.py",
+        "reports/daily.py",
+        "reports/monthly.py"
+      ],
+      "public_tests": [
+        "test_public.py"
+      ],
+      "oracle_tests": [
+        "test_hidden_x1.py"
+      ],
+      "allowed_paths": [
+        "billing/",
+        "reports/"
+      ],
+      "forbidden_paths": [
+        "core/",
+        "docs/",
+        "search/",
+        "test_public.py",
+        ".git/"
+      ]
+    },
+    "f-x2-distributed-diagnosis": {
+      "family": "X",
+      "goal_digest": "sha256:a41b2ecb056679bd6aa62f0132f30eb852210550d7fb556bfe20cd0671508c26",
+      "grant_digest": "sha256:db37daff0f3dcd30c683c9c81c0c33f554a2401eb538e67d2cf9734798bfff71",
+      "static_dag_digest": "sha256:0893dc84cd10a116528c0295cc23ad3614bbf39d530554015986a0a77825b91b",
+      "static_dag": [
+        {
+          "task_id": "queue",
+          "owned_paths": [
+            "broker/"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "consumer",
+          "owned_paths": [
+            "worker/"
+          ],
+          "depends_on": [
+            "queue"
+          ],
+          "max_turns": 20
+        }
+      ],
+      "deliverables": [
+        "queue/broker.py",
+        "worker/consumer.py"
+      ],
+      "public_tests": [
+        "test_public.py"
+      ],
+      "oracle_tests": [
+        "test_hidden_x2.py"
+      ],
+      "allowed_paths": [
+        "broker/",
+        "worker/"
+      ],
+      "forbidden_paths": [
+        "diagnostics/",
+        "docs/",
+        "test_public.py",
+        ".git/"
+      ]
+    },
+    "f-c1-config-lifecycle": {
+      "family": "C",
+      "goal_digest": "sha256:ce37ab324a085efe245a724242a9e577b47eb00eb0cf053c7088aee7d9e2ad7b",
+      "grant_digest": "sha256:d472ef74859817004abf4d4d1bcd55d7ceb6cdd6a24eec49b261756f31f3204e",
+      "static_dag_digest": "sha256:9655fc795e5e260120a1662ca69449b07dc0d26a69ec288d31c2aca077bf96c6",
+      "static_dag": [
+        {
+          "task_id": "lifecycle",
+          "owned_paths": [
+            "config/loader.py",
+            "config/merge.py",
+            "config/validate.py",
+            "config/migrate.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        }
+      ],
+      "deliverables": [
+        "config/loader.py",
+        "config/merge.py",
+        "config/validate.py",
+        "config/migrate.py"
+      ],
+      "public_tests": [
+        "test_public.py"
+      ],
+      "oracle_tests": [
+        "test_hidden_c1.py"
+      ],
+      "allowed_paths": [
+        "config/"
+      ],
+      "forbidden_paths": [
+        "config/schema.py",
+        "docs/",
+        "test_public.py",
+        ".git/"
+      ]
+    },
+    "f-c2-scheduler-retry": {
+      "family": "C",
+      "goal_digest": "sha256:b7c3e46a758fea8157a2f6f05d03e2d64650b9cbb44f1ffa021a88024f653b45",
+      "grant_digest": "sha256:f69ebbe85713c9e374bfd23a6094530db2d74dc89bef0252001e4888958ce046",
+      "static_dag_digest": "sha256:5f6c46772f9343da5811f8d14c2917bcd98ea12f5c1200f2004672c12b746b64",
+      "static_dag": [
+        {
+          "task_id": "machine",
+          "owned_paths": [
+            "sched/machine.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "retry",
+          "owned_paths": [
+            "sched/retry.py"
+          ],
+          "depends_on": [],
+          "max_turns": 20
+        },
+        {
+          "task_id": "runner",
+          "owned_paths": [
+            "sched/runner.py"
+          ],
+          "depends_on": [
+            "machine",
+            "retry"
+          ],
+          "max_turns": 20
+        }
+      ],
+      "deliverables": [
+        "sched/machine.py",
+        "sched/retry.py",
+        "sched/runner.py"
+      ],
+      "public_tests": [
+        "test_public.py"
+      ],
+      "oracle_tests": [
+        "test_hidden_c2.py"
+      ],
+      "allowed_paths": [
+        "sched/"
+      ],
+      "forbidden_paths": [
+        "sched/clock.py",
+        "docs/",
+        "test_public.py",
+        ".git/"
+      ]
+    }
+  },
+  "order_seed": 20261125,
+  "task_order": [
+    "f-c1-config-lifecycle",
+    "f-x2-distributed-diagnosis",
+    "f-c2-scheduler-retry",
+    "closure2-state-machine-refactor",
+    "f-x1-api-compat-audit",
+    "f-p2-protocol-adapter",
+    "f-p1-connector-migration",
+    "closure2-pipeline-migration"
+  ],
+  "batch_task_order": {
+    "1": [
+      "f-c1-config-lifecycle",
+      "f-x2-distributed-diagnosis",
+      "f-c2-scheduler-retry",
+      "closure2-state-machine-refactor",
+      "f-x1-api-compat-audit",
+      "f-p2-protocol-adapter",
+      "f-p1-connector-migration",
+      "closure2-pipeline-migration"
+    ],
+    "2": [
+      "closure2-state-machine-refactor",
+      "f-x1-api-compat-audit",
+      "f-p2-protocol-adapter",
+      "f-p1-connector-migration",
+      "closure2-pipeline-migration",
+      "f-c1-config-lifecycle",
+      "f-x2-distributed-diagnosis",
+      "f-c2-scheduler-retry"
+    ],
+    "3": [
+      "f-p1-connector-migration",
+      "closure2-pipeline-migration",
+      "f-c1-config-lifecycle",
+      "f-x2-distributed-diagnosis",
+      "f-c2-scheduler-retry",
+      "closure2-state-machine-refactor",
+      "f-x1-api-compat-audit",
+      "f-p2-protocol-adapter"
+    ]
+  },
+  "batch_sequences": {
+    "1": {
+      "f-c1-config-lifecycle": "Q1",
+      "f-x2-distributed-diagnosis": "Q2",
+      "f-c2-scheduler-retry": "Q3",
+      "closure2-state-machine-refactor": "Q4",
+      "f-x1-api-compat-audit": "Q1",
+      "f-p2-protocol-adapter": "Q2",
+      "f-p1-connector-migration": "Q3",
+      "closure2-pipeline-migration": "Q4"
+    },
+    "2": {
+      "closure2-state-machine-refactor": "Q1",
+      "f-x1-api-compat-audit": "Q2",
+      "f-p2-protocol-adapter": "Q3",
+      "f-p1-connector-migration": "Q4",
+      "closure2-pipeline-migration": "Q1",
+      "f-c1-config-lifecycle": "Q2",
+      "f-x2-distributed-diagnosis": "Q3",
+      "f-c2-scheduler-retry": "Q4"
+    },
+    "3": {
+      "f-p1-connector-migration": "Q1",
+      "closure2-pipeline-migration": "Q2",
+      "f-c1-config-lifecycle": "Q3",
+      "f-x2-distributed-diagnosis": "Q4",
+      "f-c2-scheduler-retry": "Q1",
+      "closure2-state-machine-refactor": "Q2",
+      "f-x1-api-compat-audit": "Q3",
+      "f-p2-protocol-adapter": "Q4"
+    }
+  },
+  "sequences": {
+    "Q1": [
+      "A0",
+      "A1",
+      "A3",
+      "A2"
+    ],
+    "Q2": [
+      "A1",
+      "A2",
+      "A0",
+      "A3"
+    ],
+    "Q3": [
+      "A2",
+      "A3",
+      "A1",
+      "A0"
+    ],
+    "Q4": [
+      "A3",
+      "A0",
+      "A2",
+      "A1"
+    ]
+  },
+  "batches": [
+    {
+      "batch": 1,
+      "plan_id": "stage-f-96-b1",
+      "plan_digest": "sha256:555af83bb6f295324c727437e99430532fa540ae735b5c36509af554f28adfc2",
+      "cells": 32,
+      "token_capacity": 32000000,
+      "cost_stop_usd": 32.0
+    },
+    {
+      "batch": 2,
+      "plan_id": "stage-f-96-b2",
+      "plan_digest": "sha256:7ba96594423bacd23148509a5ec67047165161a8380b7313132a959368544fb9",
+      "cells": 32,
+      "token_capacity": 32000000,
+      "cost_stop_usd": 32.0
+    },
+    {
+      "batch": 3,
+      "plan_id": "stage-f-96-b3",
+      "plan_digest": "sha256:96deb4f5137e4834be74a50de5f7c848b12258f401ab9ca676a86e881ccd860f",
+      "cells": 32,
+      "token_capacity": 32000000,
+      "cost_stop_usd": 32.0
+    }
+  ],
+  "cells_total": 96,
+  "budget": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "main_max_turns": 40,
+    "child_max_turns": 20,
+    "worker_max_turns": 20,
+    "max_concurrent_children": 2,
+    "max_children_per_call": 2,
+    "max_delegation_rounds": 3,
+    "result_preview_chars": 900,
+    "public_test_max_calls": 4,
+    "tool_error_mode": "corrected",
+    "network": "none",
+    "cpu": 1,
+    "memory_gib": 1.0,
+    "sandbox_provider": "opensandbox",
+    "image": "atlas-uat-python:3.12",
+    "router_policy": "m.1.0",
+    "sandbox_timeout_minutes": 30,
+    "matrix_concurrency": 1,
+    "repetitions": 2,
+    "seed": 20261119,
+    "sampling_seed_supported": false,
+    "token_budget": 1000000,
+    "static_integration_max_turns": 40
+  },
+  "budget_digest": "sha256:fc61bc3dacc971c087fa0a61c97ac75bc31ae817cff4b3d7c3ee5bfca10def82",
+  "token_stop_total": 96000000,
+  "cost_stop_total": 96.0,
+  "cost_stop_candidate": {
+    "per_cell_usd": 1.0,
+    "per_batch_usd": 32.0,
+    "total_usd": 96.0,
+    "approved": false
+  },
+  "adapter_version": "stage-f-cell-adapter/1.0",
+  "executor_version": "bplus-executor-1.8",
+  "execution_contract": "sha256:242fcef58a1f8e8b54a3caa48ebff958c85536bf3d4ce56339dc4d54e2b9e36e",
+  "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
+  "worker_contract_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
+  "incomplete_counterbalance": "three repetitions cannot visit all four execution positions; each task sees three of the four quaternions",
+  "executor_digest": "sha256:ed677d7d124f4100c590bde9d106e87532d556fbda141c9cd26bffb9b6727e18"
+}

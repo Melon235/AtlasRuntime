@@ -76,6 +76,9 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 # These modules embed fixture source and oracle programs as string literals. A line inside such a
 # literal is part of a file that is materialised and hashed; re-wrapping it would change the fixture.
 "experiments/stage_benchmark/tasks/*.py" = ["E501"]
+# Same reason for the Stage F fixtures: the seed, reference and oracle are string literals whose bytes
+# are materialised and hashed, so re-wrapping a line would change the task.
+"experiments/stage_f/tasks/*.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

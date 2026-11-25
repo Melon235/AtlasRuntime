@@ -1,0 +1,31 @@
+{
+  "stage": "F",
+  "executor_version": "bplus-executor-1.8",
+  "executor_digest": "sha256:ed677d7d124f4100c590bde9d106e87532d556fbda141c9cd26bffb9b6727e18",
+  "files": {
+    "experiments/stage_b_plus/executor.py": "sha256:11638cf833de4b20da9627fe22d7d4ee9899e068eb1299f68e6d8ae2f252699d",
+    "experiments/stage_b_plus/authority.py": "sha256:76bbe86c77654593e10aa62017e6ab2661618e0211bedbf3ddd0bcd52c03cd34",
+    "experiments/stage_b_plus/contract.py": "sha256:e8177510d8fff52b090527278cb46ab47b15485a41048b10737f654b832e7125",
+    "experiments/stage_b_plus/cost.py": "sha256:fa0db30eb622c6076f9b153618fc9e7bfaf990eb422d11946102d7c74a684c28",
+    "experiments/stage_c1/plan.py": "sha256:b01723fc3117608c72196b99b57dfe3e841586fe36250babd363b0ebc1c326cd",
+    "experiments/stage_c1b/plan.py": "sha256:a461875d9e06056cf3ffaa342ad656d4165c590b67451d5989ec259f7ce99264",
+    "experiments/stage_c1b/prompts.py": "sha256:9b289e73a3b9cb23e46e65bdabc6eb7f7529c86f680fa65fd4987bdf3b56be34",
+    "experiments/stage_c1c/plan.py": "sha256:159af1f317224943f7ce560b03732986e439810376beb417a97a8275b6314e19",
+    "experiments/stage_c2/plan.py": "sha256:34fb451f6dc39e7d4d574114508b13ef3ffa0c99d176ccf7685f2ca5ff99b958",
+    "experiments/stage_c2/prompts.py": "sha256:f693fd00b2d1c02ecd39e2253ed8a60b8cc4027fbd8a011b9ae972bbfc60e365",
+    "experiments/stage_f/arms.py": "sha256:87c5ec2d1ea455585b8074109b2fef0ff645b5eb9467e74c92162f2a6a9bb3d3",
+    "experiments/stage_f/plan.py": "sha256:aaf79f55e048d1dfba6a92a32c9251f171b020e2e91a86733ded4e5042124db9",
+    "experiments/stage_f/normalize.py": "sha256:530793eac714131948b43391be2669009fdabac6e3d1c5fcdb7aeade132fd929",
+    "src/atlasos/workers/catalog.py": "sha256:f5ffb8958b7000cdcd0dd5db5950e49da94b3fa387f6b6d5fe6d7bb93966df6c",
+    "src/atlasos/app/main_driven.py": "sha256:b183f7aa4d987aa9f1128f3e115c571a41f515008201418e78da6af36a5809cb",
+    "src/atlasos/app/live_preflight.py": "sha256:861518f226e29f1baee50721daf5dbf24b1db7f1deb16e357c27a922353d46d0",
+    "src/atlasos/app/goal_verification.py": "sha256:7ee0a0bf03e9c5d49618ab117e4af5d5d25f4f5665aa5a6438048497ba1072be"
+  },
+  "adapter_version": "stage-f-cell-adapter/1.0",
+  "built_from_head": "63fdebfc334a87152e14044613158dcd6cb1647b",
+  "supersedes": {
+    "executor_version": "bplus-executor-1.7",
+    "scope": "Stage B+, C1, C1-B, C1-C and C2 plans only; their evidence is not rebuilt"
+  },
+  "note": "the shared executor moved because contract.py gained the Stage F plan entry, executor.py gained the execution-mode cell runner and the task resolver, and offline.py gained the arm fallback; the identity list also covers the Stage F adapter modules that decide what a cell runs"
+}
