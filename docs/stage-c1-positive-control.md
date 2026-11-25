@@ -26,7 +26,7 @@ signed, and no Stage B+ artefact was rebuilt.
 | baseline branch | `feat/stage-b-plus-capability` |
 | baseline HEAD | `a55e106893a6893734db6da62c0dafa1f1fa5e2f` |
 | stage branch | `feat/stage-c1-positive-control` (created from the baseline HEAD) |
-| stage commit | `0a16312` (the plan, the checks and the artefacts), then the grant-correction commit |
+| stage commits | `0a16312` (plan, checks, artefacts), `749b37e` (provenance doc), `44beeb5` (grant correction, design A) |
 | B+ history | untouched: no commit of that branch was amended, rebased or force-pushed |
 
 `experiments/stage_b_plus/` changed in exactly four places:
