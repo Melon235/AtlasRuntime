@@ -105,17 +105,19 @@ def _all_captures() -> list[dict[str, Any]]:
 # -- the real runner, used once ---------------------------------------------------------------
 
 
-def _host_control_flow_check(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
-    """One real ``run_goal`` through the dispatch runner, in host mode, with a scripted provider.
+def _live_path_proof(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
+    """One cell through the production runner: fixture, sandbox, export, sandboxed oracle.
 
-    It proves the runner builds the options the arm asks for and that a session comes back with
-    reconcilable usage. It cannot prove a cell passes: host mode has no sandbox, so the gate stops
-    any cell produced this way, and that is the correct behaviour rather than a defect to hide.
+    The model and the sandbox are fakes; every step between them is the production code, including
+    the git-staged per-cell fixture, the real ``run_goal``, the export identity check and the oracle
+    that runs in its own sandbox. The fake sandbox executes on the Host, so this proves control flow
+    and file plumbing, never isolation.
     """
 
     import asyncio
 
     from experiments.stage_b_plus import probe as probe_module
+    from tests.helpers.fake_sandbox_provider import FakeSandboxProvider
 
     cell = contract.canary_cells()[2]  # C2: coding worker, native exposure
     arm = contract.ARMS_BY_ID[cell["arm_id"]]
@@ -123,11 +125,19 @@ def _host_control_flow_check(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
         main_script=[lambda _messages: [probe_module.TextBlock(text="REPORT: nothing to do.")]],
         child_scripts={},
     )
-    runner = executor.host_cell_runner(provider_factory=lambda: scripted, max_turns=2)
+    config = executor.RunnerConfig(
+        llm_provider="fake",
+        llm_factory=lambda: scripted,
+        sandbox_provider_name="fake",
+        sandbox_factory=lambda root: FakeSandboxProvider(root),
+        require_real_sandbox=False,
+        main_max_turns=2,
+    )
+    runner = executor.live_cell_runner(config)
     context = {
         "plan": contract.scope_plan(contract.SCOPE_CANARY),
-        "runs_root": scratch / "control-flow" / "runs",
-        "evidence_root": scratch / "control-flow" / "evidence",
+        "runs_root": scratch / "live-proof" / "runs",
+        "evidence_root": scratch / "live-proof" / "evidence",
     }
     run = asyncio.run(runner(cell, context))
     session = run.session or {}
@@ -135,15 +145,28 @@ def _host_control_flow_check(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
     exposure = (controls.get("exposure") or {}).get("level")
     profiles = list(controls.get("profiles") or {})
     usage = executor.validate_usage(session.get("metrics"))
-    ok = (
+    fixture = run.fixture or {}
+    oracle = run.oracle or {}
+    export = run.export or {}
+    ok = bool(
         run.error is None
         and exposure == arm.exposure
         and profiles == [arm.profile_id]
         and usage["ok"]
+        and fixture.get("matches_frozen_seed") is True
+        and fixture.get("commit")
+        and export.get("workspace_path")
+        and export.get("workspace_digest")
+        and oracle.get("execution_mode") == "sandbox"
+        and oracle.get("status") in {"PASS", "FAIL"}
+        and oracle.get("sandbox_id")
+        and not oracle.get("cleanup_failure")
     )
     detail = (
-        f"one host-mode run_goal for {cell['cell_id']}: exposure={exposure!r} "
-        f"profiles={profiles} usage_ok={usage['ok']} status={session.get('status')!r}"
+        f"one cell through the live runner for {cell['cell_id']}: fixture_commit="
+        f"{str(fixture.get('commit'))[:8]} export_files={export.get('workspace_files')} "
+        f"oracle={oracle.get('status')} in {oracle.get('execution_mode')} "
+        f"(sandbox {oracle.get('sandbox_id')}), usage_ok={usage['ok']}"
     )
     evidence = {
         "cell_id": cell["cell_id"],
@@ -153,9 +176,134 @@ def _host_control_flow_check(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
         "effective_max_turns": (controls.get("profiles") or {}).get(arm.profile_id, {}).get(
             "effective_max_turns"
         ),
+        "fixture": {
+            "path_is_per_cell": cell["cell_id"] in str(fixture.get("path")),
+            "commit": fixture.get("commit"),
+            "seed_digest": fixture.get("seed_digest"),
+            "matches_frozen_seed": fixture.get("matches_frozen_seed"),
+            "files": fixture.get("files"),
+        },
+        "export": {
+            "workspace_files": export.get("workspace_files"),
+            "workspace_digest": export.get("workspace_digest"),
+            "patch_digest": export.get("patch_digest"),
+        },
+        "oracle": {
+            "status": oracle.get("status"),
+            "kind": oracle.get("kind"),
+            "execution_mode": oracle.get("execution_mode"),
+            "sandbox_id": oracle.get("sandbox_id"),
+            "cleanup_failure": oracle.get("cleanup_failure"),
+        },
         "usage": usage["values"] if usage["ok"] else usage["problems"],
-        "sandbox_present": bool(session.get("sandbox")),
-        "note": "host mode: no sandbox evidence, so the gate stops this cell by design",
+        "run_dir": str(run.run_dir) if run.run_dir is not None else None,
+        "note": "fake model + fake sandbox; control flow is production, isolation is not claimed",
+    }
+    return ok, detail, evidence
+
+
+def _ladder_from_live_evidence(run_dir: str | None) -> tuple[bool, str, dict[str, Any]]:
+    """Rebuild L1-L6 from a real run directory, with the Stage B analyzer, unmodified."""
+
+    from experiments.stage_benchmark import reconstruct
+
+    if not run_dir or not (Path(run_dir) / "session.json").is_file():
+        return False, "the live-proof run directory is missing", {}
+    record = reconstruct.reconstruct(Path(run_dir))
+    levels = (record.get("delegation") or {}).get("levels") or {}
+    met = levels.get("met") or {}
+    expected = {name for name, _ in contract.DELEGATION_LEVELS}
+    ok = set(met) == expected and levels.get("level_reached") is not None
+    return ok, (
+        f"the Stage B analyzer rebuilds {len(met)} levels from a live-runner run directory "
+        f"(level_reached={levels.get('level_reached')})"
+    ), {
+        "levels": sorted(met),
+        "level_reached": levels.get("level_reached"),
+        "proposals": (record.get("delegation") or {}).get("admission", {}).get("proposals"),
+    }
+
+
+def _context_metrics_from_live_evidence(
+    run_dir: str | None, *, independent_oracle: str | None = None
+) -> tuple[bool, str, dict[str, Any]]:
+    """Every Phase D counter, rebuilt from a live-runner run directory and re-validated here.
+
+    The numbers come from the Stage B analyzer, not from this module. This check asserts they are
+    *present* (an unknown counter must surface as null, so a null is a failed check and never a
+    zero), that the usage identity still holds under the executor's own validator, that a cost
+    follows from them, and that the delegation outcome is named rather than collapsed into
+    "nothing happened": ``NO_PROPOSAL`` is not a Router rejection and must not read as one.
+
+    The session's own verdict is the *in-run* verification. It is never reported as the independent
+    oracle: in Stage B+ the oracle is a second sandbox that scores the exported workspace, and its
+    verdict is passed in separately so the two cannot be read as one number.
+    """
+
+    from experiments.stage_benchmark import reconstruct
+
+    if not run_dir or not (Path(run_dir) / "session.json").is_file():
+        return False, "the live-proof run directory is missing", {}
+    record = reconstruct.reconstruct(Path(run_dir))
+    context = record.get("context") or {}
+    usage = record.get("usage") or {}
+    verification = record.get("verification") or {}
+    in_run_verification = verification.get("oracle")
+    admission = (record.get("delegation") or {}).get("admission") or {}
+    required = (
+        "main_peak_context_tokens",
+        "main_cumulative_input_tokens",
+        "main_cache_hit_tokens",
+        "main_cache_miss_tokens",
+        "child_total_prompt_tokens",
+        "completion_tokens",
+        "system_total_tokens",
+        "handoff_payload_chars",
+    )
+    missing = [name for name in required if context.get(name) is None]
+    metrics = {
+        "main_cumulative_input_tokens": usage.get("main_input_tokens"),
+        "main_completion_tokens": usage.get("main_completion_tokens"),
+        "child_total_prompt_tokens": usage.get("child_prompt_tokens"),
+        "child_completion_tokens": usage.get("child_completion_tokens"),
+        "system_total_tokens": context.get("system_total_tokens"),
+    }
+    usage_report = executor.validate_usage(metrics)
+    modeled_cost = executor.cell_cost(metrics) if usage_report["ok"] else None
+    state = str(admission.get("state") or "")
+    named_states = {"NO_PROPOSAL", "ADMITTED", "REJECTED", "ROUTER_RESULT_UNKNOWN"}
+    per_proposal = set(admission.get("by_state") or {}) - set(reconstruct.PROPOSAL_STATES)
+    ok = bool(
+        not missing
+        and usage_report["ok"]
+        and usage.get("sum_matches_system_total") is True
+        and modeled_cost is not None
+        and in_run_verification in {"PASS", "FAIL"}
+        and independent_oracle in {"PASS", "FAIL"}
+        and state in named_states
+        and not per_proposal
+        and (state == "NO_PROPOSAL") == (int(admission.get("proposals") or 0) == 0)
+    )
+    detail = (
+        f"the analyzer exposes every Phase D counter from the live-runner evidence "
+        f"(peak={context.get('main_peak_context_tokens')}, "
+        f"cache={context.get('main_cache_hit_tokens')}/{context.get('main_cache_miss_tokens')}, "
+        f"handoff={context.get('handoff_payload_chars')} chars, "
+        f"system={context.get('system_total_tokens')}, "
+        f"cost={'unknown' if modeled_cost is None else round(modeled_cost, 6)}, "
+        f"in-run verification={in_run_verification}, independent oracle={independent_oracle}, "
+        f"delegation={state})"
+    )
+    evidence = {
+        "context": dict(context),
+        "usage": dict(usage),
+        "modeled_cost_usd": None if modeled_cost is None else round(modeled_cost, 6),
+        "in_run_verification": in_run_verification,
+        "independent_oracle": independent_oracle,
+        "delegation_state": state,
+        "admission": dict(admission),
+        "missing": missing,
+        "usage_problems": usage_report["problems"],
     }
     return ok, detail, evidence
 
@@ -163,14 +311,48 @@ def _host_control_flow_check(scratch: Path) -> tuple[bool, str, dict[str, Any]]:
 # -- synthetic cells for the gate ---------------------------------------------------------------
 
 
+_FIXTURE_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def _synthetic_fixture(task: Any, destination: Path) -> dict[str, Any]:
+    """A real per-cell fixture, prepared once per task and copied, so the gate reads real bytes."""
+
+    cached = _FIXTURE_CACHE.get(task.task_id)
+    if cached is None:
+        cache_dir = destination.parent / f".seed-{task.task_id}"
+        cached = executor.prepare_fixture(task, cache_dir)
+        _FIXTURE_CACHE[task.task_id] = cached
+    executor.remove_tree(destination)
+    shutil.copytree(cached["path"], destination)
+    return dict(cached, path=str(destination))
+
+
 def _synthetic_session(
     *, cell: Mapping[str, Any], root: Path, overrides: Mapping[str, Any] | None = None
-) -> tuple[dict[str, Any], Path]:
-    """A session shaped like a real one, written to a run directory the gate can read."""
+) -> tuple[dict[str, Any], Path, dict[str, Any], dict[str, Any]]:
+    """A session shaped like a real one, with a real export and a real per-cell fixture."""
+
+    from experiments.evaluation.fixtures import workspace_digest
 
     arm = contract.ARMS_BY_ID[cell["arm_id"]]
-    run_dir = root / cell["cell_id"] / "run"
+    task = contract.TASKS_BY_ID[cell["task_id"]]
+    key = f"c{int(cell['order']):02d}"
+    cell_root = root / key
+    run_dir = cell_root / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
+    fixture = _synthetic_fixture(task, cell_root / "fixtures" / cell["cell_id"])
+    export_dir = cell_root / "export"
+    executor.remove_tree(export_dir)
+    shutil.copytree(fixture["path"], export_dir, ignore=shutil.ignore_patterns(".git"))
+    artifacts = {
+        "workspace_path": str(export_dir),
+        "workspace_digest": workspace_digest(export_dir),
+        "workspace_files": len(executor.workspace_hashes(export_dir)),
+        "patch_digest": "sha256:" + "0" * 64,
+        "patch_changed_files": 0,
+        "patch_path": str(cell_root / "workspace.patch"),
+        "workspace_size_bytes": 1024,
+    }
     metrics = {
         "main_cumulative_input_tokens": 12_000,
         "main_completion_tokens": 900,
@@ -181,24 +363,32 @@ def _synthetic_session(
         "main_cache_miss_tokens": 2_000,
     }
     session: dict[str, Any] = {
-        "run_id": f"{cell['cell_id']}-synthetic",
+        "run_id": f"bplus-{key}",
         "status": "succeeded",
         "execution_succeeded": True,
         "failure": None,
         "metrics": metrics,
+        "artifacts": artifacts,
         "sandbox": {
+            "provider": "fake",
+            "provider_is_real": False,
             "created": True,
             "destroyed": True,
             "retained": False,
             "error": None,
-            "network_probe": {"ok": True},
+            "network_probe": "PASS",
             "host_separation": {"ok": True},
+            "export_digest": artifacts["workspace_digest"],
+            "export_files": artifacts["workspace_files"],
         },
         "delegation_controls": {
             "exposure": {"level": arm.exposure},
-            "profiles": {arm.profile_id: {"profile_id": arm.profile_id,
-                                          "effective_max_turns": int(
-                                              contract.BUDGET["worker_max_turns"])}},
+            "profiles": {
+                arm.profile_id: {
+                    "profile_id": arm.profile_id,
+                    "effective_max_turns": int(contract.BUDGET["worker_max_turns"]),
+                }
+            },
         },
         "delegation": {"batches": [], "routes": []},
         "ownership": {"denied_calls": []},
@@ -214,35 +404,129 @@ def _synthetic_session(
         else:
             session[key] = value
     (run_dir / "session.json").write_text(json.dumps(session, indent=2) + "\n", encoding="utf-8")
-    return session, run_dir
+    return session, run_dir, fixture, artifacts
 
 
 class ProviderTransportError(RuntimeError):
     """Named so the gate classifies it as a provider failure rather than an unknown exception."""
 
 
+def key_of(cell: Mapping[str, Any]) -> str:
+    return f"c{int(cell['order']):02d}"
+
+
+def synthetic_cell_run(
+    cell: Mapping[str, Any],
+    root: Path,
+    *,
+    overrides: Mapping[str, Any] | None = None,
+    behaviour: str | None = None,
+) -> executor.CellRun:
+    """A complete cell result, built from real bytes, for exercising the gate."""
+
+    session, run_dir, fixture, artifacts = _synthetic_session(
+        cell=cell, root=root, overrides=overrides
+    )
+    oracle: dict[str, Any] = {
+        "status": "PASS",
+        "kind": "HIDDEN_TESTS_PASSED",
+        "passed": True,
+        "environment_failure": False,
+        "cleanup_failure": None,
+        "execution_mode": "sandbox",
+        "sandbox_id": f"oracle-{key_of(cell)}",
+    }
+    if behaviour == "oracle_error":
+        oracle = dict(oracle, status="ERROR", kind="ORACLE_TIMEOUT", passed=False,
+                      environment_failure=True)
+    if behaviour == "oracle_cleanup_failure":
+        oracle = dict(oracle, cleanup_failure="destroy refused")
+    if behaviour == "oracle_fail":
+        oracle = dict(oracle, status="FAIL", kind="HIDDEN_TESTS_FAILED", passed=False)
+    if behaviour == "corrupt_evidence":
+        (run_dir / "session.json").write_text("{ this is not json", encoding="utf-8")
+    return executor.CellRun(
+        session=session,
+        run_dir=None if behaviour == "no_evidence" else run_dir,
+        fixture_root=Path(fixture["path"]),
+        oracle=oracle,
+        duration_s=0.01,
+        fixture=fixture,
+        export=artifacts,
+        sandbox_plan=executor.sandbox_plan(require_real=False, provider_name="fake").as_dict(),
+        expected_run_id=f"bplus-{key_of(cell)}",
+    )
+
+
 def _synthetic_runner(spec: Mapping[str, Any]) -> executor.CellRunner:
     """A runner whose output the *next* cell in the plan triggers, so one dispatch can stop late."""
 
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> executor.CellRun:
-        override = (spec.get(cell["cell_id"]) or {}).get("overrides")
-        behaviour = (spec.get(cell["cell_id"]) or {}).get("behaviour")
-        root = Path(context["evidence_root"]) / "cells"
+        entry = spec.get(cell["cell_id"]) or {}
+        behaviour = entry.get("behaviour")
         if behaviour == "raise":
             raise ProviderTransportError("scripted transport failure")
-        session, run_dir = _synthetic_session(cell=cell, root=root, overrides=override)
-        oracle = {"status": "PASS", "kind": "PASS", "targets": [], "counts": {"passed": 3}}
-        if behaviour == "oracle_error":
-            oracle = {"status": "ERROR", "kind": "COLLECT_ERROR", "targets": []}
-        return executor.CellRun(
-            session=session,
-            run_dir=None if behaviour == "no_evidence" else run_dir,
-            fixture_root=root,
-            oracle=oracle,
-            duration_s=0.01,
+        return synthetic_cell_run(
+            cell,
+            Path(context["evidence_root"]) / "cells",
+            overrides=entry.get("overrides"),
+            behaviour=behaviour,
         )
 
     return run
+
+
+def _live_mode_guard(history: Path) -> tuple[bool, str]:
+    """A live dispatch must refuse an injected head, an injected runner and a moved claim root."""
+
+    import asyncio
+
+    evidence = history / "live-guard"
+    evidence.mkdir(parents=True, exist_ok=True)
+    results: dict[str, Any] = {}
+    with executor.claim_root_override(history / "claims-live-guard"):
+        head_refusal = asyncio.run(
+            executor.dispatch(
+                contract.SCOPE_CANARY,
+                runs_root=evidence / "runs",
+                evidence_root=evidence / "a",
+                head_override="0" * 40,
+                mode=executor.MODE_LIVE,
+                clock=lambda: "2026-11-25T00:00:00Z",
+            )
+        )
+        results["head"] = {
+            "stop": head_refusal.get("stop_reason"),
+            "problems": head_refusal.get("problems"),
+            "cells_started": head_refusal.get("cells_started"),
+        }
+        runner_refusal = asyncio.run(
+            executor.dispatch(
+                contract.SCOPE_CANARY,
+                runs_root=evidence / "runs",
+                evidence_root=evidence / "b",
+                cell_runner=_synthetic_runner({}),
+                mode=executor.MODE_LIVE,
+                clock=lambda: "2026-11-25T00:00:00Z",
+            )
+        )
+        results["runner"] = {
+            "stop": runner_refusal.get("stop_reason"),
+            "problems": runner_refusal.get("problems"),
+        }
+    ok = (
+        results["head"]["stop"] == executor.STOP_MODE_VIOLATION
+        and results["head"]["cells_started"] == 0
+        and any("head" in str(item) for item in results["head"]["problems"] or [])
+        and any("claim" in str(item) for item in results["head"]["problems"] or [])
+        and results["runner"]["stop"] == executor.STOP_MODE_VIOLATION
+        and any("runner" in str(item) for item in results["runner"]["problems"] or [])
+    )
+    detail = (
+        "a live dispatch refuses an injected head and refuses to run an injected runner; the claim "
+        "root override is also reported as a violation"
+    )
+    return ok, detail
 
 
 def _signed(
@@ -470,9 +754,27 @@ def run_checks(
         )
     )
 
-    # L11 — the runner builds what the arm asks for, and the usage reconciles
-    ok, detail, evidence = _host_control_flow_check(scratch)
-    checks.append(_check("L11_usage_reconciles_main_and_worker", ok, detail, **evidence))
+    # L11 — one cell through the production runner: fixture, export, sandboxed oracle, usage
+    ok, detail, evidence = _live_path_proof(scratch)
+    checks.append(_check("L11_live_path_fixture_export_oracle", ok, detail, **evidence))
+    ladder_ok, ladder_detail, ladder_evidence = _ladder_from_live_evidence(
+        evidence.get("run_dir")
+    )
+    checks.append(
+        _check("X06_l1_l6_rebuilt_from_live_evidence", ladder_ok, ladder_detail, **ladder_evidence)
+    )
+    metrics_ok, metrics_detail, metrics_evidence = _context_metrics_from_live_evidence(
+        evidence.get("run_dir"),
+        independent_oracle=(evidence.get("oracle") or {}).get("status"),
+    )
+    checks.append(
+        _check(
+            "X07_context_metrics_rebuilt_from_live_evidence",
+            metrics_ok,
+            metrics_detail,
+            **metrics_evidence,
+        )
+    )
 
     # L12 — an unsigned record refuses
     pending = authority.pending_record(
@@ -575,13 +877,23 @@ def run_checks(
     authority_path = history / "canary-approved.json"
     authority_path.write_text(json.dumps(canary_signed, indent=2) + "\n", encoding="utf-8")
 
-    def _run(root: str, spec: Mapping[str, Any], *, stop: float = 100.0) -> dict[str, Any]:
+    def _run(
+        root: str,
+        spec: Mapping[str, Any],
+        *,
+        stop: float = 100.0,
+        per_cell: float | None = None,
+    ) -> dict[str, Any]:
         record = dict(
-            canary_signed, cost_stop_usd=stop, per_cell_cost_stop_usd=min(0.5, stop)
+            canary_signed,
+            cost_stop_usd=stop,
+            per_cell_cost_stop_usd=min(0.5, stop) if per_cell is None else per_cell,
         )
         path = history / f"{root}-authority.json"
         path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-        return _dispatch(contract.SCOPE_CANARY, path, history / root, spec)
+        return _dispatch(
+            contract.SCOPE_CANARY, path, history / root, spec, claim_dir=history / f"claims-{root}"
+        )
 
     # a clean run reaches the end
     clean = _run("clean", {}, stop=100.0)
@@ -594,15 +906,21 @@ def run_checks(
         )
     )
 
-    # a consumed claim refuses to start again
-    again = _dispatch(contract.SCOPE_CANARY, authority_path, history / "clean", {})
+    # the claim is global: a different evidence root and a different runs root still refuse
+    again = _dispatch(
+        contract.SCOPE_CANARY,
+        authority_path,
+        history / "clean-elsewhere",
+        {},
+        claim_dir=history / "claims-clean",
+    )
     checks.append(
         _check(
             "L17_consumed_claim_refuses",
             again.get("refused") is True
             and any("claim" in item for item in again.get("problems", []))
             and again["cells_started"] == 0,
-            "a second dispatch on the same evidence root is refused before any cell starts",
+            "a second dispatch on a different evidence root is refused: the claim is per plan",
             problems=again.get("problems"),
         )
     )
@@ -688,25 +1006,149 @@ def run_checks(
         )
     )
 
-    # cost stop prevents the next cell
+    # the per-cell stop is inclusive: exactly one cell's cost already stops the matrix
+    one_cell_cost = next(
+        cell["delta_cost_usd"] for cell in clean["cells"] if cell["delta_cost_usd"] is not None
+    )
+    exact = _run("cost-exact", {}, stop=100.0, per_cell=one_cell_cost)
+    checks.append(
+        _check(
+            "L23_per_cell_cost_stop_is_inclusive",
+            one_cell_cost > 0
+            and exact["cells_started"] == 1
+            and exact["stop_reason"] == executor.STOP_COST_REACHED,
+            f"a per-cell stop of exactly {one_cell_cost:.6f} ends the matrix after one cell",
+            one_cell_cost=one_cell_cost,
+            stop_reason=exact["stop_reason"],
+        )
+    )
+
+    # oracle cleanup failure stops
+    oracle_cleanup = _run(
+        "oracle-cleanup", {canary["cells"][0]["cell_id"]: {"behaviour": "oracle_cleanup_failure"}}
+    )
+    checks.append(
+        _check(
+            "L23b_oracle_cleanup_failure_stops",
+            oracle_cleanup["complete"] is False
+            and oracle_cleanup["stop_reason"] == executor.STOP_ORACLE_CLEANUP,
+            "a retained oracle sandbox stops dispatch",
+            stop_reason=oracle_cleanup["stop_reason"],
+        )
+    )
+
+    # oracle environment failure stops
+    oracle_env = _run(
+        "oracle-env", {canary["cells"][0]["cell_id"]: {"behaviour": "oracle_error"}}
+    )
+    checks.append(
+        _check(
+            "L23c_oracle_environment_failure_stops",
+            oracle_env["complete"] is False
+            and oracle_env["stop_reason"] == executor.STOP_ORACLE_ENVIRONMENT,
+            "an oracle that cannot produce a verdict stops dispatch",
+            stop_reason=oracle_env["stop_reason"],
+        )
+    )
+
+    # agent claims success, oracle says FAIL: a measured failure, not a pass and not a stop
+    oracle_fail = _run(
+        "oracle-fail", {canary["cells"][0]["cell_id"]: {"behaviour": "oracle_fail"}}
+    )
+    checks.append(
+        _check(
+            "L23d_agent_success_oracle_fail_is_measured",
+            oracle_fail["complete"] is True
+            and oracle_fail["cells"][0]["agent_success"] is True
+            and oracle_fail["cells"][0]["oracle_passed"] is False
+            and oracle_fail["cells"][0]["goal_correctness"] is False
+            and oracle_fail["cells"][0]["executor_verdict"] == "MEASURED_FAILURE",
+            "the independent oracle decides: an agent that claims success is not scored PASS",
+            cell=oracle_fail["cells"][0]["executor_verdict"],
+        )
+    )
+
+    # a worker turn cap that does not match the arm stops immediately
+    cap = _run(
+        "cap",
+        {
+            canary["cells"][0]["cell_id"]: {
+                "overrides": {
+                    "delegation_controls": {
+                        "profiles": {contract.RESEARCH: {"effective_max_turns": 6}}
+                    }
+                }
+            }
+        },
+    )
+    checks.append(
+        _check(
+            "L23e_worker_cap_mismatch_stops",
+            cap["complete"] is False
+            and cap["stop_reason"] == executor.STOP_IDENTITY_MISMATCH
+            and cap["cells_started"] == 1,
+            "an effective worker cap of 6 instead of 20 stops the matrix",
+            stop_reason=cap["stop_reason"],
+        )
+    )
+
+    # cumulative cost stop prevents the next cell
     throttled = _run("cost", {}, stop=0.000001)
     checks.append(
         _check(
-            "L23_cost_stop_stops_dispatch",
+            "L24_cost_stop_stops_dispatch",
             throttled["complete"] is False
             and throttled["stop_reason"] == executor.STOP_COST_REACHED
             and throttled["cells_started"] == 1,
-            "a cost stop below one cell's cost ends the matrix after that cell",
+            "a cumulative stop below one cell's cost ends the matrix after that cell",
             stop_reason=throttled["stop_reason"],
             started=throttled["cells_started"],
         )
     )
 
-    # L24 — a canary cell never enters a formal aggregate
+    # unknown consumption is never filled with zero
+    unknown_cost = _run(
+        "unknown-cost",
+        {
+            canary["cells"][0]["cell_id"]: {
+                "overrides": {"metrics": {"child_completion_tokens": None}}
+            }
+        },
+    )
+    checks.append(
+        _check(
+            "L24b_unknown_cost_is_not_zero",
+            unknown_cost["cells"][0]["cost_usd"] is None
+            and unknown_cost["cells"][0]["delta_cost_usd"] is None
+            and unknown_cost["total_cost_usd"] is None
+            and unknown_cost["observed_cost_floor_usd"] == 0.0
+            and unknown_cost["usage_completeness"] == "UNKNOWN",
+            "an unmeasurable cell leaves the cost unknown and reports only an observed floor",
+            cell=unknown_cost["cells"][0],
+        )
+    )
+
+    # a corrupted session.json stops rather than scoring a pass
+    corrupt = _run("corrupt", {canary["cells"][0]["cell_id"]: {"behaviour": "corrupt_evidence"}})
+    checks.append(
+        _check(
+            "L24c_corrupt_session_stops",
+            corrupt["complete"] is False
+            and corrupt["stop_reason"] == executor.STOP_MISSING_EVIDENCE,
+            "an empty or unparseable session.json stops dispatch",
+            stop_reason=corrupt["stop_reason"],
+        )
+    )
+
+    # a live dispatch cannot be given a head, a claim root or an injected runner
+    live_guard = _live_mode_guard(history)
+    checks.append(_check("L24d_live_mode_refuses_injection", live_guard[0], live_guard[1]))
+
+    # L25 — a canary cell never enters a formal aggregate
     canary_report = _read_json(history / "clean" / "matrix-report.json") or {}
     checks.append(
         _check(
-            "L24_canary_excluded_from_formal_aggregate",
+            "L25_canary_excluded_from_formal_aggregate",
             canary_report.get("is_benchmark_sample") is False
             and canary_report.get("aggregate_includes_sample") is False
             and all(
@@ -751,22 +1193,30 @@ def run_checks(
 
 
 def _dispatch(
-    plan_id: str, authority_path: Path, evidence: Path, spec: Mapping[str, Any]
+    plan_id: str,
+    authority_path: Path,
+    evidence: Path,
+    spec: Mapping[str, Any],
+    *,
+    claim_dir: Path,
 ) -> dict[str, Any]:
+    """Run one offline proof. A per-check claim root is what makes the proofs repeatable."""
+
     import asyncio
 
-    return asyncio.run(
-        executor.dispatch(
-            plan_id,
-            runs_root=evidence / "runs",
-            evidence_root=evidence,
-            authority_path=authority_path,
-            head=executor.git_head(),
-            cell_runner=_synthetic_runner(spec),
-            repo_root=REPO_ROOT,
-            clock=lambda: "2026-11-25T00:00:00Z",
+    with executor.claim_root_override(claim_dir):
+        return asyncio.run(
+            executor.dispatch(
+                plan_id,
+                runs_root=evidence / "runs",
+                evidence_root=evidence,
+                authority_path=authority_path,
+                cell_runner=_synthetic_runner(spec),
+                repo_root=REPO_ROOT,
+                mode=executor.MODE_OFFLINE_PROOF,
+                clock=lambda: "2026-11-25T00:00:00Z",
+            )
         )
-    )
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -919,8 +1369,7 @@ def build(scratch: Path | None = None) -> dict[str, Any]:
     # The dispatch checks are one-shot by design, so each build starts from an empty work area.
     # Only this stage's own subdirectory is removed, never the caller's directory.
     work_root = base / "work"
-    if work_root.exists():
-        shutil.rmtree(work_root)
+    executor.remove_tree(work_root)
     work_root.mkdir(parents=True, exist_ok=True)
     checks = run_checks(
         document,

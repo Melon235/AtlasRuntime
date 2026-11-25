@@ -2,8 +2,8 @@
   "stage": "B+",
   "protocol_version": "bplus-2.0.0",
   "protocol_digest": "sha256:c7dad972f4882e5808dbcaa47f4b4532e101f7e2e44d9e1c90e0eb2c14620067",
-  "head_at_build": "542c1c4a76937ca24088ebfd87e2ec451e4ddde2",
-  "executor_digest": "sha256:917d95e46b1575bb6da44427c43b48f68ee8af1ded59e3662758efa951f49590",
+  "head_at_build": "84343757fe4cf9590667d9c33871a80bfa23eaa3",
+  "executor_digest": "sha256:4826d81acf1df64fa9754ba8f85fdf34600ff9ea4096fec8dc08b7f0ee138c73",
   "plans": {
     "stage-b-plus-diagnostic-canary-v1": {
       "scope": "CANARY_ONLY",
@@ -324,9 +324,9 @@
       "detail": "the Main edited after the handoff"
     },
     {
-      "check_id": "L11_usage_reconciles_main_and_worker",
+      "check_id": "L11_live_path_fixture_export_oracle",
       "ok": true,
-      "detail": "one host-mode run_goal for canary.closure2-pipeline-migration.C2.r1: exposure='native' profiles=['coding_worker'] usage_ok=True status='succeeded'",
+      "detail": "one cell through the live runner for canary.closure2-pipeline-migration.C2.r1: fixture_commit=f2faa39d export_files=10 oracle=FAIL in sandbox (sandbox sandbox-1), usage_ok=True",
       "cell_id": "canary.closure2-pipeline-migration.C2.r1",
       "arm": {
         "profile": "coding_worker",
@@ -337,6 +337,25 @@
         "coding_worker"
       ],
       "effective_max_turns": 20,
+      "fixture": {
+        "path_is_per_cell": true,
+        "commit": "f2faa39d85c348c535cfc4bb3e1272b44ff292b9",
+        "seed_digest": "f9378c44a0ee564962e0a56ac7172ad616904d098fbc8dabb0806c4cdbbef515",
+        "matches_frozen_seed": true,
+        "files": 10
+      },
+      "export": {
+        "workspace_files": 10,
+        "workspace_digest": "sha256:a86dc5ae04d353301a901d7a03ac20d84abfc2b2ce581d6df4b199a77dc41ee4",
+        "patch_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "oracle": {
+        "status": "FAIL",
+        "kind": "HIDDEN_TESTS_FAILED",
+        "execution_mode": "sandbox",
+        "sandbox_id": "sandbox-1",
+        "cleanup_failure": null
+      },
       "usage": {
         "main_cumulative_input_tokens": 10,
         "main_completion_tokens": 5,
@@ -344,8 +363,71 @@
         "child_completion_tokens": 0,
         "system_total_tokens": 15
       },
-      "sandbox_present": false,
-      "note": "host mode: no sandbox evidence, so the gate stops this cell by design"
+      "run_dir": "D:\\Work\\AtlasRuntime-scratch\\ddc01-offline\\work\\live-proof\\evidence\\cells\\c03\\agent\\bplus-c03",
+      "note": "fake model + fake sandbox; control flow is production, isolation is not claimed"
+    },
+    {
+      "check_id": "X06_l1_l6_rebuilt_from_live_evidence",
+      "ok": true,
+      "detail": "the Stage B analyzer rebuilds 6 levels from a live-runner run directory (level_reached=0)",
+      "levels": [
+        "L1_proposal",
+        "L2_admission",
+        "L3_worker_completion",
+        "L4_handoff_delivery",
+        "L5_main_continuation",
+        "L6_goal_correctness"
+      ],
+      "level_reached": 0,
+      "proposals": 0
+    },
+    {
+      "check_id": "X07_context_metrics_rebuilt_from_live_evidence",
+      "ok": true,
+      "detail": "the analyzer exposes every Phase D counter from the live-runner evidence (peak=10, cache=0/10, handoff=0 chars, system=15, cost=9e-06, in-run verification=PASS, independent oracle=FAIL, delegation=NO_PROPOSAL)",
+      "context": {
+        "main_peak_context_tokens": 10,
+        "main_cumulative_input_tokens": 10,
+        "main_cache_hit_tokens": 0,
+        "main_cache_miss_tokens": 10,
+        "child_total_prompt_tokens": 0,
+        "completion_tokens": 5,
+        "system_total_tokens": 15,
+        "handoff_payload_chars": 0,
+        "wall_clock_seconds": null
+      },
+      "usage": {
+        "main_prompt_hit_tokens": 0,
+        "main_prompt_miss_tokens": 10,
+        "child_prompt_tokens": 0,
+        "main_completion_tokens": 5,
+        "child_completion_tokens": 0,
+        "main_input_tokens": 10,
+        "child_input_tokens": 0,
+        "cache_split_state": "COMPLETE",
+        "child_cache_visibility": "UNKNOWN",
+        "sum_matches_system_total": true
+      },
+      "modeled_cost_usd": 9e-06,
+      "in_run_verification": "PASS",
+      "independent_oracle": "FAIL",
+      "delegation_state": "NO_PROPOSAL",
+      "admission": {
+        "proposals": 0,
+        "admitted": 0,
+        "rejected": 0,
+        "unknown": 0,
+        "by_state": {
+          "NO_PROPOSAL": 0,
+          "PROPOSAL_REJECTED": 0,
+          "DELEGATE_ONE_ADMITTED": 0,
+          "DELEGATE_PARALLEL_ADMITTED": 0,
+          "ROUTER_RESULT_UNKNOWN": 0
+        },
+        "state": "NO_PROPOSAL"
+      },
+      "missing": [],
+      "usage_problems": []
     },
     {
       "check_id": "L12_pending_authorization_refuses",
@@ -358,8 +440,8 @@
         "approved_at is empty",
         "owner_statement is empty",
         "approval_provenance is empty",
-        "reviewed_head is None, actual head is '542c1c4a76937ca24088ebfd87e2ec451e4ddde2'",
-        "execution_head is None, actual head is '542c1c4a76937ca24088ebfd87e2ec451e4ddde2'",
+        "reviewed_head is None, actual head is '84343757fe4cf9590667d9c33871a80bfa23eaa3'",
+        "execution_head is None, actual head is '84343757fe4cf9590667d9c33871a80bfa23eaa3'",
         "cost_stop_usd is None; it must be finite and positive",
         "per_cell_cost_stop_usd is None; it must be finite and positive",
         "approval_provenance is empty"
@@ -370,8 +452,8 @@
       "ok": true,
       "detail": "a signed canary record is refused when the head or the plan digest moves",
       "head_problems": [
-        "reviewed_head is '542c1c4a76937ca24088ebfd87e2ec451e4ddde2', actual head is '0000000000000000000000000000000000000000'",
-        "execution_head is '542c1c4a76937ca24088ebfd87e2ec451e4ddde2', actual head is '0000000000000000000000000000000000000000'"
+        "reviewed_head is '84343757fe4cf9590667d9c33871a80bfa23eaa3', actual head is '0000000000000000000000000000000000000000'",
+        "execution_head is '84343757fe4cf9590667d9c33871a80bfa23eaa3', actual head is '0000000000000000000000000000000000000000'"
       ],
       "digest_problems": [
         "plan_digest is 'sha256:0000000000000000000000000000000000000000000000000000000000000000', expected 'sha256:7ae71273eea29f489edc657ada9a26c834e178289ac6744807350d674dc53575'"
@@ -424,7 +506,7 @@
     {
       "check_id": "L17_consumed_claim_refuses",
       "ok": true,
-      "detail": "a second dispatch on the same evidence root is refused before any cell starts",
+      "detail": "a second dispatch on a different evidence root is refused: the claim is per plan",
       "problems": [
         "the dispatch claim for this plan is already consumed"
       ]
@@ -461,14 +543,168 @@
       "stop_reason": "MISSING_OR_CORRUPT_EVIDENCE"
     },
     {
-      "check_id": "L23_cost_stop_stops_dispatch",
+      "check_id": "L23_per_cell_cost_stop_is_inclusive",
       "ok": true,
-      "detail": "a cost stop below one cell's cost ends the matrix after that cell",
+      "detail": "a per-cell stop of exactly 0.003420 ends the matrix after one cell",
+      "one_cell_cost": 0.00342,
+      "stop_reason": "COST_STOP_REACHED"
+    },
+    {
+      "check_id": "L23b_oracle_cleanup_failure_stops",
+      "ok": true,
+      "detail": "a retained oracle sandbox stops dispatch",
+      "stop_reason": "ORACLE_CLEANUP_FAILURE"
+    },
+    {
+      "check_id": "L23c_oracle_environment_failure_stops",
+      "ok": true,
+      "detail": "an oracle that cannot produce a verdict stops dispatch",
+      "stop_reason": "ORACLE_ENVIRONMENT_FAILURE"
+    },
+    {
+      "check_id": "L23d_agent_success_oracle_fail_is_measured",
+      "ok": true,
+      "detail": "the independent oracle decides: an agent that claims success is not scored PASS",
+      "cell": "MEASURED_FAILURE"
+    },
+    {
+      "check_id": "L23e_worker_cap_mismatch_stops",
+      "ok": true,
+      "detail": "an effective worker cap of 6 instead of 20 stops the matrix",
+      "stop_reason": "IDENTITY_MISMATCH"
+    },
+    {
+      "check_id": "L24_cost_stop_stops_dispatch",
+      "ok": true,
+      "detail": "a cumulative stop below one cell's cost ends the matrix after that cell",
       "stop_reason": "COST_STOP_REACHED",
       "started": 1
     },
     {
-      "check_id": "L24_canary_excluded_from_formal_aggregate",
+      "check_id": "L24b_unknown_cost_is_not_zero",
+      "ok": true,
+      "detail": "an unmeasurable cell leaves the cost unknown and reports only an observed floor",
+      "cell": {
+        "cell_id": "canary.closure2-pipeline-migration.C0.r1",
+        "arm_id": "C0",
+        "task_id": "closure2-pipeline-migration",
+        "profile_id": "research_worker",
+        "exposure": "native",
+        "status": "succeeded",
+        "failure_kind": null,
+        "agent_success": true,
+        "oracle_passed": true,
+        "oracle_status": "PASS",
+        "goal_correctness": true,
+        "execution_integrity": "FAIL",
+        "executor_verdict": "STOPPED",
+        "checks": [
+          {
+            "check": "identity_matches_plan",
+            "ok": true,
+            "detail": "cell says stage-b-plus-diagnostic-canary-v1/CANARY_ONLY"
+          },
+          {
+            "check": "execution_returned",
+            "ok": true,
+            "detail": "status=succeeded"
+          },
+          {
+            "check": "runtime_status_known",
+            "ok": true,
+            "detail": "succeeded"
+          },
+          {
+            "check": "sandbox_lifecycle",
+            "ok": true,
+            "detail": "created, exported and destroyed"
+          },
+          {
+            "check": "sandbox_isolation",
+            "ok": true,
+            "detail": "network none and host separation demonstrated"
+          },
+          {
+            "check": "sandbox_matches_contract",
+            "ok": true,
+            "detail": "cpu/memory/image/network/timeout as frozen"
+          },
+          {
+            "check": "fixture_valid",
+            "ok": true,
+            "detail": "per-cell clean repository, seed digest matches"
+          },
+          {
+            "check": "export_valid",
+            "ok": true,
+            "detail": "workspace_path exists and matches its digest"
+          },
+          {
+            "check": "worker_profile_matches_arm",
+            "ok": true,
+            "detail": "offered=['research_worker'] expected=research_worker"
+          },
+          {
+            "check": "exposure_matches_arm",
+            "ok": true,
+            "detail": "applied='native' expected='native'"
+          },
+          {
+            "check": "worker_turns_effective",
+            "ok": true,
+            "detail": "effective=20 expected=20"
+          },
+          {
+            "check": "usage_is_complete",
+            "ok": false,
+            "detail": "child_completion_tokens was not reported"
+          },
+          {
+            "check": "run_evidence_present",
+            "ok": true,
+            "detail": "session.json names bplus-c01"
+          },
+          {
+            "check": "oracle_cleanup",
+            "ok": true,
+            "detail": "the oracle sandbox was destroyed"
+          },
+          {
+            "check": "oracle_verdict",
+            "ok": true,
+            "detail": "independent oracle PASS"
+          }
+        ],
+        "stops": [
+          "UNKNOWN_OR_ILLEGAL_USAGE"
+        ],
+        "usage": {
+          "main_cumulative_input_tokens": 12000,
+          "main_completion_tokens": 900,
+          "child_total_prompt_tokens": 4000,
+          "child_completion_tokens": null,
+          "system_total_tokens": 17300
+        },
+        "delta_cost_usd": null,
+        "cost_usd": null,
+        "verdict": "STOPPED",
+        "duration_s": 0.01,
+        "notes": []
+      }
+    },
+    {
+      "check_id": "L24c_corrupt_session_stops",
+      "ok": true,
+      "detail": "an empty or unparseable session.json stops dispatch",
+      "stop_reason": "MISSING_OR_CORRUPT_EVIDENCE"
+    },
+    {
+      "check_id": "L24d_live_mode_refuses_injection",
+      "ok": true,
+      "detail": "a live dispatch refuses an injected head and refuses to run an injected runner; the claim root override is also reported as a violation"
+    },
+    {
+      "check_id": "L25_canary_excluded_from_formal_aggregate",
       "ok": true,
       "detail": "canary cells are marked as such and the report refuses to aggregate them",
       "report_flag": false
@@ -492,18 +728,18 @@
     {
       "check_id": "X04_closure2_untouched",
       "ok": true,
-      "detail": "27 files changed since e0bc2cc, none of them protected"
+      "detail": "37 files changed since e0bc2cc, none of them protected"
     },
     {
       "check_id": "X05_executor_identity_is_derived",
       "ok": true,
       "detail": "the executor digest covers every file whose bytes decide what runs",
-      "executor_digest": "sha256:917d95e46b1575bb6da44427c43b48f68ee8af1ded59e3662758efa951f49590"
+      "executor_digest": "sha256:4826d81acf1df64fa9754ba8f85fdf34600ff9ea4096fec8dc08b7f0ee138c73"
     }
   ],
   "summary": {
-    "total": 29,
-    "passed": 29,
+    "total": 39,
+    "passed": 39,
     "failed": []
   },
   "live_execution_authorized": false,

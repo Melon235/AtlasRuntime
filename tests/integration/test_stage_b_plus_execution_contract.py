@@ -15,11 +15,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 import pytest
-from experiments.stage_b_plus import authority, contract, executor, offline
+from experiments.stage_b_plus import authority, contract, executor, offline, probe
+from tests.helpers.fake_sandbox_provider import FakeSandboxProvider
+
+
+def _fake_provider(root: Path) -> FakeSandboxProvider:
+    return FakeSandboxProvider(root)
 
 
 def _plan(scope: str) -> dict[str, Any]:
@@ -255,19 +262,29 @@ def test_an_approval_cannot_name_the_head_it_lives_in() -> None:
 # -- dispatch -----------------------------------------------------------------------------------
 
 
-def _dispatch(evidence: Path, authority_path: Path | None, runner: Any) -> dict[str, Any]:
-    return asyncio.run(
-        executor.dispatch(
-            contract.SCOPE_CANARY,
-            runs_root=evidence / "runs",
-            evidence_root=evidence,
-            authority_path=authority_path,
-            head=executor.git_head(),
-            cell_runner=runner,
-            repo_root=contract.REPO_ROOT,
-            clock=lambda: "2026-11-25T00:00:00Z",
+def _dispatch(
+    evidence: Path,
+    authority_path: Path | None,
+    runner: Any,
+    *,
+    claim_dir: Path | None = None,
+    mode: str = executor.MODE_OFFLINE_PROOF,
+    head_override: str | None = None,
+) -> dict[str, Any]:
+    with executor.claim_root_override(claim_dir or evidence / "claims"):
+        return asyncio.run(
+            executor.dispatch(
+                contract.SCOPE_CANARY,
+                runs_root=evidence / "runs",
+                evidence_root=evidence,
+                authority_path=authority_path,
+                cell_runner=runner,
+                repo_root=contract.REPO_ROOT,
+                mode=mode,
+                head_override=head_override,
+                clock=lambda: "2026-11-25T00:00:00Z",
+            )
         )
-    )
 
 
 def test_dispatch_without_authority_starts_nothing(tmp_path: Path) -> None:
@@ -290,13 +307,19 @@ def test_a_clean_dispatch_runs_every_cell(tmp_path: Path) -> None:
     assert report["stop_reason"] == executor.STOP_NONE
     assert report["is_benchmark_sample"] is False
     assert report["aggregate_includes_sample"] is False
-    # the claim and every attempt marker exist exactly once
-    assert (evidence / "dispatch.claim").is_file()
+    # the claim is global, not under the evidence root; every attempt marker exists exactly once
+    assert not (evidence / "dispatch.claim").exists()
+    claim = evidence / "claims" / f"{_plan(contract.SCOPE_CANARY)['digest'].split(':')[1]}.claim"
+    assert claim.is_file()
+    assert report["claim_path"] == str(claim)
     assert len(list((evidence / "cells").glob("*/attempt.json"))) == 6
 
-    again = _dispatch(evidence, path, offline._synthetic_runner({}))
+    # a different evidence root, the same claim: refused before any cell starts
+    again = _dispatch(evidence / "elsewhere", path, offline._synthetic_runner({}),
+                      claim_dir=evidence / "claims")
     assert again["refused"] is True
     assert again["cells_started"] == 0
+    assert again["stop_reason"] == executor.STOP_CLAIM_CONSUMED
 
 
 def test_a_measured_failure_does_not_stop_the_matrix(tmp_path: Path) -> None:
@@ -398,6 +421,7 @@ def test_child_prompt_tokens_are_priced_as_misses() -> None:
         "child_total_prompt_tokens": 1_000_000,
         "main_completion_tokens": 0,
         "child_completion_tokens": 0,
+        "system_total_tokens": 2_000_000,
     }
     prices = {
         "cache_hit_input_per_million": 0.006,
@@ -415,18 +439,277 @@ def test_executor_identity_covers_the_deciding_files() -> None:
     assert identity["executor_digest"] == authority.digest_of(identity["files"])
 
 
+# -- the live path: fixture, export, sandboxed oracle -------------------------------------------
+
+
+def _seed_workspace(tmp_path: Path, task: Any) -> Path:
+    target = tmp_path / "seed"
+    import shutil
+
+    shutil.copytree(executor.prepare_fixture(task, tmp_path / "prepared")["path"], target)
+    return target
+
+
+def test_fixture_is_a_clean_repository_matching_the_frozen_seed(tmp_path: Path) -> None:
+    task = contract.TASKS[0]
+    evidence = executor.prepare_fixture(task, tmp_path / "fixture")
+    assert evidence["matches_frozen_seed"] is True
+    assert evidence["seed_digest"] == evidence["frozen_seed_digest"]
+    assert len(evidence["commit"]) == 40
+    root = Path(evidence["path"])
+    assert (root / ".git").is_dir()
+    # nothing hidden is staged: the oracle files are absent from the agent's tree
+    for name in task.oracle_tests:
+        assert not (root / name).exists()
+    for name in task.reference:
+        if name not in task.seed:
+            assert not (root / name).exists()
+
+
+def test_fixture_can_be_prepared_twice_into_the_same_directory(tmp_path: Path) -> None:
+    """A git object is read-only; a second preparation must not be blocked by the first.
+
+    Regression: ``prepare_fixture`` used ``shutil.rmtree``, which on Windows refuses the read-only
+    object files git writes. A rebuild over the same scratch directory — or a re-prepared per-cell
+    fixture — failed for a filesystem reason rather than a runtime one.
+    """
+
+    task = contract.TASKS[0]
+    destination = tmp_path / "fixture"
+    first = executor.prepare_fixture(task, destination)
+    second = executor.prepare_fixture(task, destination)
+    assert second["seed_digest"] == first["seed_digest"]
+    assert second["matches_frozen_seed"] is True
+    assert len(second["commit"]) == 40
+    assert (destination / ".git").is_dir()
+
+
+def test_oracle_scores_the_export_not_the_seed(tmp_path: Path) -> None:
+    """The seed must FAIL and the reference must PASS, or the oracle is not measuring anything."""
+
+    task = contract.TASKS[0]
+    seed = _seed_workspace(tmp_path, task)
+    reference = tmp_path / "reference"
+    import shutil
+
+    shutil.copytree(seed, reference)
+    for name, text in task.reference.items():
+        target = reference / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+
+    seed_verdict = executor.judge_export(
+        seed,
+        task,
+        provider=_fake_provider(tmp_path / "oracle-seed"),
+        run_id="seed",
+        image="atlas-uat-python:3.12",
+    )
+    reference_verdict = executor.judge_export(
+        reference,
+        task,
+        provider=_fake_provider(tmp_path / "oracle-reference"),
+        run_id="reference",
+        image="atlas-uat-python:3.12",
+    )
+    assert seed_verdict["status"] == "FAIL", seed_verdict
+    assert seed_verdict["execution_mode"] == "sandbox"
+    assert seed_verdict["sandbox_id"]
+    assert seed_verdict["cleanup_failure"] is None
+    assert reference_verdict["status"] == "PASS", reference_verdict
+    # each verdict came from its own throwaway sandbox, created and destroyed inside the call
+    assert seed_verdict["sandbox_id"] and reference_verdict["sandbox_id"]
+    assert seed_verdict["timings_ms"]["creation_ms"] >= 0
+
+
+def test_oracle_refuses_a_workspace_that_contains_the_hidden_suite(tmp_path: Path) -> None:
+    task = contract.TASKS[0]
+    seed = _seed_workspace(tmp_path, task)
+    name = sorted(task.oracle_tests)[0]
+    (seed / name).parent.mkdir(parents=True, exist_ok=True)
+    (seed / name).write_text("def test_leak():\n    assert True\n", encoding="utf-8")
+    verdict = executor.judge_export(
+        seed,
+        task,
+        provider=_fake_provider(tmp_path / "oracle-leak"),
+        run_id="leak",
+        image="atlas-uat-python:3.12",
+    )
+    assert verdict["status"] == "ERROR"
+    assert verdict["kind"] == "HIDDEN_FILES_IN_WORKSPACE"
+    assert name in verdict["leaked_paths"]
+
+
+def test_one_cell_through_the_live_runner(tmp_path: Path) -> None:
+    """The production runner, with only the model and the sandbox replaced."""
+
+    cell = contract.canary_cells()[2]
+    scripted = probe.ScriptedProvider(
+        main_script=[lambda _messages: [probe.TextBlock(text="REPORT: nothing to do.")]],
+        child_scripts={},
+    )
+    config = executor.RunnerConfig(
+        llm_provider="fake",
+        llm_factory=lambda: scripted,
+        sandbox_provider_name="fake",
+        sandbox_factory=_fake_provider,
+        require_real_sandbox=False,
+        main_max_turns=2,
+    )
+    runner = executor.live_cell_runner(config)
+    context = {
+        "plan": _plan(contract.SCOPE_CANARY),
+        "runs_root": tmp_path / "runs",
+        "evidence_root": tmp_path / "evidence",
+    }
+    run = asyncio.run(runner(cell, context))
+
+    assert run.error is None, run.error
+    # the fixture is per cell, clean, and unchanged by the run
+    fixture = run.fixture or {}
+    assert cell["cell_id"] in str(fixture["path"])
+    assert fixture["matches_frozen_seed"] is True
+    seed_after = executor.canonical_digest(
+        {name: (Path(fixture["path"]) / name).read_text(encoding="utf-8")
+         for name in fixture["files_list"]}
+    )
+    assert seed_after == fixture["seed_digest"]
+    # the export exists, matches its digest, and is what the oracle scored
+    export = run.export or {}
+    assert Path(export["workspace_path"]).is_dir()
+    assert export["workspace_digest"]
+    assert export["workspace_files"] > 0
+    oracle = run.oracle or {}
+    assert oracle["execution_mode"] == "sandbox"
+    assert oracle["status"] in {"PASS", "FAIL"}
+    assert oracle["sandbox_id"]
+    assert oracle["cleanup_failure"] is None
+    # the hidden suite never reached the agent's workspace
+    for name in contract.TASKS_BY_ID[cell["task_id"]].oracle_tests:
+        assert not (Path(fixture["path"]) / name).exists()
+    # the recorded run identity is the one the gate will check
+    assert run.expected_run_id == "bplus-c03"
+    assert run.session is not None and run.session["run_id"] == run.expected_run_id
+
+
+def _audit(cell: Mapping[str, Any], run: executor.CellRun) -> dict[str, Any]:
+    return executor.audit_cell(
+        cell=cell,
+        run=run,
+        plan=_plan(contract.SCOPE_CANARY),
+        usage_before=dict.fromkeys(executor.REQUIRED_USAGE_FIELDS, 0),
+        cost_before=0.0,
+    )
+
+
+def test_audit_stops_when_the_export_disappears(tmp_path: Path) -> None:
+    import shutil
+
+    cell = contract.canary_cells()[0]
+    run = offline.synthetic_cell_run(cell, tmp_path)
+    shutil.rmtree(run.export["workspace_path"])
+    outcome = _audit(cell, run)
+    assert executor.STOP_EXPORT in outcome["stops"]
+    assert outcome["verdict"] == "STOPPED"
+
+
+def test_audit_stops_when_the_fixture_loses_a_file(tmp_path: Path) -> None:
+    """A deleted fixture file is a stop, not a traceback inside the gate."""
+
+    cell = contract.canary_cells()[0]
+    run = offline.synthetic_cell_run(cell, tmp_path)
+    fixture_root = Path((run.fixture or {})["path"])
+    victim = sorted((run.fixture or {})["files_list"])[0]
+    (fixture_root / victim).unlink()
+    outcome = _audit(cell, run)
+    assert executor.STOP_FIXTURE in outcome["stops"]
+    assert outcome["verdict"] == "STOPPED"
+
+
+def test_audit_stops_when_the_oracle_sandbox_is_retained(tmp_path: Path) -> None:
+    cell = contract.canary_cells()[0]
+    run = offline.synthetic_cell_run(cell, tmp_path, behaviour="oracle_cleanup_failure")
+    outcome = _audit(cell, run)
+    assert executor.STOP_ORACLE_CLEANUP in outcome["stops"]
+    assert outcome["verdict"] == "STOPPED"
+
+
+def test_audit_stops_when_the_oracle_environment_fails(tmp_path: Path) -> None:
+    cell = contract.canary_cells()[0]
+    run = offline.synthetic_cell_run(cell, tmp_path, behaviour="oracle_error")
+    outcome = _audit(cell, run)
+    assert executor.STOP_ORACLE_ENVIRONMENT in outcome["stops"]
+
+
+def test_audit_scores_agent_success_with_oracle_failure_as_measured(tmp_path: Path) -> None:
+    cell = contract.canary_cells()[0]
+    run = offline.synthetic_cell_run(cell, tmp_path, behaviour="oracle_fail")
+    outcome = _audit(cell, run)
+    assert outcome["stops"] == []
+    assert outcome["agent_success"] is True
+    assert outcome["oracle_passed"] is False
+    assert outcome["goal_correctness"] is False
+    assert outcome["executor_verdict"] == "MEASURED_FAILURE"
+    assert outcome["execution_integrity"] == "PASS"
+
+
+def test_audit_stops_when_the_session_identity_is_another_cell(tmp_path: Path) -> None:
+    cell = contract.canary_cells()[0]
+    run = offline.synthetic_cell_run(
+        cell, tmp_path, overrides={"run_id": "bplus-c99"}
+    )
+    outcome = _audit(cell, run)
+    assert executor.STOP_IDENTITY_MISMATCH in outcome["stops"]
+
+
+def test_audit_stops_when_the_sandbox_is_not_the_contract_sandbox(tmp_path: Path) -> None:
+    cell = contract.canary_cells()[0]
+    run = offline.synthetic_cell_run(cell, tmp_path)
+    plan = dict(run.sandbox_plan or {})
+    plan["cpu"] = "4"
+    run.sandbox_plan = plan
+    outcome = _audit(cell, run)
+    assert executor.STOP_SANDBOX_CONFIG in outcome["stops"]
+
+
+def test_audit_stops_when_the_isolation_probe_says_failed(tmp_path: Path) -> None:
+    cell = contract.canary_cells()[0]
+    run = offline.synthetic_cell_run(
+        cell, tmp_path, overrides={"sandbox": {"network_probe": "FAILED"}}
+    )
+    outcome = _audit(cell, run)
+    assert executor.STOP_HOST_ISOLATION in outcome["stops"]
+
+
+def test_audit_stops_when_the_isolation_probe_did_not_run(tmp_path: Path) -> None:
+    cell = contract.canary_cells()[0]
+    run = offline.synthetic_cell_run(
+        cell, tmp_path, overrides={"sandbox": {"host_separation": {}}}
+    )
+    outcome = _audit(cell, run)
+    assert executor.STOP_HOST_ISOLATION in outcome["stops"]
+
+
 def test_audit_stops_when_the_applied_exposure_differs() -> None:
     cell = contract.canary_cells()[0]
-    session, run_dir = offline._synthetic_session(cell=cell, root=Path(  # noqa: SLF001
-        __import__("tempfile").mkdtemp()
-    ))
+    session, run_dir, fixture, artifacts = offline._synthetic_session(  # noqa: SLF001
+        cell=cell, root=Path(tempfile.mkdtemp())
+    )
     # pretend the runtime applied the card when the arm asked for native
     session["delegation_controls"]["exposure"]["level"] = "card"
     run = executor.CellRun(
         session=session,
         run_dir=run_dir,
-        fixture_root=run_dir,
-        oracle={"status": "PASS", "kind": "PASS"},
+        fixture_root=Path(fixture["path"]),
+        oracle={
+            "status": "PASS",
+            "kind": "HIDDEN_TESTS_PASSED",
+            "execution_mode": "sandbox",
+            "sandbox_id": "s1",
+        },
+        fixture=fixture,
+        export=artifacts,
+        sandbox_plan=executor.sandbox_plan(require_real=False, provider_name="fake").as_dict(),
     )
     outcome = executor.audit_cell(
         cell=cell,
@@ -436,3 +719,42 @@ def test_audit_stops_when_the_applied_exposure_differs() -> None:
         cost_before=0.0,
     )
     assert executor.STOP_IDENTITY_MISMATCH in outcome["stops"]
+
+
+def test_audit_stops_when_the_worker_cap_is_wrong() -> None:
+    """The effective cap is part of the arm: 6 instead of 20 must stop, not be reported."""
+
+    cell = contract.canary_cells()[0]
+    session, run_dir, fixture, artifacts = offline._synthetic_session(  # noqa: SLF001
+        cell=cell,
+        root=Path(tempfile.mkdtemp()),
+        overrides={
+            "delegation_controls": {
+                "profiles": {contract.RESEARCH: {"profile_id": contract.RESEARCH,
+                                                 "effective_max_turns": 6}}
+            }
+        },
+    )
+    run = executor.CellRun(
+        session=session,
+        run_dir=run_dir,
+        fixture_root=Path(fixture["path"]),
+        oracle={
+            "status": "PASS",
+            "kind": "HIDDEN_TESTS_PASSED",
+            "execution_mode": "sandbox",
+            "sandbox_id": "s1",
+        },
+        fixture=fixture,
+        export=artifacts,
+        sandbox_plan=executor.sandbox_plan(require_real=False, provider_name="fake").as_dict(),
+    )
+    outcome = executor.audit_cell(
+        cell=cell,
+        run=run,
+        plan=_plan(contract.SCOPE_CANARY),
+        usage_before=dict.fromkeys(executor.REQUIRED_USAGE_FIELDS, 0),
+        cost_before=0.0,
+    )
+    assert executor.STOP_IDENTITY_MISMATCH in outcome["stops"]
+    assert outcome["verdict"] == "STOPPED"

@@ -1,49 +1,61 @@
-"""Stage B+ executable entry point: authority, one-shot claim, dispatch, post-cell gate.
+"""Stage B+ executable entry point: authority, global claim, dispatch, post-cell gate.
 
-This is the smallest thing that can actually run a B+ cell, and it is written so that the *offline*
-run and the *live* run go through identical code. What differs is one injected callable:
+One entry point, ``dispatch``, and one injected dependency, the cell runner. Everything a live run
+does is in this module, and the offline proofs go through the *same* code with a fake sandbox and a
+scripted model, so a passing proof says something about the production path rather than about a
+parallel one.
 
-``cell_runner``
-    receives a cell and a context, returns a :class:`CellRun` (the provider session, the run
-    directory, the host-oracle verdict and the wall clock). ``live_cell_runner`` builds the real
-    DeepSeek adapter and the real OpenSandbox; ``host_cell_runner`` runs the same ``run_goal`` in
-    host mode with a scripted provider. Nothing else in this module knows which one it got.
+The live cell, in order
+-----------------------
+1. a **per-cell** fixture is materialised from the frozen seed and staged as a clean git repository
+   (a dirty or missing repository is refused by the provisioner, and the seed digest is checked
+   against the frozen one);
+2. ``run_goal`` provisions the agent sandbox from that repository, runs the Main and its workers,
+   exports ``workspace.patch`` and the workspace copy, and destroys the sandbox;
+3. the **exported workspace** — never the fixture — is uploaded into a second, throwaway sandbox
+   together with the hidden tests, and pytest runs there. No Host process ever imports agent code,
+   and the Main can never read the hidden suite;
+4. the cell is scored, and the first stop ends the matrix.
 
-Everything else is unconditional: the plan is resolved from the contract, the authority record is
-verified field by field, the dispatch claim is created with ``O_CREAT | O_EXCL`` before any cell
-starts, every cell gets its own attempt marker, and every cell ends with :func:`audit_cell` whose
-``stops`` decide whether the next cell may start.
-
-What this module refuses to do
-------------------------------
-* It never invents a missing number. A field the provider did not report is ``None`` and stops the
-  matrix as ``UNKNOWN_USAGE``; it is never written as 0.
-* It never continues after an infrastructure failure, including on the last cell. A matrix that ends
-  on a broken sandbox is reported as stopped, not as complete.
-* It never reopens a claim. There is one dispatch per plan and one attempt per cell, and both are
-  files created exactly once.
+Two identities decide whether a dispatch may start: the *global* claim for the plan digest (not a
+file under the evidence root, which a caller could move) and the real ``git HEAD`` (never a value a
+caller supplies). ``mode="offline_proof"`` is the only way to inject a runner, a head or a claim
+root, and it can never be reached by a production invocation because the mode is a required
+argument with no default in the CLI wrapper.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import os
 import shutil
 import subprocess
 import time
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from experiments.evaluation.closure2 import preflight as closure2_preflight
+from experiments.evaluation.closure2 import catalog as closure2_catalog
+from experiments.evaluation.fixtures import (
+    materialize_fixture,
+    stage_git_repo,
+    workspace_digest,
+    workspace_hashes,
+)
+from experiments.evaluation.models import canonical_digest
+from experiments.evaluation.sandboxed_oracle import (
+    OracleSandboxConfig,
+    run_hidden_tests_in_sandbox,
+)
 from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract, cost
 
-EXECUTOR_VERSION = "bplus-executor-1.0"
+EXECUTOR_VERSION = "bplus-executor-1.1"
 
 #: Files whose bytes *are* the executor identity. A dispatch is bound to their digests, so editing
 #: any of them invalidates an existing signature rather than silently running different code.
@@ -54,17 +66,27 @@ EXECUTOR_FILES: tuple[str, ...] = (
     "experiments/stage_b_plus/cost.py",
 )
 
+#: A live dispatch and an offline proof are different operations with different privileges.
+MODE_LIVE = "live"
+MODE_OFFLINE_PROOF = "offline_proof"
+MODES: tuple[str, ...] = (MODE_LIVE, MODE_OFFLINE_PROOF)
+
 # -- stop reasons -----------------------------------------------------------------------------
 
 STOP_NONE = "NONE"
 STOP_CLAIM_CONSUMED = "CLAIM_CONSUMED"
-STOP_CLAIM_INVALID = "CLAIM_INVALID"
+STOP_CLAIM_UNTRUSTED = "CLAIM_ROOT_NOT_TRUSTED"
 STOP_LEGACY_EVIDENCE = "LEGACY_EVIDENCE_PRESENT"
+STOP_DIRTY_WORKTREE = "DIRTY_WORKTREE"
 STOP_PROVIDER_FAILURE = "PROVIDER_FAILURE"
 STOP_SANDBOX_FAILURE = "SANDBOX_FAILURE"
+STOP_SANDBOX_CONFIG = "SANDBOX_CONFIG_MISMATCH"
 STOP_SANDBOX_CLEANUP = "SANDBOX_CLEANUP_FAILURE"
 STOP_HOST_ISOLATION = "HOST_ISOLATION_VIOLATION"
+STOP_FIXTURE = "FIXTURE_INVALID"
+STOP_EXPORT = "EXPORT_INVALID"
 STOP_ORACLE_ENVIRONMENT = "ORACLE_ENVIRONMENT_FAILURE"
+STOP_ORACLE_CLEANUP = "ORACLE_CLEANUP_FAILURE"
 STOP_UNKNOWN_USAGE = "UNKNOWN_OR_ILLEGAL_USAGE"
 STOP_MISSING_EVIDENCE = "MISSING_OR_CORRUPT_EVIDENCE"
 STOP_UNKNOWN_FAILURE = "UNKNOWN_FAILURE_KIND"
@@ -74,6 +96,7 @@ STOP_LEDGER_INTEGRITY = "LEDGER_INTEGRITY_FAILURE"
 STOP_COST_REACHED = "COST_STOP_REACHED"
 STOP_TOKEN_REACHED = "TOKEN_STOP_REACHED"
 STOP_NOT_AUTHORIZED = "NOT_AUTHORIZED"
+STOP_MODE_VIOLATION = "MODE_VIOLATION"
 
 #: A failure the runtime measured. These continue: they are the experiment's subject matter, not an
 #: infrastructure defect. Anything else stops, including an unclassified exception.
@@ -96,9 +119,31 @@ REQUIRED_USAGE_FIELDS: tuple[str, ...] = (
 
 _ISO = "%Y-%m-%dT%H:%M:%SZ"
 
+#: Where a plan's one-shot claim lives. Deliberately outside the repository and outside every
+#: evidence root: a claim that moved with the evidence would be a claim a caller could reset.
+_CLAIM_ENV = "ATLAS_BPLUS_CLAIM_ROOT"
+
 
 def now() -> str:
     return datetime.now(UTC).strftime(_ISO)
+
+
+def remove_tree(path: Path) -> None:
+    """Remove a directory tree, including read-only files.
+
+    Git object files are written read-only, and on Windows ``shutil.rmtree`` refuses to unlink them.
+    A fixture or a scratch area therefore has to have the write bit restored before deletion, or a
+    second build over the same directory fails for a reason that has nothing to do with the
+    experiment. A missing path is not an error.
+    """
+
+    def _retry(function: Any, target: str, _error: Any) -> None:
+        os.chmod(target, 0o700)
+        function(target)
+
+    if not path.exists():
+        return
+    shutil.rmtree(path, onexc=_retry)
 
 
 def _digest_bytes(payload: bytes) -> str:
@@ -137,6 +182,146 @@ def git_head(repo_root: Path | None = None) -> str:
     return completed.stdout.strip()
 
 
+def git_dirty(repo_root: Path | None = None) -> list[str]:
+    """Tracked and untracked changes, so a live dispatch can refuse an unapproved tree."""
+
+    root = str(repo_root or contract.REPO_ROOT)
+    completed = subprocess.run(
+        ["git", "-C", root, "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return ["<git status failed>"]
+    return [line for line in completed.stdout.splitlines() if line.strip()]
+
+
+def claim_root() -> tuple[Path, bool]:
+    """The global claim directory and whether it is the production default.
+
+    The override exists for offline proofs only. It is an environment variable, not a dispatch
+    argument, so no ordinary invocation can point the claim at a directory of its choosing — and
+    ``dispatch`` refuses to run a live cell when the override is in force.
+    """
+
+    override = os.environ.get(_CLAIM_ENV)
+    if override:
+        return Path(override), False
+    base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_STATE_HOME")
+    if base:
+        root = Path(base) / "AtlasRuntime" / "stage-b-plus" / "claims"
+    else:
+        root = Path.home() / ".local" / "state" / "atlarruntime" / "stage-b-plus" / "claims"
+    return root, True
+
+
+def claim_path(plan_digest: str) -> Path:
+    identifier = plan_digest.split(":", 1)[-1]
+    if not identifier or "/" in identifier or "\\" in identifier:
+        raise ValueError(f"plan digest is not usable as a claim identity: {plan_digest!r}")
+    return claim_root()[0] / f"{identifier}.claim"
+
+
+@contextlib.contextmanager
+def claim_root_override(path: Path) -> Any:
+    """Proof-only: point the global claim at a throwaway directory.
+
+    A live dispatch refuses to run while this is in force (``STOP_MODE_VIOLATION``), so the seam can
+    be used by the offline proofs without becoming a way to reset a production claim.
+    """
+
+    previous = os.environ.get(_CLAIM_ENV)
+    os.environ[_CLAIM_ENV] = str(path)
+    try:
+        yield Path(path)
+    finally:
+        if previous is None:
+            os.environ.pop(_CLAIM_ENV, None)
+        else:
+            os.environ[_CLAIM_ENV] = previous
+
+
+# -- the sandbox plan -------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SandboxPlan:
+    """Host-owned sandbox configuration, in one place, comparable with the frozen budget."""
+
+    provider_name: str
+    image: str
+    cpu: str
+    memory: str
+    timeout_minutes: int
+    network: str
+    require_real: bool
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "provider_name": self.provider_name,
+            "image": self.image,
+            "cpu": self.cpu,
+            "memory": self.memory,
+            "timeout_minutes": self.timeout_minutes,
+            "network": self.network,
+            "require_real": self.require_real,
+        }
+
+    def problems(self) -> list[str]:
+        """Compare with the frozen contract. A mismatch is a configuration defect, not a note."""
+
+        problems: list[str] = []
+        expected_cpu = str(contract.BUDGET["cpu"])
+        if self.cpu != expected_cpu:
+            problems.append(f"cpu is {self.cpu!r}, contract says {expected_cpu!r}")
+        expected_memory = f"{float(contract.BUDGET['memory_gib']):g}Gi"
+        if self.memory != expected_memory:
+            problems.append(f"memory is {self.memory!r}, contract says {expected_memory!r}")
+        if self.image != str(contract.BUDGET["image"]):
+            problems.append(f"image is {self.image!r}, contract says {contract.BUDGET['image']!r}")
+        if self.network != str(contract.BUDGET["network"]):
+            problems.append(
+                f"network is {self.network!r}, contract says {contract.BUDGET['network']!r}"
+            )
+        if self.timeout_minutes != int(contract.BUDGET["sandbox_timeout_minutes"]):
+            problems.append(
+                f"timeout is {self.timeout_minutes}, contract says "
+                f"{contract.BUDGET['sandbox_timeout_minutes']}"
+            )
+        return problems
+
+
+def sandbox_plan(*, require_real: bool = True, provider_name: str | None = None) -> SandboxPlan:
+    return SandboxPlan(
+        provider_name=provider_name or str(contract.BUDGET["sandbox_provider"]),
+        image=str(contract.BUDGET["image"]),
+        cpu=str(contract.BUDGET["cpu"]),
+        memory=f"{float(contract.BUDGET['memory_gib']):g}Gi",
+        timeout_minutes=int(contract.BUDGET["sandbox_timeout_minutes"]),
+        network=str(contract.BUDGET["network"]),
+        require_real=require_real,
+    )
+
+
+def atlas_config(plan: SandboxPlan) -> Any:
+    from atlasos.config import AtlasConfig, SandboxConfig, ToolsConfig
+
+    return AtlasConfig(
+        tools=ToolsConfig(mode="progressive"),
+        sandbox=SandboxConfig(
+            enabled=True,
+            provider=plan.provider_name,  # type: ignore[arg-type]
+            image=plan.image,
+            cpu=plan.cpu,
+            memory=plan.memory,
+            timeout_minutes=plan.timeout_minutes,
+            network=plan.network,  # type: ignore[arg-type]
+        ),
+    )
+
+
 # -- the cell ---------------------------------------------------------------------------------
 
 
@@ -152,6 +337,11 @@ class CellRun:
     error: str | None = None
     error_kind: str | None = None
     notes: tuple[str, ...] = ()
+    fixture: dict[str, Any] | None = None
+    export: dict[str, Any] | None = None
+    sandbox_plan: dict[str, Any] | None = None
+    oracle_sandbox: dict[str, Any] | None = None
+    expected_run_id: str | None = None
 
 
 CellRunner = Callable[[dict[str, Any], Mapping[str, Any]], Awaitable[CellRun]]
@@ -196,22 +386,50 @@ def validate_usage(metrics: Mapping[str, Any] | None) -> dict[str, Any]:
             problems.append(
                 f"system_total_tokens is {values['system_total_tokens']}, the parts sum to {total}"
             )
-    return {"ok": not problems, "problems": problems, "values": values}
+    # The cache split is checked only when the provider reported it: a missing split is UNKNOWN,
+    # which is a limitation of the data, not a reason to invent a number.
+    hit = metrics.get("main_cache_hit_tokens")
+    miss = metrics.get("main_cache_miss_tokens")
+    input_tokens = metrics.get("main_cumulative_input_tokens")
+    if hit is not None and miss is not None and input_tokens is not None:
+        for name, value in (("main_cache_hit_tokens", hit), ("main_cache_miss_tokens", miss)):
+            problem = _token_problem(name, value)
+            if problem is not None:
+                problems.append(problem)
+        if not problems and int(hit) + int(miss) != int(input_tokens):
+            problems.append(
+                f"cache hit + miss is {int(hit) + int(miss)}, main input is {input_tokens}"
+            )
+    return {
+        "ok": not problems,
+        "problems": problems,
+        "values": values,
+        "cache_split": "UNKNOWN" if hit is None or miss is None else "COMPLETE",
+    }
 
 
-def cell_cost(metrics: Mapping[str, Any], prices: Mapping[str, Any] | None = None) -> float:
-    """Frozen-price estimate. Child prompt tokens are priced as misses and said so."""
+def cell_cost(
+    metrics: Mapping[str, Any] | None, prices: Mapping[str, Any] | None = None
+) -> float | None:
+    """Frozen-price estimate, or ``None`` when the consumption is not measurable.
 
+    ``None`` is the point: a run whose counters are unknown did not cost zero, and a cost model that
+    says 0.0 makes an unknown look cheap. Child prompt tokens are priced as misses because the
+    provider reports no per-child split.
+    """
+
+    report = validate_usage(metrics)
+    if not report["ok"]:
+        return None
     price = dict(prices or cost.stage_b_estimate.pricing())
-    hit = int(metrics.get("main_cache_hit_tokens") or 0)
-    miss = int(metrics.get("main_cache_miss_tokens") or 0)
-    main_input = int(metrics.get("main_cumulative_input_tokens") or 0)
+    values = report["values"]
+    hit = int(metrics.get("main_cache_hit_tokens") or 0)  # type: ignore[union-attr]
+    miss = int(metrics.get("main_cache_miss_tokens") or 0)  # type: ignore[union-attr]
+    main_input = int(values["main_cumulative_input_tokens"])
     if not hit and not miss:
         miss = main_input  # no split reported: price the whole input as a miss
-    child_prompt = int(metrics.get("child_total_prompt_tokens") or 0)
-    completion = int(metrics.get("main_completion_tokens") or 0) + int(
-        metrics.get("child_completion_tokens") or 0
-    )
+    child_prompt = int(values["child_total_prompt_tokens"])
+    completion = int(values["main_completion_tokens"]) + int(values["child_completion_tokens"])
     per_million = 1_000_000.0
     return (
         hit * float(price["cache_hit_input_per_million"])
@@ -220,29 +438,145 @@ def cell_cost(metrics: Mapping[str, Any], prices: Mapping[str, Any] | None = Non
     ) / per_million
 
 
-# -- the post-cell gate -----------------------------------------------------------------------
+# -- evidence helpers -------------------------------------------------------------------------
 
 
-def _sandbox_problems(session: Mapping[str, Any]) -> list[str]:
+def _verdict_of(value: Any) -> bool | None:
+    """Read a probe verdict that may be a bool, a string or a mapping. ``None`` means unreadable."""
+
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().upper()
+        if normalized in {"PASS", "PASSED", "OK", "TRUE"}:
+            return True
+        if normalized in {"FAIL", "FAILED", "ERROR", "FALSE", "TIMEOUT"}:
+            return False
+        return None
+    if isinstance(value, Mapping):
+        for key in ("ok", "passed", "pass", "status", "verdict"):
+            if key in value:
+                return _verdict_of(value[key])
+    return None
+
+
+def _sandbox_evidence_problems(session: Mapping[str, Any]) -> tuple[list[str], list[str]]:
+    """Return (lifecycle problems, isolation problems) from the run's own sandbox evidence."""
+
+    lifecycle: list[str] = []
+    isolation: list[str] = []
     sandbox = session.get("sandbox")
     if not isinstance(sandbox, Mapping):
-        return ["the run carries no sandbox evidence (host mode cannot be dispatched)"]
-    problems: list[str] = []
+        lifecycle.append("the run carries no sandbox evidence (host mode cannot be dispatched)")
+        return lifecycle, isolation
     if sandbox.get("created") is not True:
-        problems.append("the sandbox was never created")
+        lifecycle.append("the sandbox was never created")
     if sandbox.get("retained"):
-        problems.append("the sandbox was retained instead of destroyed")
+        lifecycle.append("the sandbox was retained instead of destroyed")
     if sandbox.get("destroyed") is not True:
-        problems.append("the sandbox was not destroyed")
+        lifecycle.append("the sandbox was not destroyed")
     if sandbox.get("error"):
-        problems.append(f"the sandbox reported {str(sandbox.get('error'))[:120]}")
-    for key in ("network_probe", "host_separation"):
-        probe = sandbox.get(key)
-        if isinstance(probe, Mapping):
-            verdict = probe.get("ok", probe.get("passed"))
-            if verdict is False:
-                problems.append(f"{key} failed")
+        lifecycle.append(f"the sandbox reported {str(sandbox.get('error'))[:120]}")
+    if sandbox.get("provider_is_real") is False and sandbox.get("provider") != "fake":
+        isolation.append("the provider is not a declared real sandbox provider")
+    network = sandbox.get("network_probe")
+    if network is None or (isinstance(network, str) and network.upper() == "NOT_RUN"):
+        isolation.append("the network probe did not run")
+    elif _verdict_of(network) is False:
+        isolation.append(f"the network probe failed ({network!r})")
+    elif _verdict_of(network) is None:
+        isolation.append(f"the network probe verdict is unreadable ({network!r})")
+    separation = sandbox.get("host_separation")
+    if not isinstance(separation, Mapping) or not separation:
+        isolation.append("host separation was not demonstrated")
+    elif _verdict_of(separation) is False:
+        isolation.append("host separation failed")
+    return lifecycle, isolation
+
+
+def _export_problems(run: CellRun) -> list[str]:
+    """The exported workspace is the thing the oracle scores; it must exist and match its digest."""
+
+    problems: list[str] = []
+    artifacts = (run.session or {}).get("artifacts")
+    if not isinstance(artifacts, Mapping):
+        return ["the run exported no artifacts"]
+    path_value = artifacts.get("workspace_path")
+    if not path_value:
+        return ["the export carries no workspace_path"]
+    workspace = Path(str(path_value))
+    if not workspace.is_dir():
+        return [f"the exported workspace {workspace} does not exist"]
+    recorded = artifacts.get("workspace_digest")
+    if not recorded:
+        problems.append("the export carries no workspace_digest")
+    else:
+        actual = workspace_digest(workspace)
+        if actual != str(recorded):
+            problems.append(f"the exported workspace hashes to {actual}, record says {recorded}")
+    files = artifacts.get("workspace_files")
+    if not isinstance(files, int) or isinstance(files, bool) or files <= 0:
+        problems.append(f"the export reports {files!r} files")
+    if not artifacts.get("patch_digest"):
+        problems.append("the export carries no patch_digest")
+    if run.export is not None:
+        expected = run.export.get("workspace_digest")
+        if expected and expected != recorded:
+            problems.append("the runner recorded a different export digest than the session")
     return problems
+
+
+def _fixture_problems(run: CellRun) -> list[str]:
+    problems: list[str] = []
+    fixture = run.fixture
+    if not isinstance(fixture, Mapping):
+        return ["the cell carries no fixture evidence"]
+    path_value = fixture.get("path")
+    if not path_value or not Path(str(path_value)).is_dir():
+        return ["the per-cell fixture does not exist"]
+    if fixture.get("matches_frozen_seed") is not True:
+        problems.append("the fixture seed does not match the frozen seed digest")
+    if not fixture.get("commit"):
+        problems.append("the fixture repository has no commit")
+    root = Path(str(path_value))
+    written: dict[str, str] = {}
+    unreadable: list[str] = []
+    for name in sorted(fixture.get("files_list") or ()):
+        try:
+            written[name] = (root / name).read_text(encoding="utf-8")
+        except OSError:
+            unreadable.append(name)
+    if unreadable:
+        # A missing file is the strongest form of "the fixture moved": report it, do not raise.
+        problems.append(f"the fixture lost {len(unreadable)} file(s): {unreadable[:3]}")
+    elif fixture.get("seed_digest") and canonical_digest(written) != fixture["seed_digest"]:
+        problems.append("the fixture was modified during the run")
+    return problems
+
+
+def _oracle_problems(run: CellRun) -> tuple[list[str], list[str]]:
+    """(environment problems, cleanup problems). A FAIL is neither: it is a measured outcome."""
+
+    oracle = run.oracle or {}
+    environment: list[str] = []
+    cleanup: list[str] = []
+    if oracle.get("cleanup_failure"):
+        cleanup.append(f"the oracle sandbox was not destroyed: {oracle['cleanup_failure']}")
+    if oracle.get("environment_failure") is True:
+        environment.append(f"the oracle environment failed ({oracle.get('kind')})")
+    status = str(oracle.get("status") or "")
+    if status not in {"PASS", "FAIL"} and not environment:
+        environment.append(f"the oracle did not produce a verdict (status={status!r})")
+    if oracle.get("execution_mode") != "sandbox":
+        environment.append(
+            f"the oracle ran in {oracle.get('execution_mode')!r} mode; a sandbox is required"
+        )
+    if status in {"PASS", "FAIL"} and not oracle.get("sandbox_id") and not environment:
+        environment.append("the oracle sandbox has no identity")
+    return environment, cleanup
+
+
+# -- the post-cell gate -----------------------------------------------------------------------
 
 
 def audit_cell(
@@ -250,49 +584,56 @@ def audit_cell(
     cell: Mapping[str, Any],
     run: CellRun,
     plan: Mapping[str, Any],
-    usage_before: Mapping[str, int],
-    cost_before: float,
+    usage_before: Mapping[str, Any],
+    cost_before: float | None,
     prices: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Score one finished cell and decide whether the matrix may continue.
 
-    Pure: it reads the run and the plan, writes nothing. The dispatch loop is what persists its
-    output, so the same function is used by the tests and by the live path.
+    Pure: it reads the run and the plan, writes nothing. Every integrity failure produces a stop
+    code, so no cell can be reported ``PASS`` while one of its own checks failed.
     """
 
     stops: list[str] = []
     checks: list[dict[str, Any]] = []
     notes: list[str] = []
 
-    def check(name: str, ok: bool, detail: str) -> None:
+    def check(name: str, ok: bool, detail: str, stop: str | None = None) -> bool:
         checks.append({"check": name, "ok": bool(ok), "detail": detail})
+        if not ok and stop is not None and stop not in stops:
+            stops.append(stop)
+        return bool(ok)
 
     arm = contract.ARMS_BY_ID[cell["arm_id"]]
     check(
         "identity_matches_plan",
         cell.get("plan_id") == plan["plan_id"] and cell.get("scope") == plan["scope"],
         f"cell says {cell.get('plan_id')}/{cell.get('scope')}",
+        STOP_IDENTITY_MISMATCH,
     )
-    if not checks[-1]["ok"]:
-        stops.append(STOP_IDENTITY_MISMATCH)
 
     session = run.session
     if session is None:
-        check("execution_returned", False, f"{run.error_kind or 'exception'}: {run.error}")
-        stops.append(_exception_stop(run))
-        usage = dict(usage_before)
+        check("execution_returned", False, f"{run.error_kind or 'exception'}: {run.error}",
+              _exception_stop(run))
         return {
             "cell_id": cell["cell_id"],
             "arm_id": cell["arm_id"],
             "task_id": cell["task_id"],
+            "profile_id": arm.profile_id,
+            "exposure": arm.exposure,
             "checks": checks,
             "stops": stops,
-            "usage": usage,
-            "cost_usd": cost_before,
-            "delta_cost_usd": 0.0,
-            "verdict": "NOT_OBSERVED",
+            "agent_success": None,
+            "oracle_passed": None,
+            "goal_correctness": None,
+            "execution_integrity": "FAIL",
+            "usage": {key: None for key in REQUIRED_USAGE_FIELDS},
+            "delta_cost_usd": None,
+            "cost_usd": None,
+            "verdict": "STOPPED",
             "duration_s": round(run.duration_s, 3),
-            "notes": list(run.notes),
+            "notes": [*run.notes, "no session: consumption is unknown, not zero"],
         }
     check("execution_returned", True, f"status={session.get('status')}")
 
@@ -300,34 +641,52 @@ def audit_cell(
     failure = session.get("failure") or {}
     kind = str(failure.get("kind") or "") if isinstance(failure, Mapping) else ""
     status = str(session.get("status") or "")
+    agent_success = status == "succeeded"
     if status not in {"succeeded", "failed"}:
-        check("runtime_status_known", False, f"status is {status!r}")
-        stops.append(STOP_UNKNOWN_FAILURE)
+        check("runtime_status_known", False, f"status is {status!r}", STOP_UNKNOWN_FAILURE)
     elif status == "failed":
-        known = kind in NORMAL_FAILURE_KINDS
         check(
             "failure_is_measurable",
-            known,
+            kind in NORMAL_FAILURE_KINDS,
             f"kind={kind or 'MISSING'}",
+            STOP_UNKNOWN_FAILURE,
         )
-        if not known:
-            stops.append(STOP_UNKNOWN_FAILURE)
     else:
         check("runtime_status_known", True, "succeeded")
 
-    # sandbox lifecycle
-    sandbox_details = _sandbox_problems(session)
-    check("sandbox_lifecycle", not sandbox_details, "; ".join(sandbox_details) or "closed")
-    if sandbox_details:
-        if any("isolation" in item or "probe" in item for item in sandbox_details):
-            stops.append(STOP_HOST_ISOLATION)
-        elif any("destroy" in item or "retain" in item or "reported" in item for item in
-                 sandbox_details):
-            stops.append(STOP_SANDBOX_CLEANUP)
-        else:
-            stops.append(STOP_SANDBOX_FAILURE)
+    # sandbox lifecycle and isolation, read from the run's own evidence
+    lifecycle, isolation = _sandbox_evidence_problems(session)
+    if lifecycle:
+        check("sandbox_lifecycle", False, "; ".join(lifecycle), _lifecycle_stop(lifecycle))
+    else:
+        check("sandbox_lifecycle", True, "created, exported and destroyed")
+    if isolation:
+        check("sandbox_isolation", False, "; ".join(isolation), STOP_HOST_ISOLATION)
+    else:
+        check("sandbox_isolation", True, "network none and host separation demonstrated")
 
-    # disclosure actually applied: the arm's profile and exposure must be what ran
+    # the sandbox that ran must be the sandbox the contract asked for
+    plan_problems = (
+        SandboxPlan(**run.sandbox_plan).problems()
+        if isinstance(run.sandbox_plan, Mapping)
+        else ["the runner recorded no sandbox plan"]
+    )
+    check("sandbox_matches_contract", not plan_problems, "; ".join(plan_problems) or "cpu/memory/"
+          "image/network/timeout as frozen", STOP_SANDBOX_CONFIG)
+
+    # the fixture the cell ran on, and the export the oracle will score
+    for problem in _fixture_problems(run):
+        check("fixture_valid", False, problem, STOP_FIXTURE)
+    if not any(not item["ok"] for item in checks if item["check"] == "fixture_valid"):
+        check("fixture_valid", True, "per-cell clean repository, seed digest matches")
+
+    export_problems = _export_problems(run)
+    if export_problems:
+        check("export_valid", False, "; ".join(export_problems), STOP_EXPORT)
+    else:
+        check("export_valid", True, "workspace_path exists and matches its digest")
+
+    # disclosure actually applied
     controls = session.get("delegation_controls") or {}
     profiles = controls.get("profiles") or {}
     exposure = (controls.get("exposure") or {}).get("level")
@@ -336,78 +695,120 @@ def audit_cell(
         "worker_profile_matches_arm",
         bool(profile) and profile.get("profile_id", arm.profile_id) == arm.profile_id,
         f"offered={list(profiles)} expected={arm.profile_id}",
+        STOP_IDENTITY_MISMATCH,
     )
     check(
         "exposure_matches_arm",
         exposure == arm.exposure,
         f"applied={exposure!r} expected={arm.exposure!r}",
+        STOP_IDENTITY_MISMATCH,
     )
-    if not checks[-1]["ok"] or not checks[-2]["ok"]:
-        stops.append(STOP_IDENTITY_MISMATCH)
     check(
         "worker_turns_effective",
         profile.get("effective_max_turns") == int(contract.BUDGET["worker_max_turns"]),
         f"effective={profile.get('effective_max_turns')} "
         f"expected={contract.BUDGET['worker_max_turns']}",
+        STOP_IDENTITY_MISMATCH,
     )
 
-    # usage
+    # usage and cost: unknown stays unknown
     usage_report = validate_usage(session.get("metrics"))
-    check("usage_is_complete", usage_report["ok"], "; ".join(usage_report["problems"]) or "ok")
-    if not usage_report["ok"]:
-        stops.append(STOP_UNKNOWN_USAGE)
+    check("usage_is_complete", usage_report["ok"], "; ".join(usage_report["problems"]) or "ok",
+          STOP_UNKNOWN_USAGE)
     metrics = session.get("metrics") if isinstance(session.get("metrics"), Mapping) else {}
-    delta_cost = cell_cost(metrics, prices) if usage_report["ok"] else 0.0
+    delta_cost = cell_cost(metrics, prices) if usage_report["ok"] else None
 
-    # oracle: a Host artefact, not the Main's own claim
-    oracle = run.oracle or {}
-    oracle_state = str(oracle.get("status") or "MISSING")
-    check(
-        "oracle_executed",
-        oracle_state in {"PASS", "FAIL"},
-        f"status={oracle_state} kind={oracle.get('kind')}",
-    )
-    if oracle_state not in {"PASS", "FAIL"}:
-        stops.append(
-            STOP_ORACLE_ENVIRONMENT
-            if oracle.get("kind")
-            in {"COLLECT_ERROR", "TIMEOUT", "NO_TESTS_COLLECTED", "NO_TARGETS"}
-            else STOP_MISSING_EVIDENCE
-        )
-
-    # evidence: the run directory must contain a parseable session.json
-    run_dir = run.run_dir
-    if run_dir is None or not (Path(run_dir) / "session.json").is_file():
-        check("run_evidence_present", False, "session.json is missing")
-        stops.append(STOP_MISSING_EVIDENCE)
+    # evidence: the run directory must hold a parseable session that names this cell
+    session_path = Path(run.run_dir) / "session.json" if run.run_dir is not None else None
+    parsed: dict[str, Any] | None = None
+    if session_path is None or not session_path.is_file():
+        check("run_evidence_present", False, "session.json is missing", STOP_MISSING_EVIDENCE)
     else:
         try:
-            payload = json.loads((Path(run_dir) / "session.json").read_text(encoding="utf-8"))
-            parsed = isinstance(payload, Mapping) and bool(payload)
+            candidate = json.loads(session_path.read_text(encoding="utf-8"))
+            parsed = candidate if isinstance(candidate, dict) else None
         except (OSError, json.JSONDecodeError) as error:
-            parsed = False
             notes.append(f"session.json is not parseable: {error}")
-        check("run_evidence_present", parsed, f"session.json parsed={parsed}")
+            parsed = None
+        expected = run.expected_run_id or str(cell["cell_id"])
+        if parsed is None:
+            check("run_evidence_present", False, "session.json is empty or not a JSON object",
+                  STOP_MISSING_EVIDENCE)
+        elif run.expected_run_id is not None:
+            if parsed.get("run_id") != expected:
+                check(
+                    "run_evidence_present",
+                    False,
+                    f"session run_id {parsed.get('run_id')!r} is not this cell's {expected!r}",
+                    STOP_IDENTITY_MISMATCH,
+                )
+            else:
+                check("run_evidence_present", True, f"session.json names {expected}")
+        elif not str(parsed.get("run_id") or "").startswith(expected):
+            check(
+                "run_evidence_present",
+                False,
+                f"session run_id {parsed.get('run_id')!r} does not belong to {cell['cell_id']}",
+                STOP_IDENTITY_MISMATCH,
+            )
+        else:
+            check("run_evidence_present", True, f"session.json names {parsed.get('run_id')}")
 
-    # Unknown is not zero. A counter the provider did not report makes the aggregate unknown too,
-    # which is exactly what stops the matrix rather than quietly understating it.
-    usage = dict(usage_before)
+    # the independent oracle
+    oracle_environment, oracle_cleanup = _oracle_problems(run)
+    oracle = run.oracle or {}
+    oracle_status = str(oracle.get("status") or "")
+    oracle_passed = True if oracle_status == "PASS" else False if oracle_status == "FAIL" else None
+    if oracle_cleanup:
+        check("oracle_cleanup", False, "; ".join(oracle_cleanup), STOP_ORACLE_CLEANUP)
+    else:
+        check("oracle_cleanup", True, "the oracle sandbox was destroyed")
+    if oracle_environment:
+        check("oracle_verdict", False, "; ".join(oracle_environment), STOP_ORACLE_ENVIRONMENT)
+    else:
+        check("oracle_verdict", True, f"independent oracle {oracle_status}")
+
+    # usage aggregate
+    usage: dict[str, Any] = dict(usage_before)
     metrics_in = session.get("metrics") or {}
     for key in REQUIRED_USAGE_FIELDS:
         value = metrics_in.get(key)
         if value is None:
             usage[key] = None
         elif isinstance(value, int) and not isinstance(value, bool):
-            usage[key] = int(usage.get(key) or 0) + value
+            previous = usage.get(key)
+            usage[key] = None if previous is None else int(previous) + value
 
-    total_cost = cost_before + delta_cost
+    if delta_cost is None or cost_before is None:
+        total_cost: float | None = None
+    else:
+        total_cost = round(float(cost_before) + delta_cost, 6)
+
+    public_passed = session.get("public_tests", {}).get("status") == "PASS" if isinstance(
+        session.get("public_tests"), Mapping
+    ) else None
+    acceptance = session.get("acceptance")
+    goal_correctness: bool | None
+    if oracle_passed is None or not agent_success:
+        goal_correctness = False if oracle_passed is False else None
+    else:
+        goal_correctness = bool(
+            oracle_passed
+            and agent_success
+            and (public_passed is not False)
+            and (acceptance in (None, "PASS"))
+        )
+
+    execution_integrity = "PASS" if not stops else "FAIL"
     if stops:
         verdict = "STOPPED"
-    elif status == "succeeded":
+    elif goal_correctness:
         verdict = "PASS"
     else:
-        # A measured goal failure is a valid observation, not a pass and not a stop.
+        # The agent may have claimed success; the independent oracle decides. Either way this is a
+        # measured outcome, not an infrastructure defect, and the matrix continues.
         verdict = "MEASURED_FAILURE"
+
     return {
         "cell_id": cell["cell_id"],
         "arm_id": cell["arm_id"],
@@ -416,18 +817,28 @@ def audit_cell(
         "exposure": arm.exposure,
         "status": status,
         "failure_kind": kind or None,
-        "oracle": oracle_state,
+        "agent_success": agent_success,
+        "oracle_passed": oracle_passed,
+        "oracle_status": oracle_status or None,
+        "goal_correctness": goal_correctness,
+        "execution_integrity": execution_integrity,
+        "executor_verdict": verdict,
         "checks": checks,
         "stops": stops,
-        "usage": {
-            key: usage.get(key) for key in REQUIRED_USAGE_FIELDS
-        },
-        "delta_cost_usd": round(delta_cost, 6),
-        "cost_usd": round(total_cost, 6),
+        "usage": {key: usage.get(key) for key in REQUIRED_USAGE_FIELDS},
+        "delta_cost_usd": None if delta_cost is None else round(delta_cost, 6),
+        "cost_usd": total_cost,
         "verdict": verdict,
         "duration_s": round(run.duration_s, 3),
         "notes": list(run.notes),
     }
+
+
+def _lifecycle_stop(problems: list[str]) -> str:
+    for problem in problems:
+        if "destroy" in problem or "retain" in problem or "reported" in problem:
+            return STOP_SANDBOX_CLEANUP
+    return STOP_SANDBOX_FAILURE
 
 
 def _exception_stop(run: CellRun) -> str:
@@ -437,6 +848,8 @@ def _exception_stop(run: CellRun) -> str:
         return STOP_SANDBOX_FAILURE
     if run.error_kind == "oracle":
         return STOP_ORACLE_ENVIRONMENT
+    if run.error_kind == "fixture":
+        return STOP_FIXTURE
     return STOP_EXECUTION_EXCEPTION
 
 
@@ -520,25 +933,47 @@ async def dispatch(
     runs_root: Path,
     evidence_root: Path,
     authority_path: Path | None = None,
-    head: str | None = None,
     cell_runner: CellRunner | None = None,
     repo_root: Path | None = None,
+    mode: str = MODE_LIVE,
+    head_override: str | None = None,
     prices: Mapping[str, Any] | None = None,
     clock: Callable[[], str] = now,
 ) -> dict[str, Any]:
     """Run one plan, or refuse and say why. The only entry point that may execute a cell."""
 
+    if mode not in MODES:
+        raise ValueError(f"unknown dispatch mode {mode!r}; expected one of {list(MODES)}")
+    offline = mode == MODE_OFFLINE_PROOF
+
     plan = contract.scope_plan(plan_id)
     evidence = Path(evidence_root)
-    # A dispatch is a filesystem operation from start to finish; the event loop is only used for the
-    # runner itself, so creating the evidence root here is deliberate and not offloaded.
     await asyncio.to_thread(evidence.mkdir, parents=True, exist_ok=True)
     document = contract.protocol_document()
     identity = executor_identity(repo_root)
-    actual_head = head or git_head(repo_root)
+    actual_head = head_override if (offline and head_override) else git_head(repo_root)
+    root, claim_is_default = claim_root()
+    claim_file = claim_path(plan["digest"])
     record = _read_json(Path(authority_path)) if authority_path else None
 
-    claim_path = evidence / "dispatch.claim"
+    violations: list[str] = []
+    if not offline:
+        if head_override:
+            violations.append("a live dispatch cannot be given a head; it reads the repository")
+        if not claim_is_default:
+            violations.append(
+                f"{_CLAIM_ENV} is set, so the global claim is not the production claim"
+            )
+        runner = cell_runner or live_cell_runner()
+        if not getattr(runner, "is_live", False):
+            violations.append("a live dispatch requires the live cell runner")
+        dirty = git_dirty(repo_root)
+        if dirty:
+            violations.append(f"the worktree has {len(dirty)} uncommitted path(s)")
+        if prices is not None:
+            violations.append("a live dispatch uses the frozen price block, not injected prices")
+
+    claim_consumed = claim_file.exists()
     authority_verdict = authority_module.verify(
         record,
         plan=plan,
@@ -546,10 +981,18 @@ async def dispatch(
         executor=identity,
         protocol_digest_value=authority_module.protocol_digest(document),
         repo_root=repo_root,
-        claim_consumed=claim_path.exists(),
+        claim_consumed=claim_consumed,
     )
-    if not authority_verdict["ready"]:
-        report = _refused_report(plan, identity, actual_head, authority_verdict, clock)
+    problems = [*violations, *authority_verdict["problems"]]
+    if problems:
+        stop = (
+            STOP_MODE_VIOLATION
+            if violations
+            else STOP_CLAIM_CONSUMED
+            if claim_consumed
+            else STOP_NOT_AUTHORIZED
+        )
+        report = _refused_report(plan, identity, actual_head, problems, stop, clock, mode)
         (evidence / "dispatch-refused.json").write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8"
         )
@@ -557,11 +1000,18 @@ async def dispatch(
 
     ledger_path = evidence / "ledger.jsonl"
     if not _fresh_ledger(ledger_path):
-        verdict = dict(authority_verdict, ready=False, problems=["the ledger is not fresh"])
-        return _refused_report(plan, identity, actual_head, verdict, clock)
+        return _refused_report(
+            plan,
+            identity,
+            actual_head,
+            ["the ledger is not fresh"],
+            STOP_LEDGER_INTEGRITY,
+            clock,
+            mode,
+        )
 
     claimed = _claim(
-        claim_path,
+        claim_file,
         {
             "plan_id": plan["plan_id"],
             "plan_digest": plan["digest"],
@@ -569,24 +1019,34 @@ async def dispatch(
             "executor_digest": identity["executor_digest"],
             "authority_digest": authority_verdict["authority_digest"],
             "claimed_at": clock(),
+            "claim_root_is_default": claim_is_default,
+            "mode": mode,
         },
     )
     if not claimed:
-        verdict = dict(authority_verdict, ready=False, problems=["the dispatch claim is consumed"])
-        return _refused_report(plan, identity, actual_head, verdict, clock)
+        return _refused_report(
+            plan,
+            identity,
+            actual_head,
+            ["the dispatch claim for this plan is already consumed"],
+            STOP_CLAIM_CONSUMED,
+            clock,
+            mode,
+        )
 
-    runner = cell_runner or live_cell_runner(repo_root)
+    runner = cell_runner or live_cell_runner()
+    frozen_prices = dict(cost.stage_b_estimate.pricing())
     context = DispatchContext(
         plan=plan,
         authority=record or {},
         runs_root=Path(runs_root),
         evidence_root=evidence,
         head=actual_head,
-        prices=dict(prices or cost.stage_b_estimate.pricing()),
+        prices=frozen_prices if not offline else dict(prices or frozen_prices),
     )
     started = clock()
-    usage: dict[str, int] = dict.fromkeys(REQUIRED_USAGE_FIELDS, 0)
-    total_cost = 0.0
+    usage: dict[str, Any] = dict.fromkeys(REQUIRED_USAGE_FIELDS, 0)
+    total_cost: float | None = 0.0
     stop_reason = STOP_NONE
     stopped_at: int | None = None
     cells: list[dict[str, Any]] = []
@@ -596,7 +1056,9 @@ async def dispatch(
     token_stop = int((record or {}).get("token_stop") or 0)
 
     for cell in plan["cells"]:
-        cell_root = evidence / "cells" / cell["cell_id"]
+        # Same short key the runner uses, so the attempt marker, the analysis and the run sit
+        # together. The identity is the cell id inside those files, not the directory name.
+        cell_root = evidence / "cells" / f"c{int(cell['order']):02d}"
         attempt_path = cell_root / "attempt.json"
         if not _claim(
             attempt_path,
@@ -616,7 +1078,7 @@ async def dispatch(
             {
                 "order": cell["order"],
                 "cell_id": cell["cell_id"],
-                "cost_before_usd": round(total_cost, 6),
+                "cost_before_usd": total_cost,
                 "tokens_before": dict(usage),
                 "dispatched_at": clock(),
                 "execution_head": actual_head,
@@ -650,11 +1112,18 @@ async def dispatch(
             cost_before=total_cost,
             prices=context.prices,
         )
-        if outcome["delta_cost_usd"] and outcome["delta_cost_usd"] > per_cell_stop > 0:
+        delta = outcome["delta_cost_usd"]
+        over_cell_stop = (
+            per_cell_stop > 0
+            and delta is not None
+            and delta >= per_cell_stop
+            and STOP_COST_REACHED not in outcome["stops"]
+        )
+        if over_cell_stop:
             outcome["stops"].append(STOP_COST_REACHED)
             outcome["verdict"] = "STOPPED"
         usage = dict(outcome["usage"])
-        total_cost = float(outcome["cost_usd"])
+        total_cost = outcome["cost_usd"]
         cells.append(outcome)
 
         _append_jsonl(
@@ -674,26 +1143,42 @@ async def dispatch(
         if outcome["stops"]:
             stop_reason, stopped_at = outcome["stops"][0], int(cell["order"])
             break
-        if cost_stop > 0 and total_cost >= cost_stop:
+        if cost_stop > 0 and total_cost is not None and total_cost >= cost_stop:
             stop_reason, stopped_at = STOP_COST_REACHED, int(cell["order"])
             break
-        if token_stop > 0 and int(usage.get("system_total_tokens") or 0) >= token_stop:
+        cumulative_tokens = usage.get("system_total_tokens")
+        if (
+            token_stop > 0
+            and cumulative_tokens is not None
+            and int(cumulative_tokens) >= token_stop
+        ):
             stop_reason, stopped_at = STOP_TOKEN_REACHED, int(cell["order"])
             break
 
     finished = clock()
+    observed_floor = round(
+        sum(cell["cost_usd"] for cell in cells if cell["cost_usd"] is not None), 6
+    )
+    completeness = "COMPLETE"
+    if any(cell["usage"].get(key) is None for cell in cells for key in REQUIRED_USAGE_FIELDS):
+        completeness = "UNKNOWN"
+    if any(cell["cost_usd"] is None for cell in cells):
+        completeness = "UNKNOWN"
     report = {
         "stage": contract.STAGE_ID,
         "protocol_version": contract.PROTOCOL_VERSION,
         "executor_version": identity["executor_version"],
         "executor_digest": identity["executor_digest"],
         "executor_files": identity["files"],
+        "mode": mode,
         "plan_id": plan["plan_id"],
         "scope": plan["scope"],
         "plan_digest": plan["digest"],
         "execution_head": actual_head,
         "authority_digest": authority_verdict["authority_digest"],
         "authorized_cells": list(authority_verdict["cell_ids"]),
+        "claim_path": str(claim_file),
+        "claim_root_is_default": claim_is_default,
         "is_benchmark_sample": bool(plan["is_benchmark_sample"]),
         "started_at": started,
         "finished_at": finished,
@@ -708,11 +1193,12 @@ async def dispatch(
         "stop_reason": stop_reason,
         "stopped_at_order": stopped_at,
         "complete": stop_reason == STOP_NONE and len(cells) == len(plan["cells"]),
-        "total_tokens": None
-        if any(usage.get(key) is None for key in REQUIRED_USAGE_FIELDS)
-        else usage.get("system_total_tokens"),
-        "total_cost_usd": round(total_cost, 6),
+        "usage_completeness": completeness,
+        "total_tokens": usage.get("system_total_tokens") if completeness == "COMPLETE" else None,
+        "total_cost_usd": total_cost if completeness == "COMPLETE" else None,
+        "observed_cost_floor_usd": observed_floor,
         "cost_stop_usd": cost_stop,
+        "per_cell_cost_stop_usd": per_cell_stop,
         "token_stop": token_stop,
         "pricing": dict(context.prices),
         "cells": cells,
@@ -730,33 +1216,39 @@ def _refused_report(
     plan: Mapping[str, Any],
     identity: Mapping[str, Any],
     head: str,
-    verdict: Mapping[str, Any],
+    problems: list[str],
+    stop: str,
     clock: Callable[[], str],
+    mode: str,
 ) -> dict[str, Any]:
     return {
         "stage": contract.STAGE_ID,
+        "executor_version": identity["executor_version"],
+        "executor_digest": identity["executor_digest"],
+        "mode": mode,
         "plan_id": plan["plan_id"],
         "scope": plan["scope"],
         "plan_digest": plan["digest"],
-        "executor_version": identity["executor_version"],
-        "executor_digest": identity["executor_digest"],
         "execution_head": head,
         "started_at": clock(),
         "finished_at": clock(),
         "cells_planned": len(plan["cells"]),
         "cells_started": 0,
         "cells_not_run": len(plan["cells"]),
-        "stop_reason": STOP_NOT_AUTHORIZED,
+        "stop_reason": stop,
         "complete": False,
-        "problems": list(verdict.get("problems") or []),
+        "problems": problems,
         "refused": True,
         "retry": "FORBIDDEN",
     }
 
 
 def _write_analysis(
-    cell_root: Path, plan: Mapping[str, Any], cell: Mapping[str, Any], outcome: Mapping[str, Any],
-    run: CellRun
+    cell_root: Path,
+    plan: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    outcome: Mapping[str, Any],
+    run: CellRun,
 ) -> None:
     cell_root.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -769,107 +1261,209 @@ def _write_analysis(
         "is_benchmark_sample": plan["is_benchmark_sample"],
         "outcome": dict(outcome),
         "oracle": run.oracle,
+        "fixture": run.fixture,
+        "export": run.export,
+        "sandbox_plan": run.sandbox_plan,
+        "oracle_sandbox": run.oracle_sandbox,
         "duration_s": round(run.duration_s, 3),
         "notes": list(run.notes),
     }
-    (cell_root / "analysis.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    (cell_root / "analysis.json").write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    )
+
+
+# -- fixture, export and oracle ----------------------------------------------------------------
+
+
+def prepare_fixture(task: Any, destination: Path) -> dict[str, Any]:
+    """A per-cell clean repository built from the frozen seed, and its identity.
+
+    The seed is written through the shared fixture materialiser and committed with the shared
+    stager, so the "clean git repository" requirement the provisioner enforces is met by
+    construction rather than by a second implementation. The digest is then recomputed from what is
+    on disk and compared with the frozen one: a fixture that does not match its seed is a stop.
+    """
+
+    benchmark = closure2_catalog.build_task(task, topology="single")
+    remove_tree(destination)
+    destination.mkdir(parents=True, exist_ok=True)
+    materialize_fixture(benchmark, destination)
+    commit = stage_git_repo(destination, label=f"stage-b-plus {task.task_id}")
+    written = {
+        path.relative_to(destination).as_posix(): path.read_text(encoding="utf-8")
+        for path in sorted(destination.rglob("*"))
+        if path.is_file() and ".git" not in path.relative_to(destination).parts
+    }
+    seed_digest = canonical_digest(dict(sorted(written.items())))
+    frozen = closure2_catalog.task_digests(task)["seed_digest"]
+    return {
+        "path": str(destination),
+        "commit": commit,
+        "seed_digest": seed_digest,
+        "frozen_seed_digest": frozen,
+        "matches_frozen_seed": seed_digest == frozen,
+        "files": len(written),
+        "files_list": sorted(written),
+    }
+
+
+def judge_export(
+    workspace: Path,
+    task: Any,
+    *,
+    provider: Any,
+    run_id: str,
+    image: str | None,
+    timeout_seconds: int = 300,
+) -> dict[str, Any]:
+    """Score an exported workspace with the hidden suite, inside its own throwaway sandbox.
+
+    Reused: Closure-2's ``run_hidden_tests_in_sandbox`` uploads the export and the hidden files,
+    runs ``pytest`` there, and destroys the sandbox. Nothing in this module executes agent code, and
+    the hidden tests never exist in the agent's workspace or in any Host-visible scoring directory.
+    """
+
+    benchmark = closure2_catalog.build_task(task, topology="single")
+    before = workspace_hashes(workspace)
+    hidden_paths = set(benchmark.hidden_files)
+    leaked = sorted(hidden_paths & set(before))
+    if leaked:
+        return {
+            "status": "ERROR",
+            "kind": "HIDDEN_FILES_IN_WORKSPACE",
+            "environment_failure": True,
+            "cleanup_failure": None,
+            "execution_mode": "sandbox",
+            "sandbox_id": None,
+            "leaked_paths": leaked,
+        }
+    config = OracleSandboxConfig(image=image, timeout_seconds=timeout_seconds)
+    outcome = asyncio.run(
+        run_hidden_tests_in_sandbox(
+            provider, task=benchmark, workspace=workspace, run_id=run_id, config=config
+        )
+    )
+    status = "PASS" if outcome.passed else "FAIL"
+    if outcome.environment_failure:
+        status = "ERROR"
+    return {
+        "status": status,
+        "kind": outcome.kind,
+        "passed": outcome.passed,
+        "environment_failure": outcome.environment_failure,
+        "cleanup_failure": outcome.cleanup_failure,
+        "execution_mode": "sandbox",
+        "sandbox_id": outcome.sandbox_id,
+        "returncode": outcome.returncode,
+        "timings_ms": outcome.timings_ms,
+        "image": image,
+        "workspace_files": len(before),
+        "hidden_files_in_workspace": leaked,
+        "stderr_excerpt": (outcome.stderr or "")[:400],
+        "source": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
+    }
 
 
 # -- runners ----------------------------------------------------------------------------------
 
 
-def _write_files(root: Path, files: Mapping[str, str]) -> None:
-    for name, text in files.items():
-        target = root / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
+@dataclass(frozen=True)
+class RunnerConfig:
+    """Everything a cell runner is allowed to differ on. Production values are the defaults."""
+
+    llm_provider: str = str(contract.BUDGET["provider"])
+    llm_factory: Callable[[], Any] | None = None
+    sandbox_provider_name: str = str(contract.BUDGET["sandbox_provider"])
+    sandbox_factory: Callable[[Path], Any] | None = None
+    require_real_sandbox: bool = True
+    oracle_timeout_seconds: int = 300
+    main_max_turns: int = int(contract.BUDGET["main_max_turns"])
+    plan: SandboxPlan | None = None
+
+    def sandbox_plan(self) -> SandboxPlan:
+        return self.plan or sandbox_plan(
+            require_real=self.require_real_sandbox,
+            provider_name=self.sandbox_provider_name,
+        )
 
 
-def _fixture_root(root: Path, task_id: str) -> Path:
-    """The Main's workspace: the seed, and nothing else.
+def _sandbox_provider(config: RunnerConfig, root: Path) -> Any:
+    if config.sandbox_factory is not None:
+        root.mkdir(parents=True, exist_ok=True)
+        return config.sandbox_factory(root)
+    from atlasos.sandbox import build_sandbox_provider
+    from atlasos.sandbox.opensandbox_provider import OpenSandboxOptions
 
-    The reference implementation and the hidden suite are deliberately absent, so there is nothing
-    for a run to find by listing the tree.
+    plan = config.sandbox_plan()
+    return build_sandbox_provider(
+        config.sandbox_provider_name,
+        opensandbox_options=OpenSandboxOptions(
+            cpu=plan.cpu,
+            memory=plan.memory,
+            timeout_minutes=plan.timeout_minutes,
+        ),
+    )
+
+
+def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
+    """The production cell: real model, real sandbox, per-cell fixture, sandboxed oracle.
+
+    ``RunnerConfig`` is the only injection point. With the defaults nothing is injected, and the
+    closure carries ``is_live = True`` so ``dispatch`` can refuse to treat an injected runner as a
+    production one.
     """
 
-    task = contract.TASKS_BY_ID[task_id]
-    target = root / "fixtures" / task_id
-    if target.exists():
-        return target
-    _write_files(target, dict(task.seed))
-    return target
-
-
-def _host_oracle(
-    workspace: Path, task_id: str, dest: Path, *, timeout: int = 300
-) -> dict[str, Any]:
-    """The independent oracle: hidden tests added to a copy of the finished workspace.
-
-    The copy is the point. The hidden suite never touches the directory the agents worked in, so a
-    Main cannot read it even by accident, and a failure cannot be attributed to a mutated workspace.
-    The runner itself is Closure-2's, reused unchanged, so a timeout or a collection error is
-    classified the same way the frozen selftest classifies it.
-    """
-
-    task = contract.TASKS_BY_ID[task_id]
-    if dest.exists():
-        shutil.rmtree(dest)
-    shutil.copytree(workspace, dest)
-    _write_files(dest, dict(task.oracle_tests))
-    targets = sorted(task.oracle_tests)
-    result = closure2_preflight._run_pytest(dest, targets, timeout=timeout)
-    kind = str(result.get("kind") or "")
-    status = "PASS" if result.get("passed") else "FAIL"
-    if kind in {"COLLECT_ERROR", "TIMEOUT", "NO_TESTS_COLLECTED", "NO_TARGETS"}:
-        status = "ERROR"
-    return {
-        "status": status,
-        "kind": kind,
-        "exit_code": result.get("exit_code"),
-        "targets": targets,
-        "counts": result.get("counts"),
-        "cause_class": result.get("cause_class"),
-        "source": "experiments.evaluation.closure2.preflight::_run_pytest",
-    }
-
-
-def live_cell_runner(repo_root: Path | None = None) -> CellRunner:
-    """The production runner: real DeepSeek adapter, real OpenSandbox, real public suite.
-
-    It is not exercised by this stage — no credential and no container — and it deliberately builds
-    nothing until ``run_goal`` asks, so importing it cannot create either.
-    """
-
-    del repo_root
+    active = config or RunnerConfig()
 
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> CellRun:
         from atlasos.app.goal_sandbox import GoalSandboxOptions
         from atlasos.app.main_driven import GoalRunOptions, run_goal
         from atlasos.app.public_tests import PublicTestContract
-        from atlasos.config import AtlasConfig, ToolsConfig
 
         task = contract.TASKS_BY_ID[cell["task_id"]]
         arm = contract.ARMS_BY_ID[cell["arm_id"]]
-        root = Path(context["runs_root"])
-        fixture = _fixture_root(root, cell["task_id"])
-        run_dir = Path(context["evidence_root"]) / "cells" / cell["cell_id"] / "run"
+        # A short, stable directory key: the cell id is 40+ characters and the sandbox nests a git
+        # repository several levels deep, which a Windows Host should not have to reach.
+        key = f"c{int(cell['order']):02d}"
+        evidence = Path(context["evidence_root"]) / "cells" / key
+        fixture_dir = Path(context["runs_root"]) / "fixtures" / cell["cell_id"]
+        run_id = f"bplus-{key}"
+        plan = active.sandbox_plan()
         started = time.monotonic()
+
+        try:
+            fixture = await asyncio.to_thread(prepare_fixture, task, fixture_dir)
+        except Exception as error:  # noqa: BLE001 - a fixture defect is a stop
+            return CellRun(
+                session=None,
+                run_dir=None,
+                fixture_root=fixture_dir,
+                oracle=None,
+                duration_s=time.monotonic() - started,
+                error=f"{type(error).__name__}: {error}"[:500],
+                error_kind="fixture",
+                sandbox_plan=plan.as_dict(),
+                expected_run_id=run_id,
+            )
+
         options = GoalRunOptions(
             goal=contract.GOAL_OF[cell["task_id"]],
-            runs_root=run_dir.parent,
-            workspace_root=fixture,
-            config=AtlasConfig(tools=ToolsConfig(mode="progressive")),
+            runs_root=evidence / "agent",
+            workspace_root=evidence / "host-workspace",
+            config=atlas_config(plan),
             delegation=contract.delegation_config(),
-            provider=contract.BUDGET["provider"],
+            provider=active.llm_provider,
             model=contract.BUDGET["model"],
-            max_turns=int(contract.BUDGET["main_max_turns"]),
+            max_turns=active.main_max_turns,
             token_budget=int(contract.BUDGET["token_budget"]),
             main_write_paths=tuple(task.allowed_paths),
             child_write_grants=arm.grant_for(cell["task_id"]),
             worker_profiles=(arm.profile_id,),
             worker_max_turns=int(contract.BUDGET["worker_max_turns"]),
             worker_exposure=arm.exposure,
-            run_id=f"{cell['cell_id']}-run",
+            provider_factory=active.llm_factory,
+            run_id=run_id,
             main_prompt=contract.main_prompt_spec(),
             public_tests=PublicTestContract(
                 test_id="bplus-public",
@@ -880,112 +1474,86 @@ def live_cell_runner(repo_root: Path | None = None) -> CellRunner:
             ),
             acceptance=contract.acceptance_spec(task),
             sandbox=GoalSandboxOptions(
-                provider=contract.BUDGET["sandbox_provider"],
-                source_repo=fixture,
-                image=contract.BUDGET["image"],
+                provider=plan.provider_name,
+                source_repo=fixture_dir,
+                image=plan.image,
+                require_real=plan.require_real,
+                provider_factory=active.sandbox_factory,
             ),
         )
+
         try:
             session = await run_goal(options)
         except BaseException as error:  # noqa: BLE001 - classified by the gate
             return CellRun(
                 session=None,
                 run_dir=None,
-                fixture_root=fixture,
+                fixture_root=fixture_dir,
                 oracle=None,
                 duration_s=time.monotonic() - started,
                 error=f"{type(error).__name__}: {error}"[:500],
                 error_kind="sandbox" if "Sandbox" in type(error).__name__ else "provider",
+                fixture=fixture,
+                sandbox_plan=plan.as_dict(),
+                expected_run_id=run_id,
             )
-        # The oracle is a subprocess, so it runs off the event loop rather than inside it.
-        oracle = await asyncio.to_thread(
-            _host_oracle, fixture, cell["task_id"],
-            Path(context["evidence_root"]) / "cells" / cell["cell_id"] / "oracle",
-        )
+
+        artifacts = session.get("artifacts")
+        export = dict(artifacts) if isinstance(artifacts, Mapping) else None
+        workspace_value = (export or {}).get("workspace_path")
+        oracle: dict[str, Any] | None = None
+        oracle_sandbox: dict[str, Any] | None = None
+        if not workspace_value:
+            oracle = {
+                "status": "ERROR",
+                "kind": "NO_EXPORT",
+                "environment_failure": True,
+                "cleanup_failure": None,
+                "execution_mode": "sandbox",
+                "sandbox_id": None,
+            }
+        else:
+            # A second, independent sandbox: the agent's sandbox is already destroyed by now, so the
+            # oracle can never inherit its state.
+            oracle_root = evidence / "oracle-sandbox"
+            agent_after = await asyncio.to_thread(workspace_digest, fixture_dir)
+            oracle = await asyncio.to_thread(
+                judge_export,
+                Path(str(workspace_value)),
+                task,
+                provider=_sandbox_provider(active, oracle_root),
+                run_id=f"{run_id}-oracle",
+                image=plan.image,
+                timeout_seconds=active.oracle_timeout_seconds,
+            )
+            oracle_sandbox = {
+                "provider": plan.provider_name,
+                "root": str(oracle_root),
+                "sandbox_id": oracle.get("sandbox_id"),
+                "cleanup_failure": oracle.get("cleanup_failure"),
+            }
+            if agent_after != fixture.get("seed_digest"):
+                oracle["fixture_after_run"] = agent_after
+
         return CellRun(
             session=session,
             run_dir=Path(session["run_dir"]),
-            fixture_root=fixture,
+            fixture_root=fixture_dir,
             oracle=oracle,
             duration_s=time.monotonic() - started,
+            fixture=fixture,
+            export=export,
+            sandbox_plan=plan.as_dict(),
+            oracle_sandbox=oracle_sandbox,
+            expected_run_id=run_id,
+            notes=(
+                "host-side scoring is not used: the oracle ran in its own sandbox",
+                f"provider={plan.provider_name}",
+            ),
         )
 
-    return run
-
-
-def host_cell_runner(
-    *,
-    provider_factory: Callable[[], Any] | None = None,
-    script: Sequence[Callable[[list[Any]], list[Any]]] | None = None,
-    max_turns: int = 6,
-) -> CellRunner:
-    """The offline control-flow runner: real ``run_goal``, host mode, scripted provider.
-
-    It exists so the dispatch loop can be exercised end to end without a container. It is *not* a
-    live path: a cell executed this way carries no sandbox evidence and the gate says so.
-    """
-
-    async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> CellRun:
-        from experiments.stage_b_plus import probe as probe_module
-
-        from atlasos.app.main_driven import GoalRunOptions, run_goal
-        from atlasos.config import AtlasConfig, ToolsConfig
-
-        task = contract.TASKS_BY_ID[cell["task_id"]]
-        arm = contract.ARMS_BY_ID[cell["arm_id"]]
-        root = Path(context["runs_root"])
-        fixture = _fixture_root(root, cell["task_id"])
-        scripted = (
-            provider_factory()
-            if provider_factory is not None
-            else probe_module.ScriptedProvider(
-                main_script=list(script or ()), child_scripts={}
-            )
-        )
-        started = time.monotonic()
-        options = GoalRunOptions(
-            goal=contract.GOAL_OF[cell["task_id"]],
-            runs_root=root / "runs",
-            workspace_root=fixture,
-            config=AtlasConfig(tools=ToolsConfig(mode="progressive")),
-            delegation=contract.delegation_config(),
-            provider="fake",
-            model=contract.BUDGET["model"],
-            max_turns=max_turns,
-            main_write_paths=tuple(task.allowed_paths),
-            child_write_grants=arm.grant_for(cell["task_id"]),
-            worker_profiles=(arm.profile_id,),
-            worker_max_turns=int(contract.BUDGET["worker_max_turns"]),
-            worker_exposure=arm.exposure,
-            provider_factory=lambda: scripted,
-            run_id=f"{cell['cell_id']}-host-{int(started * 1000) % 100000}",
-            main_prompt=contract.main_prompt_spec(),
-        )
-        try:
-            session = await run_goal(options)
-        except BaseException as error:  # noqa: BLE001
-            return CellRun(
-                session=None,
-                run_dir=None,
-                fixture_root=fixture,
-                oracle=None,
-                duration_s=time.monotonic() - started,
-                error=f"{type(error).__name__}: {error}"[:500],
-                error_kind="exception",
-            )
-        oracle = await asyncio.to_thread(
-            _host_oracle, fixture, cell["task_id"],
-            Path(context["evidence_root"]) / "cells" / cell["cell_id"] / "oracle",
-        )
-        return CellRun(
-            session=session,
-            run_dir=Path(session["run_dir"]),
-            fixture_root=fixture,
-            oracle=oracle,
-            duration_s=time.monotonic() - started,
-            notes=("host mode: no sandbox evidence, so the gate stops this cell",),
-        )
-
+    run.is_live = active.require_real_sandbox and active.sandbox_factory is None  # type: ignore[attr-defined]
+    run.runner_config = active  # type: ignore[attr-defined]
     return run
 
 
@@ -995,14 +1563,26 @@ __all__ = [
     "DispatchContext",
     "EXECUTOR_FILES",
     "EXECUTOR_VERSION",
+    "MODE_LIVE",
+    "MODE_OFFLINE_PROOF",
+    "MODES",
     "NORMAL_FAILURE_KINDS",
+    "RunnerConfig",
+    "SandboxPlan",
+    "atlas_config",
     "audit_cell",
     "cell_cost",
+    "claim_path",
+    "claim_root",
+    "claim_root_override",
     "dispatch",
     "executor_identity",
+    "git_dirty",
     "git_head",
-    "host_cell_runner",
+    "judge_export",
     "live_cell_runner",
     "now",
+    "prepare_fixture",
+    "sandbox_plan",
     "validate_usage",
 ]
