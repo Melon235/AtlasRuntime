@@ -494,9 +494,10 @@ def test_an_approved_live_run_reaches_the_executor(
 def test_a_failing_cell_is_recorded_and_never_reads_as_a_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A raised cell is data, not a crash — but it also makes the spend unmeasurable.
+    """A raised cell is data, not a crash — and it also stops the plan on the spot.
 
-    The cost policy is fail-closed, so dispatch stops: an erased cost could hide any spend.
+    The record is kept as the error produced it; the dispatch integrity gate then ends the run, so a
+    later cell can never be paid for on top of an unmeasurable spend.
     """
 
     approve_benchmark(monkeypatch)
@@ -528,8 +529,10 @@ def test_a_failing_cell_is_recorded_and_never_reads_as_a_success(
     assert summary["agent_sandbox_runs_unknown"] == 1
     assert summary["agent_sandbox_runs_total"] is None
     assert summary["agent_sandbox_runs_complete"] is False
-    # Unknown spend cannot be proven under the ceiling, so the next cell is not dispatched.
-    assert summary["stopped_reason"] == "COST_UNKNOWN"
+    # The exception stops the plan directly: it is no longer left to the next cost gate to notice.
+    assert summary["stopped_reason"] == "EXECUTION_ERROR"
+    assert summary["execution_integrity_status"] == "BLOCKED_DISPATCH_INTEGRITY"
+    assert summary["dispatch_integrity"]["source"] == "EXECUTION_ERROR"
     assert summary["not_started_cells"] == [Cell(P1, "A0").cell_id]
 
 

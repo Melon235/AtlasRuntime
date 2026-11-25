@@ -877,6 +877,70 @@ EVIDENCE_PRESENT = "PRESENT"
 EVIDENCE_MISSING = "MISSING"
 EVIDENCE_UNREADABLE = "UNREADABLE"
 EVIDENCE_NOT_PRODUCED = "NOT_PRODUCED"
+EVIDENCE_EMPTY = "EMPTY"
+EVIDENCE_CORRUPT = "CORRUPT"
+EVIDENCE_NOT_AN_OBJECT = "NOT_AN_OBJECT"
+
+#: Evidence state -> the reason code that stops the plan. A record is only usable when its result
+#: file is a non-empty JSON object; anything else is a claim without a document behind it.
+EVIDENCE_BLOCKS: dict[str, str] = {
+    EVIDENCE_MISSING: "EVIDENCE_MISSING",
+    EVIDENCE_NOT_PRODUCED: "EVIDENCE_MISSING",
+    EVIDENCE_EMPTY: "EVIDENCE_EMPTY",
+    EVIDENCE_CORRUPT: "EVIDENCE_CORRUPT",
+    EVIDENCE_NOT_AN_OBJECT: "EVIDENCE_NOT_AN_OBJECT",
+    EVIDENCE_UNREADABLE: "EVIDENCE_UNREADABLE",
+}
+
+
+def _token_count_is_legal(value: Any) -> bool:
+    """A token count is a non-negative integer. ``True`` is a bool, not a count."""
+
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _token_usage_state(record: dict[str, Any]) -> str:
+    """``VALID`` when both counts are legal, ``INVALID`` if one is bad, otherwise ``MISSING``."""
+
+    prompt = record.get("provider_prompt_tokens")
+    completion = record.get("provider_completion_tokens")
+    if prompt is None or completion is None:
+        # A present-but-illegal value is worse than an absent one and must not read as "missing".
+        if (prompt is not None and not _token_count_is_legal(prompt)) or (
+            completion is not None and not _token_count_is_legal(completion)
+        ):
+            return "INVALID"
+        return "MISSING"
+    if not _token_count_is_legal(prompt) or not _token_count_is_legal(completion):
+        return "INVALID"
+    return "VALID"
+
+
+def _pre_request_zero_consumption(record: dict[str, Any]) -> bool:
+    """Can the record *prove* nothing was spent, rather than merely failing to report a number?
+
+    Only an attested conjunction counts: the runner counted requests and saw zero of them, it
+    counted at least one admission rejection before send, the token counts carry no spend, and the
+    cost is a known zero. A ``BUDGET_EXCEEDED`` class with a known cost is not proof of anything —
+    the class says a limit was hit, not that no request left the process.
+    """
+
+    if record.get("model_calls_source") != "request_evidence.requests_observed":
+        return False
+    if record.get("model_calls") != 0:
+        return False
+    rejected = record.get("budget_admission_rejected")
+    if not (isinstance(rejected, int) and not isinstance(rejected, bool) and rejected >= 1):
+        return False
+    # This path exists for records whose usage is *missing*; a zero is equally consistent with it.
+    if record.get("provider_prompt_tokens") not in (None, 0):
+        return False
+    if record.get("provider_completion_tokens") not in (None, 0):
+        return False
+    return (
+        record.get("estimated_cost_usd_state") == "COMPLETE"
+        and record.get("estimated_cost_usd") == 0
+    )
 
 
 def _dispatch_integrity_block(record: dict[str, Any]) -> dict[str, Any]:
@@ -934,16 +998,25 @@ def _dispatch_integrity_block(record: dict[str, Any]) -> dict[str, Any]:
         reasons.append("COST_INVALID")
     elif cost_state != "COMPLETE":
         reasons.append("COST_UNKNOWN")
-    usage_observed = record.get("provider_token_usage_observed") is True
-    if not usage_observed and failure_class != "BUDGET_EXCEEDED":
-        reasons.append("TOKEN_USAGE_UNKNOWN")
+    # Token usage: a legal pair of counts, or an attested proof that nothing was spent. The class
+    # alone never buys the exemption — ``BUDGET_EXCEEDED`` says a limit was hit, not that the
+    # process never sent a request.
+    usage_state = _token_usage_state(record)
+    if usage_state == "INVALID":
+        reasons.append("TOKEN_USAGE_INVALID")
+    elif usage_state == "MISSING":
+        exempt = failure_class == "BUDGET_EXCEEDED" and _pre_request_zero_consumption(record)
+        if not exempt:
+            reasons.append("TOKEN_USAGE_UNKNOWN")
 
-    # 5. Evidence: an unreadable result cannot be audited, so it cannot justify another cell.
+    # 5. Evidence: an unreadable, empty or malformed result cannot be audited, so it cannot justify
+    #    another cell.
     evidence_state = record.get("raw_evidence_state")
-    if evidence_state in (EVIDENCE_MISSING, EVIDENCE_NOT_PRODUCED):
-        reasons.append("EVIDENCE_MISSING")
-    elif evidence_state == EVIDENCE_UNREADABLE:
-        reasons.append("EVIDENCE_UNREADABLE")
+    evidence_block = (
+        EVIDENCE_BLOCKS.get(evidence_state) if isinstance(evidence_state, str) else None
+    )
+    if evidence_block is not None:
+        reasons.append(evidence_block)
     elif evidence_state != EVIDENCE_PRESENT:
         reasons.append("EVIDENCE_UNKNOWN")
 
@@ -1536,9 +1609,9 @@ async def run_live_pilot(
        claimed is refused even if the previous attempt crashed.
     6. Only then does each cell reach its engine; each state change is persisted.
 
-    A cell that raises is recorded as ``EXECUTION_ERROR`` and the pilot continues unless the cost
-    state becomes unknowable: one broken cell is never rewritten as a success and never silently
-    retried on another engine.
+    A cell that raises is recorded as ``EXECUTION_ERROR``, persisted as ``FAILED`` and then stops
+    the plan: one broken cell is never rewritten as a success, never filtered by the next cost gate
+    and never silently retried on another engine.
 
     After a cell returns, two independent gates decide whether the *next* one may start: the cost
     gate (can we still afford it) and ``_dispatch_integrity_block`` (is another cell still
@@ -1641,7 +1714,24 @@ async def run_live_pilot(
                 stopped_reason = ledger_error.reason_code
                 not_started = [pending.cell_id for pending in cells[index + 1 :]]
                 break
-            continue
+            # Phase C — an exception is a stop, not an observation to be filtered by the next cost
+            # gate. The record is kept exactly as the error produced it and the plan stops here.
+            block = _dispatch_integrity_block(record)
+            integrity_status = "BLOCKED_DISPATCH_INTEGRITY"
+            dispatch_integrity = {
+                **block,
+                "blocked": True,
+                "reason": "EXECUTION_ERROR",
+                "reasons": ["EXECUTION_ERROR", *block["reasons"]],
+                "source": "EXECUTION_ERROR",
+                "exception": f"{type(error).__name__}: {error}",
+                "cell_id": cell.cell_id,
+                "repetition_id": repetition_id,
+                "is_last_cell": index == len(cells) - 1,
+            }
+            stopped_reason = "EXECUTION_ERROR"
+            not_started = [pending.cell_id for pending in cells[index + 1 :]]
+            break
         record = normalize_result(cell, result, settings=settings)
         records.append(record)
         try:
@@ -1842,11 +1932,14 @@ def _attestation(metrics: Any) -> dict[str, Any]:
 
 
 def _raw_evidence_state(run_dir: Any) -> tuple[str, int | None]:
-    """Is ``run_dir/result.json`` really there, and really readable?
+    """Is ``run_dir/result.json`` a real, non-empty, parseable JSON object?
 
     ``raw_evidence_preserved`` used to be a constant ``True``: a claim about a file nobody opened.
-    This reads one byte of the file the record points at, so the flag reports an observation. It
-    never writes, recreates or repairs anything — a missing result stays missing.
+    This reads the file the record points at and parses it, so the flag reports an observation
+    rather than an intention. Four things can be wrong and they are different failures: absent,
+    unreadable, empty, and not a JSON object.
+
+    It never writes, recreates or repairs anything — a missing or broken result stays that way.
     """
 
     if run_dir is None:
@@ -1855,13 +1948,23 @@ def _raw_evidence_state(run_dir: Any) -> tuple[str, int | None]:
     try:
         if not path.exists():
             return EVIDENCE_MISSING, None
-        with path.open("rb") as handle:
-            handle.read(1)
-        return EVIDENCE_PRESENT, path.stat().st_size
+        if not path.is_file():
+            return EVIDENCE_UNREADABLE, None
+        data = path.read_bytes()
     except OSError:
-        # Present but not readable as a file (a directory, a locked file, a permission error): the
-        # result cannot be audited, and that is not the same as "the run wrote nothing".
+        # A directory, a locked file, a permission error: present but not readable as a file, which
+        # is not the same as "the run wrote nothing".
         return EVIDENCE_UNREADABLE, None
+    size = len(data)
+    if size == 0:
+        return EVIDENCE_EMPTY, 0
+    try:
+        document = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return EVIDENCE_CORRUPT, size
+    if not isinstance(document, dict):
+        return EVIDENCE_NOT_AN_OBJECT, size
+    return EVIDENCE_PRESENT, size
 
 
 def normalize_result(cell: Cell, result: Any, *, settings: Any | None = None) -> dict[str, Any]:

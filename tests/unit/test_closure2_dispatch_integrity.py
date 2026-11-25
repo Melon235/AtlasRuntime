@@ -34,11 +34,18 @@ CEILING = 0.45
 def _run_dir(tmp_path: Path, name: str, *, result: Any = "auto") -> Path:
     directory = tmp_path / name
     directory.mkdir(parents=True, exist_ok=True)
+    target = directory / "result.json"
     if result == "auto":
-        (directory / "result.json").write_text('{"probe": true}\n', encoding="utf-8")
+        target.write_text('{"probe": true}\n', encoding="utf-8")
     elif result == "directory":
         # A directory where the file should be: present, but not readable as a file.
-        (directory / "result.json").mkdir(parents=True, exist_ok=True)
+        target.mkdir(parents=True, exist_ok=True)
+    elif result == "empty":
+        target.write_bytes(b"")
+    elif result == "corrupt":
+        target.write_text('{"probe": tru', encoding="utf-8")
+    elif result == "array":
+        target.write_text("[1, 2, 3]\n", encoding="utf-8")
     return directory
 
 
@@ -58,7 +65,7 @@ def fake_result(tmp_path: Path, name: str, **overrides: Any) -> SimpleNamespace:
         sandbox_created=overrides.pop("sandbox_created", True),
         sandbox_destroyed=overrides.pop("sandbox_destroyed", True),
         worker_selection=["w1"],
-        extra={},
+        extra=overrides.pop("extra", {}),
     )
     identity = SimpleNamespace(
         run_id=f"run-{name}",
@@ -146,23 +153,32 @@ def _rows(path: Path, plan_digest: str) -> dict[str, str]:
 # ------------------------------------------------------------------------------- the policy table
 
 
-@pytest.mark.parametrize(
-    "failure_class",
-    ["TASK_SUCCESS", "ORACLE_FAILURE", "BUDGET_EXCEEDED"],
-)
-def test_a_task_outcome_does_not_block(failure_class: str) -> None:
-    record = {
-        "failure_class": failure_class,
+def _record(**overrides: Any) -> dict[str, Any]:
+    """A record the gate would accept, so each test can break exactly one thing."""
+
+    base: dict[str, Any] = {
+        "failure_class": "TASK_SUCCESS",
         "sandbox_created": True,
         "sandbox_destroyed": True,
         "sandbox_creation_status": "SANDBOX_CREATED_CONFIRMED",
         "oracle_environment_failure": False,
         "estimated_cost_usd": 0.01,
         "estimated_cost_usd_state": "COMPLETE",
+        "provider_prompt_tokens": 1000,
+        "provider_completion_tokens": 200,
         "provider_token_usage_observed": True,
         "raw_evidence_state": "PRESENT",
     }
-    block = pilot_runner._dispatch_integrity_block(record)
+    base.update(overrides)
+    return base
+
+
+@pytest.mark.parametrize(
+    "failure_class",
+    ["TASK_SUCCESS", "ORACLE_FAILURE", "BUDGET_EXCEEDED"],
+)
+def test_a_task_outcome_does_not_block(failure_class: str) -> None:
+    block = pilot_runner._dispatch_integrity_block(_record(failure_class=failure_class))
     assert block["blocked"] is False
     assert block["reasons"] == []
 
@@ -184,18 +200,7 @@ def test_a_task_outcome_does_not_block(failure_class: str) -> None:
     ],
 )
 def test_a_harness_failure_blocks_with_its_own_code(failure_class: str | None, code: str) -> None:
-    record = {
-        "failure_class": failure_class,
-        "sandbox_created": True,
-        "sandbox_destroyed": True,
-        "sandbox_creation_status": "SANDBOX_CREATED_CONFIRMED",
-        "oracle_environment_failure": False,
-        "estimated_cost_usd": 0.01,
-        "estimated_cost_usd_state": "COMPLETE",
-        "provider_token_usage_observed": True,
-        "raw_evidence_state": "PRESENT",
-    }
-    block = pilot_runner._dispatch_integrity_block(record)
+    block = pilot_runner._dispatch_integrity_block(_record(failure_class=failure_class))
     assert block["blocked"] is True
     assert block["reasons"][0] == code
 
@@ -207,52 +212,97 @@ def test_a_harness_failure_blocks_with_its_own_code(failure_class: str | None, c
             {"sandbox_created": None, "sandbox_creation_status": "SANDBOX_CREATION_UNKNOWN"},
             "SANDBOX_LIFECYCLE_UNKNOWN",
         ),
-        ({"sandbox_created": True, "sandbox_destroyed": False}, "SANDBOX_CLEANUP_UNCONFIRMED"),
-        ({"sandbox_created": True, "sandbox_destroyed": None}, "SANDBOX_CLEANUP_UNCONFIRMED"),
+        ({"sandbox_destroyed": False}, "SANDBOX_CLEANUP_UNCONFIRMED"),
+        ({"sandbox_destroyed": None}, "SANDBOX_CLEANUP_UNCONFIRMED"),
         ({"sandbox_created": False}, "SANDBOX_NOT_CREATED"),
         ({"oracle_environment_failure": True}, "ORACLE_ENVIRONMENT_FAILURE"),
         ({"estimated_cost_usd_state": "UNKNOWN", "estimated_cost_usd": None}, "COST_UNKNOWN"),
         ({"estimated_cost_usd_state": "INVALID"}, "COST_INVALID"),
-        ({"provider_token_usage_observed": None}, "TOKEN_USAGE_UNKNOWN"),
-        ({"provider_token_usage_observed": False}, "TOKEN_USAGE_UNKNOWN"),
+        # Usage: absent, illegal, and never inferred from the class.
+        (
+            {"provider_prompt_tokens": None, "provider_completion_tokens": None},
+            "TOKEN_USAGE_UNKNOWN",
+        ),
+        ({"provider_prompt_tokens": -1}, "TOKEN_USAGE_INVALID"),
+        ({"provider_completion_tokens": True}, "TOKEN_USAGE_INVALID"),
+        ({"provider_prompt_tokens": "1000"}, "TOKEN_USAGE_INVALID"),
+        ({"provider_prompt_tokens": None, "provider_completion_tokens": 10}, "TOKEN_USAGE_UNKNOWN"),
+        # Evidence: five different ways a result file fails to be a result.
         ({"raw_evidence_state": "MISSING"}, "EVIDENCE_MISSING"),
+        ({"raw_evidence_state": "NOT_PRODUCED"}, "EVIDENCE_MISSING"),
+        ({"raw_evidence_state": "EMPTY"}, "EVIDENCE_EMPTY"),
+        ({"raw_evidence_state": "CORRUPT"}, "EVIDENCE_CORRUPT"),
+        ({"raw_evidence_state": "NOT_AN_OBJECT"}, "EVIDENCE_NOT_AN_OBJECT"),
         ({"raw_evidence_state": "UNREADABLE"}, "EVIDENCE_UNREADABLE"),
         ({"raw_evidence_state": None}, "EVIDENCE_UNKNOWN"),
     ],
 )
 def test_each_lifecycle_gap_blocks_with_its_own_code(overrides: dict[str, Any], code: str) -> None:
-    record = {
-        "failure_class": "TASK_SUCCESS",
-        "sandbox_created": True,
-        "sandbox_destroyed": True,
-        "sandbox_creation_status": "SANDBOX_CREATED_CONFIRMED",
-        "oracle_environment_failure": False,
-        "estimated_cost_usd": 0.01,
-        "estimated_cost_usd_state": "COMPLETE",
-        "provider_token_usage_observed": True,
-        "raw_evidence_state": "PRESENT",
-        **overrides,
-    }
-    block = pilot_runner._dispatch_integrity_block(record)
+    block = pilot_runner._dispatch_integrity_block(_record(**overrides))
     assert block["blocked"] is True
     assert code in block["reasons"]
 
 
-def test_a_budget_cell_without_observed_usage_is_allowed() -> None:
-    """A cell stopped before spending anything reports no usage: complete, not missing."""
+def test_a_budget_cell_without_usage_needs_proof_of_zero_consumption() -> None:
+    """The class alone buys nothing: without attested zeros, unknown usage is a stop."""
 
-    record = {
-        "failure_class": "BUDGET_EXCEEDED",
-        "sandbox_created": True,
-        "sandbox_destroyed": True,
-        "sandbox_creation_status": "SANDBOX_CREATED_CONFIRMED",
-        "oracle_environment_failure": False,
-        "estimated_cost_usd": 0.0,
-        "estimated_cost_usd_state": "COMPLETE",
-        "provider_token_usage_observed": False,
-        "raw_evidence_state": "PRESENT",
-    }
+    record = _record(
+        failure_class="BUDGET_EXCEEDED",
+        estimated_cost_usd=0.0,
+        provider_prompt_tokens=None,
+        provider_completion_tokens=None,
+        provider_token_usage_observed=False,
+    )
+    assert pilot_runner._dispatch_integrity_block(record)["blocked"] is True
+    assert "TOKEN_USAGE_UNKNOWN" in pilot_runner._dispatch_integrity_block(record)["reasons"]
+
+
+def test_a_budget_cell_with_attested_zero_consumption_is_allowed() -> None:
+    """Missing usage is forgiven only by counted zero requests + a counted pre-send rejection."""
+
+    record = _record(
+        failure_class="BUDGET_EXCEEDED",
+        estimated_cost_usd=0.0,
+        provider_prompt_tokens=None,
+        provider_completion_tokens=None,
+        provider_token_usage_observed=False,
+        model_calls=0,
+        model_calls_source="request_evidence.requests_observed",
+        budget_admission_rejected=1,
+    )
     assert pilot_runner._dispatch_integrity_block(record)["blocked"] is False
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        {"model_calls_source": "metrics.model_turns"},
+        {"model_calls": 1},
+        {"model_calls": None},
+        {"budget_admission_rejected": None},
+        {"budget_admission_rejected": 0},
+        {"budget_admission_rejected": True},
+        {"provider_prompt_tokens": 5},
+        {"estimated_cost_usd": 0.02},
+        {"estimated_cost_usd_state": "UNKNOWN"},
+    ],
+)
+def test_incomplete_zero_consumption_proof_still_blocks(broken: dict[str, Any]) -> None:
+    attested = {
+        "failure_class": "BUDGET_EXCEEDED",
+        "estimated_cost_usd": 0.0,
+        "provider_prompt_tokens": None,
+        "provider_completion_tokens": None,
+        "provider_token_usage_observed": False,
+        "model_calls": 0,
+        "model_calls_source": "request_evidence.requests_observed",
+        "budget_admission_rejected": 1,
+        "estimated_cost_usd_state": "COMPLETE",
+    }
+    attested.update(broken)
+    block = pilot_runner._dispatch_integrity_block(_record(**attested))
+    assert block["blocked"] is True
+    assert "TOKEN_USAGE_UNKNOWN" in block["reasons"]
 
 
 # ------------------------------------------------------------------------------ the live loop
@@ -338,6 +388,84 @@ def test_the_last_cell_still_marks_the_run_incomplete(
     assert summary["dispatch_integrity"]["is_last_cell"] is True
 
 
+@pytest.mark.parametrize("raise_at", [0, 1, 2], ids=["first", "middle", "last"])
+def test_an_exception_stops_the_plan_at_that_cell(
+    raise_at: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An exception is a stop in its own right, not something the next cost gate filters."""
+
+    _approve(monkeypatch, CELLS, CEILING)
+    ledger_path = _ledger(monkeypatch, tmp_path / f"ledger-{raise_at}.sqlite")
+    calls: list[str] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell.cell_id)
+        if len(calls) == raise_at + 1:
+            raise RuntimeError("sandbox never came up")
+        return fake_result(tmp_path, f"ok-{len(calls)}")
+
+    summary = _run(CELLS, runs_root=tmp_path / "runs", executor=executor)
+
+    assert len(calls) == raise_at + 1
+    assert summary["cell_count"] == raise_at + 1
+    assert summary["stopped_reason"] == "EXECUTION_ERROR"
+    assert summary["execution_integrity_status"] == "BLOCKED_DISPATCH_INTEGRITY"
+    assert summary["execution_integrity_ok"] is False
+    assert summary["not_started_cells"] == [cell.cell_id for cell in CELLS[raise_at + 1 :]]
+    assert summary["execution_claim"]["claim_status"] == "CONSUMED"
+
+    integrity = summary["dispatch_integrity"]
+    assert integrity["source"] == "EXECUTION_ERROR"
+    assert integrity["cell_id"] == CELLS[raise_at].cell_id
+    assert integrity["is_last_cell"] is (raise_at == len(CELLS) - 1)
+    assert integrity["reasons"][0] == "EXECUTION_ERROR"
+    assert "RuntimeError: sandbox never came up" in integrity["exception"]
+
+    record = summary["cells"][-1]
+    assert record["status"] == "EXECUTION_ERROR"
+    assert record["failure_class"] == "HARNESS_ERROR"
+
+    rows = _rows(ledger_path, summary["pilot_plan_digest"])
+    assert rows[CELLS[raise_at].cell_id] == "FAILED", "the error is persisted, not hidden"
+    for cell in CELLS[raise_at + 1 :]:
+        assert rows[cell.cell_id] == "CLAIMED"
+
+
+def test_an_exception_on_the_last_cell_exits_non_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _approve(monkeypatch, CELLS, CEILING)
+    _ledger(monkeypatch, tmp_path / "ledger.sqlite")
+    calls: list[str] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell.cell_id)
+        if cell.arm_id == "A2-P":
+            raise RuntimeError("provider died mid-turn")
+        return fake_result(tmp_path, cell.arm_id)
+
+    monkeypatch.setattr(pilot_runner, "_default_executor", executor)
+    exit_code = pilot_runner.main(
+        [
+            "--plan",
+            pilot_runner.PILOT_PLAN_ID,
+            "--live",
+            "--confirm-live",
+            "--cells",
+            ",".join(cell.cell_id for cell in CELLS),
+            "--out",
+            str(tmp_path / "run.json"),
+        ]
+    )
+
+    assert len(calls) == 3
+    assert exit_code == 4, "a run that ends in an exception is not a success"
+    summary = json.loads((tmp_path / "pilot-live-summary.json").read_text(encoding="utf-8"))
+    assert summary["stopped_reason"] == "EXECUTION_ERROR"
+    assert summary["dispatch_integrity"]["is_last_cell"] is True
+    assert summary["not_started_cells"] == []
+
+
 @pytest.mark.parametrize(
     ("overrides", "code"),
     [
@@ -348,8 +476,12 @@ def test_the_last_cell_still_marks_the_run_incomplete(
         ({"failure_class": "TIMEOUT"}, "EXECUTION_TIMEOUT"),
         ({"failure_class": "MODEL_FAILURE"}, "PROVIDER_FAILURE"),
         ({"prompt_tokens": None, "completion_tokens": None}, "TOKEN_USAGE_UNKNOWN"),
+        ({"prompt_tokens": -3}, "TOKEN_USAGE_INVALID"),
         ({"evidence": "missing"}, "EVIDENCE_MISSING"),
         ({"evidence": "directory"}, "EVIDENCE_UNREADABLE"),
+        ({"evidence": "empty"}, "EVIDENCE_EMPTY"),
+        ({"evidence": "corrupt"}, "EVIDENCE_CORRUPT"),
+        ({"evidence": "array"}, "EVIDENCE_NOT_AN_OBJECT"),
     ],
 )
 def test_each_gap_stops_before_the_second_cell(
@@ -401,6 +533,61 @@ def test_a_measured_budget_exhaustion_continues(
         calls.append(cell.cell_id)
         return fake_result(
             tmp_path, cell.arm_id, oracle_passed=False, failure_class="BUDGET_EXCEEDED"
+        )
+
+    summary = _run(CELLS, runs_root=tmp_path / "runs", executor=executor)
+
+    assert len(calls) == 3
+    assert summary["stopped_reason"] is None
+    assert summary["execution_integrity_status"] == "COMPLETE"
+
+
+def test_a_budget_stop_with_unknown_usage_stops_the_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _approve(monkeypatch, CELLS, CEILING)
+    _ledger(monkeypatch, tmp_path / "ledger.sqlite")
+    calls: list[str] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell.cell_id)
+        return fake_result(
+            tmp_path,
+            cell.arm_id,
+            oracle_passed=False,
+            failure_class="BUDGET_EXCEEDED",
+            prompt_tokens=None,
+            completion_tokens=None,
+        )
+
+    summary = _run(CELLS, runs_root=tmp_path / "runs", executor=executor)
+
+    assert len(calls) == 1, "a budget class with unknown usage is not an observation"
+    assert summary["stopped_reason"] == "TOKEN_USAGE_UNKNOWN"
+    assert summary["execution_integrity_status"] == "BLOCKED_DISPATCH_INTEGRITY"
+
+
+def test_a_pre_request_budget_refusal_with_proof_continues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _approve(monkeypatch, CELLS, CEILING)
+    _ledger(monkeypatch, tmp_path / "ledger.sqlite")
+    calls: list[str] = []
+
+    async def executor(cell: Cell, **kwargs: Any) -> Any:
+        calls.append(cell.cell_id)
+        return fake_result(
+            tmp_path,
+            cell.arm_id,
+            oracle_passed=False,
+            failure_class="BUDGET_EXCEEDED",
+            estimated_cost_usd=0.0,
+            prompt_tokens=None,
+            completion_tokens=None,
+            extra={
+                "request_evidence": {"requests_observed": 0},
+                "budget": {"admission_rejections": 1},
+            },
         )
 
     summary = _run(CELLS, runs_root=tmp_path / "runs", executor=executor)
