@@ -27,6 +27,7 @@ argument with no default in the CLI wrapper.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import contextlib
 import hashlib
 import json
@@ -84,6 +85,8 @@ EXECUTOR_FILES: tuple[str, ...] = (
     "experiments/stage_f/arms.py",
     "experiments/stage_f/plan.py",
     "experiments/stage_f/normalize.py",
+    "experiments/stage_f/runners.py",
+    "experiments/stage_f/cumulative.py",
     # Stage C1-B: the worker completion contract and the failure classification are part of what a
     # cell executes, so a signature has to cover them.
     "src/atlasos/workers/catalog.py",
@@ -862,7 +865,14 @@ def audit_cell(
     ):
         from experiments.stage_f import runners as stage_f_runners
 
-        return stage_f_runners.audit_stage_f_cell(cell=cell, run=run, plan=plan)
+        return stage_f_runners.audit_stage_f_cell(
+            cell=cell,
+            run=run,
+            plan=plan,
+            usage_before=usage_before,
+            cost_before=cost_before,
+            prices=prices,
+        )
 
     stops: list[str] = []
     checks: list[dict[str, Any]] = []
@@ -1809,6 +1819,24 @@ def _delegation_for_cell(cell: Mapping[str, Any]) -> Any:
     )
 
 
+#: Cells that execute through the goal runtime and therefore carry ``GoalRunOptions``.
+MAIN_DRIVEN = "main_driven"
+MAIN_DRIVEN_MODES: tuple[str, ...] = (MAIN_DRIVEN, "atlas_direct", "atlas_dynamic")
+
+
+def cell_runner_config(cell: Mapping[str, Any], base: RunnerConfig) -> RunnerConfig:
+    """The runner configuration a cell actually executes with.
+
+    A cell that declares its own turn cap wins over the process default. Everything else (provider,
+    sandbox plan, oracle timeout) is inherited, so no other behaviour moves.
+    """
+
+    declared = cell.get("max_turns")
+    if declared is None or int(declared) == base.main_max_turns:
+        return base
+    return dataclasses.replace(base, main_max_turns=int(declared))
+
+
 def cell_runner_for(cell: Mapping[str, Any], *, fallback: CellRunner | None = None) -> CellRunner:
     """The runner for a cell's execution mode.
 
@@ -1817,8 +1845,8 @@ def cell_runner_for(cell: Mapping[str, Any], *, fallback: CellRunner | None = No
     ``experiments.stage_f.runners`` so this module keeps no Stage F logic.
     """
 
-    mode = str(cell.get("execution_mode") or "main_driven")
-    if mode in ("main_driven", "atlas_direct", "atlas_dynamic"):
+    mode = str(cell.get("execution_mode") or MAIN_DRIVEN)
+    if mode in MAIN_DRIVEN_MODES:
         if fallback is not None:
             return fallback
         return live_cell_runner()
@@ -1944,7 +1972,7 @@ def run_admission_preflight(
             evidence = root / key
             fixture_dir = root / "fixtures" / cell["cell_id"]
             try:
-                fixture = prepare_fixture(contract.TASKS_BY_ID[cell["task_id"]], fixture_dir)
+                fixture = prepare_fixture(task_for_cell(cell), fixture_dir)
             except Exception as error:  # noqa: BLE001 - an unusable fixture is a refusal
                 detail = f"{type(error).__name__}: {error}"[:200]
                 cells.append(
@@ -1959,27 +1987,43 @@ def run_admission_preflight(
                 )
                 failures.append(f"{cell['cell_id']}: fixture_preparation ({detail})")
                 continue
-            options = production_goal_options(
-                cell,
-                evidence_root=evidence,
-                fixture_dir=fixture_dir,
-                config=active,
-                run_id=f"admission-{key}",
-            )
-            report = run_live_preflight(options)
+            mode = str(cell.get("execution_mode") or MAIN_DRIVEN)
+            if mode in MAIN_DRIVEN_MODES:
+                options = production_goal_options(
+                    cell,
+                    evidence_root=evidence,
+                    fixture_dir=fixture_dir,
+                    config=cell_runner_config(cell, active),
+                    run_id=f"admission-{key}",
+                )
+                report = run_live_preflight(options)
+                detail = {
+                    "provider_factory_injected": options.provider_factory is not None,
+                    "worker_profile": (options.worker_profiles or (None,))[0],
+                    "worker_exposure": options.worker_exposure,
+                    "oracle_mode": getattr(options.acceptance, "oracle_mode", None),
+                    "main_max_turns": options.max_turns,
+                    "worker_max_turns": options.worker_max_turns,
+                    "token_budget": options.token_budget,
+                }
+            else:
+                # A native or static-DAG cell has no GoalRunOptions. Admitting it through one would
+                # be admitting a configuration it never runs; it is admitted against its own contract
+                # instead, and the record says which checks were applied.
+                from experiments.stage_f import runners as stage_f_runners
+
+                report, detail = stage_f_runners.arm_admission(cell, fixture=fixture, config=active)
             blocked = list(report["blocking_failures"])
             cells.append(
                 {
                     "cell_id": cell["cell_id"],
                     "arm_id": cell["arm_id"],
+                    "execution_mode": mode,
                     "status": report["status"],
                     "blocking_failures": blocked,
                     "checks": len(report["checks"]),
-                    "provider_factory_injected": options.provider_factory is not None,
                     "fixture_matches_frozen_seed": bool(fixture.get("matches_frozen_seed")),
-                    "worker_profile": (options.worker_profiles or (None,))[0],
-                    "worker_exposure": options.worker_exposure,
-                    "oracle_mode": getattr(options.acceptance, "oracle_mode", None),
+                    **detail,
                 }
             )
             failures.extend(f"{cell['cell_id']}: {item}" for item in blocked)
@@ -2052,14 +2096,17 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> CellRun:
         from atlasos.app.main_driven import run_goal
 
-        task = contract.TASKS_BY_ID[cell["task_id"]]
+        task = task_for_cell(cell)
         # A short, stable directory key: the cell id is 40+ characters and the sandbox nests a git
         # repository several levels deep, which a Windows Host should not have to reach.
         key = f"c{int(cell['order']):02d}"
         evidence = Path(context["evidence_root"]) / "cells" / key
         fixture_dir = Path(context["runs_root"]) / "fixtures" / cell["cell_id"]
         run_id = f"bplus-{key}"
-        plan = active.sandbox_plan()
+        # The cell's own resource contract wins over the process default: a Stage F cell declares
+        # 40 Main turns, and the historical default of 20 must not silently override it.
+        cell_config = cell_runner_config(cell, active)
+        plan = cell_config.sandbox_plan()
         started = time.monotonic()
 
         try:
@@ -2081,7 +2128,7 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
             cell,
             evidence_root=evidence,
             fixture_dir=fixture_dir,
-            config=active,
+            config=cell_config,
             run_id=run_id,
         )
 

@@ -1,9 +1,9 @@
 {
   "stage": "F",
   "executor_version": "bplus-executor-1.8",
-  "executor_digest": "sha256:ed677d7d124f4100c590bde9d106e87532d556fbda141c9cd26bffb9b6727e18",
+  "executor_digest": "sha256:8aabf977c4d801bcdf74571ba1fb823ce50d1ad457d41b5c5777e264817fee93",
   "files": {
-    "experiments/stage_b_plus/executor.py": "sha256:11638cf833de4b20da9627fe22d7d4ee9899e068eb1299f68e6d8ae2f252699d",
+    "experiments/stage_b_plus/executor.py": "sha256:6509848da588814f2e0a9fdaae596f062b058ad46189464ce027d2f1dbd77471",
     "experiments/stage_b_plus/authority.py": "sha256:76bbe86c77654593e10aa62017e6ab2661618e0211bedbf3ddd0bcd52c03cd34",
     "experiments/stage_b_plus/contract.py": "sha256:e8177510d8fff52b090527278cb46ab47b15485a41048b10737f654b832e7125",
     "experiments/stage_b_plus/cost.py": "sha256:fa0db30eb622c6076f9b153618fc9e7bfaf990eb422d11946102d7c74a684c28",
@@ -16,16 +16,17 @@
     "experiments/stage_f/arms.py": "sha256:87c5ec2d1ea455585b8074109b2fef0ff645b5eb9467e74c92162f2a6a9bb3d3",
     "experiments/stage_f/plan.py": "sha256:aaf79f55e048d1dfba6a92a32c9251f171b020e2e91a86733ded4e5042124db9",
     "experiments/stage_f/normalize.py": "sha256:530793eac714131948b43391be2669009fdabac6e3d1c5fcdb7aeade132fd929",
+    "experiments/stage_f/runners.py": "sha256:a62d6bae0bf108d3422d4ed90500b8ca71f7571164b8363d377fc93c5ac12159",
+    "experiments/stage_f/cumulative.py": "sha256:c99841e2fe6d6bc9a44aa81428a1538b6a32a05cc43c8a66c06713e9bfc5e3f8",
     "src/atlasos/workers/catalog.py": "sha256:f5ffb8958b7000cdcd0dd5db5950e49da94b3fa387f6b6d5fe6d7bb93966df6c",
     "src/atlasos/app/main_driven.py": "sha256:b183f7aa4d987aa9f1128f3e115c571a41f515008201418e78da6af36a5809cb",
     "src/atlasos/app/live_preflight.py": "sha256:861518f226e29f1baee50721daf5dbf24b1db7f1deb16e357c27a922353d46d0",
     "src/atlasos/app/goal_verification.py": "sha256:7ee0a0bf03e9c5d49618ab117e4af5d5d25f4f5665aa5a6438048497ba1072be"
   },
   "adapter_version": "stage-f-cell-adapter/1.0",
-  "built_from_head": "63fdebfc334a87152e14044613158dcd6cb1647b",
+  "built_from_head": "f82bd49a72ef064293269b875234a01cae840143",
   "supersedes": {
-    "executor_version": "bplus-executor-1.7",
-    "scope": "Stage B+, C1, C1-B, C1-C and C2 plans only; their evidence is not rebuilt"
-  },
-  "note": "the shared executor moved because contract.py gained the Stage F plan entry, executor.py gained the execution-mode cell runner and the task resolver, and offline.py gained the arm fallback; the identity list also covers the Stage F adapter modules that decide what a cell runs"
+    "executor_version": "bplus-executor-1.8",
+    "note": "the previous Stage F freeze was refused by the Owner review; its commit is kept"
+  }
 }

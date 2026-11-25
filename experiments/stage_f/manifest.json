@@ -661,5 +661,5 @@
   "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
   "worker_contract_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
   "incomplete_counterbalance": "three repetitions cannot visit all four execution positions; each task sees three of the four quaternions",
-  "executor_digest": "sha256:ed677d7d124f4100c590bde9d106e87532d556fbda141c9cd26bffb9b6727e18"
+  "executor_digest": "sha256:8aabf977c4d801bcdf74571ba1fb823ce50d1ad457d41b5c5777e264817fee93"
 }

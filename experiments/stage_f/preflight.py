@@ -21,6 +21,7 @@ from experiments.stage_f import arms, normalize, plan, tasks
 
 REPO = Path(__file__).resolve().parents[2]
 STATUS_READY = "STAGE_F_UNIFIED_96_CELL_EVALUATION_READY_FOR_LIVE_AUTHORIZATION"
+STATUS_PREPARATION_BLOCKED = "STAGE_F_UNIFIED_96_CELL_EVALUATION_PREPARATION_BLOCKED"
 STATUS_BLOCKED = "STAGE_F_UNIFIED_96_CELL_EVALUATION_BLOCKED"
 
 
@@ -627,6 +628,38 @@ def check_pending() -> dict[str, Any]:
 # -- assembly -----------------------------------------------------------------------------------
 
 
+OPEN_BLOCKERS: tuple[dict[str, str], ...] = (
+    {
+        "id": "C_task_scale",
+        "package": "C",
+        "detail": (
+            "P1/P2/X1/X2/C1/C2 remain small fixtures (seed 77-136 lines). Package A/B wiring is fixed; the six task families still need substantive expansion or same-family replacements plus per-task mutation evidence."
+        ),
+    },
+    {
+        "id": "runner_proof",
+        "package": "5",
+        "detail": (
+            "The four-arm real runner proof (scripted provider + real OpenSandbox, dispatch -> real entry -> raw result -> normalise -> oracle -> audit -> ledger) has not been run. The adapters are exercised offline only."
+        ),
+    },
+    {
+        "id": "cumulative_wiring",
+        "package": "B6",
+        "detail": (
+            "stage_f.cumulative settles a batch against its predecessors, but dispatch does not yet consult it before a live start; wiring it needs a live-batch entry that does not exist."
+        ),
+    },
+    {
+        "id": "context_metrics",
+        "package": "B5",
+        "detail": (
+            "System max agent context is reported from the main-driven peak and from the native peak; it is not yet an aggregate over every agent, so it stays UNKNOWN where the arm runs more than one."
+        ),
+    },
+)
+
+
 def run(*, scratch: Path | None = None, include_qualification: bool = True) -> dict[str, Any]:
     base = Path(scratch or tempfile.mkdtemp(prefix="stage-f-preflight-"))
     base.mkdir(parents=True, exist_ok=True)
@@ -671,7 +704,14 @@ def run(*, scratch: Path | None = None, include_qualification: bool = True) -> d
         "main_prompt_digest": arms.main_prompt_digest(),
         "worker_contract_digest": arms.worker_contract()["rendered_prompt_digest"],
         "ok": not failed,
-        "status": STATUS_READY if not failed else STATUS_BLOCKED,
+        "status": (
+            STATUS_READY
+            if not failed and not OPEN_BLOCKERS
+            else STATUS_PREPARATION_BLOCKED
+            if not failed
+            else STATUS_BLOCKED
+        ),
+        "open_blockers": list(OPEN_BLOCKERS),
         "failed": failed,
         "checks": checks,
         "live_execution_authorized": False,

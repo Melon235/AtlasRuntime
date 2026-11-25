@@ -10,7 +10,7 @@
   "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
   "reviewed_head": null,
   "execution_head": null,
-  "executor_digest": "sha256:ed677d7d124f4100c590bde9d106e87532d556fbda141c9cd26bffb9b6727e18",
+  "executor_digest": "sha256:8aabf977c4d801bcdf74571ba1fb823ce50d1ad457d41b5c5777e264817fee93",
   "executor_version": "bplus-executor-1.8",
   "cells_count": 32,
   "cell_ids": [
@@ -109,13 +109,19 @@
   "approved_at": null,
   "approval_provenance": null,
   "reuses_s06_or_s08_balance": false,
-  "notes": "Stage F. This record authorizes nothing. It covers one 32-cell batch of the 96-cell matrix; the other two batches have their own plans and their own claims, and all three must be signed before the first live dispatch. The pending batch-pointing fields are placeholders: an Owner signs each batch separately, and the verifier refuses a record whose digests do not match the batch it names.",
-  "master_manifest_digest": "sha256:495adb9380616b87c062d7b51d1e9ac32fd8c77c6d35094edaa9c8ce87efb428",
+  "notes": "This record authorizes nothing. A live dispatch requires every null field filled, both cost fields to be finite and positive, and the provenance to name an external artefact whose bytes still hash to the values recorded here.",
+  "master_manifest_digest": "sha256:20a8de5acb2a337f2862a80eaaaa4738c1039d7038a4629f245afeff342bfdd1",
   "batches": {
     "stage-f-96-b1": "sha256:555af83bb6f295324c727437e99430532fa540ae735b5c36509af554f28adfc2",
     "stage-f-96-b2": "sha256:7ba96594423bacd23148509a5ec67047165161a8380b7313132a959368544fb9",
     "stage-f-96-b3": "sha256:96deb4f5137e4834be74a50de5f7c848b12258f401ab9ca676a86e881ccd860f"
   },
+  "open_blockers": [
+    "C_task_scale",
+    "runner_proof",
+    "cumulative_wiring",
+    "context_metrics"
+  ],
   "cost_stop_candidate": {
     "per_cell_usd": 1.0,
     "per_batch_usd": 32.0,

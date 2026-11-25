@@ -4,14 +4,36 @@
   "master_id": "stage-f-96-manifest-v1",
   "scope": "F_UNIFIED_96_CELL_EVALUATION",
   "executor_version": "bplus-executor-1.8",
-  "executor_digest": "sha256:ed677d7d124f4100c590bde9d106e87532d556fbda141c9cd26bffb9b6727e18",
+  "executor_digest": "sha256:8aabf977c4d801bcdf74571ba1fb823ce50d1ad457d41b5c5777e264817fee93",
   "adapter_version": "stage-f-cell-adapter/1.0",
-  "manifest_digest": "sha256:495adb9380616b87c062d7b51d1e9ac32fd8c77c6d35094edaa9c8ce87efb428",
+  "manifest_digest": "sha256:20a8de5acb2a337f2862a80eaaaa4738c1039d7038a4629f245afeff342bfdd1",
   "budget_digest": "sha256:fc61bc3dacc971c087fa0a61c97ac75bc31ae817cff4b3d7c3ee5bfca10def82",
   "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
   "worker_contract_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
   "ok": true,
-  "status": "STAGE_F_UNIFIED_96_CELL_EVALUATION_READY_FOR_LIVE_AUTHORIZATION",
+  "status": "STAGE_F_UNIFIED_96_CELL_EVALUATION_PREPARATION_BLOCKED",
+  "open_blockers": [
+    {
+      "id": "C_task_scale",
+      "package": "C",
+      "detail": "P1/P2/X1/X2/C1/C2 remain small fixtures (seed 77-136 lines). Package A/B wiring is fixed; the six task families still need substantive expansion or same-family replacements plus per-task mutation evidence."
+    },
+    {
+      "id": "runner_proof",
+      "package": "5",
+      "detail": "The four-arm real runner proof (scripted provider + real OpenSandbox, dispatch -> real entry -> raw result -> normalise -> oracle -> audit -> ledger) has not been run. The adapters are exercised offline only."
+    },
+    {
+      "id": "cumulative_wiring",
+      "package": "B6",
+      "detail": "stage_f.cumulative settles a batch against its predecessors, but dispatch does not yet consult it before a live start; wiring it needs a live-batch entry that does not exist."
+    },
+    {
+      "id": "context_metrics",
+      "package": "B5",
+      "detail": "System max agent context is reported from the main-driven peak and from the native peak; it is not yet an aggregate over every agent, so it stays UNKNOWN where the arm runs more than one."
+    }
+  ],
   "failed": [],
   "checks": [
     {
