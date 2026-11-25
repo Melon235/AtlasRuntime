@@ -328,9 +328,10 @@ baseline    e0bc2ccd0e7e2ea0e5f8682f03e1cf47dde446b1
 branch      feat/stage-b-plus-capability
 worktree    D:\Work\AtlasRuntime-stage-b-plus   (created by `git worktree add`; no existing
             worktree was overwritten, and the S08 worktree was not touched)
-files       src: 3 changed, 2 added · tests: 2 added · experiments/stage_b_plus: 10 added
-            docs: 2 added · generated artefacts: protocol, plan, offline, probe, cost,
-            workload, authorization, inputs/
+files       3 modified (main_driven.py, delegation/tool.py, docs/architecture.md),
+            24 added: 2 src modules, 2 test files, 2 stage docs and 18 files under
+            experiments/stage_b_plus (6 modules + protocol/plan/offline/probe/cost/
+            workload/authorization + 5 captured request artefacts)
 ```
 
 PR #6 is untouched and unmerged: it stays at `e0bc2cc`, draft.
