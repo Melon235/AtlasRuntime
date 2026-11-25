@@ -284,11 +284,23 @@ def canary_plan() -> PilotPlan:
 
 
 def authorization_template() -> dict[str, Any]:
-    """The only record that could authorize the canary. Pending by construction."""
+    """Revision 1's record. It was pending, is now superseded, and was never signed.
+
+    The status is ``SUPERSEDED_BY_REVISION`` because the dispatch integrity gate changed what a cell
+    may be followed by, and this plan's runner revision predates it. The scope below is unchanged, so
+    the blocked attempt stays auditable; only the status and the pointer moved. Revision 2
+    (``s08_canary_revision.py``) is the candidate that can be authorized.
+    """
 
     plan = canary_plan()
     return {
-        "status": "PENDING_OWNER_APPROVAL",
+        "status": "SUPERSEDED_BY_REVISION",
+        "superseded_by": "closure2-s08-canary-2",
+        "superseded_at": "2026-11-25T00:00:00+00:00",
+        "superseded_reason": (
+            "revision 1 never executed and was never claimed; its runner revision would have "
+            "dispatched the next cell after a sandbox cleanup failure"
+        ),
         "approved_plan_digest": plan.digest(),
         "approved_by": None,
         "approval_commit": None,
@@ -317,7 +329,7 @@ def authorization_template() -> dict[str, Any]:
     }
 
 
-#: The record the dispatcher reads. Pending, so the shipped gate refuses the canary.
+#: The record the dispatcher reads for revision 1. Superseded, so the shipped gate refuses it.
 CANARY_APPROVAL: dict[str, Any] = authorization_template()
 
 
@@ -360,6 +372,8 @@ def check_contract() -> list[str]:
         problems.append("the canary has no usable cost stop")
     if CANARY_APPROVAL["status"] == "APPROVED":
         problems.append("the canary approval must ship pending")
+    if CANARY_APPROVAL["status"] != "SUPERSEDED_BY_REVISION":
+        problems.append("revision 1 must stay superseded; revision 2 is the candidate")
     for key in ("approved_by", "approval_commit", "approved_at"):
         if CANARY_APPROVAL.get(key) is not None:
             problems.append(f"the canary template must leave {key} empty")
@@ -384,16 +398,22 @@ def contract_payload() -> dict[str, Any]:
     return {
         "kind": "closure2_s08_canary_contract",
         "stage": "closure-2-s07",
-        "status": "PREPARED_PENDING_AUTHORIZATION",
+        "revised_in": "closure-2-s08",
+        "status": "SUPERSEDED_BY_REVISION",
         "canary_id": S08_CANARY_PLAN_ID,
         "plan_id": plan.plan_id,
         "plan_digest": plan.digest(),
         "plan_revision": plan.runner_revision,
         "authorization_status": CANARY_APPROVAL["status"],
         "authorized": False,
+        "superseded_by": {
+            "plan_id": "closure2-s08-canary-2",
+            "artifact": "experiments/results/closure2/s08-canary-revision.json",
+            "status": "PENDING_OWNER_APPROVAL",
+        },
         "live_runnable_reason": (
-            "the plan is wired and refused: pilot_authorization_gate rejects it because the record "
-            "is pending, and no other approval in the repository names this digest"
+            "the plan is wired and refused: its record is superseded by revision 2, and no other "
+            "approval in the repository names this digest"
         ),
         "benchmark_id": plan.benchmark_id,
         "preregistration_digest": plan.preregistration_digest,
@@ -443,8 +463,8 @@ def contract_payload() -> dict[str, Any]:
         "not_authorized": [
             "no model request is made by this module",
             "no sandbox is created by this module",
-            "preparing the contract authorizes nothing: S08 stays closed until the record above is "
-            "approved by the owner in its own commit",
+            "revision 1 is superseded and can never be authorized; revision 2 ships pending and "
+            "stays closed until the owner approves that digest in its own commit",
         ],
         "authorization_template": CANARY_APPROVAL,
         "contract_problems": check_contract(),

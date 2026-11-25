@@ -67,7 +67,7 @@
     }
   ],
   "attempts": 1,
-  "authorization_status": "PENDING_OWNER_APPROVAL",
+  "authorization_status": "SUPERSEDED_BY_REVISION",
   "authorization_template": {
     "approval_commit": null,
     "approved_at": null,
@@ -101,7 +101,10 @@
       ],
       "worker_max_turns": 20
     },
-    "status": "PENDING_OWNER_APPROVAL"
+    "status": "SUPERSEDED_BY_REVISION",
+    "superseded_at": "2026-11-25T00:00:00+00:00",
+    "superseded_by": "closure2-s08-canary-2",
+    "superseded_reason": "revision 1 never executed and was never claimed; its runner revision would have dispatched the next cell after a sandbox cleanup failure"
   },
   "authorized": false,
   "benchmark_id": "closure2_s08_canary_scope",
@@ -359,12 +362,12 @@
     "closure2-state-machine-refactor::A2-P"
   ],
   "kind": "closure2_s08_canary_contract",
-  "live_runnable_reason": "the plan is wired and refused: pilot_authorization_gate rejects it because the record is pending, and no other approval in the repository names this digest",
+  "live_runnable_reason": "the plan is wired and refused: its record is superseded by revision 2, and no other approval in the repository names this digest",
   "model_calls": 0,
   "not_authorized": [
     "no model request is made by this module",
     "no sandbox is created by this module",
-    "preparing the contract authorizes nothing: S08 stays closed until the record above is approved by the owner in its own commit"
+    "revision 1 is superseded and can never be authorized; revision 2 ships pending and stays closed until the owner approves that digest in its own commit"
   ],
   "per_cell_token_budget": 500000,
   "plan_digest": "f3d09a8523ae3312872be31dfcc1c1544104de1afa3c9db3b6a5f10108589fbd",
@@ -374,9 +377,15 @@
   "repetitions": [
     0
   ],
+  "revised_in": "closure-2-s08",
   "sandbox_runs": 0,
   "single_agent_max_turns": 36,
   "stage": "closure-2-s07",
-  "status": "PREPARED_PENDING_AUTHORIZATION",
+  "status": "SUPERSEDED_BY_REVISION",
+  "superseded_by": {
+    "artifact": "experiments/results/closure2/s08-canary-revision.json",
+    "plan_id": "closure2-s08-canary-2",
+    "status": "PENDING_OWNER_APPROVAL"
+  },
   "worker_max_turns": 20
 }

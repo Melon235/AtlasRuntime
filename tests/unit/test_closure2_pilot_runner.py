@@ -11,6 +11,7 @@ import asyncio
 import dataclasses
 import inspect
 import json
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -1430,6 +1431,9 @@ def test_the_cli_returns_non_zero_when_the_ledger_broke(
             "cell_count": 1,
             "execution_claim": {"claimed": True, "claim_status": "CONSUMED"},
             "execution_integrity_status": "BLOCKED_LEDGER_PRE_EXECUTION",
+            "stopped_reason": "PILOT_LEDGER_LOCKED",
+            "not_started_cells": ["closure2-pipeline-migration::A0"],
+            "dispatch_integrity": None,
             "cost_ceiling_state": "WITHIN_CEILING",
             "cells": [],
         }
@@ -1458,6 +1462,9 @@ def test_the_cli_returns_zero_only_for_a_complete_pilot(
             "cell_count": 0,
             "execution_claim": {"claimed": True, "claim_status": "CONSUMED"},
             "execution_integrity_status": "COMPLETE",
+            "stopped_reason": None,
+            "not_started_cells": [],
+            "dispatch_integrity": None,
             "cost_ceiling_state": "WITHIN_CEILING",
             "cells": [],
         }
@@ -1763,7 +1770,22 @@ def test_an_unknown_runner_never_falls_back(monkeypatch: pytest.MonkeyPatch) -> 
 # ------------------------------------------------------------------ E. the evidence mapping
 
 
+#: Fake runs must carry real evidence: the dispatch integrity gate opens ``run_dir/result.json``.
+#: A fake that points at a path nobody created would be a lie the gate is supposed to catch, so the
+#: helper writes the smallest honest result file instead of the production path growing a test skip.
+_EVIDENCE_ROOT = Path(tempfile.mkdtemp(prefix="c2-pilot-evidence-"))
+
+
+def _evidence_run_dir() -> Path:
+    """A fresh directory holding a readable ``result.json``."""
+
+    directory = Path(tempfile.mkdtemp(dir=_EVIDENCE_ROOT))
+    (directory / "result.json").write_text('{"probe": true}\n', encoding="utf-8")
+    return directory
+
+
 def _fake_result(**overrides: Any) -> SimpleNamespace:
+    oracle_passed = overrides.pop("oracle_passed", False)
     metrics = SimpleNamespace(
         prompt_tokens=overrides.pop("prompt_tokens", 1000),
         completion_tokens=overrides.pop("completion_tokens", 200),
@@ -1786,7 +1808,7 @@ def _fake_result(**overrides: Any) -> SimpleNamespace:
         git_dirty=False,
     )
     oracle = SimpleNamespace(
-        passed=overrides.pop("oracle_passed", False),
+        passed=oracle_passed,
         environment_failure=overrides.pop("environment_failure", False),
         failure_kind=overrides.pop("failure_kind", None),
     )
@@ -1801,10 +1823,12 @@ def _fake_result(**overrides: Any) -> SimpleNamespace:
         metrics=metrics,
         oracle=oracle,
         environment=environment,
-        run_dir="experiments/runs/closure2/x",
+        run_dir=str(overrides.pop("run_dir", _evidence_run_dir())),
         agent_success=overrides.pop("agent_success", True),
         success=overrides.pop("success", False),
-        failure_class=overrides.pop("failure_class", "ORACLE_FAILED"),
+        failure_class=overrides.pop(
+            "failure_class", "TASK_SUCCESS" if oracle_passed else "ORACLE_FAILURE"
+        ),
         failure_reason=overrides.pop("failure_reason", "hidden tests failed"),
     )
 

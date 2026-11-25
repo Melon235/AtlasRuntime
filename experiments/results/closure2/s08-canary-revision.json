@@ -1,0 +1,102 @@
+{
+  "authorization_template": {
+    "approval_commit": null,
+    "approved_at": null,
+    "approved_by": null,
+    "approved_plan_digest": "24235034a05651935daf19eee5c3d96d255911b64cd04564b223d0fb6af6b14f",
+    "cannot_be_satisfied_by": [
+      "the revision 1 approval: it names f3d09a85\u2026, not this digest",
+      "protocol.APPROVAL_RECORD: it approves the benchmark definition, not an execution scope",
+      "the S06 authorization: a different stage, a different digest, already spent",
+      "closure2-pilot-1 / closure2-routing-pair-1 / closure2-connectivity-canary-v1: consumed",
+      "any of the three formal plans: a different digest and a different cell list"
+    ],
+    "granting_requires": "a new commit that sets status=APPROVED with an approver, that commit's hash, a timestamp and exactly the digest above",
+    "scope": {
+      "attempts": 1,
+      "budget_profile_digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
+      "cells": [
+        "closure2-pipeline-migration::N0",
+        "closure2-pipeline-migration::A0",
+        "closure2-pipeline-migration::N1",
+        "closure2-pipeline-migration::A1-L",
+        "closure2-pipeline-migration::A1-P",
+        "closure2-pipeline-migration::A2-P",
+        "closure2-state-machine-refactor::A2-P"
+      ],
+      "estimated_cost_stop_usd": 0.45,
+      "max_cell_executions": 7,
+      "per_cell_token_budget": 500000,
+      "plan_id": "closure2-s08-canary-2",
+      "repetitions": [
+        0
+      ],
+      "worker_max_turns": 20
+    },
+    "status": "PENDING_OWNER_APPROVAL"
+  },
+  "authorized": false,
+  "budget_profile": {
+    "cell_token_budget": 500000,
+    "digest": "b41a633d1d39b3fe95845498b4b6c575b6615b74033ddab1b825be944ed7f89d",
+    "multi_worker_max_turns": 20,
+    "single_max_turns": 36
+  },
+  "contract_problems": [],
+  "kind": "closure2_s08_canary_revision",
+  "model_calls": 0,
+  "preregistration_digest": "3080f3137a408856337681c14ff4e10fc67b50a15c602f54628b117159b1a765",
+  "revision": {
+    "v1": {
+      "approval_status": "SUPERSEDED_BY_REVISION",
+      "plan_digest": "f3d09a8523ae3312872be31dfcc1c1544104de1afa3c9db3b6a5f10108589fbd",
+      "plan_id": "closure2-s08-canary-1",
+      "runner_revision": "closure-2-s08-canary-1"
+    },
+    "v2": {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "plan_digest": "24235034a05651935daf19eee5c3d96d255911b64cd04564b223d0fb6af6b14f",
+      "plan_id": "closure2-s08-canary-2",
+      "runner_revision": "closure-2-s08-canary-2"
+    }
+  },
+  "sandbox_runs": 0,
+  "stage": "closure-2-s08",
+  "status": "REVISION_PENDING_OWNER_APPROVAL",
+  "supersession": {
+    "authorization_migrates": false,
+    "changed_fields": [
+      "plan_id",
+      "runner_revision",
+      "plan_digest"
+    ],
+    "cost_stop_is": "the same candidate number (USD 0.45) proposed under a new digest; it is not the continuation of an approval",
+    "kind": "closure2_s08_canary_supersession",
+    "reason": "the S08 dispatch integrity gate changes what may follow a completed cell; revision 1's runner would have dispatched the next cell after a sandbox cleanup failure (audited offline on 2026-11-25, zero model calls, zero sandboxes)",
+    "superseded_by": {
+      "approval_status": "PENDING_OWNER_APPROVAL",
+      "claim_taken": false,
+      "plan_digest": "24235034a05651935daf19eee5c3d96d255911b64cd04564b223d0fb6af6b14f",
+      "plan_id": "closure2-s08-canary-2",
+      "runner_revision": "closure-2-s08-canary-2"
+    },
+    "supersedes": {
+      "approval_status": "SUPERSEDED_BY_REVISION",
+      "claim_taken": false,
+      "executed": false,
+      "plan_digest": "f3d09a8523ae3312872be31dfcc1c1544104de1afa3c9db3b6a5f10108589fbd",
+      "plan_id": "closure2-s08-canary-1",
+      "runner_revision": "closure-2-s08-canary-1"
+    },
+    "unchanged_fields": [
+      "cells",
+      "cell_order",
+      "repetitions",
+      "max_cell_executions",
+      "estimated_cost_ceiling_usd",
+      "budget_profile_digest",
+      "preregistration_digest",
+      "benchmark_id"
+    ]
+  }
+}

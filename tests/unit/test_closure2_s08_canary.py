@@ -72,7 +72,7 @@ def test_the_canary_plan_is_wired_into_the_dispatcher() -> None:
     plan, record = pilot_runner.pilot_scope(pilot_runner.S08_CANARY_PLAN_ID)
     assert plan.plan_id == canary_plan().plan_id
     assert plan.digest() == canary_plan().digest()
-    assert record["status"] == "PENDING_OWNER_APPROVAL"
+    assert record["status"] == "SUPERSEDED_BY_REVISION"
     assert tuple(cell.cell_id for cell in pilot_runner.plan_cells_for(plan.plan_id)) == CANARY_ORDER
 
 
@@ -97,9 +97,12 @@ def test_the_canary_digest_is_not_any_other_scope() -> None:
     assert canary_plan().digest() not in digests
 
 
-def test_the_template_is_pending_and_names_only_its_own_digest() -> None:
+def test_the_revision_1_template_is_superseded_and_unsigned() -> None:
+    """Revision 1 never ran; its record keeps the scope and can no longer be signed into a run."""
+
     template = authorization_template()
-    assert template["status"] == "PENDING_OWNER_APPROVAL"
+    assert template["status"] == "SUPERSEDED_BY_REVISION"
+    assert template["superseded_by"] == pilot_runner.S08_CANARY_V2_PLAN_ID
     assert template["approved_plan_digest"] == canary_plan().digest()
     for key in ("approved_by", "approval_commit", "approved_at"):
         assert template[key] is None
@@ -138,7 +141,8 @@ def test_a_pending_canary_cannot_start_a_live_run(tmp_path: Path) -> None:
 
 def test_the_payload_states_that_nothing_is_authorized() -> None:
     payload = contract_payload()
-    assert payload["status"] == "PREPARED_PENDING_AUTHORIZATION"
+    assert payload["status"] == "SUPERSEDED_BY_REVISION"
+    assert payload["superseded_by"]["plan_id"] == pilot_runner.S08_CANARY_V2_PLAN_ID
     assert payload["authorized"] is False
     assert payload["model_calls"] == 0
     assert payload["sandbox_runs"] == 0

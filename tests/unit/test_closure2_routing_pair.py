@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -101,7 +102,20 @@ def approve_pair(monkeypatch: pytest.MonkeyPatch, *, ceiling: float | None = 5.0
     return plan
 
 
+#: A fake run must still point at readable evidence: the dispatch integrity gate opens
+#: ``run_dir/result.json``, so the fixture writes the smallest real file instead of naming a path
+#: that does not exist.
+_EVIDENCE_ROOT = Path(tempfile.mkdtemp(prefix="c2-routing-evidence-"))
+
+
+def _evidence_run_dir() -> Path:
+    directory = Path(tempfile.mkdtemp(dir=_EVIDENCE_ROOT))
+    (directory / "result.json").write_text('{"probe": true}\n', encoding="utf-8")
+    return directory
+
+
 def _fake_result(**overrides: Any) -> SimpleNamespace:
+    oracle_passed = overrides.pop("oracle_passed", True)
     metrics = SimpleNamespace(
         prompt_tokens=overrides.pop("prompt_tokens", 1000),
         completion_tokens=overrides.pop("completion_tokens", 200),
@@ -127,7 +141,7 @@ def _fake_result(**overrides: Any) -> SimpleNamespace:
         git_dirty=False,
     )
     oracle = SimpleNamespace(
-        passed=overrides.pop("oracle_passed", True),
+        passed=oracle_passed,
         environment_failure=overrides.pop("environment_failure", False),
         failure_kind=overrides.pop("failure_kind", "HIDDEN_TESTS_PASSED"),
     )
@@ -141,10 +155,12 @@ def _fake_result(**overrides: Any) -> SimpleNamespace:
         metrics=metrics,
         oracle=oracle,
         environment=environment,
-        run_dir="experiments/runs/closure2-routing-pair/x",
+        run_dir=str(overrides.pop("run_dir", _evidence_run_dir())),
         agent_success=overrides.pop("agent_success", True),
         success=overrides.pop("success", True),
-        failure_class=overrides.pop("failure_class", None),
+        failure_class=overrides.pop(
+            "failure_class", "TASK_SUCCESS" if oracle_passed else "ORACLE_FAILURE"
+        ),
         failure_reason=overrides.pop("failure_reason", None),
     )
 

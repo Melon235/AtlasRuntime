@@ -401,8 +401,10 @@ FORMAL_PLAN_IDS: tuple[str, ...] = tuple(
 )
 
 #: The S08 canary scope. Wired so that "not authorized" is a gate decision rather than a missing
-#: entry point; its approval record is ``PENDING_OWNER_APPROVAL`` by construction.
+#: entry point. Revision 1 was superseded before it ran; revision 2 carries the dispatch integrity
+#: gate in its runner revision and ships pending.
 S08_CANARY_PLAN_ID = "closure2-s08-canary-1"
+S08_CANARY_V2_PLAN_ID = "closure2-s08-canary-2"
 
 
 def _formal_scope(repetition: int) -> tuple[PilotPlan, dict[str, Any]]:
@@ -422,6 +424,12 @@ def _canary_scope() -> tuple[PilotPlan, dict[str, Any]]:
     return s08_canary.canary_plan(), s08_canary.CANARY_APPROVAL
 
 
+def _canary_v2_scope() -> tuple[PilotPlan, dict[str, Any]]:
+    from experiments.evaluation.closure2 import s08_canary_revision
+
+    return s08_canary_revision.canary_v2_plan(), s08_canary_revision.CANARY_V2_APPROVAL
+
+
 def pilot_scope(plan_id: str = PILOT_PLAN_ID) -> tuple[PilotPlan, dict[str, Any]]:
     """The fixed (plan, approval) pair a plan id names.
 
@@ -438,6 +446,8 @@ def pilot_scope(plan_id: str = PILOT_PLAN_ID) -> tuple[PilotPlan, dict[str, Any]
         return PILOT_PLAN, PILOT_APPROVAL
     if plan_id == S08_CANARY_PLAN_ID:
         return _canary_scope()
+    if plan_id == S08_CANARY_V2_PLAN_ID:
+        return _canary_v2_scope()
     if plan_id.startswith(FORMAL_PLAN_ID_PREFIX):
         suffix = plan_id[len(FORMAL_PLAN_ID_PREFIX) :]
         try:
@@ -458,7 +468,13 @@ def plan_scope_ids() -> tuple[str, ...]:
     dispatcher can resolve the scope; it never means the scope is approved.
     """
 
-    return (PILOT_PLAN_ID, ROUTING_PAIR_PLAN_ID, *FORMAL_PLAN_IDS, S08_CANARY_PLAN_ID)
+    return (
+        PILOT_PLAN_ID,
+        ROUTING_PAIR_PLAN_ID,
+        *FORMAL_PLAN_IDS,
+        S08_CANARY_PLAN_ID,
+        S08_CANARY_V2_PLAN_ID,
+    )
 
 
 def routing_pair_cells() -> tuple[Cell, ...]:
@@ -488,9 +504,10 @@ def plan_cells_for(plan_id: str = PILOT_PLAN_ID) -> tuple[Cell, ...]:
 
         repetition = FORMAL_PLAN_IDS.index(plan_id)
         return formal_plan_module.repetition_cells(repetition)
-    if plan_id == S08_CANARY_PLAN_ID:
+    if plan_id in (S08_CANARY_PLAN_ID, S08_CANARY_V2_PLAN_ID):
         from experiments.evaluation.closure2 import s08_canary
 
+        # Revision 2 keeps the cell list byte-identical; only the identity moved.
         return s08_canary.canary_cells()
     raise PilotContractError(f"unknown plan_id {plan_id!r}")
 
@@ -502,6 +519,7 @@ LIVE_SUMMARY_FILENAMES: dict[str, str] = {
     ROUTING_PAIR_PLAN_ID: "routing-pair-live-summary.json",
     **{plan_id: f"{plan_id}-live-summary.json" for plan_id in FORMAL_PLAN_IDS},
     S08_CANARY_PLAN_ID: "s08-canary-live-summary.json",
+    S08_CANARY_V2_PLAN_ID: "s08-canary-v2-live-summary.json",
 }
 
 #: Run roots are plan-scoped for the same reason: two plans never share a results tree.
@@ -510,7 +528,11 @@ DEFAULT_RUNS_ROOTS: dict[str, Path] = {
     ROUTING_PAIR_PLAN_ID: REPO_ROOT / "experiments" / "runs" / "closure2-routing-pair",
     **{
         plan_id: REPO_ROOT / "experiments" / "runs" / plan_id
-        for plan_id in (*FORMAL_PLAN_IDS, S08_CANARY_PLAN_ID)
+        for plan_id in (
+            *FORMAL_PLAN_IDS,
+            S08_CANARY_PLAN_ID,
+            S08_CANARY_V2_PLAN_ID,
+        )
     },
 }
 
@@ -825,6 +847,118 @@ def _cost_dispatch_state(records: list[dict[str, Any]], plan: PilotPlan) -> dict
         "reason": "WITHIN_CEILING",
         "spent_usd": spent,
         "ceiling_usd": ceiling,
+    }
+
+
+#: Failure classes that describe the *task*, not the harness. Only these may be followed by another
+#: dispatch. ``BUDGET_EXCEEDED`` is here on purpose: an enforced, measured budget is a valid
+#: observation of the cell, not a broken run.
+CONTINUABLE_FAILURE_CLASSES: frozenset[str] = frozenset(
+    {"TASK_SUCCESS", "ORACLE_FAILURE", "BUDGET_EXCEEDED"}
+)
+
+#: Why a known-but-not-continuable class stops the plan, as a stable reason code. The keys are the
+#: classes the two engines actually produce (`FailureClass` in
+#: ``experiments/evaluation/models.py``).
+FAILURE_CLASS_BLOCKS: dict[str, str] = {
+    "CLEANUP_FAILURE": "SANDBOX_CLEANUP_UNCONFIRMED",
+    "ENVIRONMENT_FAILURE": "ENVIRONMENT_FAILURE",
+    "SANDBOX_FAILURE": "SANDBOX_FAILURE",
+    "MODEL_FAILURE": "PROVIDER_FAILURE",
+    "RUNTIME_FAILURE": "RUNTIME_FAILURE",
+    "TIMEOUT": "EXECUTION_TIMEOUT",
+    "HOST_ISOLATION_VIOLATION": "HOST_ISOLATION_VIOLATION",
+    "FORBIDDEN_WORKSPACE_CHANGE": "WORKSPACE_POLICY_VIOLATION",
+    "NOT_EVALUATED": "NOT_EVALUATED",
+}
+
+#: Evidence states ``normalize_result`` can report for ``run_dir / result.json``.
+EVIDENCE_PRESENT = "PRESENT"
+EVIDENCE_MISSING = "MISSING"
+EVIDENCE_UNREADABLE = "UNREADABLE"
+EVIDENCE_NOT_PRODUCED = "NOT_PRODUCED"
+
+
+def _dispatch_integrity_block(record: dict[str, Any]) -> dict[str, Any]:
+    """May the cell *after* this one be dispatched, given what this record actually observed?
+
+    The cost gate answers "can we still afford a cell". This gate answers "is another cell still
+    meaningful": a cell whose sandbox never closed, whose provider died, whose oracle shared a
+    fault, or whose evidence cannot be read produced no trustworthy observation, and spending the
+    next 500 000 tokens on top of it would only make the summary less auditable.
+
+    Fail-closed, and deliberately built on fields ``normalize_result`` already emits. The only
+    records that pass are ones the runner can fully account for:
+
+    * a failure class that describes the task (``TASK_SUCCESS``, ``ORACLE_FAILURE``) or a budget
+      that was enforced and measured (``BUDGET_EXCEEDED``); anything else, including a class this
+      runner never produces, stops;
+    * a sandbox that was observed to exist and was destroyed;
+    * an oracle that did not report an environment fault;
+    * a cost and a token count that are known and legal;
+    * a raw result that is present and readable.
+
+    ``provider_usage_complete`` is deliberately **not** required: both engines leave it ``None``
+    because they cannot attest request-level completeness, and demanding it would block every real
+    run. What is required is that some usage was actually observed, except where the cell was
+    stopped before it could spend anything — that case is ``BUDGET_EXCEEDED`` with a known cost.
+    """
+
+    reasons: list[str] = []
+
+    # 1. Was this cell a task outcome, or did the harness fail around it?
+    failure_class = record.get("failure_class")
+    if failure_class in FAILURE_CLASS_BLOCKS:
+        reasons.append(FAILURE_CLASS_BLOCKS[failure_class])
+    elif failure_class not in CONTINUABLE_FAILURE_CLASSES:
+        reasons.append("UNCLASSIFIED_FAILURE")
+
+    # 2. Sandbox lifecycle: created and destroyed, or the next cell inherits a leak.
+    created = record.get("sandbox_created")
+    destroyed = record.get("sandbox_destroyed")
+    if created is None or record.get("sandbox_creation_status") == "SANDBOX_CREATION_UNKNOWN":
+        reasons.append("SANDBOX_LIFECYCLE_UNKNOWN")
+    elif created is False:
+        reasons.append("SANDBOX_NOT_CREATED")
+    elif destroyed is not True:
+        reasons.append("SANDBOX_CLEANUP_UNCONFIRMED")
+
+    # 3. An oracle environment fault is not a deliverable verdict and must not be followed by more.
+    if record.get("oracle_environment_failure") is True:
+        reasons.append("ORACLE_ENVIRONMENT_FAILURE")
+
+    # 4. The numbers the cost stop depends on. Same reason codes as the cost gate, so a blocked cell
+    #    reports one name for one problem.
+    cost_state = record.get("estimated_cost_usd_state")
+    if cost_state == "INVALID":
+        reasons.append("COST_INVALID")
+    elif cost_state != "COMPLETE":
+        reasons.append("COST_UNKNOWN")
+    usage_observed = record.get("provider_token_usage_observed") is True
+    if not usage_observed and failure_class != "BUDGET_EXCEEDED":
+        reasons.append("TOKEN_USAGE_UNKNOWN")
+
+    # 5. Evidence: an unreadable result cannot be audited, so it cannot justify another cell.
+    evidence_state = record.get("raw_evidence_state")
+    if evidence_state in (EVIDENCE_MISSING, EVIDENCE_NOT_PRODUCED):
+        reasons.append("EVIDENCE_MISSING")
+    elif evidence_state == EVIDENCE_UNREADABLE:
+        reasons.append("EVIDENCE_UNREADABLE")
+    elif evidence_state != EVIDENCE_PRESENT:
+        reasons.append("EVIDENCE_UNKNOWN")
+
+    # Two rules can name the same defect (a CLEANUP_FAILURE class *and* an undestroyed sandbox),
+    # so a list with the same code twice would read like two problems. Keep the first occurrence.
+    unique = list(dict.fromkeys(reasons))
+    return {
+        "blocked": bool(unique),
+        "reasons": unique,
+        "reason": unique[0] if unique else None,
+        "policy": (
+            "fail-closed: only TASK_SUCCESS / ORACLE_FAILURE / BUDGET_EXCEEDED with a destroyed "
+            "sandbox, no oracle environment fault, known cost and readable evidence may be "
+            "followed by another dispatch"
+        ),
     }
 
 
@@ -1405,6 +1539,11 @@ async def run_live_pilot(
     A cell that raises is recorded as ``EXECUTION_ERROR`` and the pilot continues unless the cost
     state becomes unknowable: one broken cell is never rewritten as a success and never silently
     retried on another engine.
+
+    After a cell returns, two independent gates decide whether the *next* one may start: the cost
+    gate (can we still afford it) and ``_dispatch_integrity_block`` (is another cell still
+    meaningful). The integrity gate runs after the ``COMPLETED`` row is written, because that row
+    records what happened, not that the run was sound.
     """
 
     if not live_intent:
@@ -1439,6 +1578,7 @@ async def run_live_pilot(
     records: list[dict[str, Any]] = []
     ledger_write_failures: list[str] = []
     ledger_integrity: dict[str, Any] | None = None
+    dispatch_integrity: dict[str, Any] | None = None
     integrity_status = "COMPLETE"
     stopped_reason: str | None = None
     not_started: list[str] = []
@@ -1523,6 +1663,22 @@ async def run_live_pilot(
             stopped_reason = ledger_error.reason_code
             not_started = [pending.cell_id for pending in cells[index + 1 :]]
             break
+        # Phase C — integrity before the *next* dispatch. ``COMPLETED`` in the ledger means the cell
+        # returned a result; it does not mean the run around it was sound. A leaked sandbox, a dead
+        # provider or an unreadable result is a stop, and it is a stop on the last cell too: the
+        # summary must not claim completeness for a plan that could not be audited.
+        block = _dispatch_integrity_block(record)
+        if block["blocked"]:
+            integrity_status = "BLOCKED_DISPATCH_INTEGRITY"
+            dispatch_integrity = {
+                **block,
+                "cell_id": cell.cell_id,
+                "repetition_id": repetition_id,
+                "is_last_cell": index == len(cells) - 1,
+            }
+            stopped_reason = block["reason"]
+            not_started = [pending.cell_id for pending in cells[index + 1 :]]
+            break
     # The last cell never gets a "next dispatch" check, so its own overrun must be recorded here.
     final_cost_state = _cost_dispatch_state(records, plan)
     statuses = [record.get("sandbox_creation_status") for record in records]
@@ -1584,6 +1740,8 @@ async def run_live_pilot(
         # what happened, so the pilot cannot claim completeness even when the cells ran fine.
         "execution_integrity_status": integrity_status,
         "execution_integrity_ok": integrity_status == "COMPLETE",
+        #: The cell whose post-cell gate stopped the plan, and why. ``None`` when nothing blocked.
+        "dispatch_integrity": dispatch_integrity,
         "ledger_integrity": ledger_integrity,
         "ledger_write_failures": ledger_write_failures,
         # Agent sandboxes only: the oracle has its own, which the runner does not count here.
@@ -1647,7 +1805,11 @@ def _execution_error_record(
         "sandbox_count_scope": "agent_sandbox_only",
         "sandbox_evidence_source": "no lifecycle record: the executor raised before returning",
         "oracle_sandbox_counted": False,
-        "raw_evidence_preserved": True,
+        # No result was produced, so there is nothing to preserve — never a claimed ``True``.
+        "raw_result_path": None,
+        "raw_evidence_state": EVIDENCE_NOT_PRODUCED,
+        "raw_evidence_bytes": None,
+        "raw_evidence_preserved": False,
     }
 
 
@@ -1677,6 +1839,29 @@ def _attestation(metrics: Any) -> dict[str, Any]:
         "model_calls": model_calls,
         "model_calls_source": model_calls_source,
     }
+
+
+def _raw_evidence_state(run_dir: Any) -> tuple[str, int | None]:
+    """Is ``run_dir/result.json`` really there, and really readable?
+
+    ``raw_evidence_preserved`` used to be a constant ``True``: a claim about a file nobody opened.
+    This reads one byte of the file the record points at, so the flag reports an observation. It
+    never writes, recreates or repairs anything — a missing result stays missing.
+    """
+
+    if run_dir is None:
+        return EVIDENCE_MISSING, None
+    path = Path(str(run_dir)) / "result.json"
+    try:
+        if not path.exists():
+            return EVIDENCE_MISSING, None
+        with path.open("rb") as handle:
+            handle.read(1)
+        return EVIDENCE_PRESENT, path.stat().st_size
+    except OSError:
+        # Present but not readable as a file (a directory, a locked file, a permission error): the
+        # result cannot be audited, and that is not the same as "the run wrote nothing".
+        return EVIDENCE_UNREADABLE, None
 
 
 def normalize_result(cell: Cell, result: Any, *, settings: Any | None = None) -> dict[str, Any]:
@@ -1761,6 +1946,9 @@ def normalize_result(cell: Cell, result: Any, *, settings: Any | None = None) ->
     else:
         cell_cost = _finite_cost(raw_cost)
         cell_cost_state = "COMPLETE" if cell_cost is not None else "INVALID"
+
+    evidence_state, evidence_bytes = _raw_evidence_state(getattr(result, "run_dir", None))
+
     return {
         "cell_id": cell.cell_id,
         "status": "COMPLETED",
@@ -1850,7 +2038,10 @@ def normalize_result(cell: Cell, result: Any, *, settings: Any | None = None) ->
         "oracle_environment_failure": bool(result.oracle.environment_failure),
         "oracle_failure_kind": result.oracle.failure_kind,
         "raw_result_path": str(Path(result.run_dir) / "result.json"),
-        "raw_evidence_preserved": True,
+        # Observed, not asserted: the dispatch integrity gate reads this field.
+        "raw_evidence_state": evidence_state,
+        "raw_evidence_bytes": evidence_bytes,
+        "raw_evidence_preserved": evidence_state == EVIDENCE_PRESENT,
     }
 
 
@@ -2002,6 +2193,9 @@ def main(argv: list[str] | None = None) -> int:
                 "cells": summary["cell_count"],
                 "execution_claim": summary["execution_claim"],
                 "execution_integrity_status": summary["execution_integrity_status"],
+                "stopped_reason": summary["stopped_reason"],
+                "not_started_cells": summary["not_started_cells"],
+                "dispatch_integrity": summary["dispatch_integrity"],
                 "cost_ceiling_state": summary["cost_ceiling_state"],
                 "out": str(out),
             },
