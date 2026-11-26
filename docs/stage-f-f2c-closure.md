@@ -23,7 +23,8 @@ The record of the gate is `experiments/stage_f/preflight.json`; the identities a
 | F2-A evidence commit | `56f5b5784c1a69085d1d21129e0c5e871180f71e` |
 | F2-B construction commit | `315bc0d705f6c2a4a071451ba7a289ffc064f27d` |
 | F2-B report commit | `0b466ba991023987c68b00792494c7e97bfe903a` |
-| F2-C code and evidence | this commit (see §S below for the SHA) |
+| F2-C code and evidence | `5e26ebadb8922814d35e784ab1a517c621de7214` |
+| F2-C-R1 correction (this section's subject) | `3dc4090436cfb67bd8270fd395fa60eed17fbf37` |
 
 No history was rewritten, rebased or force-pushed. The only pre-existing files touched outside
 `experiments/stage_f/` are the executor, the shared fixture builder and two test files (see §I).
@@ -263,7 +264,7 @@ in `tests/unit/test_c1b_failure_classification.py`. `ruff check` on the touched 
 
 ```
 master_id        stage-f-96-manifest-v1
-manifest_digest  sha256:230135f0b55aede38390ff216be1cc2dc98bd03e51cb723f72c4d7cd3d17680f
+manifest_digest  sha256:2af4e996d89e356ef4abb67c0302d6da46c31b04bbc14bd8592ac4baa0e913e3
 cells_total      96
 task_order_seed  20261125
 ```
@@ -276,9 +277,9 @@ the pricing identity, the adapter identity, the executor identity and the settle
 
 | Batch | Plan id | Plan digest | Cells | Token stop | Cost stop (candidate) |
 |---|---|---|---|---|---|
-| 1 | `stage-f-96-b1` | `sha256:6fcfd69d74d1ad0158d162e0dd42cd710df90fbb7bf60acbc37ab520f99a8587` | 32 | 32,000,000 | USD 32.00 |
-| 2 | `stage-f-96-b2` | `sha256:23bd5635e8f0246fe1578b283f9cd8c2477e31621a8ae5715a7b775adc041c2b` | 32 | 32,000,000 | USD 32.00 |
-| 3 | `stage-f-96-b3` | `sha256:949882e0827a3302f51419ec6fcb019b3e8dc6f81a6f3e79028c7872d0f662e1` | 32 | 32,000,000 | USD 32.00 |
+| 1 | `stage-f-96-b1` | `sha256:aa3561df8f09dca030a0f61f7ca491e1b8841cc97737d1a49d0db143d1b3fba0` | 32 | 32,000,000 | USD 32.00 |
+| 2 | `stage-f-96-b2` | `sha256:c0cf6df032361fa2c5494ae8a685097a568a11dbeb5781adf0955ee3afb2b424` | 32 | 32,000,000 | USD 32.00 |
+| 3 | `stage-f-96-b3` | `sha256:9429db914de18057d89924f740565d506d3e341d12fb80b48f2901512541e00f` | 32 | 32,000,000 | USD 32.00 |
 
 Each plan also carries the executor, adapter, pricing and settlement digests. The checked-in files
 equal the recomputed plans (`preflight.json` F07/F08/F12).
@@ -287,8 +288,8 @@ equal the recomputed plans (`preflight.json` F07/F08/F12).
 
 | Identity | Value |
 |---|---|
-| Executor | `bplus-executor-1.9`, `sha256:9ca0a48d3e467edff4c1d75baaf7363a64243f08bdcc1fb3c6f00e1666941f08` |
-| Adapter | `stage-f-cell-adapter/1.0`, schema `stage-f-cell-evidence/1.2`, `sha256:8b6a93d6e6caf6e050896aab7f47c9941826633cf2f04b2a11d142b640a48c4b` |
+| Executor | `bplus-executor-1.9`, `sha256:a8ae6eac7cdbf68f97974a1dcb1615439f1e603c66db3e7dea6312ef304fa376` |
+| Adapter | `stage-f-cell-adapter/1.0`, schema `stage-f-cell-evidence/1.2`, `sha256:06ea9666c17569263528a73a44cb989bfde02611ca59da9c87290cb4b815698f` |
 | Budget | `sha256:fc61bc3dacc971c087fa0a61c97ac75bc31ae817cff4b3d7c3ee5bfca10def82` (1,000,000 tokens, 40/20/40 turns, 2 concurrent children, 3 rounds) |
 | Pricing | `sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6` |
 | Settlement contract | `sha256:9616c114ae235cd2a264659c4f7f377ed6689030c520591f5d9e7199c986df9e` |
@@ -305,14 +306,14 @@ Owner signs.
 
 | Task | Family | Seed | Goal | Grant | Static DAG |
 |---|---|---|---|---|---|
-| closure2-pipeline-migration | S | `sha256:f9378c44a0ee564962e0a56ac7172ad616904d098fbc8dabb0806c4cdbbef515` | `sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa` | `sha256:0758dec7b37f85e3da4da0032707ca507cd83d029cc2589cc8e952e1cd0f12e4` | `sha256:93264d94ab061a1c451655d02ec298265125f1cc3173994d3b056978706aa1c8` |
-| closure2-state-machine-refactor | S | `sha256:400f56d38c1425757835701e73db4feb8ee3beea5764f008006058bd6a9e4012` | `sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538` | `sha256:5ec73b17d7cc93c4ce0ae0f6d5619a04cedcd7761c6766d3c51f8928d188f469` | `sha256:033cb2dfe64d9104bbfbdd6c8d53b9f74bfba507bee59e5ac15f89fe038be0bb` |
-| f-p1-connector-migration | P | `sha256:dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc` | `sha256:e38b06ad3bdb3dcd198b66da3c296ad3fc61f0aa8db2fc4806c04f425ed1d24f` | `sha256:9e111b36c41838ad1aa2c3cefb0d1e2152ed98950bf9fd938d81afcf3ebacd8e` | `sha256:2505f5b8f44995ef79b0363bf530e0ec57ce2180bf47b4b405b60aea11686283` |
-| f-p2-protocol-adapter | P | `sha256:dc24cb9ad9ff58668420e0b1e34839ef2d866c22671439653ad30d6571132467` | `sha256:fb78d058868fb44de34fdbfe046dc287b8656019476c4ffbf8dcaa0b66e7960b` | `sha256:a678e59ca2fb8b9a4a053f9e52f4869be6bcc7bba5cbaf089c091b802f7b34ed` | `sha256:cb6007b502ee740d35356615a0d547252a2076c1912937bb1853a0324c5a6ce9` |
-| f-x1-api-compat-audit | X | `sha256:caca39ed50a11b1c2fb034a79751eec899e6e8238ebf81d5f3bcec6218693f64` | `sha256:837bcaa3e3ffe13726cddfa71a602200dede98acfaeceebcc10d15a90ef6e998` | `sha256:98ad0cb4fb03eaff96160a7943b009fea1887bc314f4dc3857afd4c999ac54be` | `sha256:25ba628705e331441be37e545ecabfabce4d7bdb9adf25bae3eef206dde7fc42` |
-| f-x2-distributed-diagnosis | X | `sha256:337ba76be494ec9676c40df98bdca12ccb3d9c4ab4626b60b4b086280915b7d2` | `sha256:d1a05d90c059d8e9a4e6559d0b2e256bda84b310ba1e30a574c7fd21a9acc55a` | `sha256:04f8ad1d69289f1a62e9094165e9a857d4ec34cffba1abeb4924db0faebf9aaf` | `sha256:dcbde35e31ba3ed18adeeb7a2c81a54a884c8ad45ac54e46e5917a9ddadd89e4` |
-| f-c1-config-lifecycle | C | `sha256:ef5914cff9e862d6309da867d9b76a3fc3469e7b61d8ceab2d0d6f45094d850d` | `sha256:0517748fd4cc80a694fc12d2cc75c5d892428240dfe81c88611e177e5de7af06` | `sha256:a9d737d7f1ecfb9e81d909229a98eccc84b58c0ffcd39f37ee6e0260277d5139` | `sha256:61cfe587d36d56de5e85e94e6024d777a5350eb8b8856547628d17e536c6334c` |
-| f-c2-scheduler-retry | C | `sha256:4430f70dbcaee08069503d4f9188266677da14f94c655f67f7d1fcaddfeb9adb` | `sha256:256dc1db3dbd5df16367e99b2562844b66ddc197953cbdae7466ca30efbde7cb` | `sha256:b93f794e171e5332ae7667eda95ca0cce0bdc83a0d6fe842f2d36111fac034bd` | `sha256:0ee10d0d45ef0e59a580622b14c415d0947d3df732c9d276b845d2bae4f31a0a` |
+| closure2-pipeline-migration | S | `sha256:f9378c44a0ee564962e0a56ac7172ad616904d098fbc8dabb0806c4cdbbef515` | `sha256:4b97784ec44dc64ae2672fbc627c1bb6783e36ddf10610bed1e7465be53c02aa` | `sha256:0758dec7b37f85e3da4da0032707ca507cd83d029cc2589cc8e952e1cd0f12e4` | `sha256:b8a44e12d934e1ba3dcb378328fae488b4f5e0e938aaffae11c967b939bf2b87` |
+| closure2-state-machine-refactor | S | `sha256:400f56d38c1425757835701e73db4feb8ee3beea5764f008006058bd6a9e4012` | `sha256:cdb4cc158cc67f95b14b8048eb40529d2b6f9bef9cec45c45c97388f2ec93538` | `sha256:5ec73b17d7cc93c4ce0ae0f6d5619a04cedcd7761c6766d3c51f8928d188f469` | `sha256:89405d8d8b2c645552b94f76fd3248a83fc96c8f25118e84041f0a60c46fe331` |
+| f-p1-connector-migration | P | `sha256:dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc` | `sha256:e38b06ad3bdb3dcd198b66da3c296ad3fc61f0aa8db2fc4806c04f425ed1d24f` | `sha256:9e111b36c41838ad1aa2c3cefb0d1e2152ed98950bf9fd938d81afcf3ebacd8e` | `sha256:13cba3f29f92d8865295995a73ac9758af9bff87aa2f8cd849650440238c855a` |
+| f-p2-protocol-adapter | P | `sha256:dc24cb9ad9ff58668420e0b1e34839ef2d866c22671439653ad30d6571132467` | `sha256:fb78d058868fb44de34fdbfe046dc287b8656019476c4ffbf8dcaa0b66e7960b` | `sha256:a678e59ca2fb8b9a4a053f9e52f4869be6bcc7bba5cbaf089c091b802f7b34ed` | `sha256:2bf56c8ed0568deb9b00ba9ed7590898702a6e23814b51a62cabef85f30aa777` |
+| f-x1-api-compat-audit | X | `sha256:caca39ed50a11b1c2fb034a79751eec899e6e8238ebf81d5f3bcec6218693f64` | `sha256:837bcaa3e3ffe13726cddfa71a602200dede98acfaeceebcc10d15a90ef6e998` | `sha256:98ad0cb4fb03eaff96160a7943b009fea1887bc314f4dc3857afd4c999ac54be` | `sha256:a1cbadeb153d8f8e7bdde527c78aecc90f2eeadfd0a6cfcb78ef47c1c0530353` |
+| f-x2-distributed-diagnosis | X | `sha256:337ba76be494ec9676c40df98bdca12ccb3d9c4ab4626b60b4b086280915b7d2` | `sha256:d1a05d90c059d8e9a4e6559d0b2e256bda84b310ba1e30a574c7fd21a9acc55a` | `sha256:04f8ad1d69289f1a62e9094165e9a857d4ec34cffba1abeb4924db0faebf9aaf` | `sha256:4ebe1821c2e9f594a67f6faf29a7d10ec9a7a0a10c5684c5de5e06ebef4ec401` |
+| f-c1-config-lifecycle | C | `sha256:ef5914cff9e862d6309da867d9b76a3fc3469e7b61d8ceab2d0d6f45094d850d` | `sha256:0517748fd4cc80a694fc12d2cc75c5d892428240dfe81c88611e177e5de7af06` | `sha256:a9d737d7f1ecfb9e81d909229a98eccc84b58c0ffcd39f37ee6e0260277d5139` | `sha256:6a8f1d6f46ffbb29e94f704e46f81476f3d373b013c9e11ce714976a2c8109aa` |
+| f-c2-scheduler-retry | C | `sha256:4430f70dbcaee08069503d4f9188266677da14f94c655f67f7d1fcaddfeb9adb` | `sha256:256dc1db3dbd5df16367e99b2562844b66ddc197953cbdae7466ca30efbde7cb` | `sha256:b93f794e171e5332ae7667eda95ca0cce0bdc83a0d6fe842f2d36111fac034bd` | `sha256:04d8e6c3305dea448917ad6eb476d9810d0732ab72729984e396aeb2ea05dc06` |
 
 ## N. Three pending authorizations
 
@@ -392,6 +393,8 @@ writes `dispatch-refused.json` and leaves no claim. The evidence lands in
 
 ## R. Real counts for this session
 
+Counts for F2-C at `5e26eba`, kept for the record; the F2-C-R1 correction's own counts are in §T.8.
+
 | Counter | Value |
 |---|---|
 | Scripted provider requests (final smoke) | 63 |
@@ -411,9 +414,10 @@ is what they were run for.
 ## S. Commit
 
 The code, the evidence and this report are committed together on
-`feat/stage-f-unified-evaluation`. The freeze records `repo_head = 0b466ba…` because a commit
-cannot record its own hash; a re-freeze at the new head would reproduce every digest except
-`repo_head`, which is not part of any identity.
+`feat/stage-f-unified-evaluation`, in two commits: F2-C at `5e26eba…` and its correction F2-C-R1 at
+`3dc4090…` (§A, §T). The freeze records the head at generation time because a commit cannot record
+its own hash; a re-freeze after the commit reproduces every digest except that field, which is not
+part of any identity.
 
 Readiness is accepted only because every one of these is true in `experiments/stage_f/preflight.json`:
 
@@ -531,3 +535,21 @@ Both are recorded because a gate that cannot see them would be worthless:
 Executor `bplus-executor-1.9`, digest recorded in §L; manifest, three batch plans and three pending
 authorizations re-frozen; the settlement, environment, four-arm smoke and routing records re-run at
 that identity. The F2-A and F2-B records are untouched: neither path changed.
+
+### T.8 Counts for the correction
+
+| Counter | Value |
+|---|---|
+| Scripted provider requests (routing smoke / four-arm smoke) | 33 / 63 |
+| External model requests | **0** |
+| Production claims consumed | **0** |
+| Containers in the recorded runs | environment 8 created / 8 destroyed; routing smoke 2 agent + 2 oracle; four-arm smoke 4 agent + 4 oracle (20 in total, all destroyed) |
+| Distinct sandbox ids across the archived scratch of this correction | 61 (discarded re-runs included) |
+| Cleanup failures | 0 |
+
+Three routing runs and three four-arm-smoke runs were made. Two of them failed on real harness
+defects (T.6), one on a missing child script marker; each failure is recorded because the gate that
+caught it is the same gate a live run depends on.
+
+The session's process logs and scratch trees were moved out of the repository to
+`D:\Work\AtlasRuntime-archive\stage-f-f2c-r1-20261126\`; `git status --porcelain` is empty.
