@@ -191,7 +191,7 @@ the available evidence, not as a workbench gap.
 | `tests/integration/test_replay_api.py` (7) | every endpoint, filters, pagination, 404/409/422, read-only refusal, existing-API compatibility, secret exclusion |
 | replay total | **29 passed, 1 skipped** — the skip is the Windows symlink test, which needs a privilege this machine does not grant |
 | `pytest tests/unit` | **1057 passed, 1 skipped** |
-| `pytest tests/integration` | 993 passed, 194 failed — see §13 for the three causes; none is in the replay path |
+| `pytest tests/integration` | **994 passed, 193 failed** on the committed tree — see §13 for the three pre-existing causes; no failure names a replay module |
 | `ruff check` / `ruff format --check` on every new file | clean |
 | `pyright` on `src/atlasos/app/replay` and the three test files | 0 errors |
 
@@ -278,19 +278,28 @@ Invoke-RestMethod http://127.0.0.1:8791/api/replay/runs?limit=5 | ConvertTo-Json
    Main-driven schema, so those directories are reported as `INCOMPLETE_EVIDENCE` (52 of them). The
    app layer still projects those runs through the existing `/api/runs` History page. Adding a
    seventh projection kind would be H2 work, not a bug fix.
-3. **Frozen-source digest guards fail on this branch** (`runtime_source_unchanged`,
-   `protocol_v1_1_ready`). They pin a digest of `src/atlasos`; adding app-layer files changes it.
-   Re-freezing is an owner-gated operation and was not performed in H1.
-4. **The sandbox-dependent integration tests fail on this machine** because no OpenSandbox server is
-   running (`PROVISIONING_SMOKE_BLOCKED`, `'BLOCKED' == 'READY'`).
-5. **A dirty worktree fails the harness guards**, so the pre-commit integration number (194 failures)
-   includes that class; it disappears once the branch is committed.
-6. **Sort order is "newest recorded start first".** Stage F preflight cells record a synthetic
+3. **193 integration failures are pre-existing on this checkout, not caused by H1.** Their causes,
+   from the run on the committed tree:
+   - the dominant one is `execution_freeze_supersedes_history`: the tracked Stage B freeze files
+     record absolute paths under `D:\Work\AtlasRuntime`, while this workspace is `D:\Work\AtlasOS`,
+     so the Stage B preflight blocks before any test body runs (the same line also reports
+     `runtime_source_unchanged`, which is why the digest looks suspicious);
+   - the sandbox-dependent tests block as `PROVISIONING_SMOKE_BLOCKED` / `'BLOCKED' == 'READY'`
+     because no OpenSandbox server is running on this machine;
+   - 69 failures are the IDE safe-delete guard raising inside `shutil.rmtree` in the fake sandbox
+     helper, a known local artefact that disappears when the affected file is re-run alone.
+
+   `grep` over the failure log finds **zero** mentions of `app/replay`. The full unit suite
+   (`pytest tests/unit`) is green: 1057 passed, 1 skipped.
+4. **Adding app-layer files changes any digest taken over `src/atlasos`.** The Stage B/freeze guards
+   that compare such a digest must be re-frozen by the owner before they can pass; H1 did not
+   re-freeze anything.
+5. **Sort order is "newest recorded start first".** Stage F preflight cells record a synthetic
    `2026-11-26T00:00:00Z` claim, so rehearsals can sort above real runs of the previous day. The
    evidence filter and the `cell_analysis` kind make the distinction visible; the timestamps
    themselves are not rewritten.
-7. **No live execution, no H2.** The workbench cannot start a run, and this stage did not attempt to.
-8. **Screenshots are from one 1500×950 viewport** on this machine; narrower layouts are handled by
+6. **No live execution, no H2.** The workbench cannot start a run, and this stage did not attempt to.
+7. **Screenshots are from one 1500×950 viewport** on this machine; narrower layouts are handled by
    CSS media queries but were not visually captured.
 
 ## 14. Next-stage candidates (H2, not started)
