@@ -1,12 +1,19 @@
-"""Stage F — the two cell runners the goal runtime does not cover, their admission and their audit.
+"""Stage F — the three cell runners, their admission and their audit.
 
-``A1``/``A3`` need nothing here: they are the ordinary main-driven cell. ``A0`` (native single agent)
-and ``A2`` (static DAG) each call their real entry with the cell's frozen configuration, read the
-result object through its own ``as_dict()`` contract, and are audited by that evidence instead of by a
-session shape they do not have. No Main field is invented for either.
+``A1``/``A3`` are the ordinary main-driven cell: they run the goal runtime. This module only wraps
+it so that the run is normalised into Unified Cell Evidence instead of being audited by a session
+shape the Stage F schema does not use. ``A0`` (native single agent) and ``A2`` (static DAG) each
+call their real entry with the cell's frozen configuration, read the result object through its own
+``as_dict()`` contract, and are audited by that evidence instead of by a session shape they do not
+have. No Main field is invented for either.
 
-The audit reuses the executor's own usage and cost settlement (``validate_usage``, ``cell_cost``) so
-there is one accounting model, not two.
+Each runner accepts a deterministic provider factory. When one is given, the arm executes exactly
+as it does in production — same agent loop, scheduler, tool registry, sandbox, export, oracle and
+budget guard — with the provider replaced and the substitution recorded. When it is not given, the
+runner is the production runner and needs a credential.
+
+The audit reuses the executor's own usage and cost settlement (``validate_usage``, ``cell_cost``)
+so there is one accounting model, not two.
 """
 
 from __future__ import annotations
@@ -107,7 +114,12 @@ def _benchmark_task(cell: Mapping[str, Any], *, multi: bool) -> Any:
     benchmark = closure2.build_task(task, topology="multi")
     implementation = int(cell.get("worker_max_turns") or 20)
     integration = int(cell.get("integration_max_turns") or 40)
-    sinks = {node["task_id"] for node in task.workers if not node["downstream"]}
+    # The integration node is the one nothing else depends on. Read from the frozen decomposition
+    # rather than from a per-node flag the task does not carry.
+    depended_on = {str(dep) for node in task.workers for dep in node["depends_on"]}
+    sinks = {
+        str(node["task_id"]) for node in task.workers if str(node["task_id"]) not in depended_on
+    }
     steps = tuple(
         dataclasses.replace(
             step,
@@ -128,15 +140,17 @@ def _settings(cell: Mapping[str, Any], *, runs_root: Path, multi: bool) -> Any:
         extra["ownership_mode"] = "off"
         extra["execution_integrity_mode"] = "record"
     # The single agent is the primary agent: it carries the Main cap, not the worker cap. A static
-    # DAG's *implementation* nodes carry the worker cap and its integration node the integration cap,
-    # which is applied per step in ``_benchmark_task``.
+    # DAG's *implementation* nodes carry the worker cap and its integration node the integration
+    # cap, which is applied per step in ``_benchmark_task``.
     turns = (
-        int(cell.get("max_turns") or 40)
-        if not multi
-        else int(cell.get("worker_max_turns") or 20)
+        int(cell.get("max_turns") or 40) if not multi else int(cell.get("worker_max_turns") or 20)
     )
     return RunnerSettings(
-        benchmark_id=f"{cell['plan_id']}/{cell['cell_id']}",
+        # A short directory key, not the cell identity: the run path is
+        # ``<runs_root>/<benchmark_id>/<sample_id>/r<rep>-<run_id>`` and the ownership lock inside
+        # it adds a 64-character file name, which puts a Windows host over MAX_PATH. The identity a
+        # reader needs is the cell id in ``evidence.json``, never a path component.
+        benchmark_id=f"sf-{str(cell['arm_id']).lower()}-{int(cell['order']):02d}",
         runs_root=runs_root,
         config_path=Path(REPO_ROOT) / "experiments" / "configs" / "eval-benchmark.yaml",
         max_turns=turns,
@@ -158,7 +172,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # -- A0 ----------------------------------------------------------------------------------------
 
 
-def native_cell_runner() -> executor.CellRunner:
+def native_cell_runner(
+    *, provider_factory: Any | None = None, scripted_run: Any | None = None
+) -> executor.CellRunner:
     """A0: one native agent, one guarded cell budget, per-request metering."""
 
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> executor.CellRun:
@@ -169,6 +185,7 @@ def native_cell_runner() -> executor.CellRunner:
             executor.prepare_fixture(TASKS_BY_ID[str(cell["task_id"])], root / "fixture")["path"]
         )
         settings, _task = _settings(cell, runs_root=root / "native-runs", multi=False)
+        task_events: list[dict[str, Any]] = []
 
         result = await native_baseline.run_native_sample(
             _benchmark_task(cell, multi=False),
@@ -176,11 +193,19 @@ def native_cell_runner() -> executor.CellRunner:
             repetition_id=int(cell.get("repetition") or 1),
             runs_root=root / "native-runs",
             budget_limit_tokens=int(cell["token_budget"]),
+            task_events=task_events,
+            provider_factory=provider_factory,
         )
         payload = _result_dict(result)
         oracle = _oracle_record(payload)
         export = _export_evidence(payload)
-        evidence = normalize.from_native_result(cell, payload, oracle=oracle, export=export)
+        requests = _requests_from(scripted_run)
+        evidence = normalize.from_native_result(
+            cell, payload, oracle=oracle, export=export, requests=requests
+        )
+        evidence["resources"]["task_events"] = task_events
+        # The cap the runner was actually configured with, not the cap the cell declared.
+        evidence["resources"]["applied_turn_caps"] = {"primary_agent": int(settings.max_turns)}
         evidence["adapter_problems"] = normalize.validate_evidence(evidence)
         _write_json(root / "evidence.json", evidence)
         return executor.CellRun(
@@ -198,7 +223,9 @@ def native_cell_runner() -> executor.CellRunner:
 # -- A2 ----------------------------------------------------------------------------------------
 
 
-def static_dag_cell_runner() -> executor.CellRunner:
+def static_dag_cell_runner(
+    *, provider_factory: Any | None = None, scripted_run: Any | None = None
+) -> executor.CellRunner:
     """A2: the frozen human decomposition, run by the scheduler on one shared budget."""
 
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> executor.CellRun:
@@ -209,16 +236,25 @@ def static_dag_cell_runner() -> executor.CellRunner:
             executor.prepare_fixture(TASKS_BY_ID[str(cell["task_id"])], root / "fixture")["path"]
         )
         settings, _task = _settings(cell, runs_root=root / "dag-runs", multi=True)
+        benchmark = _benchmark_task(cell, multi=True)
 
         result = await eval_runner.run_sample(
-            _benchmark_task(cell, multi=True),
+            benchmark,
             settings=settings,
             repetition_id=int(cell.get("repetition") or 1),
+            provider_factory=provider_factory,
         )
         payload = _result_dict(result)
         oracle = _oracle_record(payload)
         export = _export_evidence(payload)
-        evidence = normalize.from_dag_result(cell, payload, oracle=oracle, export=export)
+        requests = _requests_from(scripted_run)
+        evidence = normalize.from_dag_result(
+            cell, payload, oracle=oracle, export=export, requests=requests
+        )
+        # The per-node caps the scheduler was actually given, from the benchmark task it ran.
+        evidence["resources"]["applied_turn_caps"] = {
+            step.task_id: int(step.max_turns or settings.max_turns) for step in benchmark.workers
+        }
         evidence["adapter_problems"] = normalize.validate_evidence(evidence)
         _write_json(root / "evidence.json", evidence)
         return executor.CellRun(
@@ -231,6 +267,96 @@ def static_dag_cell_runner() -> executor.CellRunner:
         )
 
     return run
+
+
+# -- A1 / A3 -----------------------------------------------------------------------------------
+
+
+def _conversation_proposals(run_dir: Path | None, main_task_id: str | None) -> list[dict[str, Any]]:
+    """Every ``delegate_tasks`` input the Main actually sent, from the run's own snapshot.
+
+    ``AtlasToolRuntime`` writes each agent's conversation to ``tool_conversations.json`` before
+    every turn. That file is the only place the model's tool *inputs* survive, so the proposal
+    evidence is read from it rather than from a session field that never held them.
+    """
+
+    if run_dir is None:
+        return []
+    path = Path(run_dir) / "tool_conversations.json"
+    if not path.is_file():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    tasks = payload.get("tasks") if isinstance(payload, Mapping) else None
+    if not isinstance(tasks, Mapping):
+        return []
+    keys = [main_task_id] if main_task_id in tasks else list(tasks)
+    proposals: list[dict[str, Any]] = []
+    for key in keys:
+        entry = tasks.get(key)
+        messages = (entry or {}).get("messages") if isinstance(entry, Mapping) else None
+        for message in messages or []:
+            for block in message.get("content") or []:
+                if isinstance(block, Mapping) and block.get("name") == "delegate_tasks":
+                    proposals.append(
+                        {
+                            "task_id": key,
+                            "input": block.get("input"),
+                            "block_type": block.get("type"),
+                            "source": "tool_conversations.json",
+                        }
+                    )
+    return proposals
+
+
+def main_driven_cell_runner(
+    *, provider_name: str, provider_factory: Any, scripted_run: Any | None = None
+) -> executor.CellRunner:
+    """A1/A3: the production goal runtime, normalised into Unified Cell Evidence.
+
+    The inner runner is the production one — ``live_cell_runner`` with only the provider seam
+    injected. This wrapper adds no execution behaviour: it reads the result, normalises it, and
+    returns the same ``CellRun`` with the evidence as its session.
+    """
+
+    inner = executor.live_cell_runner(
+        executor.RunnerConfig(llm_provider=provider_name, llm_factory=provider_factory)
+    )
+
+    async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> executor.CellRun:
+        result = await inner(cell, context)
+        if result.session is None:
+            return result
+        root = _cell_root(context, cell)
+        session = dict(result.session)
+        main = session.get("main") or {}
+        proposals = _conversation_proposals(result.run_dir, main.get("task_id"))
+        requests = _requests_from(scripted_run)
+        evidence = normalize.from_main_child_session(
+            cell,
+            session,
+            oracle=result.oracle,
+            export=result.export,
+            proposals=proposals,
+            requests=requests,
+        )
+        evidence["adapter_problems"] = normalize.validate_evidence(evidence)
+        _write_json(root / "evidence.json", evidence)
+        _write_json(root / "proposals.json", {"proposals": proposals})
+        result.session = evidence
+        return result
+
+    return run
+
+
+def _requests_from(scripted_run: Any | None) -> list[dict[str, Any]]:
+    """The deterministic provider's own request rows. Empty when no provider was injected."""
+
+    if scripted_run is None:
+        return []
+    return list(getattr(scripted_run, "requests", []) or [])
 
 
 # -- admission ---------------------------------------------------------------------------------
@@ -267,9 +393,10 @@ def arm_admission(
         int(cell.get("token_budget") or 0) == 1_000_000,
         f"token_budget={cell.get('token_budget')}",
     )
-    # Budget enforcement is a property of the runner this arm calls, not of a plan field: the native
-    # runner passes ``budget_limit_tokens`` into the shared RunBudgetHook and the DAG runner runs with
-    # ``budget_mode="guarded"``. The plan says which arm it is; the runner proof says the guard fires.
+    # Budget enforcement is a property of the runner this arm calls, not of a plan field: the
+    # native runner passes ``budget_limit_tokens`` into the shared RunBudgetHook and the DAG runner
+    # runs with ``budget_mode="guarded"``. The plan says which arm it is; the proof says the guard
+    # fires.
     declared = cell.get("budget_enforcement") or (cell.get("budget") or {}).get(
         "budget_enforcement"
     )
@@ -376,6 +503,18 @@ def _usage_of(evidence: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _export_path(evidence: Mapping[str, Any]) -> str | None:
+    """The exported workspace path, read from where each adapter records it."""
+
+    resources = evidence.get("resources") or {}
+    value = resources.get("artifact_export")
+    if isinstance(value, str) and value:
+        return value
+    export = evidence.get("export") or {}
+    candidate = export.get("workspace_path") if isinstance(export, Mapping) else None
+    return str(candidate) if candidate else None
+
+
 def audit_stage_f_cell(
     *,
     cell: Mapping[str, Any],
@@ -393,6 +532,7 @@ def audit_stage_f_cell(
     oracle = correctness.get("independent_oracle") or {}
     metrics = _usage_of(evidence)
 
+    export_path = _export_path(evidence)
     checks = [
         {"check": "evidence_schema", "ok": not problems, "detail": "; ".join(problems)[:400]},
         {
@@ -412,10 +552,23 @@ def audit_stage_f_cell(
             "detail": f"oracle={oracle.get('status')!r}",
         },
         {
+            # A dead or unclean oracle sandbox is an environment defect: the cell produced no
+            # verdict about the deliverable and the matrix must not continue as if it had.
+            "check": "oracle_environment",
+            "ok": oracle.get("status") != "ERROR",
+            "detail": f"oracle status={oracle.get('status')!r}",
+        },
+        {
+            # The oracle scores an exported workspace. A missing export is missing evidence, and a
+            # missing path must never be read as "nothing to score, therefore fine".
+            "check": "artifact_exported",
+            "ok": export_path is not None and Path(export_path).is_dir(),
+            "detail": f"workspace_path={export_path!r}",
+        },
+        {
             "check": "usage_complete",
             "ok": all(value is not None for value in metrics.values()),
-            "detail": "unknown: "
-            + ",".join(key for key, value in metrics.items() if value is None)
+            "detail": "unknown: " + ",".join(key for key, value in metrics.items() if value is None)
             if any(value is None for value in metrics.values())
             else "complete",
         },
@@ -423,15 +576,31 @@ def audit_stage_f_cell(
     if run.error:
         checks.append({"check": "runner_returned", "ok": False, "detail": run.error[:300]})
     failed = [item["check"] for item in checks if not item["ok"]]
-    stops = [executor.STOP_MODE_VIOLATION] if "evidence_schema" in failed else []
+    stops: list[str] = []
+    for name, stop in (
+        ("evidence_schema", executor.STOP_MODE_VIOLATION),
+        ("oracle_environment", executor.STOP_ORACLE_ENVIRONMENT),
+        ("artifact_exported", executor.STOP_EXPORT),
+        ("usage_complete", executor.STOP_UNKNOWN_USAGE),
+        ("runner_returned", executor.STOP_EXECUTION_EXCEPTION),
+    ):
+        if name in failed and stop not in stops:
+            stops.append(stop)
 
     delta = executor.cell_cost(metrics, prices)
     before = {
         field: int((usage_before or {}).get(field) or 0) for field in executor.REQUIRED_USAGE_FIELDS
     }
-    usage = {field: before[field] + int(metrics[field]) for field in executor.REQUIRED_USAGE_FIELDS}
+    # A counter this cell did not report makes the cumulative total unknown: adding zero would be
+    # the fabrication the whole schema exists to prevent.
+    usage: dict[str, Any] = {
+        field: (None if metrics[field] is None else before[field] + int(metrics[field]))
+        for field in executor.REQUIRED_USAGE_FIELDS
+    }
     total_cost = (
-        None if delta is None or cost_before is None else round(float(cost_before) + delta, 6)
+        None
+        if delta is None or cost_before is None or any(value is None for value in usage.values())
+        else round(float(cost_before) + delta, 6)
     )
 
     verdict = "PASS" if not failed and oracle.get("passed") is True else "MEASURED_FAILURE"
@@ -450,7 +619,9 @@ def audit_stage_f_cell(
         "agent_success": correctness.get("agent_success"),
         "primary_agent_completion": correctness.get("primary_agent_completion"),
         "public_test_status": correctness.get("public_test"),
-        "public_test_runs": 0,
+        # Read from the run's own public-test record; absent means the arm ran none, which is
+        # reported as unknown rather than as zero runs.
+        "public_test_runs": (evidence.get("resources") or {}).get("public_test_runs"),
         "static_acceptance": correctness.get("static_acceptance"),
         "oracle_passed": oracle.get("passed"),
         "oracle_status": oracle.get("status"),
@@ -475,6 +646,7 @@ def audit_stage_f_cell(
 __all__ = [
     "arm_admission",
     "audit_stage_f_cell",
+    "main_driven_cell_runner",
     "native_cell_runner",
     "static_dag_cell_runner",
 ]

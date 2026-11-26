@@ -1281,14 +1281,23 @@ async def dispatch(
     head_override: str | None = None,
     prices: Mapping[str, Any] | None = None,
     clock: Callable[[], str] = now,
+    plan: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run one plan, or refuse and say why. The only entry point that may execute a cell."""
+    """Run one plan, or refuse and say why. The only entry point that may execute a cell.
+
+    ``plan`` is the proof seam: an offline harness may pass a plan record it built itself (a
+    temporary four-arm runner proof) instead of registering a new frozen plan id. Offline mode is
+    required for it, because every live refusal rule — head, claim root, dirty worktree, admission —
+    is about a plan that will spend a real budget.
+    """
 
     if mode not in MODES:
         raise ValueError(f"unknown dispatch mode {mode!r}; expected one of {list(MODES)}")
     offline = mode == MODE_OFFLINE_PROOF
+    if plan is not None and not offline:
+        raise ValueError("an injected plan record is only accepted in offline-proof mode")
 
-    plan = contract.scope_plan(plan_id)
+    plan = dict(plan) if plan is not None else contract.scope_plan(plan_id)
     evidence = Path(evidence_root)
     await asyncio.to_thread(evidence.mkdir, parents=True, exist_ok=True)
     document = contract.protocol_document()

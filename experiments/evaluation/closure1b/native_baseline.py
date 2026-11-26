@@ -68,6 +68,7 @@ from experiments.evaluation.models import (
 from experiments.evaluation.runner import (
     EvaluationEnvironmentError,
     ModelRecordingAdapter,
+    ObservingAdapter,
     RunnerSettings,
     _aggregate_observations,
     _build_provider,
@@ -134,11 +135,15 @@ async def run_native_sample(
     turn_timeout_seconds: int | None = None,
     task_events: list[dict[str, Any]] | None = None,
     budget_limit_tokens: int | None = None,
+    provider_factory: Any | None = None,
 ) -> EvalRunResult:
     """Run one sample through native AnyCode inside a real OpenSandbox container.
 
     ``provider_name`` is set only by the deterministic acceptance harness, which registers its own
     scripted provider; in that mode no model is called and no API key is required.
+    ``provider_factory`` is the same seam without a pre-registered name: the factory is wrapped in
+    the run's own observation recorder, so a deterministic provider produces the *same* per-request
+    usage evidence a model would, and the cost function is not a second model.
     ``task_events`` collects the orchestrator's own start/complete events, so concurrency is
     observed rather than inferred from the DAG shape.
     """
@@ -160,7 +165,7 @@ async def run_native_sample(
     host_hashes_before = workspace_hashes(fixture_dir)
 
     model = settings.model_override or "deepseek-chat"
-    scripted = provider_name is not None
+    scripted = provider_name is not None or provider_factory is not None
     identity = RunIdentity(
         benchmark_id=settings.benchmark_id,
         dataset_version=settings.dataset_version,
@@ -205,6 +210,7 @@ async def run_native_sample(
     engine: NeutralEngine | None = None
     export_latency_ms: float | None = None
     agent_latency_ms: float | None = None
+    budget_state: Any | None = None
     environment: dict[str, Any] = {
         "engine": ENGINE_ID,
         "engine_claim": (
@@ -245,13 +251,24 @@ async def run_native_sample(
             raise EvaluationEnvironmentError(f"sandbox provider is unavailable: {health.message}")
 
         if provider_name is None:
-            if not os.environ.get("DEEPSEEK_API_KEY"):
+            if provider_factory is None and not os.environ.get("DEEPSEEK_API_KEY"):
                 raise EvaluationEnvironmentError("DEEPSEEK_API_KEY is not configured")
             provider_name = f"atlas-native-{uuid.uuid4().hex[:12]}"
 
-            async def factory(**_: Any) -> ModelRecordingAdapter:
-                inner = build_deepseek_adapter(model, observations.append)
-                return ModelRecordingAdapter(inner, resolved_models)
+            if provider_factory is None:
+
+                async def factory(**_: Any) -> ModelRecordingAdapter:
+                    inner = build_deepseek_adapter(model, observations.append)
+                    return ModelRecordingAdapter(inner, resolved_models)
+
+            else:
+                deterministic_factory = provider_factory
+
+                async def factory(**_: Any) -> ModelRecordingAdapter:
+                    # Same observation type as the model path, so the per-request usage, the
+                    # aggregation and the cost function are one accounting model.
+                    inner = ObservingAdapter(deterministic_factory(), observations, model=model)
+                    return ModelRecordingAdapter(inner, resolved_models)
 
             register_provider_factory(provider_name, factory)
 
@@ -477,15 +494,31 @@ async def run_native_sample(
         )
         metrics.estimated_cost_usd = _estimate_cost(observations, config.pricing)
         metrics.extra["cache_metrics_complete"] = bool(aggregate["cache_metrics_complete"])
+        metrics.extra["cache_split_status"] = aggregate["cache_split_status"]
         metrics.extra["inference_latency_ms"] = aggregate["inference_latency_ms"]
         metrics.extra["export_latency_ms"] = export_latency_ms
         metrics.extra["agent_latency_ms"] = agent_latency_ms
+        # Per-request usage, in the order the requests were sent. It is the evidence a reader needs
+        # to check the budget guard and the per-request metering without re-running anything.
+        metrics.extra["per_request_usage"] = [
+            {
+                "index": index,
+                "prompt_tokens": int(item.usage.prompt_tokens),
+                "completion_tokens": int(item.usage.completion_tokens),
+                "cache_split": "UNKNOWN",
+            }
+            for index, item in enumerate(observations)
+        ]
         metrics.worker_selection = sorted(worker_results)
         metrics.host_isolation_violations = 0 if host_unchanged else 1
         environment["resolved_models"] = sorted(set(resolved_models))
         environment["worker_count"] = len(task.workers)
         environment["tool_calls"] = len(tool_calls)
         environment["budget_check"] = _post_hoc_budget(settings, metrics)
+        if budget_state is not None:
+            snapshot = budget_state.finalize()
+            metrics.extra["budget"] = snapshot
+            environment["budget"] = snapshot
 
     # Same public thresholds as the Atlas arm, evaluated after the fact.
     budget = environment["budget_check"]

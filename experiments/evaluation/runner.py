@@ -108,7 +108,7 @@ from atlasos.history_compaction import (
 from atlasos.integrations.anycode_engine import AtlasContextEngine
 from atlasos.integrations.deepseek import DeepSeekAdapter
 from atlasos.ledger import SQLiteActionLedgerStore
-from atlasos.metrics.models import InferenceObservation
+from atlasos.metrics.models import InferenceObservation, InferenceUsage
 from atlasos.ownership import (
     OWNERSHIP_MODE_OFF,
     OWNERSHIP_MODES,
@@ -597,6 +597,62 @@ class ModelRecordingAdapter:
                     # Abandoned before a response: it was issued, so it stays observed, but it is
                     # not a completed request and never counts as usage coverage.
                     evidence.mark_cancelled(call_index)
+
+        return _generate()
+
+
+class ObservingAdapter:
+    """Record one ``InferenceObservation`` per call of an adapter that does not record its own.
+
+    The DeepSeek adapter takes an ``on_call`` callback; a deterministic provider does not. Wrapping
+    it here keeps the *accounting* identical between the two: the same observation type, the same
+    aggregation, the same cost function. Nothing about the response is altered.
+    """
+
+    def __init__(self, inner: Any, observations: list[InferenceObservation], *, model: str) -> None:
+        self._inner = inner
+        self._observations = observations
+        self._model = model
+
+    @property
+    def name(self) -> str:
+        return self._inner.name
+
+    def _record(self, messages: Any, options: Any, response: Any) -> None:
+        usage = getattr(response, "usage", None)
+        texts = [
+            "\n".join(str(getattr(block, "text", "")) for block in getattr(message, "content", ()))
+            for message in messages
+        ]
+        system_prompt = str(getattr(options, "system_prompt", "") or "")
+        self._observations.append(
+            InferenceObservation(
+                usage=InferenceUsage(
+                    prompt_tokens=max(0, int(getattr(usage, "input_tokens", 0) or 0))
+                    + max(0, int(getattr(usage, "cache_read_input_tokens", 0) or 0))
+                    + max(0, int(getattr(usage, "cache_creation_input_tokens", 0) or 0)),
+                    completion_tokens=max(0, int(getattr(usage, "output_tokens", 0) or 0)),
+                    # A provider that has no prompt cache reports no split: UNKNOWN, not zero.
+                    cache_hit_tokens=None,
+                    cache_miss_tokens=None,
+                    latency_ms=0.0,
+                ),
+                stable_prefix_hash=hashlib.sha256(system_prompt.encode("utf-8")).hexdigest(),
+                full_prompt_hash=hashlib.sha256("\n".join(texts).encode("utf-8")).hexdigest(),
+            )
+        )
+
+    async def chat(self, messages: Any, options: Any) -> Any:
+        response = await self._inner.chat(messages, options)
+        self._record(messages, options, response)
+        return response
+
+    def stream(self, messages: Any, options: Any) -> Any:
+        async def _generate() -> Any:
+            async for event in self._inner.stream(messages, options):
+                if getattr(event, "type", None) == "done":
+                    self._record(messages, options, getattr(event, "data", None))
+                yield event
 
         return _generate()
 
@@ -1781,8 +1837,14 @@ async def run_sample(
     settings: RunnerSettings,
     repetition_id: int,
     config_path: Path | None = None,
+    provider_factory: Any | None = None,
 ) -> EvalRunResult:
-    """Execute exactly one benchmark sample with one fresh sandbox and run identity."""
+    """Execute exactly one benchmark sample with one fresh sandbox and run identity.
+
+    ``provider_factory`` is the deterministic-proof seam: when it is given, that factory answers the
+    requests instead of a model, no credential is required, and the run identity says ``scripted``.
+    Everything else — sandbox, tools, budget guard, export, oracle, audit — is the production path.
+    """
 
     load_dotenv(REPO_ROOT / ".env", override=False)
     config_file = Path(config_path or settings.config_path)
@@ -1818,6 +1880,7 @@ async def run_sample(
     # advertise the benchmark sample id or that this is an evaluation fixture.
     stage_git_repo(fixture_dir, label=FIXTURE_COMMIT_LABEL)
     host_hashes_before = workspace_hashes(fixture_dir)
+    scripted = provider_factory is not None
 
     identity = RunIdentity(
         benchmark_id=settings.benchmark_id,
@@ -1830,8 +1893,8 @@ async def run_sample(
         git_dirty=git_dirty(REPO_ROOT),
         config_digest=settings.digest(),
         fixture_digest=task.fixture_digest,
-        model=model,
-        provider=config.provider.name,
+        model="scripted" if scripted else model,
+        provider="scripted" if scripted else config.provider.name,
         started_at=started_at,
     )
 
@@ -1857,6 +1920,7 @@ async def run_sample(
         "config_path": str(config_file),
         "sandbox_image": config.sandbox.image,
         "sandbox_provider": config.sandbox.provider,
+        "scripted_provider": scripted,
         "temperature": settings.temperature,
         "max_turns": settings.max_turns,
         "max_tokens": settings.max_tokens,
@@ -1914,7 +1978,7 @@ async def run_sample(
     cleanup_error: BaseException | None = None
     final_result: EvalRunResult | None = None
     try:
-        if not os.environ.get("DEEPSEEK_API_KEY"):
+        if provider_factory is None and not os.environ.get("DEEPSEEK_API_KEY"):
             raise EvaluationEnvironmentError("DEEPSEEK_API_KEY is not configured")
         if config.sandbox.provider == "fake":
             raise EvaluationEnvironmentError("evaluation requires a real Atlas sandbox provider")
@@ -1933,13 +1997,28 @@ async def run_sample(
 
         provider_name = f"atlas-eval-{uuid.uuid4().hex[:12]}"
 
-        async def factory(**_: Any) -> ModelRecordingAdapter:
-            inner = build_deepseek_adapter(model, observations.append)
-            return ModelRecordingAdapter(
-                inner,
-                resolved_models,
-                request_evidence if settings.request_evidence else None,
-            )
+        if provider_factory is None:
+
+            async def factory(**_: Any) -> ModelRecordingAdapter:
+                inner = build_deepseek_adapter(model, observations.append)
+                return ModelRecordingAdapter(
+                    inner,
+                    resolved_models,
+                    request_evidence if settings.request_evidence else None,
+                )
+
+        else:
+            scripted_factory = provider_factory
+
+            async def factory(**_: Any) -> ModelRecordingAdapter:
+                # The deterministic provider reports its own usage; the wrapper records the same
+                # observation the model path does, so the accounting is not a second model.
+                inner = ObservingAdapter(scripted_factory(), observations, model=model)
+                return ModelRecordingAdapter(
+                    inner,
+                    resolved_models,
+                    request_evidence if settings.request_evidence else None,
+                )
 
         register_provider_factory(provider_name, factory)
 
@@ -2344,6 +2423,10 @@ async def run_sample(
             timeout=settings.timeout_seconds,
         )
         environment["agent_latency_ms"] = round((time.perf_counter() - agent_started) * 1000.0, 3)
+        # The scheduler's own start/complete events travel with the result, not only with the
+        # separate evidence file: a reader of one run record can check dependency and concurrency
+        # without loading a second artifact.
+        environment["task_events"] = list(task_events)
         agent_success = bool(result.success)
         team_lifecycle_events = _jsonable(getattr(result, "lifecycle_events", []))
         tool_calls, worker_results = _collect_tool_calls(result.agent_results)

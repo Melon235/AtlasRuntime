@@ -7,6 +7,7 @@ consumes a claim.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -93,10 +94,12 @@ def test_the_oracle_status_is_derived_from_the_real_outcome_fields() -> None:
     )
 
 
-def test_the_stage_f_audit_returns_the_dispatcher_contract() -> None:
+def test_the_stage_f_audit_returns_the_dispatcher_contract(tmp_path: Path) -> None:
     """The audit returned neither delta_cost_usd nor cumulative usage."""
 
     cell = _cell("A0")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
     evidence = normalize.from_native_result(
         cell,
         {
@@ -108,12 +111,12 @@ def test_the_stage_f_audit_returns_the_dispatcher_contract() -> None:
                 "cache_hit_tokens": 800,
                 "cache_miss_tokens": 400,
                 "peak_context_tokens": 900,
+                "budget": {"limit_tokens": 1_000_000, "used_tokens": 1400},
             },
-            "budget": {"limit_tokens": 1_000_000, "used_tokens": 1400},
             "environment": {"budget_enforcement": "pre_admission_guard"},
         },
         oracle={"status": "PASS", "passed": True},
-        export={"static_acceptance": "PASS", "execution_integrity": "PASS"},
+        export={"workspace_path": str(workspace)},
     )
     run = executor.CellRun(
         session=evidence, run_dir=None, fixture_root=None, oracle=None, duration_s=1.5
@@ -187,3 +190,138 @@ def test_the_stage_f_budget_and_turn_caps_are_the_approved_ones() -> None:
     assert arms.COST_STOP_PER_CELL == 1.00
     assert arms.COST_STOP_PER_BATCH == 32.00
     assert arms.COST_STOP_TOTAL == 96.00
+
+
+# -- the four-arm runner proof -----------------------------------------------------------------
+
+
+def test_a_directory_declaration_covers_the_files_below_it() -> None:
+    """Every Stage F fixture declares ``sources/``; the oracle read that as one literal entry.
+
+    The proof's first real native run wrote only allowed files and the oracle scored all four as
+    unauthorized. The ownership layer already reads the same string as a directory.
+    """
+
+    from experiments.evaluation.fixtures import path_matches
+
+    assert path_matches("sources/csv_source.py", ("sources/",))
+    assert path_matches("sources/deep/nested.py", ("sources/",))
+    assert not path_matches("sourcesX/csv_source.py", ("sources/",))
+    assert not path_matches("README.md", ("sources/",))
+    # ``**`` is unchanged, and a bare name keeps pathlib's own semantics (which already match a
+    # nested path); only the trailing slash was undefined before.
+    assert path_matches("tests/test_hidden.py", ("tests/**",))
+    assert not path_matches("slugify.py", ("tests/**",))
+
+
+def test_the_scripted_provider_identifies_itself_per_run() -> None:
+    """Two runs that both called themselves ``fake`` collided in AnyCode's capacity registry.
+
+    The second run failed before its first request with
+    ``ProviderCapacityConfigurationError: Provider capacity scope 'fake' already uses different
+    limits``, which the agent loop reported as an empty success.
+    """
+
+    from experiments.stage_f import scripted
+
+    run_a = scripted.ScriptedRun(scripts={"main": [("bash", {"command": "echo a"})]})
+    run_b = scripted.ScriptedRun(scripts={"main": [("bash", {"command": "echo b"})]})
+    first = scripted.factory_for(run_a, "proof-a")()
+    second = scripted.factory_for(run_b, "proof-b")()
+    assert first.name == "proof-a"
+    assert second.name == "proof-b"
+    assert first.name != second.name
+
+
+@pytest.mark.asyncio
+async def test_the_scripted_provider_reports_usage_and_records_the_request() -> None:
+    """Per-request usage is the evidence the audit and the cost function consume."""
+
+    from anycode.types import LLMChatOptions, LLMMessage, TextBlock
+    from experiments.stage_f import scripted
+
+    run = scripted.ScriptedRun(
+        scripts={"main": [("bash", {"command": "echo step"})]},
+        markers={"main": "task turn"},
+    )
+    adapter = scripted.factory_for(run, "proof-usage")()
+    response = await adapter.chat(
+        [LLMMessage(role="user", content=[TextBlock(text="task turn: do the work")])],
+        LLMChatOptions(model="scripted"),
+    )
+    assert run.requests and run.requests[0]["index"] == 0
+    assert run.requests[0]["tool"] == "bash"
+    expected = math.ceil(len("task turn: do the work") / 4)
+    assert run.requests[0]["prompt_tokens"] == expected
+    assert response.usage.input_tokens == run.requests[0]["prompt_tokens"]
+    assert run.requests[0]["token_estimate"].startswith("chars/4")
+
+
+def test_a_missing_export_or_unknown_usage_stops_the_cell(tmp_path: Path) -> None:
+    """A path string is not an export, and a counter nobody reported is not a zero."""
+
+    cell = _cell("A0")
+    evidence = normalize.from_native_result(
+        cell,
+        {
+            "agent_success": True,
+            "failure_class": "TASK_SUCCESS",
+            "metrics": {"prompt_tokens": None, "completion_tokens": None},
+            "environment": {},
+        },
+        oracle={"status": "PASS", "passed": True},
+        export={"workspace_path": None},
+    )
+    outcome = executor.audit_cell(
+        cell=cell,
+        run=executor.CellRun(
+            session=evidence, run_dir=None, fixture_root=None, oracle=None, duration_s=0.1
+        ),
+        plan={"plan_id": cell["plan_id"], "scope": cell["scope"]},
+        usage_before=None,
+        cost_before=None,
+        prices=dict(executor.cost.stage_b_estimate.pricing()),
+    )
+    assert outcome["verdict"] == "STOPPED"
+    assert executor.STOP_EXPORT in outcome["stops"]
+    assert executor.STOP_UNKNOWN_USAGE in outcome["stops"]
+    assert outcome["cost_usd"] is None
+    # An unreported counter stays unknown; a role the arm does not have is a *measured* zero.
+    assert outcome["usage"]["main_cumulative_input_tokens"] is None
+    assert outcome["usage"]["system_total_tokens"] is None
+    assert outcome["usage"]["child_total_prompt_tokens"] == 0
+
+
+def test_an_unknown_usage_counter_does_not_become_a_zero_in_the_cumulative_total(
+    tmp_path: Path,
+) -> None:
+    """Adding zero for an unreported counter invents a measurement."""
+
+    cell = _cell("A0")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    evidence = normalize.from_native_result(
+        cell,
+        {
+            "agent_success": True,
+            "failure_class": "TASK_SUCCESS",
+            "metrics": {"prompt_tokens": 100, "completion_tokens": None},
+            "environment": {},
+        },
+        oracle={"status": "PASS", "passed": True},
+        export={"workspace_path": str(workspace)},
+    )
+    outcome = executor.audit_cell(
+        cell=cell,
+        run=executor.CellRun(
+            session=evidence, run_dir=None, fixture_root=None, oracle=None, duration_s=0.1
+        ),
+        plan={"plan_id": cell["plan_id"], "scope": cell["scope"]},
+        usage_before={"main_cumulative_input_tokens": 500, "system_total_tokens": 500},
+        cost_before=0.25,
+        prices=dict(executor.cost.stage_b_estimate.pricing()),
+    )
+    assert outcome["verdict"] == "STOPPED"
+    assert executor.STOP_UNKNOWN_USAGE in outcome["stops"]
+    assert outcome["usage"]["system_total_tokens"] is None
+    assert outcome["cost_usd"] is None

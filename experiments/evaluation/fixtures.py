@@ -121,11 +121,26 @@ def changes_against_baseline(
 
 
 def path_matches(path: str, patterns: tuple[str, ...]) -> bool:
-    """Match with pathlib semantics using ``**`` globs over POSIX relative paths."""
+    """Match with pathlib semantics using ``**`` globs over POSIX relative paths.
+
+    A pattern that ends in ``/`` is a **directory declaration**: it covers that directory and
+    everything below it. That is the meaning the ownership layer already gives the same string
+    (``normalize_declared_path`` collapses ``sources/`` to ``sources`` and every write below it is
+    matched by prefix), so the oracle reading the same declaration as "one entry named
+    ``sources/``" would score a legal write as unauthorized. ``**`` stays supported, and every
+    pattern without a trailing slash keeps exactly the pathlib rule it had before.
+    """
 
     if not patterns:
         return False
-    return any(PurePosixPath(path).match(pattern) for pattern in patterns)
+    candidate = PurePosixPath(path)
+    for pattern in patterns:
+        if pattern.endswith("/"):
+            if candidate.is_relative_to(PurePosixPath(pattern.rstrip("/"))):
+                return True
+        elif candidate.match(pattern):
+            return True
+    return False
 
 
 def host_fixture_unchanged(before: dict[str, str], after: dict[str, str]) -> bool:
