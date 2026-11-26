@@ -21,7 +21,7 @@ import json
 import os
 import tempfile
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +40,12 @@ def _unique(prefix: str) -> str:
     return f"{prefix}-{int(time.time() * 1000) % 10_000_000}-{os.getpid()}"
 
 
-def _cells() -> list[dict[str, Any]]:
+def cells_for(
+    arm_sequence: tuple[str, ...] = ARM_SEQUENCE,
+    *,
+    plan_id: str = SMOKE_PLAN_ID,
+    scope: str = SMOKE_SCOPE,
+) -> list[dict[str, Any]]:
     return [
         arms.cell_record(
             task_id=TASK_ID,
@@ -48,32 +53,38 @@ def _cells() -> list[dict[str, Any]]:
             repetition=1,
             sequence="Q1",
             position=index,
-            batch_id=SMOKE_PLAN_ID,
-            plan_id=SMOKE_PLAN_ID,
-            scope=SMOKE_SCOPE,
+            batch_id=plan_id,
+            plan_id=plan_id,
+            scope=scope,
         )
-        for index, arm_id in enumerate(ARM_SEQUENCE, start=1)
+        for index, arm_id in enumerate(arm_sequence, start=1)
     ]
 
 
-def _plan(cells: list[dict[str, Any]]) -> dict[str, Any]:
+def plan_for(
+    cells: list[dict[str, Any]],
+    *,
+    plan_id: str = SMOKE_PLAN_ID,
+    scope: str = SMOKE_SCOPE,
+    master_id: str = "stage-f-p1-compat-smoke",
+) -> dict[str, Any]:
     return {
         "stage": "F",
         "design_version": f_plan.DESIGN_VERSION,
-        "master_id": "stage-f-p1-compat-smoke",
-        "plan_id": SMOKE_PLAN_ID,
-        "scope": SMOKE_SCOPE,
+        "master_id": master_id,
+        "plan_id": plan_id,
+        "scope": scope,
         "batch": 0,
         "repetition": 1,
         "repetitions": 1,
         "tasks": [TASK_ID],
-        "arms": list(ARM_SEQUENCE),
+        "arms": [str(cell["arm_id"]) for cell in cells],
         "cells_count": len(cells),
         "cells": cells,
         "digest": f_plan.plan_digest(cells),
-        "claim_namespace": f"stage-f-claim/{SMOKE_PLAN_ID}",
-        "runs_subdir": f"runs/{SMOKE_PLAN_ID}",
-        "evidence_subdir": f"evidence/{SMOKE_PLAN_ID}",
+        "claim_namespace": f"stage-f-claim/{plan_id}",
+        "runs_subdir": f"runs/{plan_id}",
+        "evidence_subdir": f"evidence/{plan_id}",
         "is_benchmark_sample": False,
         "attempt_limit": 1,
         "budget": arms.budget(),
@@ -86,6 +97,14 @@ def _plan(cells: list[dict[str, Any]]) -> dict[str, Any]:
         "retry": "FORBIDDEN",
         "is_proof": True,
     }
+
+
+def _cells() -> list[dict[str, Any]]:
+    return cells_for()
+
+
+def _plan(cells: list[dict[str, Any]]) -> dict[str, Any]:
+    return plan_for(cells)
 
 
 # -- scripts ------------------------------------------------------------------------------------
@@ -140,45 +159,72 @@ def main_delegating_script(task: Any) -> list[scripted.ScriptStep]:
     ]
 
 
-def _provider_for(arm_id: str, task: Any) -> scripted.ScriptedRun:
-    if arm_id == "A0":
-        run = scripted.ScriptedRun(
-            scripts={"main": proof.single_agent_script(task)},
-            markers={"main": "You are the only worker on this task"},
-            default_marker="main",
-        )
-    elif arm_id == "A2":
-        run = scripted.ScriptedRun(
-            scripts=proof.dag_scripts(task),
-            markers=proof.node_markers(task),
-            final_text="node implemented and compiled",
-        )
-    elif arm_id == "A1":
-        run = scripted.ScriptedRun(
-            scripts={"main": proof.main_direct_script(task)},
-            markers={"main": task.prompt[:60]},
-            final_text="implemented all modules, public suite run",
-        )
-    else:
-        proposal = delegation_proposal(task)
-        scripts: dict[str, list[scripted.ScriptStep]] = {"main": main_delegating_script(task)}
-        markers: dict[str, str] = {"main": task.prompt[:60]}
-        for spec in proposal["tasks"]:
-            root = str(spec["write_paths"][0])
-            # The child owns every path it declared; writing only the first one would deliver a
-            # half-migrated connector and score the arm on the script rather than on the topology.
-            scripts[root] = [
-                *proof._writes(task, tuple(str(path) for path in spec["write_paths"])),
-                *proof._checks(),
-            ]
-            markers[root] = str(spec["objective"]).splitlines()[0]
-        run = scripted.ScriptedRun(
-            scripts=scripts,
-            markers=markers,
-            final_text="delegated two connectors, integrated and verified",
-        )
+def _run_id_for(cell: Mapping[str, Any]) -> str:
+    """The run id ``live_cell_runner`` gives this cell: its own short order key."""
+
+    return f"bplus-c{int(cell['order']):02d}"
+
+
+def _combined_run(
+    task: Any, cells: Sequence[Mapping[str, Any]] | None = None
+) -> tuple[scripted.ScriptedRun, dict[str, str]]:
+    """One scripted provider for the whole dispatch, and the run-id prefix that selects each arm.
+
+    The smoke no longer builds a runner per arm: ``dispatch`` is given a ``RunnerConfig`` with this
+    provider factory and the four cells are routed by ``cell_runner_for`` exactly as production
+    routes them. A1 and A3 carry the same task text and differ only in their tool surface, so their
+    scripts are selected by the trusted run id — the same provider-boundary identity a real adapter
+    receives — instead of by the prompt.
+    """
+
+    scripts: dict[str, list[scripted.ScriptStep]] = {
+        "a0-main": proof.single_agent_script(task),
+    }
+    markers: dict[str, str] = {"a0-main": "You are the only worker on this task"}
+    run_markers: dict[str, str] = {}
+    for node_id, steps in proof.dag_scripts(task).items():
+        scripts[f"a2-{node_id}"] = steps
+        markers[f"a2-{node_id}"] = proof.node_markers(task)[node_id]
+    scripts["a1-main"] = proof.main_direct_script(task)
+    markers["a1-main"] = task.prompt[:60]
+    scripts["a3-main"] = main_delegating_script(task)
+    markers["a3-main"] = task.prompt[:60]
+    for spec in delegation_proposal(task)["tasks"]:
+        key = str(spec["key"])
+        # The child owns every path it declared; writing only the first one would deliver a
+        # half-migrated connector and score the arm on the script rather than on the topology.
+        scripts[f"a3-{key}"] = [
+            *proof._writes(task, tuple(str(path) for path in spec["write_paths"])),
+            *proof._checks(),
+        ]
+        # The child's run id ends with ``:r1:<key>``, so this probe is more specific than the
+        # Main's and wins for the child while the Main keeps ``bplus-c04``.
+        run_markers[f":r1:{key}"] = f"a3-{key}"
+    # The run id is the cell's own order key, so the map is built from the cells that will run
+    # rather than assumed from a four-cell layout: a two-cell plan gives A1 ``bplus-c01``.
+    for cell in cells or ():
+        arm_id = str(cell["arm_id"])
+        if arm_id in {"A1", "A3"}:
+            run_markers[_run_id_for(cell)] = f"{arm_id.lower()}-main"
+    run = scripted.ScriptedRun(
+        scripts=scripts,
+        markers=markers,
+        run_markers=run_markers,
+        final_text="stage-f scripted response",
+    )
     run.requests.clear()
-    return run
+    return run, {
+        "A0": "a0-",
+        "A1": "a1-",
+        "A2": "a2-",
+        "A3": "a3-",
+    }
+
+
+def arm_requests(run: scripted.ScriptedRun, prefix: str) -> list[dict[str, Any]]:
+    """The request rows the deterministic provider answered for one arm, by recorded script name."""
+
+    return [row for row in run.requests if str(row.get("script") or "").startswith(prefix)]
 
 
 # -- dispatch -----------------------------------------------------------------------------------
@@ -208,13 +254,12 @@ async def run(*, scratch: Path | None = None) -> dict[str, Any]:
     task = tasks.task_by_id(TASK_ID)
     cells = _cells()
     plan_record = _plan(cells)
-    runs = {str(cell["arm_id"]): _provider_for(str(cell["arm_id"]), task) for cell in cells}
-    runners = {arm_id: proof.proof_runner(arm_id, task, runs[arm_id]) for arm_id in ARM_SEQUENCE}
+    run, prefixes = _combined_run(task, cells)
+    provider_name = _unique("stagef-smoke")
+    # The provider is the only injection. No ``cell_runner`` is passed, so every cell reaches its
+    # runner through the production selection in ``executor.cell_runner_for``.
+    runner_config = executor.RunnerConfig(llm_factory=scripted.factory_for(run, provider_name))
 
-    async def composed(cell: dict[str, Any], context: Any) -> executor.CellRun:
-        return await runners[str(cell["arm_id"])](cell, context)
-
-    composed.is_live = False  # type: ignore[attr-defined]
     started = time.perf_counter()
     with executor.claim_root_override(base / "claims"):
         report = await executor.dispatch(
@@ -222,10 +267,10 @@ async def run(*, scratch: Path | None = None) -> dict[str, Any]:
             runs_root=base / "runs",
             evidence_root=base / "evidence",
             authority_path=_authority_file(plan_record, base),
-            cell_runner=composed,
             repo_root=REPO,
             mode=executor.MODE_OFFLINE_PROOF,
             plan=plan_record,
+            runner_config=runner_config,
         )
     duration = round(time.perf_counter() - started, 3)
 
@@ -244,16 +289,23 @@ async def run(*, scratch: Path | None = None) -> dict[str, Any]:
             )
             or {}
         )
+        rows = arm_requests(run, prefixes[arm_id])
         arm = proof.arm_report(
             arm_id=arm_id,
             cell=cell,
             outcome=outcome,
             evidence_root=base / "evidence",
             runs_root=base / "runs",
-            scripted_run=runs[arm_id],
+            scripted_run=run,
+            requests=rows,
         )
         checks = proof.proof_checks(
-            arm_id=arm_id, cell=cell, report=outcome, evidence=evidence, scripted_run=runs[arm_id]
+            arm_id=arm_id,
+            cell=cell,
+            report=outcome,
+            evidence=evidence,
+            scripted_run=run,
+            requests=rows,
         )
         # The common integrity gate is new since F2-A: every arm must have produced one, and it
         # must be PASS for the cell to count as delivered.
@@ -269,39 +321,62 @@ async def run(*, scratch: Path | None = None) -> dict[str, Any]:
             }
         )
         correctness = evidence.get("correctness") or {}
+        # The pre-registered definition: oracle PASS and normal completion and integrity PASS. The
+        # public suite is a separate metric and is deliberately not part of delivery.
         expected_delivered = (
             correctness.get("agent_success") is True
             and (correctness.get("independent_oracle") or {}).get("status") == normalize.PASS
             and correctness.get("execution_integrity") == normalize.PASS
-            and correctness.get("public_test") != normalize.FAIL
         )
         checks.append(
             {
-                # Delivered success is a conjunction of four independent verdicts, not a copy of
+                # Delivered success is a conjunction of three independent verdicts, not a copy of
                 # the audit verdict: a cell may pass the audit while its agent did not finish
                 # normally, and that is a measured outcome rather than a delivery.
                 "check": "delivered_success_consistent",
                 "ok": bool(correctness.get("delivered_success")) is expected_delivered,
                 "detail": (
                     f"delivered={correctness.get('delivered_success')} "
-                    f"expected={expected_delivered} verdict={outcome.get('verdict')!r}"
+                    f"expected={expected_delivered} verdict={outcome.get('verdict')!r} "
+                    f"public={correctness.get('public_test')!r}"
+                ),
+            }
+        )
+        # What the *production* selection returns for this cell, recorded beside the outcome. No
+        # ``cell_runner`` was injected into the dispatch, so this is the path the cell took.
+        resolved = executor.cell_runner_for(cell)
+        checks.append(
+            {
+                "check": "routed_by_production_selection",
+                "ok": getattr(resolved, "execution_mode", None)
+                in {str(cell["execution_mode"]), "main_driven"},
+                "detail": (
+                    f"declared={cell['execution_mode']!r} "
+                    f"resolved={getattr(resolved, 'execution_mode', 'legacy_live')!r} "
+                    f"stage_f={bool(getattr(resolved, 'is_stage_f_runner', False))}"
                 ),
             }
         )
         failed = [item["check"] for item in checks if not item["ok"]]
         problems.extend(f"{arm_id}: {name}" for name in failed)
+        arm["routing"] = {
+            "declared_execution_mode": cell["execution_mode"],
+            "resolved_runner": getattr(resolved, "execution_mode", "legacy_live"),
+            "is_stage_f_runner": bool(getattr(resolved, "is_stage_f_runner", False)),
+            "cell_runner_injected": False,
+        }
         arm["checks"] = checks
         arm["integrity"] = integrity
         arm["requests"] = {
-            "count": len(runs[arm_id].requests),
+            "count": len(rows),
             "per_agent": sorted(
-                {str(row.get("trusted_task_id") or "unattributed") for row in runs[arm_id].requests}
+                {str(row.get("trusted_task_id") or "unattributed") for row in rows}
             ),
         }
         arms_report.append(arm)
 
     counts = {
-        "scripted_requests": sum(len(run.requests) for run in runs.values()),
+        "scripted_requests": len(run.requests),
         "external_model_requests": 0,
         "production_claims_consumed": 0,
     }
@@ -323,6 +398,15 @@ async def run(*, scratch: Path | None = None) -> dict[str, Any]:
             "claim_root": "isolated offline claim (no production claim consumed)",
         },
         "provider": "deterministic scripted provider (no model call)",
+        "routing": {
+            "cell_runner_injected": False,
+            "provider_seam": "executor.RunnerConfig.llm_factory",
+            "selection": "executor.cell_runner_for (declared execution_mode)",
+            "note": (
+                "the four cells were dispatched with no cell_runner, so each one was routed by the "
+                "production selection into its mode's runner"
+            ),
+        },
         "dispatch": {
             "complete": report.get("complete"),
             "cells_planned": report.get("cells_planned"),
@@ -332,6 +416,8 @@ async def run(*, scratch: Path | None = None) -> dict[str, Any]:
             "usage_completeness": report.get("usage_completeness"),
             "total_tokens": report.get("total_tokens"),
             "total_cost_usd": report.get("total_cost_usd"),
+            "success_counts": report.get("success_counts"),
+            "success_definition": report.get("success_definition"),
             "ledger": [
                 {
                     "cell_id": item.get("cell_id"),

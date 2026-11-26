@@ -4,9 +4,9 @@
   "master_id": "stage-f-96-manifest-v1",
   "scope": "F_UNIFIED_96_CELL_EVALUATION",
   "executor_version": "bplus-executor-1.9",
-  "executor_digest": "sha256:9ca0a48d3e467edff4c1d75baaf7363a64243f08bdcc1fb3c6f00e1666941f08",
+  "executor_digest": "sha256:a8ae6eac7cdbf68f97974a1dcb1615439f1e603c66db3e7dea6312ef304fa376",
   "adapter_version": "stage-f-cell-adapter/1.0",
-  "manifest_digest": "sha256:230135f0b55aede38390ff216be1cc2dc98bd03e51cb723f72c4d7cd3d17680f",
+  "manifest_digest": "sha256:2af4e996d89e356ef4abb67c0302d6da46c31b04bbc14bd8592ac4baa0e913e3",
   "budget_digest": "sha256:fc61bc3dacc971c087fa0a61c97ac75bc31ae817cff4b3d7c3ee5bfca10def82",
   "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c",
   "worker_contract_digest": "sha256:5b0fa74e9ccdeadbe3a61e41d96ef0608bdc961606397070f25043cb42c45b4a",
@@ -66,6 +66,18 @@
       "closed": true,
       "evidence": "authorization-b1/b2/b3.json",
       "detail": "three pending records exist and all refuse a live run"
+    },
+    {
+      "id": "default_live_routing",
+      "closed": true,
+      "evidence": "default-routing-smoke.json",
+      "detail": "A1/A3 reach the production wrapper with no cell_runner injected"
+    },
+    {
+      "id": "cache_aware_pricing",
+      "closed": true,
+      "evidence": "executor.cell_cost + the frozen price block",
+      "detail": "one formula prices four topologies identically and a missing split as a miss"
     }
   ],
   "open_blockers": [],
@@ -341,49 +353,49 @@
           "nodes": 3,
           "max_concurrency": 2,
           "writes_disjoint_when_concurrent": true,
-          "dag_digest": "sha256:93264d94ab061a1c451655d02ec298265125f1cc3173994d3b056978706aa1c8"
+          "dag_digest": "sha256:b8a44e12d934e1ba3dcb378328fae488b4f5e0e938aaffae11c967b939bf2b87"
         },
         "closure2-state-machine-refactor": {
           "nodes": 2,
           "max_concurrency": 1,
           "writes_disjoint_when_concurrent": true,
-          "dag_digest": "sha256:033cb2dfe64d9104bbfbdd6c8d53b9f74bfba507bee59e5ac15f89fe038be0bb"
+          "dag_digest": "sha256:89405d8d8b2c645552b94f76fd3248a83fc96c8f25118e84041f0a60c46fe331"
         },
         "f-p1-connector-migration": {
           "nodes": 3,
           "max_concurrency": 2,
           "writes_disjoint_when_concurrent": true,
-          "dag_digest": "sha256:2505f5b8f44995ef79b0363bf530e0ec57ce2180bf47b4b405b60aea11686283"
+          "dag_digest": "sha256:13cba3f29f92d8865295995a73ac9758af9bff87aa2f8cd849650440238c855a"
         },
         "f-p2-protocol-adapter": {
           "nodes": 3,
           "max_concurrency": 2,
           "writes_disjoint_when_concurrent": true,
-          "dag_digest": "sha256:cb6007b502ee740d35356615a0d547252a2076c1912937bb1853a0324c5a6ce9"
+          "dag_digest": "sha256:2bf56c8ed0568deb9b00ba9ed7590898702a6e23814b51a62cabef85f30aa777"
         },
         "f-x1-api-compat-audit": {
           "nodes": 3,
           "max_concurrency": 2,
           "writes_disjoint_when_concurrent": true,
-          "dag_digest": "sha256:25ba628705e331441be37e545ecabfabce4d7bdb9adf25bae3eef206dde7fc42"
+          "dag_digest": "sha256:a1cbadeb153d8f8e7bdde527c78aecc90f2eeadfd0a6cfcb78ef47c1c0530353"
         },
         "f-x2-distributed-diagnosis": {
           "nodes": 4,
           "max_concurrency": 2,
           "writes_disjoint_when_concurrent": true,
-          "dag_digest": "sha256:dcbde35e31ba3ed18adeeb7a2c81a54a884c8ad45ac54e46e5917a9ddadd89e4"
+          "dag_digest": "sha256:4ebe1821c2e9f594a67f6faf29a7d10ec9a7a0a10c5684c5de5e06ebef4ec401"
         },
         "f-c1-config-lifecycle": {
           "nodes": 2,
           "max_concurrency": 1,
           "writes_disjoint_when_concurrent": true,
-          "dag_digest": "sha256:61cfe587d36d56de5e85e94e6024d777a5350eb8b8856547628d17e536c6334c"
+          "dag_digest": "sha256:6a8f1d6f46ffbb29e94f704e46f81476f3d373b013c9e11ce714976a2c8109aa"
         },
         "f-c2-scheduler-retry": {
           "nodes": 5,
           "max_concurrency": 2,
           "writes_disjoint_when_concurrent": true,
-          "dag_digest": "sha256:0ee10d0d45ef0e59a580622b14c415d0947d3df732c9d276b845d2bae4f31a0a"
+          "dag_digest": "sha256:04d8e6c3305dea448917ad6eb476d9810d0732ab72729984e396aeb2ea05dc06"
         }
       }
     },
@@ -511,22 +523,22 @@
       "detail": "all three batch plans and the master manifest resolve through contract.scope_plan",
       "batches": {
         "stage-f-96-b1": {
-          "digest": "sha256:6fcfd69d74d1ad0158d162e0dd42cd710df90fbb7bf60acbc37ab520f99a8587",
+          "digest": "sha256:aa3561df8f09dca030a0f61f7ca491e1b8841cc97737d1a49d0db143d1b3fba0",
           "cells": 32,
           "batch": 1
         },
         "stage-f-96-b2": {
-          "digest": "sha256:23bd5635e8f0246fe1578b283f9cd8c2477e31621a8ae5715a7b775adc041c2b",
+          "digest": "sha256:c0cf6df032361fa2c5494ae8a685097a568a11dbeb5781adf0955ee3afb2b424",
           "cells": 32,
           "batch": 2
         },
         "stage-f-96-b3": {
-          "digest": "sha256:949882e0827a3302f51419ec6fcb019b3e8dc6f81a6f3e79028c7872d0f662e1",
+          "digest": "sha256:9429db914de18057d89924f740565d506d3e341d12fb80b48f2901512541e00f",
           "cells": 32,
           "batch": 3
         }
       },
-      "master_digest": "sha256:230135f0b55aede38390ff216be1cc2dc98bd03e51cb723f72c4d7cd3d17680f"
+      "master_digest": "sha256:2af4e996d89e356ef4abb67c0302d6da46c31b04bbc14bd8592ac4baa0e913e3"
     },
     {
       "check_id": "F08_offline_dispatch",
@@ -540,7 +552,27 @@
           "stop_reason": "NONE",
           "token_stop": 32000000,
           "settled": true,
-          "allowed_tokens": 32000000
+          "allowed_tokens": 32000000,
+          "analysis_scope": {
+            "cells_in_report": 32,
+            "cells_planned": 32,
+            "excluded_by_sample_flag": 0,
+            "cells_with_sample_flag": 0,
+            "is_benchmark_sample": false
+          },
+          "success_counts": {
+            "cells_started": 32,
+            "executor_verdict_pass": 32,
+            "agent_completed": 32,
+            "oracle_pass": 32,
+            "execution_integrity_pass": 32,
+            "public_test_pass": 32,
+            "public_test_fail": 0,
+            "delivered_success": 0,
+            "delivered_success_measured": false,
+            "definition": "delivered_success = independent oracle PASS and normal agent completion and execution integrity PASS. The oracle verdict, agent completion, integrity, the public suite and the executor verdict are counted separately; cells_passed is the executor verdict and is never read as a delivered-success count."
+          },
+          "cells_with_the_sample_flag": 0
         },
         "stage-f-96-b2": {
           "complete": true,
@@ -549,7 +581,27 @@
           "stop_reason": "NONE",
           "token_stop": 32000000,
           "settled": true,
-          "allowed_tokens": 32000000
+          "allowed_tokens": 32000000,
+          "analysis_scope": {
+            "cells_in_report": 32,
+            "cells_planned": 32,
+            "excluded_by_sample_flag": 0,
+            "cells_with_sample_flag": 0,
+            "is_benchmark_sample": false
+          },
+          "success_counts": {
+            "cells_started": 32,
+            "executor_verdict_pass": 32,
+            "agent_completed": 32,
+            "oracle_pass": 32,
+            "execution_integrity_pass": 32,
+            "public_test_pass": 32,
+            "public_test_fail": 0,
+            "delivered_success": 0,
+            "delivered_success_measured": false,
+            "definition": "delivered_success = independent oracle PASS and normal agent completion and execution integrity PASS. The oracle verdict, agent completion, integrity, the public suite and the executor verdict are counted separately; cells_passed is the executor verdict and is never read as a delivered-success count."
+          },
+          "cells_with_the_sample_flag": 0
         },
         "stage-f-96-b3": {
           "complete": true,
@@ -558,10 +610,30 @@
           "stop_reason": "NONE",
           "token_stop": 32000000,
           "settled": true,
-          "allowed_tokens": 32000000
+          "allowed_tokens": 32000000,
+          "analysis_scope": {
+            "cells_in_report": 32,
+            "cells_planned": 32,
+            "excluded_by_sample_flag": 0,
+            "cells_with_sample_flag": 0,
+            "is_benchmark_sample": false
+          },
+          "success_counts": {
+            "cells_started": 32,
+            "executor_verdict_pass": 32,
+            "agent_completed": 32,
+            "oracle_pass": 32,
+            "execution_integrity_pass": 32,
+            "public_test_pass": 32,
+            "public_test_fail": 0,
+            "delivered_success": 0,
+            "delivered_success_measured": false,
+            "definition": "delivered_success = independent oracle PASS and normal agent completion and execution integrity PASS. The oracle verdict, agent completion, integrity, the public suite and the executor verdict are counted separately; cells_passed is the executor verdict and is never read as a delivered-success count."
+          },
+          "cells_with_the_sample_flag": 0
         }
       },
-      "root": "C:\\Users\\86180\\AppData\\Local\\Temp\\stage-f-preflight-ybd49yft\\stage-f-dispatch"
+      "root": "C:\\Users\\86180\\AppData\\Local\\Temp\\stage-f-preflight-5rph4lp2\\stage-f-dispatch"
     },
     {
       "check_id": "F09_failure_classification",
@@ -748,6 +820,52 @@
       "arms": 4
     },
     {
+      "check_id": "F17_default_live_routing",
+      "ok": true,
+      "detail": "A1 and A3 were dispatched with no cell_runner: the production selection returned the main-driven wrapper, each ran the real goal runtime into Unified Cell Evidence, the common audit and a delivered success, and A3 delegated to two concurrent children",
+      "arms": [
+        {
+          "arm_id": "A1",
+          "resolved": "main_driven",
+          "delivered": true,
+          "integrity": "PASS"
+        },
+        {
+          "arm_id": "A3",
+          "resolved": "main_driven",
+          "delivered": true,
+          "integrity": "PASS"
+        }
+      ],
+      "record": "default-routing-smoke.json"
+    },
+    {
+      "check_id": "F18_cache_aware_pricing",
+      "ok": true,
+      "detail": "one frozen formula prices the same input/output/cache composition identically for a single agent, a DAG and a Main with children; a missing split is priced as a miss and a partial split is refused rather than re-priced",
+      "costs": {
+        "single_agent": 0.03636,
+        "dag_all_children": 0.03636,
+        "main_child_split": 0.03636
+      },
+      "conservative_cost_usd": 0.054,
+      "pricing": {
+        "cache_hit_input_per_million": 0.006,
+        "cache_miss_input_per_million": 0.3,
+        "output_per_million": 1.2,
+        "snapshot_date": "2026-11-06",
+        "source": "experiments/configs/eval-benchmark.yaml",
+        "basis": "frozen config; the file itself labels it an upper bound for deepseek-chat",
+        "currency": "USD",
+        "model": "deepseek-chat",
+        "model_alias_resolution": "deepseek-chat resolves to deepseek-flash",
+        "digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+        "is_an_estimate": true,
+        "is_a_bill": false,
+        "missing_cache_split": "price the whole input as a miss; never assume a hit"
+      }
+    },
+    {
       "check_id": "F12_matrix_invariants",
       "ok": true,
       "detail": "96 cells, 24 per arm, 3 per task/arm, three balanced batches, three distinct sequences per task",
@@ -773,6 +891,10 @@
     },
     "p1_smoke": {
       "file": "p1-compat-smoke.json",
+      "present": true
+    },
+    "default_routing": {
+      "file": "default-routing-smoke.json",
       "present": true
     }
   },

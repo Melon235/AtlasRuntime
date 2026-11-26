@@ -81,27 +81,29 @@ def blank_evidence(cell: Mapping[str, Any]) -> dict[str, Any]:
 def _delivered(
     *,
     oracle_status: Any,
-    public_test: Any,
     execution_integrity: Any,
     agent_success: Any,
 ) -> bool:
     """Delivered success: a correct artifact produced by a run whose own checks all passed.
 
-    It is a conjunction of four *independently recorded* verdicts: an oracle PASS alone is not
-    delivery (the agent may have failed), and an agent completion alone is not delivery (the
-    artifact may be wrong). ``execution_integrity`` must be **PASS**, not merely "not FAIL": a
-    common integrity check that could not be evaluated is ``UNKNOWN`` and does not establish
-    delivery. Only an architecture-specific mechanism that does not exist for this arm is exempt,
-    and that exemption happens before this function sees the value.
+    The pre-registered definition is a conjunction of three *independently recorded* verdicts: an
+    oracle PASS alone is not delivery (the agent may have failed), and an agent completion alone is
+    not delivery (the artifact may be wrong). ``execution_integrity`` must be **PASS**, not merely
+    "not FAIL": a common integrity check that could not be evaluated is ``UNKNOWN`` and does not
+    establish delivery. Only an architecture-specific mechanism that does not exist for this arm is
+    exempt, and that exemption happens before this function sees the value.
+
+    The public suite is deliberately *not* part of this definition. It is a separate metric with its
+    own verdict — a run can deliver a correct artifact and still leave the public suite failing in
+    one arm, or not run it at all in another (A0 has no such tool, A2 configures none). Folding it
+    into delivery would make the primary success metric depend on the arm's tool surface.
     """
 
     if agent_success is not True:
         return False
     if oracle_status != "PASS":
         return False
-    if execution_integrity != PASS:
-        return False
-    return public_test != FAIL
+    return execution_integrity == PASS
 
 
 def _correctness(
@@ -128,7 +130,6 @@ def _correctness(
         "execution_integrity": execution_integrity,
         "delivered_success": _delivered(
             oracle_status=oracle_status,
-            public_test=public_test,
             execution_integrity=execution_integrity,
             agent_success=agent_success,
         ),
@@ -166,7 +167,6 @@ def apply_integrity(evidence: dict[str, Any], report: Mapping[str, Any]) -> dict
     correctness["execution_integrity"] = verdict
     correctness["delivered_success"] = _delivered(
         oracle_status=(correctness.get("independent_oracle") or {}).get("status"),
-        public_test=correctness.get("public_test"),
         execution_integrity=verdict,
         agent_success=correctness.get("agent_success"),
     )

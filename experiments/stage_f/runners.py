@@ -30,7 +30,7 @@ from experiments.evaluation.fixtures import (
     path_matches,
     workspace_hashes,
 )
-from experiments.stage_b_plus import executor
+from experiments.stage_b_plus import authority, executor
 from experiments.stage_f import normalize
 from experiments.stage_f.tasks import TASKS_BY_ID
 
@@ -240,7 +240,12 @@ def integrity_report(
         ),
     )
 
-    missing = [key for key, value in usage.items() if not isinstance(value, int)]
+    # The five required counters decide whether the cell's consumption is measurable. The cache
+    # split is optional evidence: a split the provider did not report is priced as a miss and must
+    # not make a fully measured cell fail its own accounting check.
+    missing = [
+        key for key in executor.REQUIRED_USAGE_FIELDS if not isinstance((usage or {}).get(key), int)
+    ]
     add(
         "resource_accounting",
         _status(
@@ -494,9 +499,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def native_cell_runner(
-    *, provider_factory: Any | None = None, scripted_run: Any | None = None
+    *,
+    config: executor.RunnerConfig | None = None,
+    provider_factory: Any | None = None,
+    scripted_run: Any | None = None,
 ) -> executor.CellRunner:
     """A0: one native agent, one guarded cell budget, per-request metering."""
+
+    factory = (
+        provider_factory if provider_factory is not None else getattr(config, "llm_factory", None)
+    )
 
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> executor.CellRun:
         from experiments.evaluation.closure1b import native_baseline
@@ -515,7 +527,7 @@ def native_cell_runner(
             runs_root=root / "native-runs",
             budget_limit_tokens=int(cell["token_budget"]),
             task_events=task_events,
-            provider_factory=provider_factory,
+            provider_factory=factory,
         )
         payload = _result_dict(result)
         oracle = _oracle_record(payload)
@@ -568,6 +580,8 @@ def native_cell_runner(
             timings=latency,
         )
 
+    run.execution_mode = "native"  # type: ignore[attr-defined]
+    run.is_stage_f_runner = True  # type: ignore[attr-defined]
     return run
 
 
@@ -575,9 +589,16 @@ def native_cell_runner(
 
 
 def static_dag_cell_runner(
-    *, provider_factory: Any | None = None, scripted_run: Any | None = None
+    *,
+    config: executor.RunnerConfig | None = None,
+    provider_factory: Any | None = None,
+    scripted_run: Any | None = None,
 ) -> executor.CellRunner:
     """A2: the frozen human decomposition, run by the scheduler on one shared budget."""
+
+    factory = (
+        provider_factory if provider_factory is not None else getattr(config, "llm_factory", None)
+    )
 
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> executor.CellRun:
         from experiments.evaluation import runner as eval_runner
@@ -593,7 +614,7 @@ def static_dag_cell_runner(
             benchmark,
             settings=settings,
             repetition_id=int(cell.get("repetition") or 1),
-            provider_factory=provider_factory,
+            provider_factory=factory,
         )
         payload = _result_dict(result)
         oracle = _oracle_record(payload)
@@ -648,6 +669,8 @@ def static_dag_cell_runner(
             timings=latency,
         )
 
+    run.execution_mode = "atlas_static_dag"  # type: ignore[attr-defined]
+    run.is_stage_f_runner = True  # type: ignore[attr-defined]
     return run
 
 
@@ -694,18 +717,30 @@ def _conversation_proposals(run_dir: Path | None, main_task_id: str | None) -> l
 
 
 def main_driven_cell_runner(
-    *, provider_name: str, provider_factory: Any, scripted_run: Any | None = None
+    *,
+    config: executor.RunnerConfig | None = None,
+    provider_name: str | None = None,
+    provider_factory: Any | None = None,
+    scripted_run: Any | None = None,
 ) -> executor.CellRunner:
     """A1/A3: the production goal runtime, normalised into Unified Cell Evidence.
 
-    The inner runner is the production one — ``live_cell_runner`` with only the provider seam
-    injected. This wrapper adds no execution behaviour: it reads the result, normalises it, and
-    returns the same ``CellRun`` with the evidence as its session.
+    With no arguments this *is* the production runner: ``live_cell_runner`` on the default
+    ``RunnerConfig``, which takes the provider from the environment exactly as every earlier stage
+    does. ``config`` (or the older ``provider_name`` / ``provider_factory`` pair) replaces only the
+    provider seam; nothing about the goal runtime, the session it writes, the sandbox, the export or
+    the oracle changes. The wrapper then normalises that session instead of letting the legacy
+    audit read it.
     """
 
-    inner = executor.live_cell_runner(
-        executor.RunnerConfig(llm_provider=provider_name, llm_factory=provider_factory)
-    )
+    base = config or executor.RunnerConfig()
+    if provider_name is not None or provider_factory is not None:
+        base = dataclasses.replace(
+            base,
+            llm_provider=provider_name or base.llm_provider,
+            llm_factory=provider_factory if provider_factory is not None else base.llm_factory,
+        )
+    inner = executor.live_cell_runner(base)
 
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> executor.CellRun:
         result = await inner(cell, context)
@@ -747,6 +782,12 @@ def main_driven_cell_runner(
         result.session = evidence
         return result
 
+    #: Read by ``cell_runner_for``'s callers and by the routing regression: the mode a closure
+    #: serves is a property of the closure, not something a caller has to remember.
+    run.execution_mode = "main_driven"  # type: ignore[attr-defined]
+    run.is_stage_f_runner = True  # type: ignore[attr-defined]
+    run.keeps_session_record = True  # type: ignore[attr-defined]
+    run.is_live = getattr(inner, "is_live", False)  # type: ignore[attr-defined]
     return run
 
 
@@ -884,6 +925,11 @@ def _usage_of(evidence: Mapping[str, Any]) -> dict[str, Any]:
             "child_total_prompt_tokens": 0,
             "child_completion_tokens": 0,
             "system_total_tokens": system_total,
+            # The primary agent's own provider split: A0 is priced by the same formula as a Main.
+            "main_cache_hit_tokens": _count(primary, "cache_hit_tokens"),
+            "main_cache_miss_tokens": _count(primary, "cache_miss_tokens"),
+            "child_cache_hit_tokens": 0,
+            "child_cache_miss_tokens": 0,
         }
     if attribution == "dag_all_children":
         return {
@@ -892,13 +938,31 @@ def _usage_of(evidence: Mapping[str, Any]) -> dict[str, Any]:
             "child_total_prompt_tokens": _count(children_block, "prompt_tokens"),
             "child_completion_tokens": _count(children_block, "completion_tokens"),
             "system_total_tokens": system_total,
+            # A2 has no Main: what a Main would call its own split is the DAG's aggregate split, and
+            # it is priced as child cache, not invented as a Main.
+            "main_cache_hit_tokens": 0,
+            "main_cache_miss_tokens": 0,
+            "child_cache_hit_tokens": _count(children_block, "cache_hit_tokens"),
+            "child_cache_miss_tokens": _count(children_block, "cache_miss_tokens"),
         }
+    child_prompt = _count(children_block, "prompt_tokens")
+    structural_zero = child_prompt == 0
     return {
         "main_cumulative_input_tokens": _count(main, "prompt_tokens"),
         "main_completion_tokens": _count(main, "completion_tokens"),
-        "child_total_prompt_tokens": _count(children_block, "prompt_tokens"),
+        "child_total_prompt_tokens": child_prompt,
         "child_completion_tokens": _count(children_block, "completion_tokens"),
         "system_total_tokens": system_total,
+        # Both halves of A1/A3 are priced from their own reported split where the provider gave one.
+        # An arm that delegated nothing has a measured zero, not an unknown split.
+        "main_cache_hit_tokens": _count(main, "cache_hit_tokens"),
+        "main_cache_miss_tokens": _count(main, "cache_miss_tokens"),
+        "child_cache_hit_tokens": 0
+        if structural_zero
+        else _count(children_block, "cache_hit_tokens"),
+        "child_cache_miss_tokens": 0
+        if structural_zero
+        else _count(children_block, "cache_miss_tokens"),
     }
 
 
@@ -976,10 +1040,16 @@ def audit_stage_f_cell(
             "detail": f"workspace_path={export_path!r}",
         },
         {
+            # Only the five required counters decide completeness. The cache split is optional
+            # evidence: a missing split is priced as a miss, and it must not stop a cell whose
+            # consumption is otherwise fully measured.
             "check": "usage_complete",
-            "ok": all(value is not None for value in metrics.values()),
-            "detail": "unknown: " + ",".join(key for key, value in metrics.items() if value is None)
-            if any(value is None for value in metrics.values())
+            "ok": all(metrics.get(field) is not None for field in executor.REQUIRED_USAGE_FIELDS),
+            "detail": "unknown: "
+            + ",".join(
+                field for field in executor.REQUIRED_USAGE_FIELDS if metrics.get(field) is None
+            )
+            if any(metrics.get(field) is None for field in executor.REQUIRED_USAGE_FIELDS)
             else "complete",
         },
     ]
@@ -998,6 +1068,7 @@ def audit_stage_f_cell(
         if name in failed and stop not in stops:
             stops.append(stop)
 
+    usage_report = executor.validate_usage(metrics)
     delta = executor.cell_cost(metrics, prices)
     before = {
         field: int((usage_before or {}).get(field) or 0) for field in executor.REQUIRED_USAGE_FIELDS
@@ -1044,6 +1115,17 @@ def audit_stage_f_cell(
         "checks": checks,
         "stops": stops,
         "usage": usage,
+        # What the estimate was computed from, so a reader can see whether the provider reported a
+        # cache split or whether the whole input was priced as a miss.
+        "cost_basis": {
+            "cache_split": usage_report["cache_split"],
+            "child_cache_split": usage_report["child_cache_split"],
+            "pricing_digest": prices and authority.digest_of(dict(prices)) or None,
+            "formula": (
+                "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate"
+            ),
+            "estimate": True,
+        },
         "delta_cost_usd": delta,
         "cost_usd": total_cost,
         "duration_s": run.duration_s,

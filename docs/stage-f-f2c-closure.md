@@ -94,14 +94,19 @@ Every one is `PASS` for the four smoke cells. Architecture-specific rows
 mechanism does not exist, and they never cancel a common check. A common check that cannot be
 evaluated is `UNKNOWN`, which is a stop (`EXECUTION_INTEGRITY_FAILED`), not a pass.
 
-Delivered success is redefined accordingly:
+Delivered success is the pre-registered definition (§T corrects an earlier draft that folded the
+public suite into it):
 
 ```
-delivered_success = oracle PASS
+delivered_success = independent oracle PASS
                     AND normal agent completion
                     AND execution integrity PASS
-                    AND public tests not FAIL
 ```
+
+The public suite is a separate metric with its own verdict, counted beside delivery and never folded
+into it. Every report carries the five axes apart (`success_counts` in the matrix report): executor
+verdict, agent completion, oracle verdict, integrity and delivered success. `cells_passed` is the
+executor's audit verdict and is never reported as a delivery count.
 
 Consequences visible in this stage's own records:
 
@@ -193,19 +198,26 @@ One dispatch, four cells, `stage-f-p1-compat-smoke`, deterministic provider inje
 through its production runner: raw result → workspace export → independent sandboxed oracle →
 Unified Cell Evidence → audit → ledger → matrix report.
 
-| Arm | Entry | Requests | Agents | Public suite | Oracle | Integrity | Delivered | Verdict |
+The dispatch passes **no** `cell_runner`: the four cells are selected by `executor.cell_runner_for`
+from their declared `execution_mode`, and only the provider is replaced (`RunnerConfig.llm_factory`).
+That is the correction described in §T; the earlier draft of this smoke injected a composed runner
+and therefore never exercised the production selection.
+
+| Arm | Entry (resolved by the production selection) | Requests | Agents | Public suite | Oracle | Integrity | Delivered | Verdict |
 |---|---|---|---|---|---|---|---|---|
 | A0 | native loop, 40 turns, 1 M budget | 12 | 1 | N/A (no tool) | PASS | PASS | yes | PASS |
-| A1 | `run_goal`, delegation compiled out | 13 | 1 (Main) | PASS | PASS | PASS | yes | PASS |
-| A2 | static DAG: `csv` ‖ `jsonl` → `integrate` | 18 | 3 | NOT_CONFIGURED | PASS | PASS | yes | PASS |
-| A3 | `run_goal`, delegation enabled | 20 | 3 (Main + 2 children) | PASS | PASS | PASS | yes | PASS |
+| A1 | `main_driven_cell_runner` → `run_goal`, delegation compiled out | 13 | 1 (Main) | PASS | PASS | PASS | yes | PASS |
+| A2 | `static_dag_cell_runner` → `run: csv` ‖ `jsonl` → `integrate` | 18 | 3 | NOT_CONFIGURED | PASS | PASS | yes | PASS |
+| A3 | `main_driven_cell_runner` → `run_goal`, delegation enabled | 20 | 3 (Main + 2 children) | PASS | PASS | PASS | yes | PASS |
 
 - A3's one `delegate_tasks` proposal was admitted by router `m.1.0`; both coding children
   (`csv-unit`, `jsonl-unit`) completed, `max_observed_concurrency = 2`, and the Main continued to
   integrate the five shared modules and run the public suite.
 - A1 recorded zero proposals and no delegation tool in its surface.
-- 63 scripted provider requests, 157,356 system tokens, USD 0.063391 (scripted estimate, not a
+- 63 scripted provider requests, 157,313 system tokens, USD 0.063355 (scripted estimate, not a
   bill), 0 external model requests, 0 production claims.
+- The five success axes are counted apart: 4 delivered, 4 oracle PASS, 4 agent completions, 4
+  integrity PASS, 2 public-suite PASS (A0 has no such tool, A2 configures none).
 
 This is a compatibility confirmation for the new P1 only. It adds no cell to the 96-cell matrix and
 does not reopen F2-A.
@@ -414,3 +426,108 @@ Readiness is accepted only because every one of these is true in `experiments/st
 - the three batch plans resolve through the real entry and pass 32/32 synthetic cells in order;
 - every frozen identity recomputes, and the three pending records refuse a live run;
 - no relevant production regression; 0 external requests; 0 claims consumed.
+
+---
+
+## T. F2-C-R1 — the default route, one price formula, one success definition
+
+The owner review of `5e26eba` found one production routing blocker and two accounting defects. This
+section records the repair. It adds no mechanism to the runtime and changes no frozen design.
+
+### T.1 A1/A3 were never on the default route
+
+`executor.cell_runner_for` returned its `fallback` for every main-driven mode, and `dispatch`'s
+fallback was the legacy `live_cell_runner`. So a Stage F A1/A3 cell in production ran the goal
+runtime and handed its `session.json` to the legacy audit; the Unified Evidence wrapper existed only
+on the path where a test injected a composed runner — which is exactly what the F2-C smoke did. The
+smoke proved the arms worked, not that the production selection selected them.
+
+The repair, in three lines of behaviour:
+
+- a cell that **declares** `execution_mode` always routes to its Stage F runner, and the declaration
+  outranks the fallback (`native` → `native_cell_runner`, `atlas_static_dag` →
+  `static_dag_cell_runner`, `atlas_direct` / `atlas_dynamic` → `main_driven_cell_runner`);
+- a cell that declares nothing keeps the fallback, so every B+/C cell and its `session.json` are
+  untouched;
+- `main_driven_cell_runner()` with no arguments *is* the production runner: default `RunnerConfig`,
+  provider from the environment. `dispatch(..., runner_config=...)` is a provider seam for proofs and
+  is refused in live mode, so production always runs uninjected.
+
+The proof is `experiments/stage_f/default-routing-smoke.json`: a real dispatch of A1 and A3 with **no
+`cell_runner`**, real containers, real export and oracle. A1: 13 requests, oracle PASS, integrity
+PASS, delivered, public suite PASS, no delegation. A3: 20 requests across Main + two children, one
+admitted proposal, both children completed, concurrency 2, oracle PASS, integrity PASS, delivered.
+33 scripted requests, 79,200 tokens, USD 0.032141, 0 external requests, 0 claims. Gate
+`F17_default_live_routing`.
+
+The four-arm compatibility smoke was re-run the same way and now also dispatches with no
+`cell_runner`; its record carries `routing.cell_runner_injected = false` and the resolved runner per
+arm.
+
+### T.2 One price formula for four topologies
+
+`_usage_of` never passed the cache split, so `cell_cost` priced every Main as a miss and every child
+prompt as a miss even when the provider reported a split. The repair:
+
+- `_usage_of` carries `main_cache_hit/miss_tokens` and `child_cache_hit/miss_tokens` for all four
+  attributions (A0's primary agent is the Main half; A2's DAG aggregate is the child half);
+- `validate_usage` checks each reported split against the input it splits (`hit + miss == input`), so
+  no token is counted twice and none is dropped, and treats an all-zero pair on a non-zero total as
+  a *structural* zero (the provider has no cache) rather than an inconsistency;
+- `cell_cost` prices hits at the hit rate and misses at the miss rate for Main and children alike,
+  and prices a missing split entirely as a miss. A partial pair that does not add up returns `None`,
+  which stops the cell instead of inventing a number;
+- the audit records `cost_basis` (`cache_split`, `child_cache_split`, pricing digest, formula,
+  `estimate: true`) beside the number.
+
+Gate `F18_cache_aware_pricing` recomputes the identity from the frozen block: the same
+input/output/cache composition costs the same for a single agent, a DAG and a Main with children
+(USD 0.03636 for 100 k input / 20 k output / 60 k hit), a missing split costs the conservative
+USD 0.054, and a partial split is refused. Historical B+/C costs are unchanged: their records carry
+no cache counters, the split is `UNKNOWN`, and the whole input is priced as a miss exactly as before.
+
+### T.3 Success semantics restored to the pre-registered definition
+
+`delivered_success` had grown into a four-way conjunction that included the public suite. That made
+the primary metric depend on the arm's tool surface: A0 has no public-test tool and A2 configures
+none, so the same correct artifact could never be "delivered" there. The definition is back to
+`oracle PASS ∧ normal agent completion ∧ integrity PASS`, and the public suite is counted beside it.
+The matrix report now carries `success_counts` (executor verdict, agent completion, oracle,
+integrity, public pass/fail, delivered, and whether delivery was measured at all), so
+`cells_passed` cannot be read as a delivery count. The current smoke shows the difference directly:
+4 delivered, 2 public-suite PASS.
+
+### T.4 Every task identity is explicit
+
+`task_facts` now binds nine digests per task: `goal`, `grant`, `static_dag`, `seed`,
+`public_interface`, `public_test`, `oracle`, `reference` and `paths`. The static DAG records each
+node's assignment text and the cap the scheduler is actually given (worker cap for implementation
+nodes, integration cap for the sink). `plan.validate` refuses a manifest that leaves any of them
+unbound. `public_interface` falls back to the seed's `docs/` documents for a task that binds no
+per-node interface (S2), so all eight tasks carry one.
+
+### T.5 `is_benchmark_sample = false` is a label, not a filter
+
+The Stage F analysis reads every started cell. The matrix report states it explicitly
+(`analysis_scope.cells_in_report`, `excluded_by_sample_flag = 0`, `cells_with_sample_flag`), and the
+offline dispatch proof asserts 32/32 in the report for each batch.
+
+### T.6 Two defects the re-runs found in the proof harness
+
+Both are recorded because a gate that cannot see them would be worthless:
+
+1. **Provider capacity collision.** AnyCode keys its provider capacity registry by `adapter.name`;
+   four arms sharing one factory name with different limits makes the second arm fail *before its
+   first request*, which looks like a model that produced nothing. The scripted adapter now takes a
+   unique name per instance.
+2. **Shared script cursor.** A delegated child inherits its parent's run id, so a script map keyed on
+   the run id let a child consume the Main's remaining steps: the Main then "completed" after one
+   turn with an empty workspace and the oracle FAILed. Script selection now searches the trusted run
+   id *and* the trusted task id, so `<run>-main:r1:<key>` selects the child. The routing smoke
+   asserts that every agent consumed its own script.
+
+### T.7 What was regenerated
+
+Executor `bplus-executor-1.9`, digest recorded in §L; manifest, three batch plans and three pending
+authorizations re-frozen; the settlement, environment, four-arm smoke and routing records re-run at
+that identity. The F2-A and F2-B records are untouched: neither path changed.

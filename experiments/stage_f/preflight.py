@@ -643,6 +643,11 @@ def check_offline_dispatch(scratch: Path) -> dict[str, Any]:
         for batch in (1, 2, 3):
             plan_id = plan.BATCH_PLAN_IDS[batch]
             batch_plan = contract.scope_plan(plan_id)
+            # The 96-cell analysis reads every started cell. ``is_benchmark_sample = False`` is a
+            # label on these cells, so the offline proof asserts it excludes nothing.
+            sample_flag_excludes = [
+                cell for cell in batch_plan["cells"] if cell.get("is_benchmark_sample") is True
+            ]
             identity = executor.executor_identity(REPO)
             # The same offline-signed record the C-series used: signed for the proof, never a run.
             from experiments.stage_c1 import checks as c1_checks
@@ -681,7 +686,17 @@ def check_offline_dispatch(scratch: Path) -> dict[str, Any]:
                 "token_stop": report.get("token_stop"),
                 "settled": settlement.get("may_start"),
                 "allowed_tokens": settlement.get("allowed_tokens"),
+                "analysis_scope": report.get("analysis_scope"),
+                "success_counts": report.get("success_counts"),
+                "cells_with_the_sample_flag": len(sample_flag_excludes),
             }
+            scope = report.get("analysis_scope") or {}
+            if scope.get("cells_in_report") != 32 or scope.get("excluded_by_sample_flag") != 0:
+                problems.append(f"{plan_id}: the analysis scope does not hold all 32 cells")
+            if scope.get("cells_with_sample_flag") not in (0, None):
+                problems.append(f"{plan_id}: a formal cell carries the benchmark-sample flag")
+            if (report.get("success_counts") or {}).get("cells_started") != 32:
+                problems.append(f"{plan_id}: the success counts do not cover 32 cells")
             if not (
                 report.get("complete") is True
                 and report.get("cells_planned") == 32
@@ -890,6 +905,7 @@ RECORD_FILES: dict[str, str] = {
     "settlement": "settlement-check.json",
     "environment": "environment-qualification.json",
     "p1_smoke": "p1-compat-smoke.json",
+    "default_routing": "default-routing-smoke.json",
 }
 
 
@@ -985,6 +1001,28 @@ def check_smoke_record() -> dict[str, Any]:
     dispatch = (record or {}).get("dispatch") or {}
     if dispatch.get("cells_passed") != 4 or dispatch.get("cells_planned") != 4:
         problems.append(f"the smoke passed {dispatch.get('cells_passed')}/4 cells")
+    routing_block = (record or {}).get("routing") or {}
+    if routing_block.get("cell_runner_injected") is not False:
+        problems.append("the smoke injected a cell_runner instead of exercising the default route")
+    counts = dispatch.get("success_counts") or {}
+    if counts.get("cells_started") != 4 or counts.get("delivered_success") != 4:
+        problems.append(
+            f"the smoke delivered {counts.get('delivered_success')}/4 cells "
+            f"(started {counts.get('cells_started')})"
+        )
+    missing_axes = [
+        axis
+        for axis in (
+            "executor_verdict_pass",
+            "agent_completed",
+            "oracle_pass",
+            "execution_integrity_pass",
+            "delivered_success",
+        )
+        if axis not in counts
+    ]
+    if missing_axes:
+        problems.append(f"the smoke report omits success axes: {missing_axes}")
     counts = (record or {}).get("counts") or {}
     if counts.get("external_model_requests") != 0:
         problems.append("the smoke reports an external model request")
@@ -1024,6 +1062,171 @@ def check_smoke_record() -> dict[str, Any]:
     )
 
 
+def check_default_routing() -> dict[str, Any]:
+    """A1/A3 must be reached through the production selection, with no injected ``cell_runner``.
+
+    The record is produced by ``experiments.stage_f.routing``: a real dispatch with only the
+    provider replaced, a real sandbox, a real export and a real oracle. The gate reads it rather
+    than re-asserting the routing function, because the defect was that the *default* path was
+    never exercised.
+    """
+
+    record = _record("default_routing")
+    problems = _record_identity_problems(record, name="default_routing")
+    if (record or {}).get("ok") is not True:
+        problems.append(f"the routing smoke status is {(record or {}).get('status')!r}")
+    routing_block = (record or {}).get("routing") or {}
+    if routing_block.get("cell_runner_injected") is not False:
+        problems.append("the routing smoke injected a cell_runner")
+    dispatch = (record or {}).get("dispatch") or {}
+    if dispatch.get("cells_passed") != 2 or dispatch.get("cells_started") != 2:
+        problems.append(f"the routing smoke passed {dispatch.get('cells_passed')}/2 cells")
+    rows = list((record or {}).get("arms") or [])
+    if sorted(str(row.get("arm_id")) for row in rows) != ["A1", "A3"]:
+        problems.append(
+            f"the routing smoke covers {[row.get('arm_id') for row in rows]}, not A1/A3"
+        )
+    for row in rows:
+        arm_id = row.get("arm_id")
+        resolved = (row.get("routing") or {}).get("resolved_runner")
+        if resolved != "main_driven":
+            problems.append(f"{arm_id}: resolved runner is {resolved!r}")
+        checks = {item.get("check"): item.get("ok") for item in row.get("checks") or []}
+        for name in (
+            "production_selection_returned_the_wrapper",
+            "unified_evidence_written",
+            "audited_by_the_common_schema",
+            "session_record_preserved",
+            "delivered_success",
+        ):
+            if checks.get(name) is not True:
+                problems.append(f"{arm_id}: {name} did not pass")
+        if arm_id == "A3":
+            for name in ("proposal_recorded", "two_children_completed", "children_overlapped"):
+                if checks.get(name) is not True:
+                    problems.append(f"A3: {name} did not pass")
+    counts = (record or {}).get("counts") or {}
+    if counts.get("external_model_requests") != 0:
+        problems.append("the routing smoke reports an external model request")
+    if counts.get("production_claims_consumed") != 0:
+        problems.append("the routing smoke consumed a production claim")
+    return _check(
+        "F17_default_live_routing",
+        not problems,
+        "; ".join(problems)
+        or (
+            "A1 and A3 were dispatched with no cell_runner: the production selection returned the "
+            "main-driven wrapper, each ran the real goal runtime into Unified Cell Evidence, the "
+            "common audit and a delivered success, and A3 delegated to two concurrent children"
+        ),
+        arms=[
+            {
+                "arm_id": row.get("arm_id"),
+                "resolved": (row.get("routing") or {}).get("resolved_runner"),
+                "delivered": (row.get("audit") or {}).get("delivered_success"),
+                "integrity": (row.get("audit") or {}).get("execution_integrity"),
+            }
+            for row in rows
+        ],
+        record=RECORD_FILES["default_routing"],
+    )
+
+
+def check_cache_aware_pricing() -> dict[str, Any]:
+    """One formula for four topologies, and a conservative fallback when the split is missing.
+
+    Recomputed here from the frozen price block, not read from a record: the property is
+    deterministic and a stale record must not be able to certify it.
+    """
+
+    prices = dict(contract_price_block())
+    input_tokens, completion, hit = 100_000, 20_000, 60_000
+    miss = input_tokens - hit
+    total = input_tokens + completion
+    topologies = {
+        "single_agent": {
+            "main_cumulative_input_tokens": input_tokens,
+            "main_completion_tokens": completion,
+            "child_total_prompt_tokens": 0,
+            "child_completion_tokens": 0,
+            "system_total_tokens": total,
+            "main_cache_hit_tokens": hit,
+            "main_cache_miss_tokens": miss,
+            "child_cache_hit_tokens": 0,
+            "child_cache_miss_tokens": 0,
+        },
+        "dag_all_children": {
+            "main_cumulative_input_tokens": 0,
+            "main_completion_tokens": 0,
+            "child_total_prompt_tokens": input_tokens,
+            "child_completion_tokens": completion,
+            "system_total_tokens": total,
+            "main_cache_hit_tokens": 0,
+            "main_cache_miss_tokens": 0,
+            "child_cache_hit_tokens": hit,
+            "child_cache_miss_tokens": miss,
+        },
+        "main_child_split": {
+            "main_cumulative_input_tokens": 40_000,
+            "main_completion_tokens": 8_000,
+            "child_total_prompt_tokens": 60_000,
+            "child_completion_tokens": 12_000,
+            "system_total_tokens": total,
+            "main_cache_hit_tokens": 30_000,
+            "main_cache_miss_tokens": 10_000,
+            "child_cache_hit_tokens": 30_000,
+            "child_cache_miss_tokens": 30_000,
+        },
+    }
+    problems: list[str] = []
+    costs = {name: executor.cell_cost(metrics, prices) for name, metrics in topologies.items()}
+    if len({round(value or -1.0, 12) for value in costs.values()}) != 1:
+        problems.append(f"the same composition is priced differently per topology: {costs}")
+    expected = (
+        hit * prices["cache_hit_input_per_million"]
+        + miss * prices["cache_miss_input_per_million"]
+        + completion * prices["output_per_million"]
+    ) / 1_000_000
+    if any(value is None or abs(value - expected) > 1e-12 for value in costs.values()):
+        problems.append(f"the estimate is not the frozen formula: {costs} != {expected}")
+    unsplit = {
+        "main_cumulative_input_tokens": input_tokens,
+        "main_completion_tokens": completion,
+        "child_total_prompt_tokens": 0,
+        "child_completion_tokens": 0,
+        "system_total_tokens": total,
+    }
+    conservative = executor.cell_cost(unsplit, prices)
+    all_miss = (
+        input_tokens * prices["cache_miss_input_per_million"]
+        + completion * prices["output_per_million"]
+    ) / 1_000_000
+    if conservative is None or abs(conservative - all_miss) > 1e-12:
+        problems.append("a missing cache split is not priced as a miss")
+    partial = dict(topologies["single_agent"], main_cache_hit_tokens=10_000)
+    if executor.cell_cost(partial, prices) is not None:
+        problems.append("a partial split that does not add up was priced instead of refused")
+    return _check(
+        "F18_cache_aware_pricing",
+        not problems,
+        "; ".join(problems)
+        or (
+            "one frozen formula prices the same input/output/cache composition identically for a "
+            "single agent, a DAG and a Main with children; a missing split is priced as a miss and "
+            "a partial split is refused rather than re-priced"
+        ),
+        costs=costs,
+        conservative_cost_usd=conservative,
+        pricing=plan.pricing_identity(),
+    )
+
+
+def contract_price_block() -> dict[str, Any]:
+    from experiments.stage_b_plus import cost
+
+    return dict(cost.stage_b_estimate.pricing())
+
+
 def check_production_measurement() -> dict[str, Any]:
     """Every arm's record carries a provider-observed accounting and a common integrity verdict."""
 
@@ -1047,6 +1250,11 @@ def check_production_measurement() -> dict[str, Any]:
             problems.append(
                 f"{arm_id}: integrity is {(row.get('integrity') or {}).get('verdict')!r}"
             )
+        # The cost estimate must say where its cache split came from: a report that cannot state it
+        # cannot be checked against the provider's counters.
+        basis = (row.get("audit") or {}).get("cost_basis") or {}
+        if basis.get("cache_split") not in {"COMPLETE", "UNKNOWN"}:
+            problems.append(f"{arm_id}: no cost basis (cache_split={basis.get('cache_split')!r})")
     return _check(
         "F16_production_measurement",
         not problems,
@@ -1170,6 +1378,23 @@ def blocker_states() -> list[dict[str, Any]]:
             if check_pending()["ok"]
             else "a pending record is missing or would authorize a live run",
         ),
+        _blocker(
+            "default_live_routing",
+            bool(check_default_routing()["ok"]),
+            RECORD_FILES["default_routing"],
+            "A1/A3 reach the production wrapper with no cell_runner injected"
+            if check_default_routing()["ok"]
+            else "the default route is not proven: "
+            + "; ".join(str(check_default_routing()["detail"]).split("; "))[:300],
+        ),
+        _blocker(
+            "cache_aware_pricing",
+            bool(check_cache_aware_pricing()["ok"]),
+            "executor.cell_cost + the frozen price block",
+            "one formula prices four topologies identically and a missing split as a miss"
+            if check_cache_aware_pricing()["ok"]
+            else str(check_cache_aware_pricing()["detail"])[:300],
+        ),
     ]
     return states
 
@@ -1249,6 +1474,8 @@ def run(*, scratch: Path | None = None, include_qualification: bool = True) -> d
         check_environment_record(),
         check_smoke_record(),
         check_production_measurement(),
+        check_default_routing(),
+        check_cache_aware_pricing(),
     ]
     manifest_record = plan.manifest()
     problems = plan.validate(manifest_record)

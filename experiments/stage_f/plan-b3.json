@@ -3,9 +3,9 @@
   "design_version": "stage-f-1.0.0",
   "master_id": "stage-f-96-manifest-v1",
   "executor_version": "bplus-executor-1.9",
-  "executor_digest": "sha256:9ca0a48d3e467edff4c1d75baaf7363a64243f08bdcc1fb3c6f00e1666941f08",
+  "executor_digest": "sha256:a8ae6eac7cdbf68f97974a1dcb1615439f1e603c66db3e7dea6312ef304fa376",
   "adapter_version": "stage-f-cell-adapter/1.0",
-  "adapter_digest": "sha256:8b6a93d6e6caf6e050896aab7f47c9941826633cf2f04b2a11d142b640a48c4b",
+  "adapter_digest": "sha256:06ea9666c17569263528a73a44cb989bfde02611ca59da9c87290cb4b815698f",
   "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
   "settlement_digest": "sha256:9616c114ae235cd2a264659c4f7f377ed6689030c520591f5d9e7199c986df9e",
   "plan_id": "stage-f-96-b3",
@@ -418,6 +418,8 @@
       "static_dag": [
         {
           "task_id": "csv",
+          "objective": "Migrate the CSV connector and its quoting/header helpers",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker csv]\nYou own the CSV half of the v2 connector migration: `ingest/csv_connector.py` and `ingest/columns.py`.\n\nOBJECTIVE: implement header projection (trimmed, lower-cased, duplicate/unknown/missing cells rejected), quoted cells with `\"\"` escapes and unbalanced-quote rejection, per-row cell-count validation, required/optional field rules, strict conversion through the frozen `ingest.values.convert`, the data-row cursor and the blank-line skip count. The exact rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: `ingest/columns.py` and `ingest/csv_connector.py`. The JSONL connector and the shared pipeline belong to the other workers; read them, do not edit them. `ingest/values.py` is frozen.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the CSV checks, no module is left half-migrated, and you report what you ran and what it printed.",
           "owned_paths": [
             "ingest/columns.py",
             "ingest/csv_connector.py"
@@ -427,6 +429,8 @@
         },
         {
           "task_id": "jsonl",
+          "objective": "Migrate the JSONL connector and its dotted-path helper",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker jsonl]\nYou own the JSONL half of the v2 connector migration: `ingest/jsonl_connector.py` and `ingest/paths.py`.\n\nOBJECTIVE: implement one-object-per-line parsing, blank-line skipping, the dotted `mapping` resolution (with a non-object intermediate rejected), required/optional field rules, strict conversion through the frozen `ingest.values.convert`, mapping validation (a mapping may only name schema fields) and the line cursor. The exact rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: `ingest/paths.py` and `ingest/jsonl_connector.py`. The CSV connector and the shared pipeline belong to the other workers; read them, do not edit them. `ingest/values.py` is frozen.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the JSONL checks, and you report what you ran and what it printed.",
           "owned_paths": [
             "ingest/paths.py",
             "ingest/jsonl_connector.py"
@@ -436,6 +440,8 @@
         },
         {
           "task_id": "integrate",
+          "objective": "Batch, checkpoint, registry, pipeline and report integration",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker integrate]\nYou own the shared surface: `ingest/batching.py`, `ingest/checkpoint.py`, `ingest/registry.py`, `ingest/pipeline.py` and `ingest/report.py`.\n\nOBJECTIVE: implement count- and byte-bounded contiguous batches with the canonical record size; an atomically persisted, monotonic checkpoint store with typed corruption errors; a registry that rejects duplicates and knows both sources; a pipeline that resumes from the checkpoint, computes numeric totals and saves only after a successful read; and the exact report ordering without a trailing newline. The rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: the five modules above. The two connectors and the frozen support modules belong to the other workers; read them, do not edit them.\n\nDEPENDENCIES: workers csv and jsonl implement the connectors you dispatch to. Their actual results are provided in this prompt when available.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes end to end, and you report what you ran and what it printed.",
           "owned_paths": [
             "ingest/batching.py",
             "ingest/checkpoint.py",
@@ -447,10 +453,10 @@
             "csv",
             "jsonl"
           ],
-          "max_turns": 20
+          "max_turns": 40
         }
       ],
-      "static_dag_digest": "sha256:2505f5b8f44995ef79b0363bf530e0ec57ce2180bf47b4b405b60aea11686283",
+      "static_dag_digest": "sha256:13cba3f29f92d8865295995a73ac9758af9bff87aa2f8cd849650440238c855a",
       "integration_max_turns": 40
     },
     {
@@ -637,6 +643,8 @@
       "static_dag": [
         {
           "task_id": "parse",
+          "objective": "parsing and normalisation modules",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker parse]\nYou own the parsing and normalisation half of the v2 migration.\n\nOBJECTIVE: Implement `pipeline/parsing.py` and `pipeline/normalise.py` so the v2 record contract holds: trimmed and lower-cased names, trimmed values, exactly one `=` per line, `ValueError` for malformed lines, and a numeric `count` field with empty values dropped by `normalise_all`. The frozen contract is specified in `docs/INTERFACE.md`.\n\nOWNED MODULES: you are the only worker who may change `pipeline/parsing.py` and `pipeline/normalise.py`. The aggregation, storage and public API modules belong to the other workers; read them, do not edit them.\n\nRead `docs/INTERFACE.md` before editing.\n\nDEPENDENCIES: none. The integration worker consumes your modules.\n\nDEFINITION OF DONE: no `NotImplementedError` is left, `python -m pytest -q test_public.py` passes for the parsing and normalisation checks, and you report what you ran and what it printed.",
           "owned_paths": [
             "pipeline/parsing.py",
             "pipeline/normalise.py"
@@ -646,6 +654,8 @@
         },
         {
           "task_id": "aggregate",
+          "objective": "aggregation and storage modules",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker aggregate]\nYou own the aggregation and storage half of the v2 migration.\n\nOBJECTIVE: Implement `pipeline/aggregate.py` and `pipeline/store.py` so the v2 record contract holds: aggregation sums `count` per name and returns a name-sorted list, and the store keeps one record per name with last write winning and `all()` sorted by name. The frozen contract is specified in `docs/INTERFACE.md`.\n\nOWNED MODULES: you are the only worker who may change `pipeline/aggregate.py` and `pipeline/store.py`. The parsing, normalisation and public API modules belong to the other workers; read them, do not edit them.\n\nRead `docs/INTERFACE.md` before editing.\n\nDEPENDENCIES: none. The integration worker consumes your modules.\n\nDEFINITION OF DONE: no `NotImplementedError` is left, `python -m pytest -q test_public.py` passes for the aggregation and store checks, and you report what you ran and what it printed.",
           "owned_paths": [
             "pipeline/aggregate.py",
             "pipeline/store.py"
@@ -655,6 +665,8 @@
         },
         {
           "task_id": "integrate",
+          "objective": "public API and report integration",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker integrate]\nYou own the public surface that composes the pipeline.\n\nOBJECTIVE: Implement `pipeline/api.py` and `pipeline/report.py` so `build_report` runs parsing, normalisation and aggregation and returns a name-ordered mapping, and `render` produces sorted `name=total` lines with no trailing newline and an empty string for an empty report. The frozen contract is specified in `docs/INTERFACE.md`.\n\nOWNED MODULES: you are the only worker who may change `pipeline/api.py` and `pipeline/report.py`. The parsing, normalisation, aggregation and storage modules belong to the other workers; read them, do not edit them.\n\nRead `docs/INTERFACE.md` before editing.\n\nDEPENDENCIES: workers parse and aggregate write the modules you compose. Their actual results are provided in this prompt when available.\n\nDEFINITION OF DONE: no `NotImplementedError` is left, `python -m pytest -q test_public.py` passes end to end, and you report what you ran and what it printed.",
           "owned_paths": [
             "pipeline/api.py",
             "pipeline/report.py"
@@ -663,10 +675,10 @@
             "parse",
             "aggregate"
           ],
-          "max_turns": 20
+          "max_turns": 40
         }
       ],
-      "static_dag_digest": "sha256:93264d94ab061a1c451655d02ec298265125f1cc3173994d3b056978706aa1c8",
+      "static_dag_digest": "sha256:b8a44e12d934e1ba3dcb378328fae488b4f5e0e938aaffae11c967b939bf2b87",
       "integration_max_turns": 40
     },
     {
@@ -942,6 +954,8 @@
       "static_dag": [
         {
           "task_id": "sources",
+          "objective": "Parse the document, map the environment and migrate v1",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker sources]\nYou own `configkit/document.py`, `configkit/loader.py` and `configkit/migrate.py`.\n\nOBJECTIVE: flatten TOML tables to arbitrary depth (rejecting arrays of tables and invalid documents), map `CONFIGKIT__A__B` to `a.b` with empty-path rejection, overlay the environment on the file, and migrate a v1 document to v2 (version metadata consumed, renames applied, `legacy_*` dropped, v2 collisions won, idempotent). The rules and error codes are in `docs/INTERFACE.md`.\n\nOWNED FILES: the three modules above. `configkit/spec.py` and `configkit/errors.py` are frozen; `merge.py`, `validate.py` and `runtime.py` belong to the resolved worker.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the parsing, environment and migration checks, and you report what you ran.",
           "owned_paths": [
             "configkit/document.py",
             "configkit/loader.py",
@@ -952,6 +966,8 @@
         },
         {
           "task_id": "resolved",
+          "objective": "Merge with provenance, validate and expose Settings",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker resolved]\nYou own `configkit/merge.py`, `configkit/validate.py` and `configkit/runtime.py`.\n\nOBJECTIVE: merge `default > file > profile > env > explicit` with per-key origins, coerce strictly (no bool-as-int, no float-as-int, finite floats, choices, ranges, lists), fill every default, reject unknown keys with their path, enforce the TLS, cache/feature and retry-budget cross-field rules, and expose an immutable `Settings` with `as_dict`/`explain`, the profile layer plus its explanation and round-trip helpers. The rules and error codes are in `docs/INTERFACE.md`.\n\nOWNED FILES: the five modules above. The frozen spec/errors and the source modules belong to the sources worker; read them, do not edit them.\n\nDEPENDENCIES: worker sources implements parsing, the environment mapping and the migration. Its actual result is provided in this prompt when available.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes end to end, and you report what you ran.",
           "owned_paths": [
             "configkit/explain.py",
             "configkit/merge.py",
@@ -962,10 +978,10 @@
           "depends_on": [
             "sources"
           ],
-          "max_turns": 20
+          "max_turns": 40
         }
       ],
-      "static_dag_digest": "sha256:61cfe587d36d56de5e85e94e6024d777a5350eb8b8856547628d17e536c6334c",
+      "static_dag_digest": "sha256:6a8f1d6f46ffbb29e94f704e46f81476f3d373b013c9e11ce714976a2c8109aa",
       "integration_max_turns": 40
     },
     {
@@ -1529,6 +1545,8 @@
       "static_dag": [
         {
           "task_id": "queue",
+          "objective": "Repair the bounded broker and the retry policy",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker queue]\nYou own `eventsys/broker.py` and `eventsys/retry.py`.\n\nOBJECTIVE: a full broker must raise `QueueFull` and never drop; duplicate ids must be `DuplicateEvent`; `take` must move the envelope into the in-flight set and journal the take; `ack` must be idempotent; `nack` must return to the front with one more attempt; `dead_letter` must record once; and the retry policy must validate its values and cap the delay at `max_delay`, counting the first attempt. The rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: the two modules above. `store.py`, `journal.py`, `consumer.py`, `recovery.py` and `pipeline.py` belong to the other workers; read them, do not edit them.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the broker and retry checks, and you report what you ran.",
           "owned_paths": [
             "eventsys/broker.py",
             "eventsys/retry.py"
@@ -1538,6 +1556,8 @@
         },
         {
           "task_id": "storage",
+          "objective": "Persist the processed set and the delivery journal",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker storage]\nYou own `eventsys/store.py` and `eventsys/journal.py`.\n\nOBJECTIVE: the processed/dead set is one atomically written JSON document that survives a new instance and rejects corruption; the journal is an append-only JSONL log whose `pending_deliveries()` reconstructs every take without a later ack/dead, in first-take order, with attempt counts; the run audit is an append-only JSONL log that rejects a malformed line. The formats and error rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: the three modules above. The broker and consumer belong to the other workers; read them, do not edit them.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the persistence and journal checks, and you report what you ran.",
           "owned_paths": [
             "eventsys/audit.py",
             "eventsys/journal.py",
@@ -1548,6 +1568,8 @@
         },
         {
           "task_id": "consumer",
+          "objective": "Repair the delivery loop and pipeline wiring",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker consumer]\nYou own `eventsys/consumer.py` and `eventsys/pipeline.py`.\n\nOBJECTIVE: process before ack, persist only after a successful handler, skip already-processed ids, retry a failure on the injected clock with the capped delay, dead-letter only when the attempt limit is reached, and keep the drain counters exact. The pipeline wiring, its per-run audit record, the derived metrics snapshot and its stats must follow the contract.\n\nOWNED FILES: the three modules above. The broker, store, journal and recovery belong to the other workers; read them, do not edit them.\n\nDEPENDENCIES: workers queue, storage and recovery implement the broker, the persistence and the recovery entry you call. Their actual results are provided in this prompt when available.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes end to end, and you report what you ran.",
           "owned_paths": [
             "eventsys/consumer.py",
             "eventsys/metrics.py",
@@ -1558,10 +1580,12 @@
             "recovery",
             "storage"
           ],
-          "max_turns": 20
+          "max_turns": 40
         },
         {
           "task_id": "recovery",
+          "objective": "Re-queue unclosed deliveries after a restart",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker recovery]\nYou own `eventsys/recovery.py`.\n\nOBJECTIVE: re-queue every journal delivery that is not processed and not dead, at the front and in journal order, without duplicating an id that the broker already acknowledged, dead-lettered or holds in flight. Return the recovered count.\n\nOWNED FILES: `eventsys/recovery.py`. The journal and store are implemented by the storage worker; read them, do not edit them.\n\nDEPENDENCIES: worker storage implements the journal and store you read. Its actual result is provided in this prompt when available.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the recovery checks, and you report what you ran.",
           "owned_paths": [
             "eventsys/recovery.py"
           ],
@@ -1571,7 +1595,7 @@
           "max_turns": 20
         }
       ],
-      "static_dag_digest": "sha256:dcbde35e31ba3ed18adeeb7a2c81a54a884c8ad45ac54e46e5917a9ddadd89e4",
+      "static_dag_digest": "sha256:4ebe1821c2e9f594a67f6faf29a7d10ec9a7a0a10c5684c5de5e06ebef4ec401",
       "integration_max_turns": 40
     },
     {
@@ -2048,6 +2072,8 @@
       "static_dag": [
         {
           "task_id": "queue",
+          "objective": "Complete the transition table and the retry policy",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker queue]\nYou own `schedkit/machine.py` and `schedkit/retry.py`.\n\nOBJECTIVE: encode every legal transition (start, finish, fail, retry, exhaust, cancel from every live state, recover) and reject every other pair with `InvalidTransition`; validate the policy and cap the delay at `max_delay` with the first attempt counted; and validate the per-kind payload spec. The table and rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: the three modules above. The store, executor, recovery and scheduler belong to the other workers; read them, do not edit them. `schedkit/model.py` is frozen.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the machine and policy checks, and you report what you ran.",
           "owned_paths": [
             "schedkit/jobspec.py",
             "schedkit/machine.py",
@@ -2058,6 +2084,8 @@
         },
         {
           "task_id": "storage",
+          "objective": "Persist job records atomically",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker storage]\nYou own `schedkit/store.py`.\n\nOBJECTIVE: one JSON document with version, sorted records and atomic replacement; dependency-free duplicate/unknown errors; corruption, wrong-version and malformed record rejection with `StoreError`; every mutation persisted. The format is in `docs/INTERFACE.md`.\n\nOWNED FILES: `schedkit/store.py`. The other modules belong to the other workers; read them, do not edit them.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the persistence checks, and you report what you ran.",
           "owned_paths": [
             "schedkit/store.py"
           ],
@@ -2066,6 +2094,8 @@
         },
         {
           "task_id": "executor",
+          "objective": "One attempt with replay, cancellation and deadline",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker executor]\nYou own `schedkit/executor.py`.\n\nOBJECTIVE: implement cache replay without calling the handler, the cancellation outcome, the deadline check before the handler, the success cache write and the typed failure with one more attempt. The rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: `schedkit/executor.py`. The machine, retry policy and store belong to the other workers; read them, do not edit them. `schedkit/clock.py` and `schedkit/model.py` are frozen.\n\nDEPENDENCIES: workers queue and storage implement the table and the store you consume. Their actual results are provided in this prompt when available.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the executor checks, and you report what you ran.",
           "owned_paths": [
             "schedkit/executor.py"
           ],
@@ -2077,6 +2107,8 @@
         },
         {
           "task_id": "recovery",
+          "objective": "Re-queue running records after a restart",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker recovery]\nYou own `schedkit/recovery.py`.\n\nOBJECTIVE: move every `running` record back to `queued` through the table, preserve its attempt count, make it due immediately and record the reason; leave every other state untouched. Return the recovered count.\n\nOWNED FILES: `schedkit/recovery.py`. The store belongs to the storage worker; read it, do not edit it.\n\nDEPENDENCIES: worker storage implements the store you read. Its actual result is provided in this prompt when available.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the recovery checks, and you report what you ran.",
           "owned_paths": [
             "schedkit/recovery.py"
           ],
@@ -2087,6 +2119,8 @@
         },
         {
           "task_id": "scheduler",
+          "objective": "Run due records, settle retries and expose stats",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker scheduler]\nYou own `schedkit/scheduler.py`.\n\nOBJECTIVE: submit and cancel records, run only due `queued`/`failed` records in sorted id order, persist `running` before the handler, settle done/cancelled/dead/failed outcomes through the table, schedule the capped retry delay on the injected clock, apply the per-job cap under the policy cap, log the lifecycle, and expose per-state stats plus the metrics summary. The exact rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: `schedkit/scheduler.py`, `schedkit/events.py` and `schedkit/metrics.py`. The other modules belong to the other workers; read them, do not edit them.\n\nDEPENDENCIES: workers executor and recovery implement what this module calls. Their actual results are provided in this prompt when available.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes end to end, and you report what you ran.",
           "owned_paths": [
             "schedkit/events.py",
             "schedkit/metrics.py",
@@ -2096,10 +2130,10 @@
             "executor",
             "recovery"
           ],
-          "max_turns": 20
+          "max_turns": 40
         }
       ],
-      "static_dag_digest": "sha256:0ee10d0d45ef0e59a580622b14c415d0947d3df732c9d276b845d2bae4f31a0a",
+      "static_dag_digest": "sha256:04d8e6c3305dea448917ad6eb476d9810d0732ab72729984e396aeb2ea05dc06",
       "integration_max_turns": 40
     },
     {
@@ -2282,6 +2316,8 @@
       "static_dag": [
         {
           "task_id": "machine",
+          "objective": "extend the shared state table",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker machine]\nYou own the shared state table.\n\nOBJECTIVE: Implement `lifecycle/state.py` so it encodes the extended machine: the `rejected` and `cancelled` terminal states plus the `reject` and `cancel` events, with `transition` raising `ValueError` for an unknown state or an illegal event.\n\nOWNED MODULES: `lifecycle/state.py`.\n\nRead `docs/INTERFACE.md` before editing.\n\nDEPENDENCIES: none. The callers are written against the table you publish, so keep the shapes exactly as the shared contract states.\n\nDEFINITION OF DONE: no `NotImplementedError` is left, `python -m pytest -q test_public.py` passes for the table checks, and you report what you ran and what it printed.",
           "owned_paths": [
             "lifecycle/state.py"
           ],
@@ -2290,6 +2326,8 @@
         },
         {
           "task_id": "callers",
+          "objective": "wire the callers and the audit trail",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker callers]\nYou own the callers of the shared machine, and you must extend `lifecycle/state.py` to expose the events they need.\n\nOBJECTIVE: Implement `lifecycle/approval.py`, `lifecycle/shipping.py`, `lifecycle/audit.py` and the `reject`/`cancel` entries of `lifecycle/state.py` so every caller goes through `transition`, illegal transitions are rejected, and `audit` records a transition only when it succeeds.\n\nOWNED MODULES: the three caller modules, and the same state module the machine worker owns.\n\nRead `docs/INTERFACE.md` before editing.\n\nDEPENDENCIES: worker machine writes `lifecycle/state.py`. Its actual result is provided in this prompt when available.\n\nDEFINITION OF DONE: no `NotImplementedError` is left, `python -m pytest -q test_public.py` passes end to end, and you report what you ran and what it printed.",
           "owned_paths": [
             "lifecycle/approval.py",
             "lifecycle/audit.py",
@@ -2299,10 +2337,10 @@
           "depends_on": [
             "machine"
           ],
-          "max_turns": 20
+          "max_turns": 40
         }
       ],
-      "static_dag_digest": "sha256:033cb2dfe64d9104bbfbdd6c8d53b9f74bfba507bee59e5ac15f89fe038be0bb",
+      "static_dag_digest": "sha256:89405d8d8b2c645552b94f76fd3248a83fc96c8f25118e84041f0a60c46fe331",
       "integration_max_turns": 40
     },
     {
@@ -2593,6 +2631,8 @@
       "static_dag": [
         {
           "task_id": "billing",
+          "objective": "Repair the billing call chain",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker billing]\nYou own the billing chain: `billing/charge.py`, `billing/refund.py`, `billing/ledger.py`, `billing/settlement.py` and `billing/reconciliation.py`.\n\nOBJECTIVE: audit every audit-API call reachable from these modules (direct calls, the ledger wrapper and both of its consumers) and repair them to the frozen v2 contract: keyword-only calls, `Receipt` consumers, minor-unit integers, the charge and refund tax rules, the zero-amount ledger rule and the reconciliation totals. Do not change the frozen support modules or the platform contract.\n\nOWNED FILES: the five modules above. `billing/statements.py` belongs to the surfaces worker; `reporting/` belongs to the reports worker; read them, do not edit them.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the billing behaviour, and you report the call sites you found and what you ran.",
           "owned_paths": [
             "billing/charge.py",
             "billing/ledger.py",
@@ -2605,6 +2645,8 @@
         },
         {
           "task_id": "reports",
+          "objective": "Repair the reporting call sites",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker reports]\nYou own the reporting call sites: `reporting/daily.py`, `reporting/monthly.py` and `reporting/export.py`.\n\nOBJECTIVE: repair them to the frozen v2 contract, including the business data the contract now requires (integer minor totals, order counts, the month prefix, the sorted currency list) and the export path that reaches `record` only through an alias and a `functools.partial`. `reporting/export.py` must keep its alias/partial shape; only the call must be keyword-based.\n\nOWNED FILES: the three modules above. `billing/` and `events/`/`notifications/` belong to the other workers; read them, do not edit them.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the reporting behaviour, and you report the call sites you found and what you ran.",
           "owned_paths": [
             "reporting/daily.py",
             "reporting/export.py",
@@ -2615,6 +2657,8 @@
         },
         {
           "task_id": "surfaces",
+          "objective": "Repair the callback, injected sink and remaining surfaces",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker surfaces]\nYou own the remaining surfaces: `events/subscribers.py`, `notifications/service.py`, `returns/service.py`, `returns/workflow.py`, `inventory/reservations.py`, `inventory/transfers.py` and `billing/statements.py`.\n\nOBJECTIVE: repair the event callback (count and actor from the event), the notifier's injected sink (keyword call; the API is not imported here), the return request (policy fee and refundable in minor units), the all-or-nothing reservation (units summed per SKU) and the statement (gross, WELCOME10 credits, net). All of them must end in the frozen v2 API. `app/` already injects the correct callable and needs no change.\n\nOWNED FILES: the five modules above. `returns/policy.py`, `inventory/stock.py`, `foundation/`, `catalog/` and `app/` are read-only for this task.\n\nDEPENDENCIES: the billing and reports workers repair their own call sites. Their actual results are provided in this prompt when available.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes end to end, and you report the call paths you found and what you ran.",
           "owned_paths": [
             "billing/statements.py",
             "events/subscribers.py",
@@ -2628,10 +2672,10 @@
             "billing",
             "reports"
           ],
-          "max_turns": 20
+          "max_turns": 40
         }
       ],
-      "static_dag_digest": "sha256:25ba628705e331441be37e545ecabfabce4d7bdb9adf25bae3eef206dde7fc42",
+      "static_dag_digest": "sha256:a1cbadeb153d8f8e7bdde527c78aecc90f2eeadfd0a6cfcb78ef47c1c0530353",
       "integration_max_turns": 40
     },
     {
@@ -3252,6 +3296,8 @@
       "static_dag": [
         {
           "task_id": "json",
+          "objective": "Upgrade the JSON message protocol and its field helpers",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker json]\nYou own the JSON message protocol: `wire/json_message.py` and `wire/json_fields.py`.\n\nOBJECTIVE: implement the v2 envelope with a canonical body CRC, v1 read compatibility, duplicate-key rejection, strict document validation, the line stream decoder with its limit and truncation behaviour, and CRLF/blank-line handling. The exact rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: those two modules only. The binary frame protocol and the shared codec/dispatch surface belong to the other workers; read them, do not edit them. `wire/errors.py` and `wire/model.py` are frozen.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the JSON checks, and you report what you ran and what it printed.",
           "owned_paths": [
             "wire/json_fields.py",
             "wire/json_message.py"
@@ -3261,6 +3307,8 @@
         },
         {
           "task_id": "binary",
+          "objective": "Upgrade the binary frame protocol",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker binary]\nYou own the binary frame protocol: `wire/frame.py`.\n\nOBJECTIVE: implement the v2 writer and the v1/v2 reader: magic and version consistency, kind validation, length bounds, CRC32, trailing-byte and truncation errors, and the streaming decoder that accepts any split and enforces its limit. The exact layout and error mapping are in `docs/INTERFACE.md`.\n\nOWNED FILES: `wire/frame.py`. The JSON protocol and the shared codec/dispatch surface belong to the other workers; read them, do not edit them. `wire/errors.py` and `wire/model.py` are frozen.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the binary checks, and you report what you ran and what it printed.",
           "owned_paths": [
             "wire/frame.py"
           ],
@@ -3269,6 +3317,8 @@
         },
         {
           "task_id": "integrate",
+          "objective": "Codec registry, dispatch, service and protocol selector",
+          "assignment": "[YOUR ASSIGNMENT \u2014 worker integrate]\nYou own the shared surface: `wire/codecs.py`, `wire/dispatch.py`, `wire/service.py` and `wire/selector.py`.\n\nOBJECTIVE: implement the codec registry (both protocols, duplicate rejection, sorted listing, decoder factory), the handler dispatch table (duplicate rejection, typed unknown kind, JSON body vs binary payload), the decode-then-dispatch service, the whitespace-tolerant, prefix-safe protocol selector, the payload schemas and the decode-validate-dispatch gateway. The exact rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: the six modules above. The two protocol modules and the frozen support modules belong to the other workers; read them, do not edit them.\n\nDEPENDENCIES: workers json and binary implement the codecs you register. Their actual results are provided in this prompt when available.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes end to end, and you report what you ran and what it printed.",
           "owned_paths": [
             "wire/codecs.py",
             "wire/dispatch.py",
@@ -3281,10 +3331,10 @@
             "json",
             "binary"
           ],
-          "max_turns": 20
+          "max_turns": 40
         }
       ],
-      "static_dag_digest": "sha256:cb6007b502ee740d35356615a0d547252a2076c1912937bb1853a0324c5a6ce9",
+      "static_dag_digest": "sha256:2bf56c8ed0568deb9b00ba9ed7590898702a6e23814b51a62cabef85f30aa777",
       "integration_max_turns": 40
     },
     {
@@ -3385,7 +3435,7 @@
       "main_prompt_digest": "sha256:32e082a7116ba0b3756176b0d8590103cc223c7420b91aaad3580216c28bf71c"
     }
   ],
-  "digest": "sha256:949882e0827a3302f51419ec6fcb019b3e8dc6f81a6f3e79028c7872d0f662e1",
+  "digest": "sha256:9429db914de18057d89924f740565d506d3e341d12fb80b48f2901512541e00f",
   "claim_namespace": "stage-f-claim/stage-f-96-b3",
   "runs_subdir": "runs/stage-f-96-b3",
   "evidence_subdir": "evidence/stage-f-96-b3",

@@ -34,6 +34,7 @@ import json
 import os
 import tempfile
 import time
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -340,8 +341,10 @@ def proof_runner(arm_id: str, task: Any, run: scripted.ScriptedRun) -> executor.
         routed = executor.cell_runner_for(cell, fallback=goal_runner)
         mode = str(cell.get("execution_mode"))
         if mode in executor.MAIN_DRIVEN_MODES:
-            if routed is not goal_runner:
-                raise RuntimeError(f"{mode}: cell_runner_for did not return the goal runner")
+            # A declared main-driven mode routes to the Stage F wrapper, never to the legacy
+            # goal runner the fallback names.
+            if getattr(routed, "execution_mode", None) != "main_driven":
+                raise RuntimeError(f"{mode}: cell_runner_for did not route to the wrapper")
         elif routed is goal_runner:
             raise RuntimeError(f"{mode}: cell_runner_for routed a non-goal arm to the goal runner")
         return await injected[mode](cell, context)
@@ -437,8 +440,13 @@ def arm_report(
     evidence_root: Path,
     runs_root: Path,
     scripted_run: scripted.ScriptedRun,
+    requests: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """One arm's evidence, read from the files the run actually produced."""
+    """One arm's evidence, read from the files the run actually produced.
+
+    ``requests`` scopes the provider block to the rows this arm's scripts answered. A four-arm
+    dispatch shares one deterministic provider, so an unscoped block would show every arm's rows.
+    """
 
     root = _cell_dir(evidence_root, cell["order"])
     evidence = _read_json(root / "evidence.json") or {}
@@ -448,6 +456,15 @@ def arm_report(
     resources = evidence.get("resources") or {}
     correctness = evidence.get("correctness") or {}
     oracle = correctness.get("independent_oracle") or {}
+    provider_block = scripted_run.as_dict()
+    if requests is not None:
+        rows = [dict(row) for row in requests]
+        answered = {str(row.get("script")) for row in rows}
+        provider_block["requests"] = rows
+        provider_block["scripts"] = {
+            key: value for key, value in provider_block["scripts"].items() if key in answered
+        }
+        provider_block["scope"] = "the rows this arm's own scripts answered"
     return {
         "arm_id": arm_id,
         "cell_id": cell["cell_id"],
@@ -465,7 +482,7 @@ def arm_report(
             "provider": "scripted (deterministic, no model call)",
             "budget_mode": "guarded",
         },
-        "provider": scripted_run.as_dict(),
+        "provider": provider_block,
         "container": {
             "agent": _agent_container(resources, raw),
             "oracle": _oracle_container(analysis, raw),
@@ -501,12 +518,14 @@ def arm_report(
             "execution_integrity": outcome.get("execution_integrity"),
             "delivered_success": outcome.get("delivered_success"),
             "oracle_status": outcome.get("oracle_status"),
+            "cost_basis": outcome.get("cost_basis"),
         },
         "settlement": {
             "usage_fields": outcome.get("usage"),
             "delta_cost_usd": outcome.get("delta_cost_usd"),
             "cumulative_cost_usd": outcome.get("cost_usd"),
             "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters",
+            "cache_basis": outcome.get("cost_basis"),
         },
         "duration_s": outcome.get("duration_s"),
     }
@@ -662,8 +681,11 @@ def proof_checks(
     report: dict[str, Any],
     evidence: dict[str, Any],
     scripted_run: scripted.ScriptedRun,
+    requests: Sequence[Mapping[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """What this arm had to demonstrate, checked against its own evidence."""
+
+    answered = list(requests) if requests is not None else list(scripted_run.requests)
 
     correctness = evidence.get("correctness") or {}
     oracle = correctness.get("independent_oracle") or {}
@@ -701,8 +723,8 @@ def proof_checks(
     )
     check(
         "provider_answered",
-        bool(scripted_run.requests),
-        f"requests={len(scripted_run.requests)}",
+        bool(answered),
+        f"requests={len(answered)}",
     )
 
     if arm_id == "A0":

@@ -1,10 +1,10 @@
 {
   "stage": "F",
   "kind": "cross_batch_settlement_check",
-  "generated_at": "2026-11-26T09:53:09Z",
+  "generated_at": "2026-11-26T11:03:45Z",
   "executor_version": "bplus-executor-1.9",
-  "executor_digest": "sha256:9ca0a48d3e467edff4c1d75baaf7363a64243f08bdcc1fb3c6f00e1666941f08",
-  "repo_head": "0b466ba991023987c68b00792494c7e97bfe903a",
+  "executor_digest": "sha256:a8ae6eac7cdbf68f97974a1dcb1615439f1e603c66db3e7dea6312ef304fa376",
+  "repo_head": "5e26ebadb8922814d35e784ab1a517c621de7214",
   "ok": true,
   "status": "STAGE_F_CROSS_BATCH_SETTLEMENT_PASS",
   "scenarios": [
@@ -74,7 +74,7 @@
       "observed": {
         "stop_reason": "CUMULATIVE_SETTLEMENT_REFUSED",
         "problems": [
-          "batch 1 ran plan digest 'sha256:0000000000000000000000000000000000000000000000000000000000000000', the manifest froze 'sha256:6fcfd69d74d1ad0158d162e0dd42cd710df90fbb7bf60acbc37ab520f99a8587'",
+          "batch 1 ran plan digest 'sha256:0000000000000000000000000000000000000000000000000000000000000000', the manifest froze 'sha256:aa3561df8f09dca030a0f61f7ca491e1b8841cc97737d1a49d0db143d1b3fba0'",
           "batch 1 has no consumed production claim"
         ]
       },
@@ -154,7 +154,7 @@
       "scenario": "9_refusal_consumes_no_claim",
       "expectation": "a refused batch leaves no claim behind",
       "observed": {
-        "claim_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\settlement-6\\claims-mr\\23bd5635e8f0246fe1578b283f9cd8c2477e31621a8ae5715a7b775adc041c2b.claim",
+        "claim_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\settlement-7\\claims-mr\\c0cf6df032361fa2c5494ae8a685097a568a11dbeb5781adf0955ee3afb2b424.claim",
         "production_claim_root": false
       },
       "ok": true
@@ -162,7 +162,7 @@
   ],
   "model_calls": 0,
   "production_claims_consumed": 0,
-  "scratch_root": "D:\\Work\\AtlasOS\\.f2c-scratch\\settlement-6",
+  "scratch_root": "D:\\Work\\AtlasOS\\.f2c-scratch\\settlement-7",
   "effective_rule": "min(frozen batch allowance, owner authorization, global remaining)",
   "note": "the last two scenarios set batch 2's ceiling to USD 6.00 as well, from the same 90/96 USD prior consumption; the assertions read the token side, which is the one the dispatcher compares first"
 }

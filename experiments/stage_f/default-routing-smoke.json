@@ -1,0 +1,1466 @@
+{
+  "stage": "F",
+  "kind": "default_live_routing_smoke",
+  "generated_at": "2026-11-26T10:53:34Z",
+  "executor_version": "bplus-executor-1.9",
+  "executor_digest": "sha256:a8ae6eac7cdbf68f97974a1dcb1615439f1e603c66db3e7dea6312ef304fa376",
+  "repo_head": "5e26ebadb8922814d35e784ab1a517c621de7214",
+  "task_id": "f-p1-connector-migration",
+  "plan": {
+    "plan_id": "stage-f-default-routing-smoke",
+    "scope": "F_DEFAULT_ROUTING_SMOKE",
+    "plan_digest": "sha256:747141df1c42abc5a0120ce2997e2dab789564c49a9a55018adf15732a6598c9",
+    "cells": [
+      "f.f-p1-connector-migration.A1.r1",
+      "f.f-p1-connector-migration.A3.r1"
+    ],
+    "mode": "offline_proof",
+    "claim_root": "isolated offline claim (no production claim consumed)"
+  },
+  "provider": {
+    "kind": "deterministic scripted provider (no model call)",
+    "run": {
+      "model": "scripted-stage-f",
+      "scripts": {
+        "a0-main": 11,
+        "a1-main": 12,
+        "a2-csv": 4,
+        "a2-integrate": 7,
+        "a2-jsonl": 4,
+        "a3-csv-unit": 4,
+        "a3-jsonl-unit": 4,
+        "a3-main": 9
+      },
+      "markers": {
+        "a0-main": "You are the only worker on this task",
+        "a1-main": "The ingest layer is moving to the frozen v2 connector contra",
+        "a2-csv": "[YOUR ASSIGNMENT — worker csv]",
+        "a2-integrate": "[YOUR ASSIGNMENT — worker integrate]",
+        "a2-jsonl": "[YOUR ASSIGNMENT — worker jsonl]",
+        "a3-main": "The ingest layer is moving to the frozen v2 connector contra"
+      },
+      "requests": [
+        {
+          "index": 0,
+          "script": "a1-main",
+          "tool": "file_write",
+          "prompt_chars": 440,
+          "prompt_tokens": 110,
+          "completion_tokens": 476,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.064,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 1,
+          "script": "a1-main",
+          "tool": "file_write",
+          "prompt_chars": 2343,
+          "prompt_tokens": 586,
+          "completion_tokens": 882,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.098,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 2,
+          "script": "a1-main",
+          "tool": "file_write",
+          "prompt_chars": 5873,
+          "prompt_tokens": 1469,
+          "completion_tokens": 568,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.144,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 3,
+          "script": "a1-main",
+          "tool": "file_write",
+          "prompt_chars": 8145,
+          "prompt_tokens": 2037,
+          "completion_tokens": 645,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.213,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 4,
+          "script": "a1-main",
+          "tool": "file_write",
+          "prompt_chars": 10724,
+          "prompt_tokens": 2681,
+          "completion_tokens": 643,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.19,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 5,
+          "script": "a1-main",
+          "tool": "file_write",
+          "prompt_chars": 13297,
+          "prompt_tokens": 3325,
+          "completion_tokens": 227,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.154,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 6,
+          "script": "a1-main",
+          "tool": "file_write",
+          "prompt_chars": 14205,
+          "prompt_tokens": 3552,
+          "completion_tokens": 486,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.318,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 7,
+          "script": "a1-main",
+          "tool": "file_write",
+          "prompt_chars": 16148,
+          "prompt_tokens": 4037,
+          "completion_tokens": 189,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.171,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 8,
+          "script": "a1-main",
+          "tool": "file_write",
+          "prompt_chars": 16904,
+          "prompt_tokens": 4226,
+          "completion_tokens": 154,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.388,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 9,
+          "script": "a1-main",
+          "tool": "list_files",
+          "prompt_chars": 17521,
+          "prompt_tokens": 4381,
+          "completion_tokens": 4,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.213,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 10,
+          "script": "a1-main",
+          "tool": "bash",
+          "prompt_chars": 17536,
+          "prompt_tokens": 4384,
+          "completion_tokens": 15,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.334,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 11,
+          "script": "a1-main",
+          "tool": "run_public_tests",
+          "prompt_chars": 17598,
+          "prompt_tokens": 4400,
+          "completion_tokens": 17,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.323,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 12,
+          "script": "a1-main",
+          "tool": null,
+          "prompt_chars": 17667,
+          "prompt_tokens": 4417,
+          "completion_tokens": 7,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.265,
+          "trusted_task_id": "bplus-c01-main",
+          "trusted_worker_id": "bplus-c01-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c01"
+        },
+        {
+          "index": 13,
+          "script": "a3-main",
+          "tool": "delegate_tasks",
+          "prompt_chars": 440,
+          "prompt_tokens": 110,
+          "completion_tokens": 635,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.859,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 14,
+          "script": "a3-csv-unit",
+          "tool": "file_write",
+          "prompt_chars": 885,
+          "prompt_tokens": 222,
+          "completion_tokens": 568,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.05,
+          "trusted_task_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 15,
+          "script": "a3-jsonl-unit",
+          "tool": "file_write",
+          "prompt_chars": 832,
+          "prompt_tokens": 208,
+          "completion_tokens": 227,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.054,
+          "trusted_task_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 16,
+          "script": "a3-csv-unit",
+          "tool": "file_write",
+          "prompt_chars": 3157,
+          "prompt_tokens": 790,
+          "completion_tokens": 645,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.087,
+          "trusted_task_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 17,
+          "script": "a3-jsonl-unit",
+          "tool": "file_write",
+          "prompt_chars": 1740,
+          "prompt_tokens": 435,
+          "completion_tokens": 643,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.093,
+          "trusted_task_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 18,
+          "script": "a3-csv-unit",
+          "tool": "list_files",
+          "prompt_chars": 5736,
+          "prompt_tokens": 1434,
+          "completion_tokens": 4,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.102,
+          "trusted_task_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 19,
+          "script": "a3-jsonl-unit",
+          "tool": "list_files",
+          "prompt_chars": 4313,
+          "prompt_tokens": 1079,
+          "completion_tokens": 4,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.088,
+          "trusted_task_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 20,
+          "script": "a3-csv-unit",
+          "tool": "bash",
+          "prompt_chars": 5751,
+          "prompt_tokens": 1438,
+          "completion_tokens": 15,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.123,
+          "trusted_task_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 21,
+          "script": "a3-csv-unit",
+          "tool": null,
+          "prompt_chars": 5813,
+          "prompt_tokens": 1454,
+          "completion_tokens": 7,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.094,
+          "trusted_task_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:csv-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 22,
+          "script": "a3-jsonl-unit",
+          "tool": "bash",
+          "prompt_chars": 4328,
+          "prompt_tokens": 1082,
+          "completion_tokens": 15,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.119,
+          "trusted_task_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 23,
+          "script": "a3-jsonl-unit",
+          "tool": null,
+          "prompt_chars": 4390,
+          "prompt_tokens": 1098,
+          "completion_tokens": 7,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.104,
+          "trusted_task_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_worker_id": "bplus-c02-main:r1:jsonl-unit",
+          "trusted_profile_id": "coding_worker",
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 24,
+          "script": "a3-main",
+          "tool": "file_write",
+          "prompt_chars": 2981,
+          "prompt_tokens": 746,
+          "completion_tokens": 476,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.083,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 25,
+          "script": "a3-main",
+          "tool": "file_write",
+          "prompt_chars": 4884,
+          "prompt_tokens": 1221,
+          "completion_tokens": 882,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.115,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 26,
+          "script": "a3-main",
+          "tool": "file_write",
+          "prompt_chars": 8414,
+          "prompt_tokens": 2104,
+          "completion_tokens": 189,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.117,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 27,
+          "script": "a3-main",
+          "tool": "file_write",
+          "prompt_chars": 9170,
+          "prompt_tokens": 2293,
+          "completion_tokens": 486,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.173,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 28,
+          "script": "a3-main",
+          "tool": "file_write",
+          "prompt_chars": 11113,
+          "prompt_tokens": 2779,
+          "completion_tokens": 154,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.166,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 29,
+          "script": "a3-main",
+          "tool": "list_files",
+          "prompt_chars": 11730,
+          "prompt_tokens": 2933,
+          "completion_tokens": 4,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.27,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 30,
+          "script": "a3-main",
+          "tool": "bash",
+          "prompt_chars": 11745,
+          "prompt_tokens": 2937,
+          "completion_tokens": 15,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.204,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 31,
+          "script": "a3-main",
+          "tool": "run_public_tests",
+          "prompt_chars": 11807,
+          "prompt_tokens": 2952,
+          "completion_tokens": 16,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.171,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        },
+        {
+          "index": 32,
+          "script": "a3-main",
+          "tool": null,
+          "prompt_chars": 11872,
+          "prompt_tokens": 2968,
+          "completion_tokens": 7,
+          "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+          "latency_ms": 0.153,
+          "trusted_task_id": "bplus-c02-main",
+          "trusted_worker_id": "bplus-c02-main-worker",
+          "trusted_profile_id": null,
+          "trusted_run_id": "bplus-c02"
+        }
+      ],
+      "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+      "cache_split": "structural zero: this provider has no prompt cache"
+    }
+  },
+  "routing": {
+    "cell_runner_injected": false,
+    "provider_seam": "executor.RunnerConfig.llm_factory",
+    "selection": "executor.cell_runner_for (declared execution_mode)"
+  },
+  "dispatch": {
+    "complete": true,
+    "cells_planned": 2,
+    "cells_started": 2,
+    "cells_passed": 2,
+    "stop_reason": "NONE",
+    "usage_completeness": "COMPLETE",
+    "total_tokens": 79200,
+    "total_cost_usd": 0.032141,
+    "success_counts": {
+      "cells_started": 2,
+      "executor_verdict_pass": 2,
+      "agent_completed": 2,
+      "oracle_pass": 2,
+      "execution_integrity_pass": 2,
+      "public_test_pass": 2,
+      "public_test_fail": 0,
+      "delivered_success": 2,
+      "delivered_success_measured": true,
+      "definition": "delivered_success = independent oracle PASS and normal agent completion and execution integrity PASS. The oracle verdict, agent completion, integrity, the public suite and the executor verdict are counted separately; cells_passed is the executor verdict and is never read as a delivered-success count."
+    }
+  },
+  "arms": [
+    {
+      "arm_id": "A1",
+      "cell_id": "f.f-p1-connector-migration.A1.r1",
+      "declared_execution_mode": "atlas_direct",
+      "routing": {
+        "resolved_runner": "main_driven",
+        "cell_runner_injected": false
+      },
+      "audit": {
+        "verdict": "PASS",
+        "notes": [
+          "Stage F arm: audited from Unified Cell Evidence, not from a session it does not have",
+          "adapter_version=stage-f-cell-adapter/1.0"
+        ],
+        "public_test_status": "PASS",
+        "delivered_success": true,
+        "execution_integrity": "PASS",
+        "cost_basis": {
+          "cache_split": "COMPLETE",
+          "child_cache_split": "COMPLETE",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        },
+        "delta_cost_usd": 0.0170571
+      },
+      "evidence": {
+        "schema_version": "stage-f-cell-evidence/1.2",
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "success",
+          "static_acceptance": "PASS",
+          "public_test": "PASS",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "PASS",
+          "delivered_success": true,
+          "failure_kind": null,
+          "atlas_execution_records": "PASS"
+        },
+        "integrity": {
+          "verdict": "PASS",
+          "failed": [],
+          "unknown": [],
+          "checks": [
+            {
+              "check": "run_identity",
+              "status": "PASS",
+              "detail": "cell='f.f-p1-connector-migration.A1.r1' plan='stage-f-default-routing-smoke' run='bplus-c01' expected='bplus-c01'",
+              "affects_verdict": true
+            },
+            {
+              "check": "frozen_fixture",
+              "status": "PASS",
+              "detail": "matches_frozen_seed=True seed_digest='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' recomputed='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+              "affects_verdict": true
+            },
+            {
+              "check": "raw_evidence",
+              "status": "PASS",
+              "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\routing-3\\evidence\\cells\\c01\\agent\\bplus-c01\\session.json",
+              "affects_verdict": true
+            },
+            {
+              "check": "resource_accounting",
+              "status": "PASS",
+              "detail": "complete",
+              "affects_verdict": true
+            },
+            {
+              "check": "final_export",
+              "status": "PASS",
+              "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\routing-3\\\\evidence\\\\cells\\\\c01\\\\agent\\\\bplus-c01\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+              "affects_verdict": true
+            },
+            {
+              "check": "path_policy",
+              "status": "PASS",
+              "detail": "written=9 outside_allowed=[] forbidden=[]",
+              "affects_verdict": true
+            },
+            {
+              "check": "host_separation",
+              "status": "PASS",
+              "detail": "host fixture digest 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' vs frozen 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+              "affects_verdict": true
+            },
+            {
+              "check": "oracle_binding",
+              "status": "PASS",
+              "detail": "mode='sandbox' sandbox='0f011f70-a380-48e5-be9c-629dd6bdb3e6' scored_files=17 export_files=17",
+              "affects_verdict": true
+            },
+            {
+              "check": "oracle_isolation",
+              "status": "PASS",
+              "detail": "oracle='0f011f70-a380-48e5-be9c-629dd6bdb3e6' agent='37b9fb72-4355-4c81-8a3b-7d268af2859f' agent_destroyed=True (two recorded sandbox ids)",
+              "affects_verdict": true
+            },
+            {
+              "check": "cleanup",
+              "status": "PASS",
+              "detail": "oracle_cleanup=None agent_destroyed=True",
+              "affects_verdict": true
+            },
+            {
+              "check": "failure_measurable",
+              "status": "PASS",
+              "detail": "agent_success=True kind=None",
+              "affects_verdict": true
+            },
+            {
+              "check": "atlas_ownership_enforcement",
+              "status": "UNKNOWN",
+              "detail": "reported by the goal runtime's session, not by the common gate",
+              "affects_verdict": false
+            },
+            {
+              "check": "atlas_delegation_plane",
+              "status": "UNKNOWN",
+              "detail": "reported under delegation evidence",
+              "affects_verdict": false
+            }
+          ],
+          "workspace_changes": {
+            "changed": [
+              "ingest/batching.py",
+              "ingest/checkpoint.py",
+              "ingest/columns.py",
+              "ingest/csv_connector.py",
+              "ingest/jsonl_connector.py",
+              "ingest/paths.py",
+              "ingest/pipeline.py",
+              "ingest/registry.py",
+              "ingest/report.py"
+            ],
+            "added": [],
+            "removed": []
+          },
+          "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\routing-3\\evidence\\cells\\c01\\agent\\bplus-c01",
+          "basis": "the eleven common checks; architecture-specific rows never cancel one"
+        },
+        "delegation": {
+          "natural_proposal": false,
+          "proposal_count": 0,
+          "proposals": [],
+          "rounds": 0,
+          "batches": []
+        },
+        "context": {
+          "primary_agent_peak_context": 4417,
+          "primary_agent_cumulative_input": 39605,
+          "main_peak_context": 4417,
+          "main_cumulative_input": 39605,
+          "integration_node_context": "NOT_APPLICABLE",
+          "system_max_agent_context": 4417,
+          "per_request_input_tokens": [
+            110,
+            586,
+            1469,
+            2037,
+            2681,
+            3325,
+            3552,
+            4037,
+            4226,
+            4381,
+            4384,
+            4400,
+            4417
+          ],
+          "per_agent_peak_context_tokens": {
+            "bplus-c01-main": 4417
+          },
+          "agent_context_census": {
+            "peaks": {
+              "bplus-c01-main": 4417
+            },
+            "complete": true,
+            "missing_agents": [],
+            "system_max_agent_context": 4417,
+            "basis": "per-request provider-observed prompt size for every agent that ran"
+          }
+        },
+        "usage": {
+          "main": {
+            "prompt_tokens": 39605,
+            "completion_tokens": 4313,
+            "cache_hit_tokens": 0,
+            "cache_miss_tokens": 39605
+          },
+          "children": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "cache_hit_tokens": null,
+            "cache_miss_tokens": null
+          },
+          "system_total_tokens": 43918,
+          "requests": {
+            "main": 13,
+            "children": "NOT_APPLICABLE",
+            "total": 13
+          },
+          "requested_model": "deepseek-chat",
+          "returned_model": "UNKNOWN",
+          "accounting": "provider-reported per request (Atlas UsageAttributionHook)",
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 43918,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "resources": {
+          "main_requests": 13,
+          "delegation_rounds": 0,
+          "max_observed_child_concurrency": 0,
+          "public_test_runs": 1,
+          "tool_surface": [
+            "bash",
+            "dispatch_action",
+            "file_edit",
+            "file_read",
+            "file_write",
+            "grep",
+            "list_files",
+            "run_public_tests",
+            "tool.search"
+          ],
+          "ownership": {
+            "mode": "enforce",
+            "coverage": "PARTIAL",
+            "policy_version": "r1.1.0",
+            "run_id": "bplus-c01",
+            "workspace_root": "/workspace/project",
+            "workers": {
+              "bplus-c01-main-worker": {
+                "task_id": "bplus-c01-main",
+                "paths": [
+                  "ingest/"
+                ],
+                "excluded": [],
+                "manifest_digest": "f4159f1cea53a1d9ee658a23affd9388cbb186f84dec2175f6d9b5ec9101d84a",
+                "provenance": "trusted_host_declaration"
+              }
+            },
+            "checked_calls": 12,
+            "allowed_calls": 11,
+            "denied_calls": 1,
+            "unknown_worker_denials": 0,
+            "unknown_workers": [],
+            "denials": [
+              {
+                "worker_id": "bplus-c01-main-worker",
+                "task_id": "bplus-c01-main",
+                "tool_name": "bash",
+                "target": "python3 -m compileall -q . && echo COMPILE_OK",
+                "reason_code": "OWNERSHIP_UNCLASSIFIABLE_SHELL",
+                "decision": "DENY",
+                "detail": "program \"python3\" has no analyzable write set; read-only program"
+              }
+            ],
+            "audit_findings": []
+          },
+          "sandbox": {
+            "provider": "opensandbox",
+            "provider_is_real": true,
+            "capabilities": {
+              "provider": "opensandbox",
+              "contract_version": "1.0",
+              "isolation": "container",
+              "networking": "allowlist",
+              "persistent_filesystem": true,
+              "snapshots": false,
+              "command_streaming": false,
+              "cancellation": true,
+              "file_transfer": true,
+              "evidence": true,
+              "limitations": [
+                "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+                "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+                "Point-in-time snapshots are not exposed through this adapter.",
+                "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+              ]
+            },
+            "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+            "binding_id": "81ead969dc0b223683729150fbb8aaefe91c5cecd86de78b57ac6cd0ad028720",
+            "sandbox_id": "37b9fb72-4355-4c81-8a3b-7d268af2859f",
+            "binding_state": "READY",
+            "workspace_root": "/workspace/project",
+            "network_probe": "PASS",
+            "host_separation": {
+              "host_only_visible": false,
+              "sandbox_only_visible_on_host": false,
+              "sandbox_only_read_back": true
+            },
+            "provision_commands": 4,
+            "provision_uploads": 1,
+            "created": true,
+            "destroyed": true,
+            "retained": false,
+            "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
+            "patch_changed_files": 9,
+            "export_digest": "sha256:6d6ba4ef040cbcc802da4da9dc67e060017db6047c51b2a091d8a9e1049ad37a",
+            "export_files": 17,
+            "export_size_bytes": 71680,
+            "check_runs": 1,
+            "tool_error_mode": "corrected",
+            "error": null
+          },
+          "artifact_export": "D:\\Work\\AtlasOS\\.f2c-scratch\\routing-3\\evidence\\cells\\c01\\agent\\bplus-c01\\workspace",
+          "latency": {
+            "agent_execution_ms": 31781.0,
+            "sandbox_provision_ms": "UNKNOWN",
+            "export_ms": "UNKNOWN",
+            "oracle_ms": 5906.0,
+            "cleanup_ms": "UNKNOWN",
+            "end_to_end_ms": 38078.0,
+            "unknown_stages": [
+              "sandbox_provision_ms",
+              "export_ms",
+              "cleanup_ms"
+            ]
+          }
+        }
+      },
+      "requests": {
+        "count": 13,
+        "per_agent": [
+          "bplus-c01-main"
+        ]
+      },
+      "checks": [
+        {
+          "check": "no_cell_runner_injected",
+          "ok": true,
+          "detail": "dispatch was called without cell_runner; only RunnerConfig.llm_factory"
+        },
+        {
+          "check": "production_selection_returned_the_wrapper",
+          "ok": true,
+          "detail": "declared='atlas_direct' resolved='main_driven'"
+        },
+        {
+          "check": "unified_evidence_written",
+          "ok": true,
+          "detail": "schema='stage-f-cell-evidence/1.2'"
+        },
+        {
+          "check": "audited_by_the_common_schema",
+          "ok": true,
+          "detail": "verdict='PASS'"
+        },
+        {
+          "check": "session_record_preserved",
+          "ok": true,
+          "detail": "source='main-driven session.json'"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "integrity_passed",
+          "ok": true,
+          "detail": "integrity='PASS'"
+        },
+        {
+          "check": "delivered_success",
+          "ok": true,
+          "detail": "delivered=True agent=True public='PASS'"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=13"
+        },
+        {
+          "check": "each_agent_used_its_own_script",
+          "ok": true,
+          "detail": "scripts=['a1-main']"
+        },
+        {
+          "check": "cost_is_the_shared_formula",
+          "ok": true,
+          "detail": "basis={'cache_split': 'COMPLETE', 'child_cache_split': 'COMPLETE', 'pricing_digest': 'sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6', 'formula': 'cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate', 'estimate': True}"
+        },
+        {
+          "check": "no_delegation",
+          "ok": true,
+          "detail": "proposals=0 children=0"
+        }
+      ]
+    },
+    {
+      "arm_id": "A3",
+      "cell_id": "f.f-p1-connector-migration.A3.r1",
+      "declared_execution_mode": "atlas_dynamic",
+      "routing": {
+        "resolved_runner": "main_driven",
+        "cell_runner_injected": false
+      },
+      "audit": {
+        "verdict": "PASS",
+        "notes": [
+          "Stage F arm: audited from Unified Cell Evidence, not from a session it does not have",
+          "adapter_version=stage-f-cell-adapter/1.0"
+        ],
+        "public_test_status": "PASS",
+        "delivered_success": true,
+        "execution_integrity": "PASS",
+        "cost_basis": {
+          "cache_split": "COMPLETE",
+          "child_cache_split": "COMPLETE",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        },
+        "delta_cost_usd": 0.0150837
+      },
+      "evidence": {
+        "schema_version": "stage-f-cell-evidence/1.2",
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "success",
+          "static_acceptance": "PASS",
+          "public_test": "PASS",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "PASS",
+          "delivered_success": true,
+          "failure_kind": null,
+          "atlas_execution_records": "PASS"
+        },
+        "integrity": {
+          "verdict": "PASS",
+          "failed": [],
+          "unknown": [],
+          "checks": [
+            {
+              "check": "run_identity",
+              "status": "PASS",
+              "detail": "cell='f.f-p1-connector-migration.A3.r1' plan='stage-f-default-routing-smoke' run='bplus-c02' expected='bplus-c02'",
+              "affects_verdict": true
+            },
+            {
+              "check": "frozen_fixture",
+              "status": "PASS",
+              "detail": "matches_frozen_seed=True seed_digest='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' recomputed='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+              "affects_verdict": true
+            },
+            {
+              "check": "raw_evidence",
+              "status": "PASS",
+              "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\routing-3\\evidence\\cells\\c02\\agent\\bplus-c02\\session.json",
+              "affects_verdict": true
+            },
+            {
+              "check": "resource_accounting",
+              "status": "PASS",
+              "detail": "complete",
+              "affects_verdict": true
+            },
+            {
+              "check": "final_export",
+              "status": "PASS",
+              "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\routing-3\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+              "affects_verdict": true
+            },
+            {
+              "check": "path_policy",
+              "status": "PASS",
+              "detail": "written=9 outside_allowed=[] forbidden=[]",
+              "affects_verdict": true
+            },
+            {
+              "check": "host_separation",
+              "status": "PASS",
+              "detail": "host fixture digest 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' vs frozen 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+              "affects_verdict": true
+            },
+            {
+              "check": "oracle_binding",
+              "status": "PASS",
+              "detail": "mode='sandbox' sandbox='462d4b48-787f-40ed-987e-d46e58d564e4' scored_files=17 export_files=17",
+              "affects_verdict": true
+            },
+            {
+              "check": "oracle_isolation",
+              "status": "PASS",
+              "detail": "oracle='462d4b48-787f-40ed-987e-d46e58d564e4' agent='37e77240-6a65-41cd-8d9c-7103f9efde41' agent_destroyed=True (two recorded sandbox ids)",
+              "affects_verdict": true
+            },
+            {
+              "check": "cleanup",
+              "status": "PASS",
+              "detail": "oracle_cleanup=None agent_destroyed=True",
+              "affects_verdict": true
+            },
+            {
+              "check": "failure_measurable",
+              "status": "PASS",
+              "detail": "agent_success=True kind=None",
+              "affects_verdict": true
+            },
+            {
+              "check": "atlas_ownership_enforcement",
+              "status": "UNKNOWN",
+              "detail": "reported by the goal runtime's session, not by the common gate",
+              "affects_verdict": false
+            },
+            {
+              "check": "atlas_delegation_plane",
+              "status": "UNKNOWN",
+              "detail": "reported under delegation evidence",
+              "affects_verdict": false
+            }
+          ],
+          "workspace_changes": {
+            "changed": [
+              "ingest/batching.py",
+              "ingest/checkpoint.py",
+              "ingest/columns.py",
+              "ingest/csv_connector.py",
+              "ingest/jsonl_connector.py",
+              "ingest/paths.py",
+              "ingest/pipeline.py",
+              "ingest/registry.py",
+              "ingest/report.py"
+            ],
+            "added": [],
+            "removed": []
+          },
+          "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\routing-3\\evidence\\cells\\c02\\agent\\bplus-c02",
+          "basis": "the eleven common checks; architecture-specific rows never cancel one"
+        },
+        "delegation": {
+          "natural_proposal": true,
+          "proposal_count": 1,
+          "proposals": [
+            {
+              "task_id": "bplus-c02-main",
+              "input": {
+                "reason": "two independent connectors with disjoint write scopes; the shared batching, checkpoint, registry, pipeline and report surface stays in the Main",
+                "tasks": [
+                  {
+                    "background": "The project is at /workspace/project and `docs/INTERFACE.md` is frozen. Edit only `ingest/columns.py`, `ingest/csv_connector.py`; the public suite is `test_public.py`.",
+                    "key": "csv-unit",
+                    "objective": "[YOUR ASSIGNMENT — worker csv]\nYou own the CSV half of the v2 connector migration: `ingest/csv_connector.py` and `ingest/columns.py`.\n\nOBJECTIVE: implement header projection (trimmed, lower-cased, duplicate/unknown/missing cells rejected), quoted cells with `\"\"` escapes and unbalanced-quote rejection, per-row cell-count validation, required/optional field rules, strict conversion through the frozen `ingest.values.convert`, the data-row cursor and the blank-line skip count. The exact rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: `ingest/columns.py` and `ingest/csv_connector.py`. The JSONL connector and the shared pipeline belong to the other workers; read them, do not edit them. `ingest/values.py` is frozen.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the CSV checks, no module is left half-migrated, and you report what you ran and what it printed.",
+                    "profile_id": "coding_worker",
+                    "write_paths": [
+                      "ingest/columns.py",
+                      "ingest/csv_connector.py"
+                    ]
+                  },
+                  {
+                    "background": "The project is at /workspace/project and `docs/INTERFACE.md` is frozen. Edit only `ingest/paths.py`, `ingest/jsonl_connector.py`; the public suite is `test_public.py`.",
+                    "key": "jsonl-unit",
+                    "objective": "[YOUR ASSIGNMENT — worker jsonl]\nYou own the JSONL half of the v2 connector migration: `ingest/jsonl_connector.py` and `ingest/paths.py`.\n\nOBJECTIVE: implement one-object-per-line parsing, blank-line skipping, the dotted `mapping` resolution (with a non-object intermediate rejected), required/optional field rules, strict conversion through the frozen `ingest.values.convert`, mapping validation (a mapping may only name schema fields) and the line cursor. The exact rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: `ingest/paths.py` and `ingest/jsonl_connector.py`. The CSV connector and the shared pipeline belong to the other workers; read them, do not edit them. `ingest/values.py` is frozen.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the JSONL checks, and you report what you ran and what it printed.",
+                    "profile_id": "coding_worker",
+                    "write_paths": [
+                      "ingest/paths.py",
+                      "ingest/jsonl_connector.py"
+                    ]
+                  }
+                ]
+              },
+              "block_type": "tool_use",
+              "source": "tool_conversations.json"
+            }
+          ],
+          "rounds": 1,
+          "batches": [
+            {
+              "round": 1,
+              "route": "delegate_parallel",
+              "reason_codes": [
+                "DELEGATION_ADMITTED"
+              ],
+              "blocked_gates": [],
+              "children": [
+                {
+                  "key": "csv-unit",
+                  "worker_id": "bplus-c02-main:r1:csv-unit",
+                  "status": "completed",
+                  "success": true,
+                  "stop_reason": "success",
+                  "turns": 5,
+                  "tool_calls": 4,
+                  "prompt_tokens": 5338,
+                  "completion_tokens": 1239
+                },
+                {
+                  "key": "jsonl-unit",
+                  "worker_id": "bplus-c02-main:r1:jsonl-unit",
+                  "status": "completed",
+                  "success": true,
+                  "stop_reason": "success",
+                  "turns": 5,
+                  "tool_calls": 4,
+                  "prompt_tokens": 3902,
+                  "completion_tokens": 896
+                }
+              ],
+              "max_observed_concurrency": 2
+            }
+          ]
+        },
+        "context": {
+          "primary_agent_peak_context": 2968,
+          "primary_agent_cumulative_input": 21043,
+          "main_peak_context": 2968,
+          "main_cumulative_input": 21043,
+          "integration_node_context": "NOT_APPLICABLE",
+          "system_max_agent_context": "UNKNOWN",
+          "per_request_input_tokens": [
+            110,
+            746,
+            1221,
+            2104,
+            2293,
+            2779,
+            2933,
+            2937,
+            2952,
+            2968
+          ],
+          "per_agent_peak_context_tokens": {
+            "bplus-c02-main": 2968,
+            "bplus-c02-main:r1:csv-unit": "UNKNOWN",
+            "bplus-c02-main:r1:jsonl-unit": "UNKNOWN"
+          },
+          "agent_context_census": {
+            "peaks": {
+              "bplus-c02-main": 2968,
+              "bplus-c02-main:r1:csv-unit": "UNKNOWN",
+              "bplus-c02-main:r1:jsonl-unit": "UNKNOWN"
+            },
+            "complete": false,
+            "missing_agents": [
+              "bplus-c02-main:r1:csv-unit",
+              "bplus-c02-main:r1:jsonl-unit"
+            ],
+            "system_max_agent_context": "UNKNOWN",
+            "basis": "at least one agent's peak context was not observed"
+          }
+        },
+        "usage": {
+          "main": {
+            "prompt_tokens": 21043,
+            "completion_tokens": 2864,
+            "cache_hit_tokens": 0,
+            "cache_miss_tokens": 21043
+          },
+          "children": {
+            "prompt_tokens": 9240,
+            "completion_tokens": 2135,
+            "cache_hit_tokens": 0,
+            "cache_miss_tokens": 9240
+          },
+          "system_total_tokens": 35282,
+          "requests": {
+            "main": 10,
+            "children": "UNKNOWN",
+            "total": null
+          },
+          "requested_model": "deepseek-chat",
+          "returned_model": "UNKNOWN",
+          "accounting": "provider-reported per request (Atlas UsageAttributionHook)",
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 35282,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "resources": {
+          "main_requests": 10,
+          "delegation_rounds": 1,
+          "max_observed_child_concurrency": 2,
+          "public_test_runs": 1,
+          "tool_surface": [
+            "bash",
+            "delegate.read",
+            "delegate_tasks",
+            "dispatch_action",
+            "file_edit",
+            "file_read",
+            "file_write",
+            "grep",
+            "list_files",
+            "run_public_tests",
+            "tool.search"
+          ],
+          "ownership": {
+            "mode": "enforce",
+            "coverage": "PARTIAL",
+            "policy_version": "r1.1.0",
+            "run_id": "bplus-c02",
+            "workspace_root": "/workspace/project",
+            "workers": {
+              "bplus-c02-main-worker": {
+                "task_id": "bplus-c02-main",
+                "paths": [
+                  "ingest/"
+                ],
+                "excluded": [],
+                "manifest_digest": "3e0b0c63f0c3bfda975b76d43bdad51894dadda26e64e86aca27a1a82ce22524",
+                "provenance": "trusted_host_declaration"
+              },
+              "bplus-c02-main:r1:csv-unit": {
+                "task_id": "bplus-c02-main:r1:csv-unit",
+                "paths": [
+                  "ingest/columns.py",
+                  "ingest/csv_connector.py"
+                ],
+                "excluded": [],
+                "manifest_digest": "302cdbd327d9c56251a1de46dcf65a2fe74b163b4e7ef101d467ee983e20314d",
+                "provenance": "trusted_host_declaration"
+              },
+              "bplus-c02-main:r1:jsonl-unit": {
+                "task_id": "bplus-c02-main:r1:jsonl-unit",
+                "paths": [
+                  "ingest/jsonl_connector.py",
+                  "ingest/paths.py"
+                ],
+                "excluded": [],
+                "manifest_digest": "fc627685a1cce72306f58509e467c83a0a96e4e46b7da7800e8ddd8c606193d8",
+                "provenance": "trusted_host_declaration"
+              }
+            },
+            "checked_calls": 17,
+            "allowed_calls": 14,
+            "denied_calls": 3,
+            "unknown_worker_denials": 0,
+            "unknown_workers": [],
+            "denials": [
+              {
+                "worker_id": "bplus-c02-main-worker",
+                "task_id": "bplus-c02-main",
+                "tool_name": "bash",
+                "target": "python3 -m compileall -q . && echo COMPILE_OK",
+                "reason_code": "OWNERSHIP_UNCLASSIFIABLE_SHELL",
+                "decision": "DENY",
+                "detail": "program \"python3\" has no analyzable write set; read-only program"
+              },
+              {
+                "worker_id": "bplus-c02-main:r1:csv-unit",
+                "task_id": "bplus-c02-main:r1:csv-unit",
+                "tool_name": "bash",
+                "target": "python3 -m compileall -q . && echo COMPILE_OK",
+                "reason_code": "OWNERSHIP_UNCLASSIFIABLE_SHELL",
+                "decision": "DENY",
+                "detail": "program \"python3\" has no analyzable write set; read-only program"
+              },
+              {
+                "worker_id": "bplus-c02-main:r1:jsonl-unit",
+                "task_id": "bplus-c02-main:r1:jsonl-unit",
+                "tool_name": "bash",
+                "target": "python3 -m compileall -q . && echo COMPILE_OK",
+                "reason_code": "OWNERSHIP_UNCLASSIFIABLE_SHELL",
+                "decision": "DENY",
+                "detail": "program \"python3\" has no analyzable write set; read-only program"
+              }
+            ],
+            "audit_findings": []
+          },
+          "sandbox": {
+            "provider": "opensandbox",
+            "provider_is_real": true,
+            "capabilities": {
+              "provider": "opensandbox",
+              "contract_version": "1.0",
+              "isolation": "container",
+              "networking": "allowlist",
+              "persistent_filesystem": true,
+              "snapshots": false,
+              "command_streaming": false,
+              "cancellation": true,
+              "file_transfer": true,
+              "evidence": true,
+              "limitations": [
+                "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+                "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+                "Point-in-time snapshots are not exposed through this adapter.",
+                "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+              ]
+            },
+            "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+            "binding_id": "044ff23f1dd4aebfa0fc56abc2cf05a4330160b21e802dc05a1c67bdc606ef6b",
+            "sandbox_id": "37e77240-6a65-41cd-8d9c-7103f9efde41",
+            "binding_state": "READY",
+            "workspace_root": "/workspace/project",
+            "network_probe": "PASS",
+            "host_separation": {
+              "host_only_visible": false,
+              "sandbox_only_visible_on_host": false,
+              "sandbox_only_read_back": true
+            },
+            "provision_commands": 4,
+            "provision_uploads": 1,
+            "created": true,
+            "destroyed": true,
+            "retained": false,
+            "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
+            "patch_changed_files": 9,
+            "export_digest": "sha256:3b4f46b0e4ac0bf0177d54ae0ea5e6df8300ad2d8e1788b61db9cc99a5d319e8",
+            "export_files": 17,
+            "export_size_bytes": 71680,
+            "check_runs": 1,
+            "tool_error_mode": "corrected",
+            "error": null
+          },
+          "artifact_export": "D:\\Work\\AtlasOS\\.f2c-scratch\\routing-3\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace",
+          "latency": {
+            "agent_execution_ms": 33203.0,
+            "sandbox_provision_ms": "UNKNOWN",
+            "export_ms": "UNKNOWN",
+            "oracle_ms": 5766.0,
+            "cleanup_ms": "UNKNOWN",
+            "end_to_end_ms": 39297.0,
+            "unknown_stages": [
+              "sandbox_provision_ms",
+              "export_ms",
+              "cleanup_ms"
+            ]
+          }
+        }
+      },
+      "requests": {
+        "count": 20,
+        "per_agent": [
+          "bplus-c02-main",
+          "bplus-c02-main:r1:csv-unit",
+          "bplus-c02-main:r1:jsonl-unit"
+        ]
+      },
+      "checks": [
+        {
+          "check": "no_cell_runner_injected",
+          "ok": true,
+          "detail": "dispatch was called without cell_runner; only RunnerConfig.llm_factory"
+        },
+        {
+          "check": "production_selection_returned_the_wrapper",
+          "ok": true,
+          "detail": "declared='atlas_dynamic' resolved='main_driven'"
+        },
+        {
+          "check": "unified_evidence_written",
+          "ok": true,
+          "detail": "schema='stage-f-cell-evidence/1.2'"
+        },
+        {
+          "check": "audited_by_the_common_schema",
+          "ok": true,
+          "detail": "verdict='PASS'"
+        },
+        {
+          "check": "session_record_preserved",
+          "ok": true,
+          "detail": "source='main-driven session.json'"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "integrity_passed",
+          "ok": true,
+          "detail": "integrity='PASS'"
+        },
+        {
+          "check": "delivered_success",
+          "ok": true,
+          "detail": "delivered=True agent=True public='PASS'"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=20"
+        },
+        {
+          "check": "each_agent_used_its_own_script",
+          "ok": true,
+          "detail": "scripts=['a3-csv-unit', 'a3-jsonl-unit', 'a3-main']"
+        },
+        {
+          "check": "cost_is_the_shared_formula",
+          "ok": true,
+          "detail": "basis={'cache_split': 'COMPLETE', 'child_cache_split': 'COMPLETE', 'pricing_digest': 'sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6', 'formula': 'cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate', 'estimate': True}"
+        },
+        {
+          "check": "proposal_recorded",
+          "ok": true,
+          "detail": "proposals=1"
+        },
+        {
+          "check": "two_children_completed",
+          "ok": true,
+          "detail": "children=['csv-unit', 'jsonl-unit']"
+        },
+        {
+          "check": "children_overlapped",
+          "ok": true,
+          "detail": "concurrency=[2]"
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "scripted_requests": 33,
+    "external_model_requests": 0,
+    "production_claims_consumed": 0
+  },
+  "problems": [],
+  "ok": true,
+  "status": "STAGE_F_DEFAULT_ROUTING_SMOKE_PASS",
+  "duration_s": 77.936,
+  "scratch_root": "D:\\Work\\AtlasOS\\.f2c-scratch\\routing-3"
+}

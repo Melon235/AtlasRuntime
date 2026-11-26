@@ -221,20 +221,52 @@ def visible_files(task_id: str) -> dict[str, str]:
     return {**dict(task.seed), **dict(task.public_tests)}
 
 
+def public_interface(task_id: str) -> dict[str, Any]:
+    """The frozen interface the task is written against, as bytes plus its per-node bindings."""
+
+    task = tasks.task_by_id(task_id)
+    paths = sorted({path for bound in task.frozen_contracts.values() for path in bound})
+    # A task may declare one interface document for the whole project instead of binding it per
+    # node (S2 does). The bytes are then the interface the seed ships under ``docs/``.
+    if not paths:
+        paths = sorted(path for path in task.seed if path.startswith("docs/"))
+    return {
+        "files": {path: task.seed.get(path) for path in paths},
+        "bindings": {node: list(bound) for node, bound in task.frozen_contracts.items()},
+    }
+
+
 def _task_facts(task_id: str) -> dict[str, Any]:
     task = tasks.task_by_id(task_id)
+    interface = public_interface(task_id)
     return {
         "family": tasks.family_of(task_id),
+        "title": task.title,
         "goal_digest": arms.goal_digest(task_id),
         "grant_digest": arms.grant_digest(task_id),
         "static_dag_digest": arms.static_dag_digest(task_id),
+        # The decomposition itself, including each node's assignment text and the cap it is given.
         "static_dag": arms.static_dag(task_id),
         # The frozen fixture identity: a fixture edit after the freeze moves this digest.
         "seed_digest": authority.digest_of(dict(sorted(visible_files(task_id).items()))),
         "seed_files": len(visible_files(task_id)),
+        # The four content identities a reader needs to know *what* was frozen. Names alone would
+        # let the suite be edited while the manifest still looked current.
+        "public_interface_digest": authority.digest_of(interface),
+        "public_interface_paths": sorted(interface["files"]),
+        "public_test_digest": authority.digest_of(dict(sorted(task.public_tests.items()))),
+        "oracle_digest": authority.digest_of(dict(sorted(task.oracle_tests.items()))),
+        "reference_digest": authority.digest_of(dict(sorted(task.reference.items()))),
+        "paths_digest": authority.digest_of(
+            {
+                "allowed": list(task.allowed_paths),
+                "forbidden": list(task.forbidden_paths),
+            }
+        ),
         "deliverables": list(task.deliverables),
         "public_tests": sorted(task.public_tests),
         "oracle_tests": sorted(task.oracle_tests),
+        "reference_files": sorted(task.reference),
         "allowed_paths": list(task.allowed_paths),
         "forbidden_paths": list(task.forbidden_paths),
     }
@@ -377,6 +409,32 @@ def validate(record: Mapping[str, Any] | None = None) -> list[str]:
     if any(value != set(arms.ARM_ORDER) for value in pairs.values()):
         problems.append("a task/repetition pair is missing an arm")
 
+    # Every task identity is explicit: the four content digests, the interface it was written
+    # against, the decomposition with its assignments, and both path lists.
+    frozen_facts = manifest_record.get("task_facts") or {}
+    for task_id in tasks.TASK_IDS:
+        facts = frozen_facts.get(task_id) or {}
+        for key in (
+            "goal_digest",
+            "grant_digest",
+            "static_dag_digest",
+            "seed_digest",
+            "public_interface_digest",
+            "public_test_digest",
+            "oracle_digest",
+            "reference_digest",
+            "paths_digest",
+        ):
+            if not str(facts.get(key) or "").startswith("sha256:"):
+                problems.append(f"{task_id}: {key} is not a frozen digest")
+        if not facts.get("public_interface_paths"):
+            problems.append(f"{task_id}: the public interface is not bound")
+        if not facts.get("reference_files"):
+            problems.append(f"{task_id}: the reference content is not bound")
+        if not (facts.get("allowed_paths") and facts.get("forbidden_paths")):
+            problems.append(f"{task_id}: the path policy is not bound")
+        if not all(node.get("assignment") for node in facts.get("static_dag") or []):
+            problems.append(f"{task_id}: a static-DAG node carries no assignment")
     if manifest_record.get("batches") and [
         item["plan_digest"] for item in manifest_record["batches"]
     ] != [plans[batch]["digest"] for batch in (1, 2, 3)]:

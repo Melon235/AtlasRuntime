@@ -36,7 +36,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -434,25 +434,65 @@ def validate_usage(metrics: Mapping[str, Any] | None) -> dict[str, Any]:
             problems.append(
                 f"system_total_tokens is {values['system_total_tokens']}, the parts sum to {total}"
             )
+
     # The cache split is checked only when the provider reported it: a missing split is UNKNOWN,
-    # which is a limitation of the data, not a reason to invent a number.
-    hit = metrics.get("main_cache_hit_tokens")
-    miss = metrics.get("main_cache_miss_tokens")
-    input_tokens = metrics.get("main_cumulative_input_tokens")
-    if hit is not None and miss is not None and input_tokens is not None:
-        for name, value in (("main_cache_hit_tokens", hit), ("main_cache_miss_tokens", miss)):
-            problem = _token_problem(name, value)
+    # which is a limitation of the data, not a reason to invent a number. When it *is* reported the
+    # two halves must add up to the input they split, so no token is priced twice and none is
+    # dropped.
+    def split_state(
+        name: str,
+        hit: Any,
+        miss: Any,
+        total: Any,
+        *,
+        hit_name: str,
+        miss_name: str,
+    ) -> str:
+        """``COMPLETE``, ``UNKNOWN`` or a recorded problem for one input's cache split.
+
+        An all-zero pair against a non-zero total is the provider saying "no cache", which is a
+        *structural* zero and is priced as a miss. A partial pair that does not add up is a real
+        inconsistency between two counters and is reported as one.
+        """
+
+        if hit is None or miss is None or total is None:
+            return "UNKNOWN"
+        for field_name, value in ((hit_name, hit), (miss_name, miss)):
+            problem = _token_problem(field_name, value)
             if problem is not None:
                 problems.append(problem)
-        if not problems and int(hit) + int(miss) != int(input_tokens):
+                return "INVALID"
+        if not problems and int(hit) + int(miss) != int(total):
+            if int(hit) == 0 and int(miss) == 0:
+                return "UNKNOWN"
             problems.append(
-                f"cache hit + miss is {int(hit) + int(miss)}, main input is {input_tokens}"
+                f"{name} cache hit + miss is {int(hit) + int(miss)}, {name} input is {total}"
             )
+            return "INVALID"
+        return "COMPLETE"
+
+    split = split_state(
+        "main",
+        metrics.get("main_cache_hit_tokens"),
+        metrics.get("main_cache_miss_tokens"),
+        values.get("main_cumulative_input_tokens"),
+        hit_name="main_cache_hit_tokens",
+        miss_name="main_cache_miss_tokens",
+    )
+    child_split = split_state(
+        "child",
+        metrics.get("child_cache_hit_tokens"),
+        metrics.get("child_cache_miss_tokens"),
+        metrics.get("child_total_prompt_tokens"),
+        hit_name="child_cache_hit_tokens",
+        miss_name="child_cache_miss_tokens",
+    )
     return {
         "ok": not problems,
         "problems": problems,
         "values": values,
-        "cache_split": "UNKNOWN" if hit is None or miss is None else "COMPLETE",
+        "cache_split": split,
+        "child_cache_split": child_split,
     }
 
 
@@ -462,8 +502,14 @@ def cell_cost(
     """Frozen-price estimate, or ``None`` when the consumption is not measurable.
 
     ``None`` is the point: a run whose counters are unknown did not cost zero, and a cost model that
-    says 0.0 makes an unknown look cheap. Child prompt tokens are priced as misses because the
-    provider reports no per-child split.
+    says 0.0 makes an unknown look cheap.
+
+    One formula prices every architecture. Main (or the primary agent) input is split into hits and
+    misses when the provider reported the split, and is priced entirely as a miss when it did not.
+    Child input is priced the same way from its own split, and — like every other missing split —
+    falls back to a miss. ``hit + miss == input`` is enforced by ``validate_usage``, so a token is
+    never counted twice and never dropped, and the same input/output/cache composition costs the
+    same whether it arrived through one agent or through a Main and two children.
     """
 
     report = validate_usage(metrics)
@@ -471,19 +517,64 @@ def cell_cost(
         return None
     price = dict(prices or cost.stage_b_estimate.pricing())
     values = report["values"]
-    hit = int(metrics.get("main_cache_hit_tokens") or 0)  # type: ignore[union-attr]
-    miss = int(metrics.get("main_cache_miss_tokens") or 0)  # type: ignore[union-attr]
     main_input = int(values["main_cumulative_input_tokens"])
-    if not hit and not miss:
-        miss = main_input  # no split reported: price the whole input as a miss
-    child_prompt = int(values["child_total_prompt_tokens"])
+    child_input = int(values["child_total_prompt_tokens"])
+
+    def split(hit_key: str, miss_key: str, total: int) -> tuple[int, int]:
+        state = report["cache_split"] if hit_key.startswith("main") else report["child_cache_split"]
+        if state != "COMPLETE":
+            return 0, total  # a missing split is priced as a miss, never as a hit
+        hit = int(metrics.get(hit_key) or 0)  # type: ignore[union-attr]
+        return hit, total - hit
+
+    main_hit, main_miss = split("main_cache_hit_tokens", "main_cache_miss_tokens", main_input)
+    child_hit, child_miss = split("child_cache_hit_tokens", "child_cache_miss_tokens", child_input)
     completion = int(values["main_completion_tokens"]) + int(values["child_completion_tokens"])
     per_million = 1_000_000.0
     return (
-        hit * float(price["cache_hit_input_per_million"])
-        + (miss + child_prompt) * float(price["cache_miss_input_per_million"])
+        (main_hit + child_hit) * float(price["cache_hit_input_per_million"])
+        + (main_miss + child_miss) * float(price["cache_miss_input_per_million"])
         + completion * float(price["output_per_million"])
     ) / per_million
+
+
+#: The pre-registered success definition, repeated in every report that counts a delivered cell.
+SUCCESS_SEMANTICS = (
+    "delivered_success = independent oracle PASS and normal agent completion and execution "
+    "integrity PASS. The oracle verdict, agent completion, integrity, the public suite and the "
+    "executor verdict are counted separately; cells_passed is the executor verdict and is never "
+    "read as a delivered-success count."
+)
+
+
+def success_counts(cells: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """The five independent success axes, counted apart from each other.
+
+    ``cells_passed`` answers "did the executor's audit accept this cell"; it is not a delivery
+    count. A cell whose agent hit its turn cap but whose artifact the oracle accepted is a measured
+    outcome with a correct artifact and **no** delivery, and the two axes below say exactly that.
+    """
+
+    rows = list(cells)
+
+    def count(predicate: Any) -> int:
+        return sum(1 for row in rows if predicate(row))
+
+    return {
+        "cells_started": len(rows),
+        "executor_verdict_pass": count(lambda row: row.get("verdict") == "PASS"),
+        "agent_completed": count(lambda row: row.get("agent_success") is True),
+        "oracle_pass": count(lambda row: row.get("oracle_passed") is True),
+        "execution_integrity_pass": count(lambda row: row.get("execution_integrity") == "PASS"),
+        "public_test_pass": count(lambda row: row.get("public_test_status") == "PASS"),
+        "public_test_fail": count(lambda row: row.get("public_test_status") == "FAIL"),
+        "delivered_success": count(lambda row: row.get("delivered_success") is True),
+        # False for a plan whose audit does not produce the delivered verdict at all (every B+/C
+        # cell): a zero there is "not asked", not "nothing delivered".
+        "delivered_success_measured": bool(rows)
+        and all("delivered_success" in row for row in rows),
+        "definition": SUCCESS_SEMANTICS,
+    }
 
 
 # -- evidence helpers -------------------------------------------------------------------------
@@ -1377,6 +1468,7 @@ async def dispatch(
     clock: Callable[[], str] = now,
     plan: Mapping[str, Any] | None = None,
     stage_f_root: Path | None = None,
+    runner_config: RunnerConfig | None = None,
 ) -> dict[str, Any]:
     """Run one plan, or refuse and say why. The only entry point that may execute a cell.
 
@@ -1387,6 +1479,11 @@ async def dispatch(
 
     ``stage_f_root`` names the one root the three Stage F batches share. It is only read for a
     Stage F batch plan; every earlier stage keeps ``evidence_root`` exactly as it was.
+
+    ``runner_config`` is the **provider** seam, not a runner seam: the default per-mode runner is
+    still selected by ``cell_runner_for``, and only the configuration it is built with changes. A
+    live dispatch refuses it, so production always runs the uninjected configuration; an offline
+    proof may pass a factory and the routing under test is the production one.
     """
 
     if mode not in MODES:
@@ -1413,7 +1510,7 @@ async def dispatch(
             violations.append(
                 f"{_CLAIM_ENV} is set, so the global claim is not the production claim"
             )
-        runner = cell_runner or live_cell_runner()
+        runner = cell_runner or live_cell_runner(runner_config)
         if not getattr(runner, "is_live", False):
             violations.append("a live dispatch requires the live cell runner")
         dirty = git_dirty(repo_root)
@@ -1421,6 +1518,10 @@ async def dispatch(
             violations.append(f"the worktree has {len(dirty)} uncommitted path(s)")
         if prices is not None:
             violations.append("a live dispatch uses the frozen price block, not injected prices")
+        if runner_config is not None:
+            violations.append(
+                "a live dispatch uses the production runner configuration, not an injected one"
+            )
 
     claim_consumed = claim_file.exists()
     authority_verdict = authority_module.verify(
@@ -1486,7 +1587,7 @@ async def dispatch(
     # after the claim was spent.
     admission: dict[str, Any] | None = None
     if not offline:
-        admission = run_admission_preflight(plan, repo_root=repo_root)
+        admission = run_admission_preflight(plan, repo_root=repo_root, config=runner_config)
         # The report is written whether it admits or refuses: a READY run must leave the same
         # six-arm evidence a refused one does, instead of a null.
         (evidence / "admission.json").write_text(
@@ -1544,7 +1645,7 @@ async def dispatch(
             mode,
         )
 
-    runner = cell_runner or live_cell_runner()
+    runner = cell_runner or live_cell_runner(runner_config)
     frozen_prices = dict(cost.stage_b_estimate.pricing())
     context = DispatchContext(
         plan=plan,
@@ -1610,9 +1711,12 @@ async def dispatch(
         )
 
         try:
-            # A Stage F plan routes every cell to the runner of its execution mode. A plan with
-            # ``execution_mode`` keeps the one live runner, so every earlier stage is unchanged.
-            cell_runner_for_cell = cell_runner or cell_runner_for(cell, fallback=runner)
+            # A Stage F cell declares its execution mode and always routes to that mode's runner.
+            # A cell that declares nothing (every earlier stage) keeps the one live runner, so
+            # B+/C behaviour and its ``session.json`` do not move.
+            cell_runner_for_cell = cell_runner or cell_runner_for(
+                cell, fallback=runner, config=runner_config
+            )
             run = await cell_runner_for_cell(cell, context)
         except asyncio.CancelledError:
             raise
@@ -1717,6 +1821,23 @@ async def dispatch(
         "cells_measured_failure": sum(1 for cell in cells if cell["verdict"] == "MEASURED_FAILURE"),
         "cells_stopped": sum(1 for cell in cells if cell["verdict"] == "STOPPED"),
         "cells_not_run": len(plan["cells"]) - len(cells),
+        # The five success axes, counted apart. ``cells_passed`` above is the executor's own audit
+        # verdict; it is not a delivery count and must not be reported as one.
+        "success_counts": success_counts(cells),
+        "success_definition": SUCCESS_SEMANTICS,
+        # The Stage F analysis reads every started cell. ``is_benchmark_sample = False`` is a label
+        # for these cells, not a filter: nothing here drops a cell because of it.
+        "analysis_scope": {
+            "cells_in_report": len(cells),
+            "cells_planned": len(plan["cells"]),
+            "excluded_by_sample_flag": 0,
+            # How many cells carry the sample flag. A Stage F cell is labelled ``False`` by design;
+            # a non-zero count here would be a labelling defect, not an exclusion.
+            "cells_with_sample_flag": sum(
+                1 for cell in cells if cell.get("is_benchmark_sample") is True
+            ),
+            "is_benchmark_sample": bool(plan["is_benchmark_sample"]),
+        },
         "stop_reason": stop_reason,
         "stopped_at_order": stopped_at,
         "complete": stop_reason == STOP_NONE and len(cells) == len(plan["cells"]),
@@ -2002,25 +2123,37 @@ def cell_runner_config(cell: Mapping[str, Any], base: RunnerConfig) -> RunnerCon
     return dataclasses.replace(base, main_max_turns=int(declared))
 
 
-def cell_runner_for(cell: Mapping[str, Any], *, fallback: CellRunner | None = None) -> CellRunner:
+def cell_runner_for(
+    cell: Mapping[str, Any],
+    *,
+    fallback: CellRunner | None = None,
+    config: RunnerConfig | None = None,
+) -> CellRunner:
     """The runner for a cell's execution mode.
 
-    ``None`` and every main-driven mode use the goal-runtime runner, which is what every earlier
-    stage runs. Only the two non-goal topologies need their own entry, and both live in
-    ``experiments.stage_f.runners`` so this module keeps no Stage F logic.
+    A cell that **declares** ``execution_mode`` is a Stage F cell and always routes to its Stage F
+    runner — including A1/A3, which go through ``main_driven_cell_runner`` so their session is
+    normalised into Unified Cell Evidence and audited by the common schema. The ``fallback`` is for
+    a cell that declares nothing: every Stage B+ and C-series cell keeps the historical goal-runtime
+    runner it has always used, and its ``session.json`` stays exactly as it was.
+
+    The declared mode outranks the fallback on purpose. If the fallback won, a caller that passed
+    the default live runner would silently restore the legacy A1/A3 path, which is the defect this
+    routing exists to close.
     """
 
-    mode = str(cell.get("execution_mode") or MAIN_DRIVEN)
-    if mode in MAIN_DRIVEN_MODES:
-        if fallback is not None:
-            return fallback
-        return live_cell_runner()
+    declared = cell.get("execution_mode")
+    if declared is None:
+        return fallback if fallback is not None else live_cell_runner(config)
+    mode = str(declared)
     from experiments.stage_f import runners
 
     if mode == "native":
-        return runners.native_cell_runner()
+        return runners.native_cell_runner(config=config)
     if mode == "atlas_static_dag":
-        return runners.static_dag_cell_runner()
+        return runners.static_dag_cell_runner(config=config)
+    if mode in MAIN_DRIVEN_MODES:
+        return runners.main_driven_cell_runner(config=config)
     raise ValueError(f"unknown execution mode {mode!r}")
 
 

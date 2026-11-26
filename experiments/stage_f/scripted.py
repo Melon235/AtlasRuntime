@@ -84,15 +84,36 @@ class ScriptedRun:
 
     scripts: dict[str, list[ScriptStep]]
     markers: dict[str, str] = field(default_factory=dict)
+    #: Script selection by the agent's *trusted run id*, for topologies whose two arms carry the
+    #: same task text and the same first message (A1 and A3 differ only in the tool surface). This
+    #: is a provider-boundary identity, exactly like the trusted task id a real adapter receives.
+    run_markers: dict[str, str] = field(default_factory=dict)
     default_marker: str | None = None
     final_text: str = "implemented, checked and reported"
     model_name: str = "scripted-stage-f"
     requests: list[dict[str, Any]] = field(default_factory=list)
     _cursors: dict[str, int] = field(default_factory=dict)
 
-    def marker_for(self, messages: Sequence[Any]) -> str:
-        """Which script this turn belongs to, decided from the task turn it was actually given."""
+    def marker_for(self, messages: Sequence[Any], identity: Mapping[str, Any] | None = None) -> str:
+        """Which script this turn belongs to.
 
+        The trusted run id wins when the caller carries one, because it identifies the *agent*
+        rather than the text it was given. Otherwise the first message is matched against the
+        declared markers, which is what the single-agent and DAG arms use.
+        """
+
+        # A delegated child inherits its parent's run id, so the run id alone cannot tell a Main
+        # from its children. The trusted task id carries the delegation suffix
+        # (``<run>-main:r1:<key>``), so both are searched, which makes the probe specific to the
+        # agent rather than to the run it belongs to.
+        identity = identity or {}
+        subject = " ".join(
+            str(identity.get(key) or "") for key in ("trusted_run_id", "trusted_task_id")
+        ).strip()
+        if subject:
+            for probe in sorted(self.run_markers, key=len, reverse=True):
+                if probe and probe in subject:
+                    return self.run_markers[probe]
         first = messages[0] if messages else None
         blocks = getattr(first, "content", ()) or ()
         text = "\n".join(str(getattr(block, "text", "")) for block in blocks)
@@ -140,7 +161,12 @@ class StageFScriptedAdapter(FakeAdapter):
         super().__init__(responses=[])
         self.run = run
         self.model_name = run.model_name
-        self._name = name
+        # AnyCode keys its process-wide provider capacity registry by ``adapter.name`` and refuses
+        # a second registration whose limits differ. Four arms of one dispatch share a factory but
+        # have different limits, so the name must be unique per *instance*, not per run: otherwise
+        # the second arm fails before its first request and looks like a model that produced
+        # nothing.
+        self._name = f"{name}-{uuid.uuid4().hex[:8]}"
 
     @property
     def name(self) -> str:
@@ -148,11 +174,11 @@ class StageFScriptedAdapter(FakeAdapter):
 
     async def chat(self, messages: list[LLMMessage], options: LLMChatOptions) -> LLMResponse:
         started = time.perf_counter()
-        marker = self.run.marker_for(messages)
+        identity = agent_identity(options)
+        marker = self.run.marker_for(messages, identity)
         tool_name, payload = self.run.next_step(marker)
         request_text = message_text(messages)
         prompt_tokens = estimate_tokens(request_text)
-        identity = agent_identity(options)
         blocks: list[Any] = []
         text = ""
         if tool_name:

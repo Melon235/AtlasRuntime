@@ -240,12 +240,13 @@ def test_a_directory_declaration_covers_the_files_below_it() -> None:
     assert not path_matches("slugify.py", ("tests/**",))
 
 
-def test_the_scripted_provider_identifies_itself_per_run() -> None:
-    """Two runs that both called themselves ``fake`` collided in AnyCode's capacity registry.
+def test_the_scripted_provider_identifies_itself_per_instance() -> None:
+    """Two adapters that both called themselves ``fake`` collided in AnyCode's capacity registry.
 
-    The second run failed before its first request with
+    The second one failed before its first request with
     ``ProviderCapacityConfigurationError: Provider capacity scope 'fake' already uses different
-    limits``, which the agent loop reported as an empty success.
+    limits``, which the agent loop reported as an empty success. Four arms of one dispatch share a
+    factory but have different limits, so the name has to be unique per instance, not per run.
     """
 
     from experiments.stage_f import scripted
@@ -253,9 +254,11 @@ def test_the_scripted_provider_identifies_itself_per_run() -> None:
     run_a = scripted.ScriptedRun(scripts={"main": [("bash", {"command": "echo a"})]})
     run_b = scripted.ScriptedRun(scripts={"main": [("bash", {"command": "echo b"})]})
     first = scripted.factory_for(run_a, "proof-a")()
-    second = scripted.factory_for(run_b, "proof-b")()
-    assert first.name == "proof-a"
-    assert second.name == "proof-b"
+    second = scripted.factory_for(run_a, "proof-a")()
+    third = scripted.factory_for(run_b, "proof-b")()
+    assert first.name.startswith("proof-a-")
+    assert third.name.startswith("proof-b-")
+    # Two instances of the same factory name must not share a capacity scope.
     assert first.name != second.name
 
 

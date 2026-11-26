@@ -1,15 +1,15 @@
 {
   "stage": "F",
   "kind": "p1_four_arm_compatibility_smoke",
-  "generated_at": "2026-11-26T09:58:34Z",
+  "generated_at": "2026-11-26T11:01:19Z",
   "executor_version": "bplus-executor-1.9",
-  "executor_digest": "sha256:9ca0a48d3e467edff4c1d75baaf7363a64243f08bdcc1fb3c6f00e1666941f08",
-  "repo_head": "0b466ba991023987c68b00792494c7e97bfe903a",
+  "executor_digest": "sha256:a8ae6eac7cdbf68f97974a1dcb1615439f1e603c66db3e7dea6312ef304fa376",
+  "repo_head": "5e26ebadb8922814d35e784ab1a517c621de7214",
   "task_id": "f-p1-connector-migration",
   "plan": {
     "plan_id": "stage-f-p1-compat-smoke",
     "scope": "F_P1_COMPAT_SMOKE",
-    "plan_digest": "sha256:74ab1ea435b6a2f2d8956e9662dcd5d0ebffbfef0bbdee5d26a72383c312f18d",
+    "plan_digest": "sha256:3ca34152c8417a40101284e2c2b0b84af436b552292ec5d8b74d009a87dd7e92",
     "cells": [
       "f.f-p1-connector-migration.A0.r1",
       "f.f-p1-connector-migration.A1.r1",
@@ -20,6 +20,12 @@
     "claim_root": "isolated offline claim (no production claim consumed)"
   },
   "provider": "deterministic scripted provider (no model call)",
+  "routing": {
+    "cell_runner_injected": false,
+    "provider_seam": "executor.RunnerConfig.llm_factory",
+    "selection": "executor.cell_runner_for (declared execution_mode)",
+    "note": "the four cells were dispatched with no cell_runner, so each one was routed by the production selection into its mode's runner"
+  },
   "dispatch": {
     "complete": true,
     "cells_planned": 4,
@@ -27,31 +33,44 @@
     "cells_passed": 4,
     "stop_reason": "NONE",
     "usage_completeness": "COMPLETE",
-    "total_tokens": 157356,
-    "total_cost_usd": 0.063391,
+    "total_tokens": 157313,
+    "total_cost_usd": 0.063355,
+    "success_counts": {
+      "cells_started": 4,
+      "executor_verdict_pass": 4,
+      "agent_completed": 4,
+      "oracle_pass": 4,
+      "execution_integrity_pass": 4,
+      "public_test_pass": 2,
+      "public_test_fail": 0,
+      "delivered_success": 4,
+      "delivered_success_measured": true,
+      "definition": "delivered_success = independent oracle PASS and normal agent completion and execution integrity PASS. The oracle verdict, agent completion, integrity, the public suite and the executor verdict are counted separately; cells_passed is the executor verdict and is never read as a delivered-success count."
+    },
+    "success_definition": "delivered_success = independent oracle PASS and normal agent completion and execution integrity PASS. The oracle verdict, agent completion, integrity, the public suite and the executor verdict are counted separately; cells_passed is the executor verdict and is never read as a delivered-success count.",
     "ledger": [
       {
         "cell_id": "f.f-p1-connector-migration.A0.r1",
         "verdict": "PASS",
-        "cost_usd": 0.017017,
+        "cost_usd": 0.017015,
         "stops": []
       },
       {
         "cell_id": "f.f-p1-connector-migration.A1.r1",
         "verdict": "PASS",
-        "cost_usd": 0.034079,
+        "cost_usd": 0.034072,
         "stops": []
       },
       {
         "cell_id": "f.f-p1-connector-migration.A2.r1",
         "verdict": "PASS",
-        "cost_usd": 0.048286,
+        "cost_usd": 0.048271,
         "stops": []
       },
       {
         "cell_id": "f.f-p1-connector-migration.A3.r1",
         "verdict": "PASS",
-        "cost_usd": 0.063391,
+        "cost_usd": 0.063355,
         "stops": []
       }
     ]
@@ -87,150 +106,156 @@
       "provider": {
         "model": "scripted-stage-f",
         "scripts": {
-          "main": 11
+          "a0-main": 11
         },
         "markers": {
-          "main": "You are the only worker on this task"
+          "a0-main": "You are the only worker on this task",
+          "a1-main": "The ingest layer is moving to the frozen v2 connector contra",
+          "a2-csv": "[YOUR ASSIGNMENT — worker csv]",
+          "a2-integrate": "[YOUR ASSIGNMENT — worker integrate]",
+          "a2-jsonl": "[YOUR ASSIGNMENT — worker jsonl]",
+          "a3-main": "The ingest layer is moving to the frozen v2 connector contra"
         },
         "requests": [
           {
             "index": 0,
-            "script": "main",
+            "script": "a0-main",
             "tool": "file_write",
             "prompt_chars": 1888,
             "prompt_tokens": 472,
             "completion_tokens": 476,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.044
+            "latency_ms": 0.089
           },
           {
             "index": 1,
-            "script": "main",
+            "script": "a0-main",
             "tool": "file_write",
             "prompt_chars": 3791,
             "prompt_tokens": 948,
             "completion_tokens": 882,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.116
+            "latency_ms": 0.104
           },
           {
             "index": 2,
-            "script": "main",
+            "script": "a0-main",
             "tool": "file_write",
             "prompt_chars": 7321,
             "prompt_tokens": 1831,
             "completion_tokens": 568,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.111
+            "latency_ms": 0.131
           },
           {
             "index": 3,
-            "script": "main",
+            "script": "a0-main",
             "tool": "file_write",
             "prompt_chars": 9593,
             "prompt_tokens": 2399,
             "completion_tokens": 645,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.142
+            "latency_ms": 0.16
           },
           {
             "index": 4,
-            "script": "main",
+            "script": "a0-main",
             "tool": "file_write",
             "prompt_chars": 12172,
             "prompt_tokens": 3043,
             "completion_tokens": 643,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.124
+            "latency_ms": 0.162
           },
           {
             "index": 5,
-            "script": "main",
+            "script": "a0-main",
             "tool": "file_write",
             "prompt_chars": 14745,
             "prompt_tokens": 3687,
             "completion_tokens": 227,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.158
+            "latency_ms": 0.164
           },
           {
             "index": 6,
-            "script": "main",
+            "script": "a0-main",
             "tool": "file_write",
             "prompt_chars": 15653,
             "prompt_tokens": 3914,
             "completion_tokens": 486,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.152
+            "latency_ms": 0.197
           },
           {
             "index": 7,
-            "script": "main",
+            "script": "a0-main",
             "tool": "file_write",
             "prompt_chars": 17596,
             "prompt_tokens": 4399,
             "completion_tokens": 189,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.225
+            "latency_ms": 0.218
           },
           {
             "index": 8,
-            "script": "main",
+            "script": "a0-main",
             "tool": "file_write",
             "prompt_chars": 18352,
             "prompt_tokens": 4588,
             "completion_tokens": 154,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.239
+            "latency_ms": 0.266
           },
           {
             "index": 9,
-            "script": "main",
+            "script": "a0-main",
             "tool": "list_files",
             "prompt_chars": 18969,
             "prompt_tokens": 4743,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.236
+            "latency_ms": 0.284
           },
           {
             "index": 10,
-            "script": "main",
+            "script": "a0-main",
             "tool": "bash",
             "prompt_chars": 18984,
             "prompt_tokens": 4746,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.248
+            "latency_ms": 0.31
           },
           {
             "index": 11,
-            "script": "main",
+            "script": "a0-main",
             "tool": null,
             "prompt_chars": 19046,
             "prompt_tokens": 4762,
-            "completion_tokens": 9,
+            "completion_tokens": 7,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.249
+            "latency_ms": 0.209
           }
         ],
         "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-        "cache_split": "structural zero: this provider has no prompt cache"
+        "cache_split": "structural zero: this provider has no prompt cache",
+        "scope": "the rows this arm's own scripts answered"
       },
       "container": {
         "agent": {
           "provider": "opensandbox",
-          "sandbox_id": "d74dd41f-9988-41a3-8efb-2eb9723c8273",
+          "sandbox_id": "2dd407b9-b34d-466e-ae20-8fc8b9bbd72d",
           "image": "atlas-uat-python:3.12",
           "network": "none",
           "workspace_root": "/workspace/project",
-          "source_commit": "35560629697d4cc6f54cd1f9fbba0e4fe60fcec9",
-          "source_digest": "sha256:b7d87006fbf1c750eca660a4bd9ed6efaeb42fb76830a0504f1c68164c4ac636",
+          "source_commit": "2d3394edc946926335895d3a9bb2627d1b7b19d7",
+          "source_digest": "sha256:d532fb1540fee178dc9a9f84f3aba28e95f4484c0e2e29c25b0061397b03f94a",
           "provision_commands": 4,
           "provision_uploads": 1,
           "timings_ms": {
-            "provision_ms": 4374.118,
-            "isolation_ms": 4294.032
+            "provision_ms": 4362.338,
+            "isolation_ms": 4305.15
           },
           "isolation": {
             "workspace_preparation_mode": "public_fixture_clone",
@@ -249,12 +274,12 @@
           }
         },
         "oracle": {
-          "sandbox_id": "0ed52537-9739-48ea-99a9-212a79124548",
+          "sandbox_id": "9c7aa001-6a72-476e-8257-bd8b3f1d2570",
           "mode": "sandbox",
           "cleanup_failure": null
         },
         "created_and_destroyed": {
-          "sandbox_id": "d74dd41f-9988-41a3-8efb-2eb9723c8273",
+          "sandbox_id": "2dd407b9-b34d-466e-ae20-8fc8b9bbd72d",
           "created": true,
           "destroyed": true,
           "provider": "opensandbox",
@@ -263,18 +288,18 @@
         }
       },
       "raw_result": {
-        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d\\result.json",
+        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-5b930bad382a\\result.json",
         "basename": "result.json",
         "found": true,
-        "bytes": 39091,
-        "digest": "sha256:sha256:4e1f6593b360830146d321e6211483725c4af47b39c0e4b3a7243222fe42286e"
+        "bytes": 39071,
+        "digest": "sha256:sha256:29d2e23e26b0b61b1c949cd2f8f229db4714d79aaa7a9cac32955316e37e9cb1"
       },
       "workspace_export": {
-        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d\\workspace",
-        "patch_digest": "sha256:58ba415bb1877562d1baa432bf65f0d92e6adb68d20cad0e63db111642edcb87",
+        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-5b930bad382a\\workspace",
+        "patch_digest": "sha256:165c326b33f1f79bac6b080d56f7e0d89fd8d8e1b69966054e0b5c7e50922f2b",
         "analysis_export": {
-          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d\\workspace",
-          "patch_digest": "sha256:58ba415bb1877562d1baa432bf65f0d92e6adb68d20cad0e63db111642edcb87",
+          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-5b930bad382a\\workspace",
+          "patch_digest": "sha256:165c326b33f1f79bac6b080d56f7e0d89fd8d8e1b69966054e0b5c7e50922f2b",
           "sandbox_created": true,
           "sandbox_destroyed": true,
           "directory_digest": "sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd",
@@ -330,10 +355,10 @@
             "worker_contract": {},
             "hidden_tests": {
               "returncode": 0,
-              "stdout_tail": "........................................                                 [100%]\n40 passed in 0.08s",
+              "stdout_tail": "........................................                                 [100%]\n40 passed in 0.10s",
               "stderr_tail": "",
               "failure_kind": "HIDDEN_TESTS_PASSED",
-              "sandbox_id": "0ed52537-9739-48ea-99a9-212a79124548"
+              "sandbox_id": "9c7aa001-6a72-476e-8257-bd8b3f1d2570"
             },
             "digests": {
               "oracle_contract_digest": "7cff8202c6d6d5f39aa64f22f3a012273e9cdec1774ec78974608e97e4a0547b",
@@ -355,15 +380,15 @@
             "oracle_workspace_digest": "6be159df419c3329c87490faf71c63ccb08dfd7a8fd45403d2afe9d9241d3398"
           },
           "timings_ms": {
-            "creation_ms": 2344.441,
-            "upload_ms": 922.185,
-            "execution_ms": 1355.593,
-            "cleanup_ms": 769.045,
-            "total_ms": 5394.92
+            "creation_ms": 2634.411,
+            "upload_ms": 918.778,
+            "execution_ms": 1399.235,
+            "cleanup_ms": 858.587,
+            "total_ms": 5815.464
           },
           "status": "PASS"
         },
-        "sandbox_id": "0ed52537-9739-48ea-99a9-212a79124548"
+        "sandbox_id": "9c7aa001-6a72-476e-8257-bd8b3f1d2570"
       },
       "normalized": {
         "usage": {
@@ -371,11 +396,11 @@
           "children": "NOT_APPLICABLE",
           "primary_agent": {
             "prompt_tokens": 39532,
-            "completion_tokens": 4298,
+            "completion_tokens": 4296,
             "cache_hit_tokens": null,
             "cache_miss_tokens": null
           },
-          "system_total_tokens": 43830,
+          "system_total_tokens": 43828,
           "requests": {
             "main": 12,
             "children": "NOT_APPLICABLE",
@@ -386,7 +411,7 @@
           "accounting": "provider-reported (InferenceObservation.usage)",
           "budget": {
             "limit_tokens": 1000000,
-            "used_tokens": 43830,
+            "used_tokens": 43828,
             "stop_reason": null,
             "admission_rejections": 0,
             "enforcement": "pre_admission_guard"
@@ -480,7 +505,7 @@
           {
             "check": "artifact_exported",
             "ok": true,
-            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-8d4ca547bc8d\\\\workspace'"
+            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-5b930bad382a\\\\workspace'"
           },
           {
             "check": "usage_complete",
@@ -494,21 +519,41 @@
         "public_test_runs": null,
         "execution_integrity": "PASS",
         "delivered_success": true,
-        "oracle_status": "PASS"
+        "oracle_status": "PASS",
+        "cost_basis": {
+          "cache_split": "UNKNOWN",
+          "child_cache_split": "COMPLETE",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        }
       },
       "settlement": {
         "usage_fields": {
           "main_cumulative_input_tokens": 39532,
-          "main_completion_tokens": 4298,
+          "main_completion_tokens": 4296,
           "child_total_prompt_tokens": 0,
           "child_completion_tokens": 0,
-          "system_total_tokens": 43830
+          "system_total_tokens": 43828
         },
-        "delta_cost_usd": 0.0170172,
-        "cumulative_cost_usd": 0.017017,
-        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+        "delta_cost_usd": 0.0170148,
+        "cumulative_cost_usd": 0.017015,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters",
+        "cache_basis": {
+          "cache_split": "UNKNOWN",
+          "child_cache_split": "COMPLETE",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        }
       },
-      "duration_s": 31.42200000002049,
+      "duration_s": 31.95299999997951,
+      "routing": {
+        "declared_execution_mode": "native",
+        "resolved_runner": "native",
+        "is_stage_f_runner": true,
+        "cell_runner_injected": false
+      },
       "checks": [
         {
           "check": "cell_passed_audit",
@@ -523,12 +568,12 @@
         {
           "check": "workspace_exported",
           "ok": true,
-          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-8d4ca547bc8d\\\\workspace'"
+          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-5b930bad382a\\\\workspace'"
         },
         {
           "check": "usage_complete",
           "ok": true,
-          "detail": "blocks=1 system_total=43830"
+          "detail": "blocks=1 system_total=43828"
         },
         {
           "check": "provider_answered",
@@ -568,7 +613,12 @@
         {
           "check": "delivered_success_consistent",
           "ok": true,
-          "detail": "delivered=True expected=True verdict='PASS'"
+          "detail": "delivered=True expected=True verdict='PASS' public='NOT_APPLICABLE'"
+        },
+        {
+          "check": "routed_by_production_selection",
+          "ok": true,
+          "detail": "declared='native' resolved='native' stage_f=True"
         }
       ],
       "integrity": {
@@ -579,7 +629,7 @@
           {
             "check": "run_identity",
             "status": "PASS",
-            "detail": "cell='f.f-p1-connector-migration.A0.r1' plan='stage-f-p1-compat-smoke' run='native-8d4ca547bc8d' expected=None",
+            "detail": "cell='f.f-p1-connector-migration.A0.r1' plan='stage-f-p1-compat-smoke' run='native-5b930bad382a' expected=None",
             "affects_verdict": true
           },
           {
@@ -591,7 +641,7 @@
           {
             "check": "raw_evidence",
             "status": "PASS",
-            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d\\result.json",
+            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-5b930bad382a\\result.json",
             "affects_verdict": true
           },
           {
@@ -603,7 +653,7 @@
           {
             "check": "final_export",
             "status": "PASS",
-            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-8d4ca547bc8d\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-5b930bad382a\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
             "affects_verdict": true
           },
           {
@@ -621,13 +671,13 @@
           {
             "check": "oracle_binding",
             "status": "PASS",
-            "detail": "mode='sandbox' sandbox='0ed52537-9739-48ea-99a9-212a79124548' scored the exported directory; export_files=17",
+            "detail": "mode='sandbox' sandbox='9c7aa001-6a72-476e-8257-bd8b3f1d2570' scored the exported directory; export_files=17",
             "affects_verdict": true
           },
           {
             "check": "oracle_isolation",
             "status": "PASS",
-            "detail": "oracle='0ed52537-9739-48ea-99a9-212a79124548' agent='d74dd41f-9988-41a3-8efb-2eb9723c8273' agent_destroyed=True (two recorded sandbox ids)",
+            "detail": "oracle='9c7aa001-6a72-476e-8257-bd8b3f1d2570' agent='2dd407b9-b34d-466e-ae20-8fc8b9bbd72d' agent_destroyed=True (two recorded sandbox ids)",
             "affects_verdict": true
           },
           {
@@ -670,7 +720,7 @@
           "added": [],
           "removed": []
         },
-        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d",
+        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-5b930bad382a",
         "basis": "the eleven common checks; architecture-specific rows never cancel one"
       },
       "requests": {
@@ -712,189 +762,194 @@
       "provider": {
         "model": "scripted-stage-f",
         "scripts": {
-          "main": 12
+          "a1-main": 12
         },
         "markers": {
-          "main": "The ingest layer is moving to the frozen v2 connector contra"
+          "a0-main": "You are the only worker on this task",
+          "a1-main": "The ingest layer is moving to the frozen v2 connector contra",
+          "a2-csv": "[YOUR ASSIGNMENT — worker csv]",
+          "a2-integrate": "[YOUR ASSIGNMENT — worker integrate]",
+          "a2-jsonl": "[YOUR ASSIGNMENT — worker jsonl]",
+          "a3-main": "The ingest layer is moving to the frozen v2 connector contra"
         },
         "requests": [
           {
-            "index": 0,
-            "script": "main",
+            "index": 12,
+            "script": "a1-main",
             "tool": "file_write",
             "prompt_chars": 440,
             "prompt_tokens": 110,
             "completion_tokens": 476,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.099,
+            "latency_ms": 0.056,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 1,
-            "script": "main",
+            "index": 13,
+            "script": "a1-main",
             "tool": "file_write",
             "prompt_chars": 2343,
             "prompt_tokens": 586,
             "completion_tokens": 882,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.091,
+            "latency_ms": 0.092,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 2,
-            "script": "main",
+            "index": 14,
+            "script": "a1-main",
             "tool": "file_write",
             "prompt_chars": 5873,
             "prompt_tokens": 1469,
             "completion_tokens": 568,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.104,
+            "latency_ms": 0.108,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 3,
-            "script": "main",
+            "index": 15,
+            "script": "a1-main",
             "tool": "file_write",
             "prompt_chars": 8145,
             "prompt_tokens": 2037,
             "completion_tokens": 645,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.109,
+            "latency_ms": 0.158,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 4,
-            "script": "main",
+            "index": 16,
+            "script": "a1-main",
             "tool": "file_write",
             "prompt_chars": 10724,
             "prompt_tokens": 2681,
             "completion_tokens": 643,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.136,
+            "latency_ms": 0.131,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 5,
-            "script": "main",
+            "index": 17,
+            "script": "a1-main",
             "tool": "file_write",
             "prompt_chars": 13297,
             "prompt_tokens": 3325,
             "completion_tokens": 227,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.247,
+            "latency_ms": 0.131,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 6,
-            "script": "main",
+            "index": 18,
+            "script": "a1-main",
             "tool": "file_write",
             "prompt_chars": 14205,
             "prompt_tokens": 3552,
             "completion_tokens": 486,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.147,
+            "latency_ms": 0.198,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 7,
-            "script": "main",
+            "index": 19,
+            "script": "a1-main",
             "tool": "file_write",
             "prompt_chars": 16148,
             "prompt_tokens": 4037,
             "completion_tokens": 189,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.221,
+            "latency_ms": 0.244,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 8,
-            "script": "main",
+            "index": 20,
+            "script": "a1-main",
             "tool": "file_write",
             "prompt_chars": 16904,
             "prompt_tokens": 4226,
             "completion_tokens": 154,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.173,
+            "latency_ms": 0.199,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 9,
-            "script": "main",
+            "index": 21,
+            "script": "a1-main",
             "tool": "list_files",
             "prompt_chars": 17521,
             "prompt_tokens": 4381,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.166,
+            "latency_ms": 0.281,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 10,
-            "script": "main",
+            "index": 22,
+            "script": "a1-main",
             "tool": "bash",
             "prompt_chars": 17536,
             "prompt_tokens": 4384,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.191,
+            "latency_ms": 0.194,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 11,
-            "script": "main",
+            "index": 23,
+            "script": "a1-main",
             "tool": "run_public_tests",
             "prompt_chars": 17598,
             "prompt_tokens": 4400,
             "completion_tokens": 17,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.165,
+            "latency_ms": 0.179,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c02"
           },
           {
-            "index": 12,
-            "script": "main",
+            "index": 24,
+            "script": "a1-main",
             "tool": null,
             "prompt_chars": 17667,
             "prompt_tokens": 4417,
-            "completion_tokens": 11,
+            "completion_tokens": 7,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.239,
+            "latency_ms": 0.178,
             "trusted_task_id": "bplus-c02-main",
             "trusted_worker_id": "bplus-c02-main-worker",
             "trusted_profile_id": null,
@@ -902,7 +957,8 @@
           }
         ],
         "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-        "cache_split": "structural zero: this provider has no prompt cache"
+        "cache_split": "structural zero: this provider has no prompt cache",
+        "scope": "the rows this arm's own scripts answered"
       },
       "container": {
         "agent": {
@@ -927,8 +983,8 @@
             ]
           },
           "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
-          "binding_id": "b4abca95bcfad35fbbe7b2cf542522a47aea49055612801042c9183425c7656c",
-          "sandbox_id": "d1bdcfd5-0116-4859-9b45-a992d96adea7",
+          "binding_id": "26f26bd61d2e7135b6fc0acc4bcd8ac4d8d7481a8dce960a81825e9fc62a0d25",
+          "sandbox_id": "6b7babd6-6f39-44e8-a8f0-9373af5f2445",
           "binding_state": "READY",
           "workspace_root": "/workspace/project",
           "network_probe": "PASS",
@@ -944,7 +1000,7 @@
           "retained": false,
           "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
           "patch_changed_files": 9,
-          "export_digest": "sha256:9e01b71e68f292dde6cabd8818d7004131d954c4c638bcaead2d4b2c54ae139e",
+          "export_digest": "sha256:242263e9ba3c99e816e188d59e485ccc48a9d6adf363c0a267724d79be31c703",
           "export_files": 17,
           "export_size_bytes": 71680,
           "check_runs": 1,
@@ -952,12 +1008,12 @@
           "error": null
         },
         "oracle": {
-          "sandbox_id": "1c7c161b-bc7b-42b4-b44a-7127d86f8914",
+          "sandbox_id": "a0512f59-94ad-433f-a9d1-76922c5e5353",
           "mode": "sandbox",
           "cleanup_failure": null
         },
         "created_and_destroyed": {
-          "sandbox_id": "d1bdcfd5-0116-4859-9b45-a992d96adea7",
+          "sandbox_id": "6b7babd6-6f39-44e8-a8f0-9373af5f2445",
           "created": true,
           "destroyed": true,
           "provider": "opensandbox",
@@ -966,21 +1022,21 @@
         }
       },
       "raw_result": {
-        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\session.json",
+        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c02\\agent\\bplus-c02\\session.json",
         "basename": "session.json",
         "found": true,
-        "bytes": 17949,
-        "digest": "sha256:sha256:6dc8a0dd60e214506907ca8d74c1a2ca742c161a8661940ee67c09682f773f2a"
+        "bytes": 17915,
+        "digest": "sha256:sha256:7426d48ea9b072fcaeda57476cff5b034cd36caddf293a8c25413e30cd0e45ae"
       },
       "workspace_export": {
-        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace",
+        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace",
         "patch_digest": null,
         "analysis_export": {
-          "patch_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace.patch",
+          "patch_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace.patch",
           "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
           "patch_changed_files": 9,
-          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace",
-          "workspace_digest": "sha256:9e01b71e68f292dde6cabd8818d7004131d954c4c638bcaead2d4b2c54ae139e",
+          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace",
+          "workspace_digest": "sha256:242263e9ba3c99e816e188d59e485ccc48a9d6adf363c0a267724d79be31c703",
           "workspace_files": 17,
           "workspace_size_bytes": 71680,
           "directory_digest": "sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd",
@@ -1000,14 +1056,14 @@
           "environment_failure": false,
           "cleanup_failure": null,
           "execution_mode": "sandbox",
-          "sandbox_id": "1c7c161b-bc7b-42b4-b44a-7127d86f8914",
+          "sandbox_id": "a0512f59-94ad-433f-a9d1-76922c5e5353",
           "returncode": 0,
           "timings_ms": {
-            "creation_ms": 2369.917,
-            "upload_ms": 905.809,
-            "execution_ms": 1366.905,
-            "cleanup_ms": 726.136,
-            "total_ms": 5372.163
+            "creation_ms": 2400.485,
+            "upload_ms": 930.234,
+            "execution_ms": 1391.139,
+            "cleanup_ms": 723.969,
+            "total_ms": 5451.228
           },
           "image": "atlas-uat-python:3.12",
           "workspace_files": 17,
@@ -1016,13 +1072,13 @@
           "source": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
           "fixture_after_run": "9f21c5bf890a0d1a8d0297db283e6910887f928a532df8ceb0985bccd505cfd4"
         },
-        "sandbox_id": "1c7c161b-bc7b-42b4-b44a-7127d86f8914"
+        "sandbox_id": "a0512f59-94ad-433f-a9d1-76922c5e5353"
       },
       "normalized": {
         "usage": {
           "main": {
             "prompt_tokens": 39605,
-            "completion_tokens": 4317,
+            "completion_tokens": 4313,
             "cache_hit_tokens": 0,
             "cache_miss_tokens": 39605
           },
@@ -1032,7 +1088,7 @@
             "cache_hit_tokens": null,
             "cache_miss_tokens": null
           },
-          "system_total_tokens": 43922,
+          "system_total_tokens": 43918,
           "requests": {
             "main": 13,
             "children": "NOT_APPLICABLE",
@@ -1043,7 +1099,7 @@
           "accounting": "provider-reported per request (Atlas UsageAttributionHook)",
           "budget": {
             "limit_tokens": 1000000,
-            "used_tokens": 43922,
+            "used_tokens": 43918,
             "stop_reason": null,
             "admission_rejections": 0,
             "enforcement": "pre_admission_guard"
@@ -1149,7 +1205,7 @@
           {
             "check": "artifact_exported",
             "ok": true,
-            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace'"
+            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace'"
           },
           {
             "check": "usage_complete",
@@ -1163,21 +1219,41 @@
         "public_test_runs": 1,
         "execution_integrity": "PASS",
         "delivered_success": true,
-        "oracle_status": "PASS"
+        "oracle_status": "PASS",
+        "cost_basis": {
+          "cache_split": "COMPLETE",
+          "child_cache_split": "COMPLETE",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        }
       },
       "settlement": {
         "usage_fields": {
           "main_cumulative_input_tokens": 79137,
-          "main_completion_tokens": 8615,
+          "main_completion_tokens": 8609,
           "child_total_prompt_tokens": 0,
           "child_completion_tokens": 0,
-          "system_total_tokens": 87752
+          "system_total_tokens": 87746
         },
-        "delta_cost_usd": 0.0170619,
-        "cumulative_cost_usd": 0.034079,
-        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+        "delta_cost_usd": 0.0170571,
+        "cumulative_cost_usd": 0.034072,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters",
+        "cache_basis": {
+          "cache_split": "COMPLETE",
+          "child_cache_split": "COMPLETE",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        }
       },
-      "duration_s": 36.625,
+      "duration_s": 36.65600000001723,
+      "routing": {
+        "declared_execution_mode": "atlas_direct",
+        "resolved_runner": "main_driven",
+        "is_stage_f_runner": true,
+        "cell_runner_injected": false
+      },
       "checks": [
         {
           "check": "cell_passed_audit",
@@ -1192,12 +1268,12 @@
         {
           "check": "workspace_exported",
           "ok": true,
-          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace'"
+          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace'"
         },
         {
           "check": "usage_complete",
           "ok": true,
-          "detail": "blocks=2 system_total=43922"
+          "detail": "blocks=2 system_total=43918"
         },
         {
           "check": "provider_answered",
@@ -1247,7 +1323,12 @@
         {
           "check": "delivered_success_consistent",
           "ok": true,
-          "detail": "delivered=True expected=True verdict='PASS'"
+          "detail": "delivered=True expected=True verdict='PASS' public='PASS'"
+        },
+        {
+          "check": "routed_by_production_selection",
+          "ok": true,
+          "detail": "declared='atlas_direct' resolved='main_driven' stage_f=True"
         }
       ],
       "integrity": {
@@ -1270,7 +1351,7 @@
           {
             "check": "raw_evidence",
             "status": "PASS",
-            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\session.json",
+            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c02\\agent\\bplus-c02\\session.json",
             "affects_verdict": true
           },
           {
@@ -1282,7 +1363,7 @@
           {
             "check": "final_export",
             "status": "PASS",
-            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
             "affects_verdict": true
           },
           {
@@ -1300,13 +1381,13 @@
           {
             "check": "oracle_binding",
             "status": "PASS",
-            "detail": "mode='sandbox' sandbox='1c7c161b-bc7b-42b4-b44a-7127d86f8914' scored_files=17 export_files=17",
+            "detail": "mode='sandbox' sandbox='a0512f59-94ad-433f-a9d1-76922c5e5353' scored_files=17 export_files=17",
             "affects_verdict": true
           },
           {
             "check": "oracle_isolation",
             "status": "PASS",
-            "detail": "oracle='1c7c161b-bc7b-42b4-b44a-7127d86f8914' agent='d1bdcfd5-0116-4859-9b45-a992d96adea7' agent_destroyed=True (two recorded sandbox ids)",
+            "detail": "oracle='a0512f59-94ad-433f-a9d1-76922c5e5353' agent='6b7babd6-6f39-44e8-a8f0-9373af5f2445' agent_destroyed=True (two recorded sandbox ids)",
             "affects_verdict": true
           },
           {
@@ -1349,7 +1430,7 @@
           "added": [],
           "removed": []
         },
-        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02",
+        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c02\\agent\\bplus-c02",
         "basis": "the eleven common checks; architecture-specific rows never cancel one"
       },
       "requests": {
@@ -1391,276 +1472,280 @@
       "provider": {
         "model": "scripted-stage-f",
         "scripts": {
-          "csv": 4,
-          "integrate": 7,
-          "jsonl": 4
+          "a2-csv": 4,
+          "a2-integrate": 7,
+          "a2-jsonl": 4
         },
         "markers": {
-          "csv": "[YOUR ASSIGNMENT — worker csv]",
-          "integrate": "[YOUR ASSIGNMENT — worker integrate]",
-          "jsonl": "[YOUR ASSIGNMENT — worker jsonl]"
+          "a0-main": "You are the only worker on this task",
+          "a1-main": "The ingest layer is moving to the frozen v2 connector contra",
+          "a2-csv": "[YOUR ASSIGNMENT — worker csv]",
+          "a2-integrate": "[YOUR ASSIGNMENT — worker integrate]",
+          "a2-jsonl": "[YOUR ASSIGNMENT — worker jsonl]",
+          "a3-main": "The ingest layer is moving to the frozen v2 connector contra"
         },
         "requests": [
           {
-            "index": 0,
-            "script": "csv",
+            "index": 25,
+            "script": "a2-csv",
             "tool": "file_write",
             "prompt_chars": 2282,
             "prompt_tokens": 571,
             "completion_tokens": 568,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.052,
-            "trusted_task_id": "eval-e18b73b76db7-csv",
-            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "latency_ms": 0.061,
+            "trusted_task_id": "eval-1dae5378a68f-csv",
+            "trusted_worker_id": "eval-1dae5378a68f-csv",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 1,
-            "script": "jsonl",
+            "index": 26,
+            "script": "a2-jsonl",
             "tool": "file_write",
             "prompt_chars": 2231,
             "prompt_tokens": 558,
             "completion_tokens": 227,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.084,
-            "trusted_task_id": "eval-e18b73b76db7-jsonl",
-            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "latency_ms": 0.063,
+            "trusted_task_id": "eval-1dae5378a68f-jsonl",
+            "trusted_worker_id": "eval-1dae5378a68f-jsonl",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 2,
-            "script": "csv",
+            "index": 27,
+            "script": "a2-csv",
             "tool": "file_write",
             "prompt_chars": 4554,
             "prompt_tokens": 1139,
             "completion_tokens": 645,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.103,
-            "trusted_task_id": "eval-e18b73b76db7-csv",
-            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "latency_ms": 0.121,
+            "trusted_task_id": "eval-1dae5378a68f-csv",
+            "trusted_worker_id": "eval-1dae5378a68f-csv",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 3,
-            "script": "jsonl",
+            "index": 28,
+            "script": "a2-jsonl",
             "tool": "file_write",
             "prompt_chars": 3139,
             "prompt_tokens": 785,
             "completion_tokens": 643,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.065,
-            "trusted_task_id": "eval-e18b73b76db7-jsonl",
-            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "latency_ms": 0.079,
+            "trusted_task_id": "eval-1dae5378a68f-jsonl",
+            "trusted_worker_id": "eval-1dae5378a68f-jsonl",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 4,
-            "script": "csv",
+            "index": 29,
+            "script": "a2-csv",
             "tool": "list_files",
             "prompt_chars": 7133,
             "prompt_tokens": 1784,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.084,
-            "trusted_task_id": "eval-e18b73b76db7-csv",
-            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "latency_ms": 0.083,
+            "trusted_task_id": "eval-1dae5378a68f-csv",
+            "trusted_worker_id": "eval-1dae5378a68f-csv",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 5,
-            "script": "jsonl",
+            "index": 30,
+            "script": "a2-jsonl",
             "tool": "list_files",
             "prompt_chars": 5712,
             "prompt_tokens": 1428,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.079,
-            "trusted_task_id": "eval-e18b73b76db7-jsonl",
-            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "latency_ms": 0.078,
+            "trusted_task_id": "eval-1dae5378a68f-jsonl",
+            "trusted_worker_id": "eval-1dae5378a68f-jsonl",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 6,
-            "script": "csv",
+            "index": 31,
+            "script": "a2-csv",
             "tool": "bash",
             "prompt_chars": 7148,
             "prompt_tokens": 1787,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.11,
-            "trusted_task_id": "eval-e18b73b76db7-csv",
-            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "latency_ms": 0.105,
+            "trusted_task_id": "eval-1dae5378a68f-csv",
+            "trusted_worker_id": "eval-1dae5378a68f-csv",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 7,
-            "script": "jsonl",
+            "index": 32,
+            "script": "a2-jsonl",
             "tool": "bash",
             "prompt_chars": 5727,
             "prompt_tokens": 1432,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.117,
-            "trusted_task_id": "eval-e18b73b76db7-jsonl",
-            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "latency_ms": 0.109,
+            "trusted_task_id": "eval-1dae5378a68f-jsonl",
+            "trusted_worker_id": "eval-1dae5378a68f-jsonl",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 8,
-            "script": "csv",
+            "index": 33,
+            "script": "a2-csv",
             "tool": null,
             "prompt_chars": 7210,
             "prompt_tokens": 1803,
-            "completion_tokens": 8,
+            "completion_tokens": 7,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.102,
-            "trusted_task_id": "eval-e18b73b76db7-csv",
-            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "latency_ms": 0.083,
+            "trusted_task_id": "eval-1dae5378a68f-csv",
+            "trusted_worker_id": "eval-1dae5378a68f-csv",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 9,
-            "script": "jsonl",
+            "index": 34,
+            "script": "a2-jsonl",
             "tool": null,
             "prompt_chars": 5789,
             "prompt_tokens": 1448,
-            "completion_tokens": 8,
+            "completion_tokens": 7,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.134,
-            "trusted_task_id": "eval-e18b73b76db7-jsonl",
-            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "latency_ms": 0.078,
+            "trusted_task_id": "eval-1dae5378a68f-jsonl",
+            "trusted_worker_id": "eval-1dae5378a68f-jsonl",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 10,
-            "script": "integrate",
+            "index": 35,
+            "script": "a2-integrate",
             "tool": "file_write",
-            "prompt_chars": 2608,
-            "prompt_tokens": 652,
+            "prompt_chars": 2600,
+            "prompt_tokens": 650,
             "completion_tokens": 476,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.043,
-            "trusted_task_id": "eval-e18b73b76db7-integrate",
-            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "latency_ms": 0.046,
+            "trusted_task_id": "eval-1dae5378a68f-integrate",
+            "trusted_worker_id": "eval-1dae5378a68f-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 11,
-            "script": "integrate",
+            "index": 36,
+            "script": "a2-integrate",
             "tool": "file_write",
-            "prompt_chars": 4511,
-            "prompt_tokens": 1128,
+            "prompt_chars": 4503,
+            "prompt_tokens": 1126,
             "completion_tokens": 882,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.067,
-            "trusted_task_id": "eval-e18b73b76db7-integrate",
-            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "latency_ms": 0.084,
+            "trusted_task_id": "eval-1dae5378a68f-integrate",
+            "trusted_worker_id": "eval-1dae5378a68f-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 12,
-            "script": "integrate",
+            "index": 37,
+            "script": "a2-integrate",
             "tool": "file_write",
-            "prompt_chars": 8041,
-            "prompt_tokens": 2011,
+            "prompt_chars": 8033,
+            "prompt_tokens": 2009,
             "completion_tokens": 189,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.087,
-            "trusted_task_id": "eval-e18b73b76db7-integrate",
-            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "latency_ms": 0.095,
+            "trusted_task_id": "eval-1dae5378a68f-integrate",
+            "trusted_worker_id": "eval-1dae5378a68f-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 13,
-            "script": "integrate",
+            "index": 38,
+            "script": "a2-integrate",
             "tool": "file_write",
-            "prompt_chars": 8797,
-            "prompt_tokens": 2200,
+            "prompt_chars": 8789,
+            "prompt_tokens": 2198,
             "completion_tokens": 486,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.152,
-            "trusted_task_id": "eval-e18b73b76db7-integrate",
-            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "latency_ms": 0.144,
+            "trusted_task_id": "eval-1dae5378a68f-integrate",
+            "trusted_worker_id": "eval-1dae5378a68f-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 14,
-            "script": "integrate",
+            "index": 39,
+            "script": "a2-integrate",
             "tool": "file_write",
-            "prompt_chars": 10740,
-            "prompt_tokens": 2685,
+            "prompt_chars": 10732,
+            "prompt_tokens": 2683,
             "completion_tokens": 154,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.109,
-            "trusted_task_id": "eval-e18b73b76db7-integrate",
-            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "latency_ms": 0.114,
+            "trusted_task_id": "eval-1dae5378a68f-integrate",
+            "trusted_worker_id": "eval-1dae5378a68f-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 15,
-            "script": "integrate",
+            "index": 40,
+            "script": "a2-integrate",
             "tool": "list_files",
-            "prompt_chars": 11357,
-            "prompt_tokens": 2840,
+            "prompt_chars": 11349,
+            "prompt_tokens": 2838,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.126,
-            "trusted_task_id": "eval-e18b73b76db7-integrate",
-            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "latency_ms": 0.182,
+            "trusted_task_id": "eval-1dae5378a68f-integrate",
+            "trusted_worker_id": "eval-1dae5378a68f-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 16,
-            "script": "integrate",
+            "index": 41,
+            "script": "a2-integrate",
             "tool": "bash",
-            "prompt_chars": 11372,
-            "prompt_tokens": 2843,
+            "prompt_chars": 11364,
+            "prompt_tokens": 2841,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.112,
-            "trusted_task_id": "eval-e18b73b76db7-integrate",
-            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "latency_ms": 0.142,
+            "trusted_task_id": "eval-1dae5378a68f-integrate",
+            "trusted_worker_id": "eval-1dae5378a68f-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           },
           {
-            "index": 17,
-            "script": "integrate",
+            "index": 42,
+            "script": "a2-integrate",
             "tool": null,
-            "prompt_chars": 11434,
-            "prompt_tokens": 2859,
-            "completion_tokens": 8,
+            "prompt_chars": 11426,
+            "prompt_tokens": 2857,
+            "completion_tokens": 7,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.108,
-            "trusted_task_id": "eval-e18b73b76db7-integrate",
-            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "latency_ms": 0.12,
+            "trusted_task_id": "eval-1dae5378a68f-integrate",
+            "trusted_worker_id": "eval-1dae5378a68f-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-e18b73b76db7"
+            "trusted_run_id": "eval-1dae5378a68f"
           }
         ],
         "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-        "cache_split": "structural zero: this provider has no prompt cache"
+        "cache_split": "structural zero: this provider has no prompt cache",
+        "scope": "the rows this arm's own scripts answered"
       },
       "container": {
         "agent": null,
         "oracle": {
-          "sandbox_id": "c8ef91fc-3a3b-4c9d-b8e6-2655f3945278",
+          "sandbox_id": "ffe2ffc6-de48-4071-8f16-e086674bfb10",
           "mode": "sandbox",
           "cleanup_failure": null
         },
@@ -1674,18 +1759,18 @@
         }
       },
       "raw_result": {
-        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7\\result.json",
+        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-1dae5378a68f\\result.json",
         "basename": "result.json",
         "found": true,
-        "bytes": 75385,
-        "digest": "sha256:sha256:d7665582a00f7a390bd6aeb93e44ae3d30f9bd57bbda03c942bfeaac2af37b9c"
+        "bytes": 75361,
+        "digest": "sha256:sha256:ab2330be44337048f925037d0db2baeca0adb17138b43d1d43626a6da1ac85c0"
       },
       "workspace_export": {
-        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7\\workspace",
-        "patch_digest": "sha256:1e0b76ecc939a7cf2cda364937b106c6ce1e76044a3cb8be6bb33aca713b8cc6",
+        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-1dae5378a68f\\workspace",
+        "patch_digest": "sha256:9fc9a61c8fd9dc3541456cb17ec33f2bfb5417700661c7a5f3457da55cdcb0b1",
         "analysis_export": {
-          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7\\workspace",
-          "patch_digest": "sha256:1e0b76ecc939a7cf2cda364937b106c6ce1e76044a3cb8be6bb33aca713b8cc6",
+          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-1dae5378a68f\\workspace",
+          "patch_digest": "sha256:9fc9a61c8fd9dc3541456cb17ec33f2bfb5417700661c7a5f3457da55cdcb0b1",
           "sandbox_created": true,
           "sandbox_destroyed": true,
           "directory_digest": "sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd",
@@ -1743,22 +1828,22 @@
             "worker_contract": {
               "expected_workers": 3,
               "successful_workers": [
-                "coding_worker:eval-e18b73b76db7-csv",
-                "coding_worker:eval-e18b73b76db7-jsonl",
-                "coding_worker:eval-e18b73b76db7-integrate"
+                "coding_worker:eval-1dae5378a68f-csv",
+                "coding_worker:eval-1dae5378a68f-jsonl",
+                "coding_worker:eval-1dae5378a68f-integrate"
               ],
               "worker_output_chars": {
-                "coding_worker:eval-e18b73b76db7-csv": 29,
-                "coding_worker:eval-e18b73b76db7-jsonl": 29,
-                "coding_worker:eval-e18b73b76db7-integrate": 29
+                "coding_worker:eval-1dae5378a68f-csv": 25,
+                "coding_worker:eval-1dae5378a68f-jsonl": 25,
+                "coding_worker:eval-1dae5378a68f-integrate": 25
               }
             },
             "hidden_tests": {
               "returncode": 0,
-              "stdout_tail": "........................................                                 [100%]\n40 passed in 0.08s",
+              "stdout_tail": "........................................                                 [100%]\n40 passed in 0.09s",
               "stderr_tail": "",
               "failure_kind": "HIDDEN_TESTS_PASSED",
-              "sandbox_id": "c8ef91fc-3a3b-4c9d-b8e6-2655f3945278"
+              "sandbox_id": "ffe2ffc6-de48-4071-8f16-e086674bfb10"
             },
             "digests": {
               "oracle_contract_digest": "7cff8202c6d6d5f39aa64f22f3a012273e9cdec1774ec78974608e97e4a0547b",
@@ -1780,26 +1865,26 @@
             "oracle_workspace_digest": "6be159df419c3329c87490faf71c63ccb08dfd7a8fd45403d2afe9d9241d3398"
           },
           "timings_ms": {
-            "creation_ms": 2380.857,
-            "upload_ms": 943.499,
-            "execution_ms": 1372.981,
-            "cleanup_ms": 841.805,
-            "total_ms": 5542.337
+            "creation_ms": 2579.298,
+            "upload_ms": 918.553,
+            "execution_ms": 1548.124,
+            "cleanup_ms": 785.752,
+            "total_ms": 5836.041
           },
           "status": "PASS"
         },
-        "sandbox_id": "c8ef91fc-3a3b-4c9d-b8e6-2655f3945278"
+        "sandbox_id": "ffe2ffc6-de48-4071-8f16-e086674bfb10"
       },
       "normalized": {
         "usage": {
           "main": "NOT_APPLICABLE",
           "children": {
-            "prompt_tokens": 29953,
-            "completion_tokens": 4351,
+            "prompt_tokens": 29937,
+            "completion_tokens": 4348,
             "cache_hit_tokens": null,
             "cache_miss_tokens": null
           },
-          "system_total_tokens": 34304,
+          "system_total_tokens": 34285,
           "requests": {
             "main": null,
             "children": 18,
@@ -1810,7 +1895,7 @@
           "accounting": "provider-reported per request (request_evidence.records)",
           "budget": {
             "limit_tokens": 1000000,
-            "used_tokens": 34304,
+            "used_tokens": 34285,
             "stop_reason": null,
             "admission_rejections": 0,
             "enforcement": "pre_admission_guard"
@@ -1821,8 +1906,8 @@
           "primary_agent_cumulative_input": "NOT_APPLICABLE",
           "main_peak_context": "NOT_APPLICABLE",
           "main_cumulative_input": "NOT_APPLICABLE",
-          "integration_node_context": 2859,
-          "system_max_agent_context": 2859,
+          "integration_node_context": 2857,
+          "system_max_agent_context": 2857,
           "per_request_input_tokens": [
             571,
             558,
@@ -1834,29 +1919,29 @@
             1432,
             1803,
             1448,
-            652,
-            1128,
-            2011,
-            2200,
-            2685,
-            2840,
-            2843,
-            2859
+            650,
+            1126,
+            2009,
+            2198,
+            2683,
+            2838,
+            2841,
+            2857
           ],
           "per_agent_peak_context_tokens": {
             "csv": 1803,
             "jsonl": 1448,
-            "integrate": 2859
+            "integrate": 2857
           },
           "agent_context_census": {
             "peaks": {
               "csv": 1803,
               "jsonl": 1448,
-              "integrate": 2859
+              "integrate": 2857
             },
             "complete": true,
             "missing_agents": [],
-            "system_max_agent_context": 2859,
+            "system_max_agent_context": 2857,
             "basis": "per-request provider-observed prompt size for every agent that ran"
           }
         },
@@ -1880,7 +1965,7 @@
           {
             "task_id": "csv",
             "depends_on": [],
-            "agent": "coding_worker:eval-e18b73b76db7-csv",
+            "agent": "coding_worker:eval-1dae5378a68f-csv",
             "success": true,
             "stop_reason": {
               "code": "success",
@@ -1890,7 +1975,7 @@
             "tool_calls": 4,
             "token_usage": {
               "input_tokens": 7084,
-              "output_tokens": 1240,
+              "output_tokens": 1239,
               "cache_creation_input_tokens": 0,
               "cache_read_input_tokens": 0
             },
@@ -1901,7 +1986,7 @@
           {
             "task_id": "jsonl",
             "depends_on": [],
-            "agent": "coding_worker:eval-e18b73b76db7-jsonl",
+            "agent": "coding_worker:eval-1dae5378a68f-jsonl",
             "success": true,
             "stop_reason": {
               "code": "success",
@@ -1911,7 +1996,7 @@
             "tool_calls": 4,
             "token_usage": {
               "input_tokens": 5651,
-              "output_tokens": 897,
+              "output_tokens": 896,
               "cache_creation_input_tokens": 0,
               "cache_read_input_tokens": 0
             },
@@ -1925,7 +2010,7 @@
               "csv",
               "jsonl"
             ],
-            "agent": "coding_worker:eval-e18b73b76db7-integrate",
+            "agent": "coding_worker:eval-1dae5378a68f-integrate",
             "success": true,
             "stop_reason": {
               "code": "success",
@@ -1934,12 +2019,12 @@
             },
             "tool_calls": 7,
             "token_usage": {
-              "input_tokens": 17218,
-              "output_tokens": 2214,
+              "input_tokens": 17202,
+              "output_tokens": 2213,
               "cache_creation_input_tokens": 0,
               "cache_read_input_tokens": 0
             },
-            "peak_context_tokens": 2859,
+            "peak_context_tokens": 2857,
             "requests": 8,
             "is_integration_node": true
           }
@@ -1982,7 +2067,7 @@
           {
             "check": "artifact_exported",
             "ok": true,
-            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c03\\\\dag-runs\\\\sf-a2-03\\\\f-p1-connector-migration\\\\r1-eval-e18b73b76db7\\\\workspace'"
+            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c03\\\\dag-runs\\\\sf-a2-03\\\\f-p1-connector-migration\\\\r1-eval-1dae5378a68f\\\\workspace'"
           },
           {
             "check": "usage_complete",
@@ -1996,21 +2081,41 @@
         "public_test_runs": null,
         "execution_integrity": "PASS",
         "delivered_success": true,
-        "oracle_status": "PASS"
+        "oracle_status": "PASS",
+        "cost_basis": {
+          "cache_split": "COMPLETE",
+          "child_cache_split": "UNKNOWN",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        }
       },
       "settlement": {
         "usage_fields": {
           "main_cumulative_input_tokens": 79137,
-          "main_completion_tokens": 8615,
-          "child_total_prompt_tokens": 29953,
-          "child_completion_tokens": 4351,
-          "system_total_tokens": 122056
+          "main_completion_tokens": 8609,
+          "child_total_prompt_tokens": 29937,
+          "child_completion_tokens": 4348,
+          "system_total_tokens": 122031
         },
-        "delta_cost_usd": 0.014207099999999999,
-        "cumulative_cost_usd": 0.048286,
-        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+        "delta_cost_usd": 0.0141987,
+        "cumulative_cost_usd": 0.048271,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters",
+        "cache_basis": {
+          "cache_split": "COMPLETE",
+          "child_cache_split": "UNKNOWN",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        }
       },
-      "duration_s": 40.375,
+      "duration_s": 41.25,
+      "routing": {
+        "declared_execution_mode": "atlas_static_dag",
+        "resolved_runner": "atlas_static_dag",
+        "is_stage_f_runner": true,
+        "cell_runner_injected": false
+      },
       "checks": [
         {
           "check": "cell_passed_audit",
@@ -2025,12 +2130,12 @@
         {
           "check": "workspace_exported",
           "ok": true,
-          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c03\\\\dag-runs\\\\sf-a2-03\\\\f-p1-connector-migration\\\\r1-eval-e18b73b76db7\\\\workspace'"
+          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c03\\\\dag-runs\\\\sf-a2-03\\\\f-p1-connector-migration\\\\r1-eval-1dae5378a68f\\\\workspace'"
         },
         {
           "check": "usage_complete",
           "ok": true,
-          "detail": "blocks=1 system_total=34304"
+          "detail": "blocks=1 system_total=34285"
         },
         {
           "check": "provider_answered",
@@ -2055,12 +2160,12 @@
         {
           "check": "independent_pair_overlapped",
           "ok": true,
-          "detail": "pairs=[['coding_worker:eval-e18b73b76db7-csv', 'coding_worker:eval-e18b73b76db7-jsonl']]"
+          "detail": "pairs=[['coding_worker:eval-1dae5378a68f-csv', 'coding_worker:eval-1dae5378a68f-jsonl']]"
         },
         {
           "check": "integration_context_recorded",
           "ok": true,
-          "detail": "peak=2859"
+          "detail": "peak=2857"
         },
         {
           "check": "implementation_nodes_20_and_integration_40",
@@ -2085,7 +2190,12 @@
         {
           "check": "delivered_success_consistent",
           "ok": true,
-          "detail": "delivered=True expected=True verdict='PASS'"
+          "detail": "delivered=True expected=True verdict='PASS' public='NOT_CONFIGURED'"
+        },
+        {
+          "check": "routed_by_production_selection",
+          "ok": true,
+          "detail": "declared='atlas_static_dag' resolved='atlas_static_dag' stage_f=True"
         }
       ],
       "integrity": {
@@ -2096,7 +2206,7 @@
           {
             "check": "run_identity",
             "status": "PASS",
-            "detail": "cell='f.f-p1-connector-migration.A2.r1' plan='stage-f-p1-compat-smoke' run='eval-e18b73b76db7' expected=None",
+            "detail": "cell='f.f-p1-connector-migration.A2.r1' plan='stage-f-p1-compat-smoke' run='eval-1dae5378a68f' expected=None",
             "affects_verdict": true
           },
           {
@@ -2108,7 +2218,7 @@
           {
             "check": "raw_evidence",
             "status": "PASS",
-            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7\\result.json",
+            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-1dae5378a68f\\result.json",
             "affects_verdict": true
           },
           {
@@ -2120,7 +2230,7 @@
           {
             "check": "final_export",
             "status": "PASS",
-            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c03\\\\dag-runs\\\\sf-a2-03\\\\f-p1-connector-migration\\\\r1-eval-e18b73b76db7\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c03\\\\dag-runs\\\\sf-a2-03\\\\f-p1-connector-migration\\\\r1-eval-1dae5378a68f\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
             "affects_verdict": true
           },
           {
@@ -2138,13 +2248,13 @@
           {
             "check": "oracle_binding",
             "status": "PASS",
-            "detail": "mode='sandbox' sandbox='c8ef91fc-3a3b-4c9d-b8e6-2655f3945278' scored the exported directory; export_files=17",
+            "detail": "mode='sandbox' sandbox='ffe2ffc6-de48-4071-8f16-e086674bfb10' scored the exported directory; export_files=17",
             "affects_verdict": true
           },
           {
             "check": "oracle_isolation",
             "status": "PASS",
-            "detail": "oracle='c8ef91fc-3a3b-4c9d-b8e6-2655f3945278' agent=None agent_destroyed=True (the agent container was destroyed before the oracle's own sandbox existed)",
+            "detail": "oracle='ffe2ffc6-de48-4071-8f16-e086674bfb10' agent=None agent_destroyed=True (the agent container was destroyed before the oracle's own sandbox existed)",
             "affects_verdict": true
           },
           {
@@ -2187,15 +2297,15 @@
           "added": [],
           "removed": []
         },
-        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7",
+        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-1dae5378a68f",
         "basis": "the eleven common checks; architecture-specific rows never cancel one"
       },
       "requests": {
         "count": 18,
         "per_agent": [
-          "eval-e18b73b76db7-csv",
-          "eval-e18b73b76db7-integrate",
-          "eval-e18b73b76db7-jsonl"
+          "eval-1dae5378a68f-csv",
+          "eval-1dae5378a68f-integrate",
+          "eval-1dae5378a68f-jsonl"
         ]
       }
     },
@@ -2232,275 +2342,236 @@
       "provider": {
         "model": "scripted-stage-f",
         "scripts": {
-          "ingest/columns.py": 4,
-          "ingest/paths.py": 4,
-          "main": 9
+          "a3-csv-unit": 4,
+          "a3-jsonl-unit": 4,
+          "a3-main": 9
         },
         "markers": {
-          "ingest/columns.py": "[YOUR ASSIGNMENT — worker csv]",
-          "ingest/paths.py": "[YOUR ASSIGNMENT — worker jsonl]",
-          "main": "The ingest layer is moving to the frozen v2 connector contra"
+          "a0-main": "You are the only worker on this task",
+          "a1-main": "The ingest layer is moving to the frozen v2 connector contra",
+          "a2-csv": "[YOUR ASSIGNMENT — worker csv]",
+          "a2-integrate": "[YOUR ASSIGNMENT — worker integrate]",
+          "a2-jsonl": "[YOUR ASSIGNMENT — worker jsonl]",
+          "a3-main": "The ingest layer is moving to the frozen v2 connector contra"
         },
         "requests": [
           {
-            "index": 0,
-            "script": "main",
+            "index": 43,
+            "script": "a3-main",
             "tool": "delegate_tasks",
             "prompt_chars": 440,
             "prompt_tokens": 110,
             "completion_tokens": 635,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 2.043,
+            "latency_ms": 1.878,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 1,
-            "script": "ingest/columns.py",
+            "index": 44,
+            "script": "a3-csv-unit",
             "tool": "file_write",
             "prompt_chars": 885,
             "prompt_tokens": 222,
             "completion_tokens": 568,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.071,
+            "latency_ms": 0.154,
             "trusted_task_id": "bplus-c04-main:r1:csv-unit",
             "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 2,
-            "script": "ingest/paths.py",
+            "index": 45,
+            "script": "a3-jsonl-unit",
             "tool": "file_write",
             "prompt_chars": 832,
             "prompt_tokens": 208,
             "completion_tokens": 227,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.042,
+            "latency_ms": 0.105,
             "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 3,
-            "script": "ingest/columns.py",
+            "index": 46,
+            "script": "a3-csv-unit",
             "tool": "file_write",
             "prompt_chars": 3157,
             "prompt_tokens": 790,
             "completion_tokens": 645,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.076,
+            "latency_ms": 0.081,
             "trusted_task_id": "bplus-c04-main:r1:csv-unit",
             "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 4,
-            "script": "ingest/paths.py",
+            "index": 47,
+            "script": "a3-jsonl-unit",
             "tool": "file_write",
             "prompt_chars": 1740,
             "prompt_tokens": 435,
             "completion_tokens": 643,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.072,
+            "latency_ms": 0.084,
             "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 5,
-            "script": "ingest/columns.py",
+            "index": 48,
+            "script": "a3-csv-unit",
             "tool": "list_files",
             "prompt_chars": 5736,
             "prompt_tokens": 1434,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.083,
+            "latency_ms": 0.163,
             "trusted_task_id": "bplus-c04-main:r1:csv-unit",
             "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 6,
-            "script": "ingest/paths.py",
+            "index": 49,
+            "script": "a3-jsonl-unit",
             "tool": "list_files",
             "prompt_chars": 4313,
             "prompt_tokens": 1079,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.12,
+            "latency_ms": 0.114,
             "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 7,
-            "script": "ingest/columns.py",
+            "index": 50,
+            "script": "a3-csv-unit",
             "tool": "bash",
             "prompt_chars": 5751,
             "prompt_tokens": 1438,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.101,
+            "latency_ms": 0.124,
             "trusted_task_id": "bplus-c04-main:r1:csv-unit",
             "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 8,
-            "script": "ingest/columns.py",
+            "index": 51,
+            "script": "a3-csv-unit",
             "tool": null,
             "prompt_chars": 5813,
             "prompt_tokens": 1454,
-            "completion_tokens": 13,
+            "completion_tokens": 7,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.085,
+            "latency_ms": 0.09,
             "trusted_task_id": "bplus-c04-main:r1:csv-unit",
             "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 9,
-            "script": "ingest/paths.py",
+            "index": 52,
+            "script": "a3-jsonl-unit",
             "tool": "bash",
             "prompt_chars": 4328,
             "prompt_tokens": 1082,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.164,
+            "latency_ms": 0.126,
             "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 10,
-            "script": "ingest/paths.py",
+            "index": 53,
+            "script": "a3-jsonl-unit",
             "tool": null,
             "prompt_chars": 4390,
             "prompt_tokens": 1098,
-            "completion_tokens": 13,
+            "completion_tokens": 7,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.075,
+            "latency_ms": 0.077,
             "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
             "trusted_profile_id": "coding_worker",
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 11,
-            "script": "main",
+            "index": 54,
+            "script": "a3-main",
             "tool": "file_write",
             "prompt_chars": 2981,
             "prompt_tokens": 746,
             "completion_tokens": 476,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.097,
+            "latency_ms": 0.162,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 12,
-            "script": "main",
+            "index": 55,
+            "script": "a3-main",
             "tool": "file_write",
             "prompt_chars": 4884,
             "prompt_tokens": 1221,
             "completion_tokens": 882,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.111,
+            "latency_ms": 0.107,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 13,
-            "script": "main",
+            "index": 56,
+            "script": "a3-main",
             "tool": "file_write",
             "prompt_chars": 8414,
             "prompt_tokens": 2104,
             "completion_tokens": 189,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.135,
+            "latency_ms": 0.128,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 14,
-            "script": "main",
+            "index": 57,
+            "script": "a3-main",
             "tool": "file_write",
             "prompt_chars": 9170,
             "prompt_tokens": 2293,
             "completion_tokens": 486,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.14,
+            "latency_ms": 0.175,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 15,
-            "script": "main",
+            "index": 58,
+            "script": "a3-main",
             "tool": "file_write",
             "prompt_chars": 11113,
             "prompt_tokens": 2779,
             "completion_tokens": 154,
-            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.178,
-            "trusted_task_id": "bplus-c04-main",
-            "trusted_worker_id": "bplus-c04-main-worker",
-            "trusted_profile_id": null,
-            "trusted_run_id": "bplus-c04"
-          },
-          {
-            "index": 16,
-            "script": "main",
-            "tool": "list_files",
-            "prompt_chars": 11730,
-            "prompt_tokens": 2933,
-            "completion_tokens": 4,
-            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.139,
-            "trusted_task_id": "bplus-c04-main",
-            "trusted_worker_id": "bplus-c04-main-worker",
-            "trusted_profile_id": null,
-            "trusted_run_id": "bplus-c04"
-          },
-          {
-            "index": 17,
-            "script": "main",
-            "tool": "bash",
-            "prompt_chars": 11745,
-            "prompt_tokens": 2937,
-            "completion_tokens": 15,
-            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.158,
-            "trusted_task_id": "bplus-c04-main",
-            "trusted_worker_id": "bplus-c04-main-worker",
-            "trusted_profile_id": null,
-            "trusted_run_id": "bplus-c04"
-          },
-          {
-            "index": 18,
-            "script": "main",
-            "tool": "run_public_tests",
-            "prompt_chars": 11807,
-            "prompt_tokens": 2952,
-            "completion_tokens": 16,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
             "latency_ms": 0.163,
             "trusted_task_id": "bplus-c04-main",
@@ -2509,14 +2580,56 @@
             "trusted_run_id": "bplus-c04"
           },
           {
-            "index": 19,
-            "script": "main",
+            "index": 59,
+            "script": "a3-main",
+            "tool": "list_files",
+            "prompt_chars": 11730,
+            "prompt_tokens": 2933,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.18,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 60,
+            "script": "a3-main",
+            "tool": "bash",
+            "prompt_chars": 11745,
+            "prompt_tokens": 2937,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.165,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 61,
+            "script": "a3-main",
+            "tool": "run_public_tests",
+            "prompt_chars": 11807,
+            "prompt_tokens": 2952,
+            "completion_tokens": 16,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.197,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 62,
+            "script": "a3-main",
             "tool": null,
             "prompt_chars": 11872,
             "prompt_tokens": 2968,
-            "completion_tokens": 13,
+            "completion_tokens": 7,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.142,
+            "latency_ms": 0.158,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
@@ -2524,7 +2637,8 @@
           }
         ],
         "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-        "cache_split": "structural zero: this provider has no prompt cache"
+        "cache_split": "structural zero: this provider has no prompt cache",
+        "scope": "the rows this arm's own scripts answered"
       },
       "container": {
         "agent": {
@@ -2549,8 +2663,8 @@
             ]
           },
           "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
-          "binding_id": "8a97b7d238e4726b58527f3da2c63fa4b16c2f84df097e8071f2710b78fa6bce",
-          "sandbox_id": "9fdcf209-13b4-435f-adce-f4e6a368e047",
+          "binding_id": "4320e6bc6f92684404f4eb8ebc0e34da79936c0bec39bc20c94285570541ff3b",
+          "sandbox_id": "42b7627e-1375-43e2-9e85-63f3b2eca05a",
           "binding_state": "READY",
           "workspace_root": "/workspace/project",
           "network_probe": "PASS",
@@ -2566,7 +2680,7 @@
           "retained": false,
           "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
           "patch_changed_files": 9,
-          "export_digest": "sha256:767c983ed3bff1ec729189e60be390423350a61a9222a5fb20d3e543ed6d2439",
+          "export_digest": "sha256:8602ef084e395e1bdce8ae7888aaff90ed82a9f3f270e06ff189c6045edb29c2",
           "export_files": 17,
           "export_size_bytes": 71680,
           "check_runs": 1,
@@ -2574,12 +2688,12 @@
           "error": null
         },
         "oracle": {
-          "sandbox_id": "b2038b5e-0526-467e-b6fa-3ff46fa1014b",
+          "sandbox_id": "1791ad98-7d81-4043-bf1b-c83efa254f84",
           "mode": "sandbox",
           "cleanup_failure": null
         },
         "created_and_destroyed": {
-          "sandbox_id": "9fdcf209-13b4-435f-adce-f4e6a368e047",
+          "sandbox_id": "42b7627e-1375-43e2-9e85-63f3b2eca05a",
           "created": true,
           "destroyed": true,
           "provider": "opensandbox",
@@ -2588,21 +2702,21 @@
         }
       },
       "raw_result": {
-        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\session.json",
+        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c04\\agent\\bplus-c04\\session.json",
         "basename": "session.json",
         "found": true,
-        "bytes": 30676,
-        "digest": "sha256:sha256:db0b2d82fdb319d228e7c090f1f5d3fef3b1da6beb12e2557e293ca8a580e138"
+        "bytes": 30586,
+        "digest": "sha256:sha256:b70bf248a6c3a0e934a268df569b5cb0ed0dc0b0b29d36bd771e0e936ea948a6"
       },
       "workspace_export": {
-        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
+        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
         "patch_digest": null,
         "analysis_export": {
-          "patch_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace.patch",
+          "patch_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace.patch",
           "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
           "patch_changed_files": 9,
-          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
-          "workspace_digest": "sha256:767c983ed3bff1ec729189e60be390423350a61a9222a5fb20d3e543ed6d2439",
+          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
+          "workspace_digest": "sha256:8602ef084e395e1bdce8ae7888aaff90ed82a9f3f270e06ff189c6045edb29c2",
           "workspace_files": 17,
           "workspace_size_bytes": 71680,
           "directory_digest": "sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd",
@@ -2622,14 +2736,14 @@
           "environment_failure": false,
           "cleanup_failure": null,
           "execution_mode": "sandbox",
-          "sandbox_id": "b2038b5e-0526-467e-b6fa-3ff46fa1014b",
+          "sandbox_id": "1791ad98-7d81-4043-bf1b-c83efa254f84",
           "returncode": 0,
           "timings_ms": {
-            "creation_ms": 2380.556,
-            "upload_ms": 951.196,
-            "execution_ms": 1473.973,
-            "cleanup_ms": 716.153,
-            "total_ms": 5525.511
+            "creation_ms": 2579.653,
+            "upload_ms": 916.506,
+            "execution_ms": 1382.596,
+            "cleanup_ms": 784.686,
+            "total_ms": 5666.959
           },
           "image": "atlas-uat-python:3.12",
           "workspace_files": 17,
@@ -2638,23 +2752,23 @@
           "source": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
           "fixture_after_run": "9f21c5bf890a0d1a8d0297db283e6910887f928a532df8ceb0985bccd505cfd4"
         },
-        "sandbox_id": "b2038b5e-0526-467e-b6fa-3ff46fa1014b"
+        "sandbox_id": "1791ad98-7d81-4043-bf1b-c83efa254f84"
       },
       "normalized": {
         "usage": {
           "main": {
             "prompt_tokens": 21043,
-            "completion_tokens": 2870,
+            "completion_tokens": 2864,
             "cache_hit_tokens": 0,
             "cache_miss_tokens": 21043
           },
           "children": {
             "prompt_tokens": 9240,
-            "completion_tokens": 2147,
+            "completion_tokens": 2135,
             "cache_hit_tokens": 0,
             "cache_miss_tokens": 9240
           },
-          "system_total_tokens": 35300,
+          "system_total_tokens": 35282,
           "requests": {
             "main": 10,
             "children": "UNKNOWN",
@@ -2665,7 +2779,7 @@
           "accounting": "provider-reported per request (Atlas UsageAttributionHook)",
           "budget": {
             "limit_tokens": 1000000,
-            "used_tokens": 35300,
+            "used_tokens": 35282,
             "stop_reason": null,
             "admission_rejections": 0,
             "enforcement": "pre_admission_guard"
@@ -2677,19 +2791,9 @@
           "main_peak_context": 2968,
           "main_cumulative_input": 21043,
           "integration_node_context": "NOT_APPLICABLE",
-          "system_max_agent_context": 2968,
+          "system_max_agent_context": "UNKNOWN",
           "per_request_input_tokens": [
             110,
-            222,
-            208,
-            790,
-            435,
-            1434,
-            1079,
-            1438,
-            1454,
-            1082,
-            1098,
             746,
             1221,
             2104,
@@ -2702,19 +2806,22 @@
           ],
           "per_agent_peak_context_tokens": {
             "bplus-c04-main": 2968,
-            "bplus-c04-main:r1:csv-unit": 1454,
-            "bplus-c04-main:r1:jsonl-unit": 1098
+            "bplus-c04-main:r1:csv-unit": "UNKNOWN",
+            "bplus-c04-main:r1:jsonl-unit": "UNKNOWN"
           },
           "agent_context_census": {
             "peaks": {
               "bplus-c04-main": 2968,
-              "bplus-c04-main:r1:csv-unit": 1454,
-              "bplus-c04-main:r1:jsonl-unit": 1098
+              "bplus-c04-main:r1:csv-unit": "UNKNOWN",
+              "bplus-c04-main:r1:jsonl-unit": "UNKNOWN"
             },
-            "complete": true,
-            "missing_agents": [],
-            "system_max_agent_context": 2968,
-            "basis": "per-request provider-observed prompt size for every agent that ran"
+            "complete": false,
+            "missing_agents": [
+              "bplus-c04-main:r1:csv-unit",
+              "bplus-c04-main:r1:jsonl-unit"
+            ],
+            "system_max_agent_context": "UNKNOWN",
+            "basis": "at least one agent's peak context was not observed"
           }
         },
         "correctness": {
@@ -2785,7 +2892,7 @@
                   "turns": 5,
                   "tool_calls": 4,
                   "prompt_tokens": 5338,
-                  "completion_tokens": 1245
+                  "completion_tokens": 1239
                 },
                 {
                   "key": "jsonl-unit",
@@ -2796,7 +2903,7 @@
                   "turns": 5,
                   "tool_calls": 4,
                   "prompt_tokens": 3902,
-                  "completion_tokens": 902
+                  "completion_tokens": 896
                 }
               ],
               "max_observed_concurrency": 2
@@ -2808,8 +2915,8 @@
             {
               "round": 1,
               "result_chars": [
-                49,
-                49
+                25,
+                25
               ]
             }
           ],
@@ -2859,7 +2966,7 @@
           {
             "check": "artifact_exported",
             "ok": true,
-            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
+            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
           },
           {
             "check": "usage_complete",
@@ -2873,21 +2980,41 @@
         "public_test_runs": 1,
         "execution_integrity": "PASS",
         "delivered_success": true,
-        "oracle_status": "PASS"
+        "oracle_status": "PASS",
+        "cost_basis": {
+          "cache_split": "COMPLETE",
+          "child_cache_split": "COMPLETE",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        }
       },
       "settlement": {
         "usage_fields": {
           "main_cumulative_input_tokens": 100180,
-          "main_completion_tokens": 11485,
-          "child_total_prompt_tokens": 39193,
-          "child_completion_tokens": 6498,
-          "system_total_tokens": 157356
+          "main_completion_tokens": 11473,
+          "child_total_prompt_tokens": 39177,
+          "child_completion_tokens": 6483,
+          "system_total_tokens": 157313
         },
-        "delta_cost_usd": 0.015105299999999999,
-        "cumulative_cost_usd": 0.063391,
-        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+        "delta_cost_usd": 0.0150837,
+        "cumulative_cost_usd": 0.063355,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters",
+        "cache_basis": {
+          "cache_split": "COMPLETE",
+          "child_cache_split": "COMPLETE",
+          "pricing_digest": "sha256:9ac617968f995d902359408362e1bf669abf6ea3dc3a7520483121692f6e0dd6",
+          "formula": "cache_hit_input * hit_rate + cache_miss_input * miss_rate + output * output_rate",
+          "estimate": true
+        }
       },
-      "duration_s": 39.25,
+      "duration_s": 39.39100000000326,
+      "routing": {
+        "declared_execution_mode": "atlas_dynamic",
+        "resolved_runner": "main_driven",
+        "is_stage_f_runner": true,
+        "cell_runner_injected": false
+      },
       "checks": [
         {
           "check": "cell_passed_audit",
@@ -2902,12 +3029,12 @@
         {
           "check": "workspace_exported",
           "ok": true,
-          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
+          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
         },
         {
           "check": "usage_complete",
           "ok": true,
-          "detail": "blocks=2 system_total=35300"
+          "detail": "blocks=2 system_total=35282"
         },
         {
           "check": "provider_answered",
@@ -2967,7 +3094,12 @@
         {
           "check": "delivered_success_consistent",
           "ok": true,
-          "detail": "delivered=True expected=True verdict='PASS'"
+          "detail": "delivered=True expected=True verdict='PASS' public='PASS'"
+        },
+        {
+          "check": "routed_by_production_selection",
+          "ok": true,
+          "detail": "declared='atlas_dynamic' resolved='main_driven' stage_f=True"
         }
       ],
       "integrity": {
@@ -2990,7 +3122,7 @@
           {
             "check": "raw_evidence",
             "status": "PASS",
-            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\session.json",
+            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c04\\agent\\bplus-c04\\session.json",
             "affects_verdict": true
           },
           {
@@ -3002,7 +3134,7 @@
           {
             "check": "final_export",
             "status": "PASS",
-            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-8\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
             "affects_verdict": true
           },
           {
@@ -3020,13 +3152,13 @@
           {
             "check": "oracle_binding",
             "status": "PASS",
-            "detail": "mode='sandbox' sandbox='b2038b5e-0526-467e-b6fa-3ff46fa1014b' scored_files=17 export_files=17",
+            "detail": "mode='sandbox' sandbox='1791ad98-7d81-4043-bf1b-c83efa254f84' scored_files=17 export_files=17",
             "affects_verdict": true
           },
           {
             "check": "oracle_isolation",
             "status": "PASS",
-            "detail": "oracle='b2038b5e-0526-467e-b6fa-3ff46fa1014b' agent='9fdcf209-13b4-435f-adce-f4e6a368e047' agent_destroyed=True (two recorded sandbox ids)",
+            "detail": "oracle='1791ad98-7d81-4043-bf1b-c83efa254f84' agent='42b7627e-1375-43e2-9e85-63f3b2eca05a' agent_destroyed=True (two recorded sandbox ids)",
             "affects_verdict": true
           },
           {
@@ -3069,7 +3201,7 @@
           "added": [],
           "removed": []
         },
-        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04",
+        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8\\evidence\\cells\\c04\\agent\\bplus-c04",
         "basis": "the eleven common checks; architecture-specific rows never cancel one"
       },
       "requests": {
@@ -3090,7 +3222,7 @@
   "problems": [],
   "ok": true,
   "status": "STAGE_F_P1_FOUR_ARM_SMOKE_PASS",
-  "duration_s": 148.156,
-  "scratch_root": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6",
+  "duration_s": 149.639,
+  "scratch_root": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-8",
   "skill": "compatibility confirmation only; no cell here enters the 96-cell matrix"
 }
