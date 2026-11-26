@@ -1,0 +1,2290 @@
+{
+  "stage": "F",
+  "kind": "four_arm_real_runner_proof",
+  "generated_at": "2026-11-26T06:43:23.833515+00:00",
+  "repo_head": "726e2ec77964e3a1263d71eceba9bded698f8fcb",
+  "plan": {
+    "plan_id": "stage-f-runner-proof-v1",
+    "plan_digest": "sha256:18c288973afe21fb9b09f4c78593c7cac8b7d272be4b1f7f473b1c31a670bfb7",
+    "scope": "F_RUNNER_PROOF",
+    "cells": [
+      "f.f-p1-connector-migration.A0.r1",
+      "f.f-p1-connector-migration.A2.r1",
+      "f.f-p1-connector-migration.A1.r1",
+      "f.f-p1-connector-migration.A3.r1"
+    ],
+    "mode": "offline_proof",
+    "claim_root": "isolated offline claim (no production claim consumed)"
+  },
+  "model_calls": 0,
+  "production_claims_consumed": 0,
+  "scripted_provider": true,
+  "scratch_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113",
+  "runs_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\runs",
+  "evidence_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence",
+  "dispatch": {
+    "stop_reason": "NONE",
+    "complete": true,
+    "cells_started": 4,
+    "cells_passed": 4,
+    "usage_completeness": "COMPLETE",
+    "total_tokens": 27376,
+    "total_cost_usd": 0.011317,
+    "observed_cost_floor_usd": 0.011317,
+    "ledger": [
+      {
+        "cell_id": "f.f-p1-connector-migration.A0.r1",
+        "cost_usd": 0.002676,
+        "cumulative_tokens": 6692,
+        "order": 1,
+        "recorded_at": "2026-11-26T06:41:45Z",
+        "stops": [],
+        "verdict": "PASS"
+      },
+      {
+        "cell_id": "f.f-p1-connector-migration.A2.r1",
+        "cost_usd": 0.005815,
+        "cumulative_tokens": 14767,
+        "order": 2,
+        "recorded_at": "2026-11-26T06:42:20Z",
+        "stops": [],
+        "verdict": "PASS"
+      },
+      {
+        "cell_id": "f.f-p1-connector-migration.A1.r1",
+        "cost_usd": 0.008173,
+        "cumulative_tokens": 20340,
+        "order": 3,
+        "recorded_at": "2026-11-26T06:42:50Z",
+        "stops": [],
+        "verdict": "PASS"
+      },
+      {
+        "cell_id": "f.f-p1-connector-migration.A3.r1",
+        "cost_usd": 0.011317,
+        "cumulative_tokens": 27376,
+        "order": 4,
+        "recorded_at": "2026-11-26T06:43:23Z",
+        "stops": [],
+        "verdict": "PASS"
+      }
+    ]
+  },
+  "arms": [
+    {
+      "arm_id": "A0",
+      "cell_id": "f.f-p1-connector-migration.A0.r1",
+      "task_id": "f-p1-connector-migration",
+      "execution_mode": "native",
+      "execution_entry": "experiments.stage_f.runners.native_cell_runner -> experiments.evaluation.closure1b.native_baseline.run_native_sample (AnyCode native loop, NeutralEngine, six sandbox tools)",
+      "effective_config": {
+        "max_turns": 40,
+        "worker_max_turns": 20,
+        "integration_max_turns": null,
+        "token_budget": 1000000,
+        "delegation": {
+          "enabled": false,
+          "tools_visible": false,
+          "limits": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          }
+        },
+        "worker_profiles": [],
+        "worker_exposure": "native",
+        "provider": "scripted (deterministic, no model call)",
+        "budget_mode": "guarded"
+      },
+      "provider": {
+        "model": "scripted-stage-f",
+        "scripts": {
+          "main": 6
+        },
+        "markers": {
+          "main": "You are the only worker on this task"
+        },
+        "requests": [
+          {
+            "index": 0,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 1548,
+            "prompt_tokens": 387,
+            "completion_tokens": 125,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.059
+          },
+          {
+            "index": 1,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 2048,
+            "prompt_tokens": 512,
+            "completion_tokens": 250,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.104
+          },
+          {
+            "index": 2,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 3049,
+            "prompt_tokens": 763,
+            "completion_tokens": 193,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.116
+          },
+          {
+            "index": 3,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 3821,
+            "prompt_tokens": 956,
+            "completion_tokens": 147,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.138
+          },
+          {
+            "index": 4,
+            "script": "main",
+            "tool": "list_files",
+            "prompt_chars": 4409,
+            "prompt_tokens": 1103,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.16
+          },
+          {
+            "index": 5,
+            "script": "main",
+            "tool": "bash",
+            "prompt_chars": 4424,
+            "prompt_tokens": 1106,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.109
+          },
+          {
+            "index": 6,
+            "script": "main",
+            "tool": null,
+            "prompt_chars": 4486,
+            "prompt_tokens": 1122,
+            "completion_tokens": 9,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.084
+          }
+        ],
+        "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+        "cache_split": "structural zero: this provider has no prompt cache"
+      },
+      "container": {
+        "agent": {
+          "provider": "opensandbox",
+          "sandbox_id": "ac1cb7c0-ee95-40a4-8c8d-2f918d05c7dd",
+          "image": "atlas-uat-python:3.12",
+          "network": "none",
+          "workspace_root": "/workspace/project",
+          "source_commit": "1ed4abf5c5e33b16dcb1a0fd5d569e500c4707a9",
+          "source_digest": "sha256:541eb11476626e65fdaa8c47173adcee45e09f4334c5426ac4c74f9bca811f2f",
+          "provision_commands": 4,
+          "provision_uploads": 1,
+          "timings_ms": {
+            "provision_ms": 4356.786,
+            "isolation_ms": 4288.601
+          },
+          "isolation": {
+            "workspace_preparation_mode": "public_fixture_clone",
+            "staging_bundle": "/tmp/project.bundle",
+            "staging_bundle_present_before": true,
+            "staging_bundle_removed": true,
+            "private_name_hits": [],
+            "probe_commands": [
+              "test -e /tmp/project.bundle",
+              "rm -f /tmp/project.bundle",
+              "test -e /tmp/project.bundle (post-removal)",
+              "find / -maxdepth 4 (private name patterns)"
+            ],
+            "isolation_checks_passed": true,
+            "failures": []
+          }
+        },
+        "oracle": {
+          "sandbox_id": "0ee9b285-61e6-4e05-b0fd-357cb9c7c78e",
+          "mode": "sandbox",
+          "cleanup_failure": null
+        },
+        "created_and_destroyed": {
+          "sandbox_id": "ac1cb7c0-ee95-40a4-8c8d-2f918d05c7dd",
+          "created": true,
+          "destroyed": true,
+          "provider": "opensandbox",
+          "network": "none",
+          "image": "atlas-uat-python:3.12"
+        }
+      },
+      "raw_result": {
+        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-38f33fa0cf18\\result.json",
+        "basename": "result.json",
+        "found": true,
+        "bytes": 20140,
+        "digest": "sha256:sha256:9b061dcdde85a1d33662c77ed97b7f846e103bd36383c0e4745df593a59c3c05"
+      },
+      "workspace_export": {
+        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-38f33fa0cf18\\workspace",
+        "patch_digest": "sha256:7c2dab4456f367f0df080781a3ee92d18c088ead08769aa30b55e30d04eb47d7",
+        "analysis_export": {
+          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-38f33fa0cf18\\workspace",
+          "patch_digest": "sha256:7c2dab4456f367f0df080781a3ee92d18c088ead08769aa30b55e30d04eb47d7",
+          "sandbox_created": true,
+          "sandbox_destroyed": true
+        }
+      },
+      "oracle": {
+        "status": "PASS",
+        "passed": true,
+        "record": {
+          "passed": true,
+          "checks": {
+            "host_fixture_unchanged": true,
+            "forbidden_paths_unchanged": true,
+            "only_allowed_paths_changed": true,
+            "required_artifacts_present": true,
+            "hidden_tests_passed": true
+          },
+          "details": {
+            "workspace_digest": "",
+            "workspace_file_count": 10,
+            "changed_files": [
+              "pipeline/merge.py",
+              "sources/csv_source.py",
+              "sources/jsonl_source.py",
+              "sources/registry.py"
+            ],
+            "added_files": [],
+            "removed_files": [],
+            "forbidden_changes": [],
+            "unauthorized_changes": [],
+            "allowed_paths": [
+              "sources/",
+              "pipeline/"
+            ],
+            "required_artifacts": [
+              "pipeline/merge.py",
+              "sources/csv_source.py",
+              "sources/jsonl_source.py",
+              "sources/registry.py"
+            ],
+            "tool_expectations": {},
+            "worker_contract": {},
+            "hidden_tests": {
+              "returncode": 0,
+              "stdout_tail": "...............                                                          [100%]\n15 passed in 0.02s",
+              "stderr_tail": "",
+              "failure_kind": "HIDDEN_TESTS_PASSED",
+              "sandbox_id": "0ee9b285-61e6-4e05-b0fd-357cb9c7c78e"
+            },
+            "digests": {
+              "oracle_contract_digest": "72f0738b57bf8d0daca3c25b3348e06b2bf517c97a96ad716821e3a94ae00c94",
+              "oracle_fixture_digest": "4456229097b2b76bea8027ca8a482ba9aeb7b8d29cf4532b3c4153ce0d9679a3",
+              "oracle_execution_digest": "2a0450fa275e84483ab11caab4044405d5553d7b4b37b95ad23743b342c17f10",
+              "oracle_workspace_digest": "27f50657e7d259a34fda727cfe950b910c64666b1ad7c2f0a9bca76ad9639ba5"
+            },
+            "oracle_execution": "sandbox"
+          },
+          "failure_reasons": [],
+          "execution_mode": "sandbox",
+          "failure_kind": "HIDDEN_TESTS_PASSED",
+          "environment_failure": false,
+          "cleanup_failure": null,
+          "digests": {
+            "oracle_contract_digest": "72f0738b57bf8d0daca3c25b3348e06b2bf517c97a96ad716821e3a94ae00c94",
+            "oracle_fixture_digest": "4456229097b2b76bea8027ca8a482ba9aeb7b8d29cf4532b3c4153ce0d9679a3",
+            "oracle_execution_digest": "2a0450fa275e84483ab11caab4044405d5553d7b4b37b95ad23743b342c17f10",
+            "oracle_workspace_digest": "27f50657e7d259a34fda727cfe950b910c64666b1ad7c2f0a9bca76ad9639ba5"
+          },
+          "timings_ms": {
+            "creation_ms": 2563.69,
+            "upload_ms": 548.124,
+            "execution_ms": 1336.959,
+            "cleanup_ms": 750.456,
+            "total_ms": 5203.371
+          },
+          "status": "PASS"
+        },
+        "sandbox_id": "0ee9b285-61e6-4e05-b0fd-357cb9c7c78e"
+      },
+      "normalized": {
+        "usage": {
+          "main": "NOT_APPLICABLE",
+          "children": "NOT_APPLICABLE",
+          "primary_agent": {
+            "prompt_tokens": 5949,
+            "completion_tokens": 743,
+            "cache_hit_tokens": null,
+            "cache_miss_tokens": null
+          },
+          "system_total_tokens": 6692,
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 6692,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "context": {
+          "primary_agent_peak_context": 1122,
+          "primary_agent_cumulative_input": 5949,
+          "main_peak_context": "NOT_APPLICABLE",
+          "main_cumulative_input": "NOT_APPLICABLE",
+          "integration_node_context": "NOT_APPLICABLE",
+          "system_max_agent_context": 1122,
+          "per_request_input_tokens": [
+            387,
+            512,
+            763,
+            956,
+            1103,
+            1106,
+            1122
+          ],
+          "per_agent_peak_context_tokens": {
+            "unattributed": 1122
+          }
+        },
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "TASK_SUCCESS",
+          "static_acceptance": "NOT_APPLICABLE",
+          "public_test": "NOT_APPLICABLE",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "NOT_APPLICABLE",
+          "delivered_success": true,
+          "failure_kind": "TASK_SUCCESS"
+        },
+        "delegation": "NOT_APPLICABLE",
+        "handoff": "NOT_APPLICABLE",
+        "workers": null,
+        "adapter_problems": []
+      },
+      "audit": {
+        "verdict": "PASS",
+        "checks": [
+          {
+            "check": "evidence_schema",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "check": "identity_matches_plan",
+            "ok": true,
+            "detail": "cell='f.f-p1-connector-migration.A0.r1' plan='stage-f-runner-proof-v1'"
+          },
+          {
+            "check": "attribution_matches_arm",
+            "ok": true,
+            "detail": "attribution='single_agent'"
+          },
+          {
+            "check": "oracle_ran",
+            "ok": true,
+            "detail": "oracle='PASS'"
+          },
+          {
+            "check": "oracle_environment",
+            "ok": true,
+            "detail": "oracle status='PASS'"
+          },
+          {
+            "check": "artifact_exported",
+            "ok": true,
+            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-38f33fa0cf18\\\\workspace'"
+          },
+          {
+            "check": "usage_complete",
+            "ok": true,
+            "detail": "complete"
+          }
+        ],
+        "stops": [],
+        "agent_success": true,
+        "public_test_status": "NOT_APPLICABLE",
+        "public_test_runs": null,
+        "execution_integrity": "NOT_APPLICABLE",
+        "delivered_success": true,
+        "oracle_status": "PASS"
+      },
+      "settlement": {
+        "usage_fields": {
+          "main_cumulative_input_tokens": 5949,
+          "main_completion_tokens": 743,
+          "child_total_prompt_tokens": 0,
+          "child_completion_tokens": 0,
+          "system_total_tokens": 6692
+        },
+        "delta_cost_usd": 0.0026763000000000004,
+        "cumulative_cost_usd": 0.002676,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+      },
+      "duration_s": 0.0,
+      "checks": [
+        {
+          "check": "cell_passed_audit",
+          "ok": true,
+          "detail": "verdict=PASS"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "workspace_exported",
+          "ok": true,
+          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-38f33fa0cf18\\\\workspace'"
+        },
+        {
+          "check": "usage_complete",
+          "ok": true,
+          "detail": "blocks=1 system_total=6692"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=7"
+        },
+        {
+          "check": "native_turn_cap_is_40",
+          "ok": true,
+          "detail": "applied={'primary_agent': 40}"
+        },
+        {
+          "check": "primary_agent_context_recorded",
+          "ok": true,
+          "detail": "peak=1122"
+        },
+        {
+          "check": "main_is_not_applicable",
+          "ok": true,
+          "detail": "main_peak='NOT_APPLICABLE'"
+        },
+        {
+          "check": "guarded_budget_ran",
+          "ok": true,
+          "detail": "enforcement='pre_admission_guard'"
+        },
+        {
+          "check": "per_request_usage_recorded",
+          "ok": true,
+          "detail": "requests=7"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "arm_id": "A2",
+      "cell_id": "f.f-p1-connector-migration.A2.r1",
+      "task_id": "f-p1-connector-migration",
+      "execution_mode": "atlas_static_dag",
+      "execution_entry": "experiments.stage_f.runners.static_dag_cell_runner -> experiments.evaluation.runner.run_sample (AnyCode DAG scheduler, Atlas context plane)",
+      "effective_config": {
+        "max_turns": 40,
+        "worker_max_turns": 20,
+        "integration_max_turns": 40,
+        "token_budget": 1000000,
+        "delegation": {
+          "enabled": false,
+          "tools_visible": false,
+          "limits": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          }
+        },
+        "worker_profiles": [
+          "coding_worker"
+        ],
+        "worker_exposure": "card",
+        "provider": "scripted (deterministic, no model call)",
+        "budget_mode": "guarded"
+      },
+      "provider": {
+        "model": "scripted-stage-f",
+        "scripts": {
+          "csv": 3,
+          "integrate": 4,
+          "jsonl": 3
+        },
+        "markers": {
+          "csv": "Implement `sources/csv_source.py` against the frozen interface in `docs/INTERFACE.md`: quoted values may contain a comma, blank lines are skipped, fields are trimmed, and a line with other than two fields is a `ValueError`. Do not edit `sources/base.py`, `test_public.py` or any other task's files.",
+          "integrate": "After the two sources are migrated, implement `sources/registry.py` (both sources registered, duplicates rejected, sorted listing) and `pipeline/merge.py` (sum per name, sorted, non-numeric contributes zero). Do not edit `sources/base.py`, the two source modules or `test_public.py`.",
+          "jsonl": "Implement `sources/jsonl_source.py` against the frozen interface: blank lines skipped, extra keys ignored, `name`/`value` stringified, and a missing key, a non-object line or invalid JSON is a `ValueError`. Do not edit `sources/base.py`, `test_public.py` or any other task's files."
+        },
+        "requests": [
+          {
+            "index": 0,
+            "script": "csv",
+            "tool": "file_write",
+            "prompt_chars": 1455,
+            "prompt_tokens": 364,
+            "completion_tokens": 250,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.083,
+            "trusted_task_id": "eval-30ab3471c285-csv",
+            "trusted_worker_id": "eval-30ab3471c285-csv",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 1,
+            "script": "jsonl",
+            "tool": "file_write",
+            "prompt_chars": 1440,
+            "prompt_tokens": 360,
+            "completion_tokens": 193,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.098,
+            "trusted_task_id": "eval-30ab3471c285-jsonl",
+            "trusted_worker_id": "eval-30ab3471c285-jsonl",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 2,
+            "script": "csv",
+            "tool": "list_files",
+            "prompt_chars": 2456,
+            "prompt_tokens": 614,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.057,
+            "trusted_task_id": "eval-30ab3471c285-csv",
+            "trusted_worker_id": "eval-30ab3471c285-csv",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 3,
+            "script": "jsonl",
+            "tool": "list_files",
+            "prompt_chars": 2212,
+            "prompt_tokens": 553,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.056,
+            "trusted_task_id": "eval-30ab3471c285-jsonl",
+            "trusted_worker_id": "eval-30ab3471c285-jsonl",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 4,
+            "script": "csv",
+            "tool": "bash",
+            "prompt_chars": 2471,
+            "prompt_tokens": 618,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.133,
+            "trusted_task_id": "eval-30ab3471c285-csv",
+            "trusted_worker_id": "eval-30ab3471c285-csv",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 5,
+            "script": "jsonl",
+            "tool": "bash",
+            "prompt_chars": 2227,
+            "prompt_tokens": 557,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.126,
+            "trusted_task_id": "eval-30ab3471c285-jsonl",
+            "trusted_worker_id": "eval-30ab3471c285-jsonl",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 6,
+            "script": "csv",
+            "tool": null,
+            "prompt_chars": 2533,
+            "prompt_tokens": 634,
+            "completion_tokens": 8,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.094,
+            "trusted_task_id": "eval-30ab3471c285-csv",
+            "trusted_worker_id": "eval-30ab3471c285-csv",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 7,
+            "script": "jsonl",
+            "tool": null,
+            "prompt_chars": 2289,
+            "prompt_tokens": 573,
+            "completion_tokens": 8,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.076,
+            "trusted_task_id": "eval-30ab3471c285-jsonl",
+            "trusted_worker_id": "eval-30ab3471c285-jsonl",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 8,
+            "script": "integrate",
+            "tool": "file_write",
+            "prompt_chars": 1615,
+            "prompt_tokens": 404,
+            "completion_tokens": 147,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.052,
+            "trusted_task_id": "eval-30ab3471c285-integrate",
+            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 9,
+            "script": "integrate",
+            "tool": "file_write",
+            "prompt_chars": 2203,
+            "prompt_tokens": 551,
+            "completion_tokens": 125,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.062,
+            "trusted_task_id": "eval-30ab3471c285-integrate",
+            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 10,
+            "script": "integrate",
+            "tool": "list_files",
+            "prompt_chars": 2703,
+            "prompt_tokens": 676,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.12,
+            "trusted_task_id": "eval-30ab3471c285-integrate",
+            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 11,
+            "script": "integrate",
+            "tool": "bash",
+            "prompt_chars": 2718,
+            "prompt_tokens": 680,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.129,
+            "trusted_task_id": "eval-30ab3471c285-integrate",
+            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          },
+          {
+            "index": 12,
+            "script": "integrate",
+            "tool": null,
+            "prompt_chars": 2780,
+            "prompt_tokens": 695,
+            "completion_tokens": 8,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.057,
+            "trusted_task_id": "eval-30ab3471c285-integrate",
+            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-30ab3471c285"
+          }
+        ],
+        "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+        "cache_split": "structural zero: this provider has no prompt cache"
+      },
+      "container": {
+        "agent": null,
+        "oracle": {
+          "sandbox_id": "b44335b9-2a32-42fd-9d2b-a61a8529d0d5",
+          "mode": "sandbox",
+          "cleanup_failure": null
+        },
+        "created_and_destroyed": {
+          "sandbox_id": null,
+          "created": true,
+          "destroyed": true,
+          "provider": null,
+          "network": null,
+          "image": "atlas-uat-python:3.12"
+        }
+      },
+      "raw_result": {
+        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c02\\dag-runs\\sf-a2-02\\f-p1-connector-migration\\r1-eval-30ab3471c285\\result.json",
+        "basename": "result.json",
+        "found": true,
+        "bytes": 50549,
+        "digest": "sha256:sha256:3bfb9e6b0376e78d4f8234dc1c478c97eb0ad5ee8664b0e9c0ea820c64a177a1"
+      },
+      "workspace_export": {
+        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c02\\dag-runs\\sf-a2-02\\f-p1-connector-migration\\r1-eval-30ab3471c285\\workspace",
+        "patch_digest": "sha256:1e0343e97faaabe60ee1111352a55895a838c3c256f9fddc4e276117f1a8f812",
+        "analysis_export": {
+          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c02\\dag-runs\\sf-a2-02\\f-p1-connector-migration\\r1-eval-30ab3471c285\\workspace",
+          "patch_digest": "sha256:1e0343e97faaabe60ee1111352a55895a838c3c256f9fddc4e276117f1a8f812",
+          "sandbox_created": true,
+          "sandbox_destroyed": true
+        }
+      },
+      "oracle": {
+        "status": "PASS",
+        "passed": true,
+        "record": {
+          "passed": true,
+          "checks": {
+            "host_fixture_unchanged": true,
+            "forbidden_paths_unchanged": true,
+            "only_allowed_paths_changed": true,
+            "required_artifacts_present": true,
+            "distinct_workers_executed": true,
+            "all_workers_produced_output": true,
+            "hidden_tests_passed": true
+          },
+          "details": {
+            "workspace_digest": "",
+            "workspace_file_count": 10,
+            "changed_files": [
+              "pipeline/merge.py",
+              "sources/csv_source.py",
+              "sources/jsonl_source.py",
+              "sources/registry.py"
+            ],
+            "added_files": [],
+            "removed_files": [],
+            "forbidden_changes": [],
+            "unauthorized_changes": [],
+            "allowed_paths": [
+              "sources/",
+              "pipeline/"
+            ],
+            "required_artifacts": [
+              "pipeline/merge.py",
+              "sources/csv_source.py",
+              "sources/jsonl_source.py",
+              "sources/registry.py"
+            ],
+            "tool_expectations": {},
+            "worker_contract": {
+              "expected_workers": 3,
+              "successful_workers": [
+                "coding_worker:eval-30ab3471c285-csv",
+                "coding_worker:eval-30ab3471c285-jsonl",
+                "coding_worker:eval-30ab3471c285-integrate"
+              ],
+              "worker_output_chars": {
+                "coding_worker:eval-30ab3471c285-csv": 29,
+                "coding_worker:eval-30ab3471c285-jsonl": 29,
+                "coding_worker:eval-30ab3471c285-integrate": 29
+              }
+            },
+            "hidden_tests": {
+              "returncode": 0,
+              "stdout_tail": "...............                                                          [100%]\n15 passed in 0.02s",
+              "stderr_tail": "",
+              "failure_kind": "HIDDEN_TESTS_PASSED",
+              "sandbox_id": "b44335b9-2a32-42fd-9d2b-a61a8529d0d5"
+            },
+            "digests": {
+              "oracle_contract_digest": "72f0738b57bf8d0daca3c25b3348e06b2bf517c97a96ad716821e3a94ae00c94",
+              "oracle_fixture_digest": "7719918e12083dfd9118ee28e94292ce8029f91327327ae3001418f164b7e6b4",
+              "oracle_execution_digest": "2a0450fa275e84483ab11caab4044405d5553d7b4b37b95ad23743b342c17f10",
+              "oracle_workspace_digest": "27f50657e7d259a34fda727cfe950b910c64666b1ad7c2f0a9bca76ad9639ba5"
+            },
+            "oracle_execution": "sandbox"
+          },
+          "failure_reasons": [],
+          "execution_mode": "sandbox",
+          "failure_kind": "HIDDEN_TESTS_PASSED",
+          "environment_failure": false,
+          "cleanup_failure": null,
+          "digests": {
+            "oracle_contract_digest": "72f0738b57bf8d0daca3c25b3348e06b2bf517c97a96ad716821e3a94ae00c94",
+            "oracle_fixture_digest": "7719918e12083dfd9118ee28e94292ce8029f91327327ae3001418f164b7e6b4",
+            "oracle_execution_digest": "2a0450fa275e84483ab11caab4044405d5553d7b4b37b95ad23743b342c17f10",
+            "oracle_workspace_digest": "27f50657e7d259a34fda727cfe950b910c64666b1ad7c2f0a9bca76ad9639ba5"
+          },
+          "timings_ms": {
+            "creation_ms": 2431.034,
+            "upload_ms": 646.105,
+            "execution_ms": 1347.121,
+            "cleanup_ms": 772.236,
+            "total_ms": 5200.678
+          },
+          "status": "PASS"
+        },
+        "sandbox_id": "b44335b9-2a32-42fd-9d2b-a61a8529d0d5"
+      },
+      "normalized": {
+        "usage": {
+          "main": "NOT_APPLICABLE",
+          "children": {
+            "prompt_tokens": 7279,
+            "completion_tokens": 796,
+            "cache_hit_tokens": null,
+            "cache_miss_tokens": null
+          },
+          "system_total_tokens": 8075,
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 8075,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "context": {
+          "primary_agent_peak_context": "NOT_APPLICABLE",
+          "primary_agent_cumulative_input": "NOT_APPLICABLE",
+          "main_peak_context": "NOT_APPLICABLE",
+          "main_cumulative_input": "NOT_APPLICABLE",
+          "integration_node_context": 695,
+          "system_max_agent_context": 695,
+          "per_request_input_tokens": [
+            364,
+            360,
+            614,
+            553,
+            618,
+            557,
+            634,
+            573,
+            404,
+            551,
+            676,
+            680,
+            695
+          ],
+          "per_agent_peak_context_tokens": {
+            "eval-30ab3471c285-csv": 634,
+            "eval-30ab3471c285-integrate": 695,
+            "eval-30ab3471c285-jsonl": 573
+          }
+        },
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "NOT_APPLICABLE",
+          "static_acceptance": "NOT_APPLICABLE",
+          "public_test": "NOT_CONFIGURED",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "UNKNOWN",
+          "delivered_success": true,
+          "failure_kind": "TASK_SUCCESS"
+        },
+        "delegation": "NOT_APPLICABLE",
+        "handoff": "NOT_APPLICABLE",
+        "workers": [
+          {
+            "task_id": "csv",
+            "depends_on": [],
+            "agent": "coding_worker:eval-30ab3471c285-csv",
+            "success": true,
+            "stop_reason": {
+              "code": "success",
+              "message": "Run completed successfully.",
+              "recoverable": false
+            },
+            "tool_calls": 3,
+            "token_usage": {
+              "input_tokens": 2230,
+              "output_tokens": 277,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            },
+            "peak_context_tokens": 634,
+            "requests": 4,
+            "is_integration_node": false
+          },
+          {
+            "task_id": "jsonl",
+            "depends_on": [],
+            "agent": "coding_worker:eval-30ab3471c285-jsonl",
+            "success": true,
+            "stop_reason": {
+              "code": "success",
+              "message": "Run completed successfully.",
+              "recoverable": false
+            },
+            "tool_calls": 3,
+            "token_usage": {
+              "input_tokens": 2043,
+              "output_tokens": 220,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            },
+            "peak_context_tokens": 573,
+            "requests": 4,
+            "is_integration_node": false
+          },
+          {
+            "task_id": "integrate",
+            "depends_on": [
+              "csv",
+              "jsonl"
+            ],
+            "agent": "coding_worker:eval-30ab3471c285-integrate",
+            "success": true,
+            "stop_reason": {
+              "code": "success",
+              "message": "Run completed successfully.",
+              "recoverable": false
+            },
+            "tool_calls": 4,
+            "token_usage": {
+              "input_tokens": 3006,
+              "output_tokens": 299,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            },
+            "peak_context_tokens": 695,
+            "requests": 5,
+            "is_integration_node": true
+          }
+        ],
+        "adapter_problems": []
+      },
+      "audit": {
+        "verdict": "PASS",
+        "checks": [
+          {
+            "check": "evidence_schema",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "check": "identity_matches_plan",
+            "ok": true,
+            "detail": "cell='f.f-p1-connector-migration.A2.r1' plan='stage-f-runner-proof-v1'"
+          },
+          {
+            "check": "attribution_matches_arm",
+            "ok": true,
+            "detail": "attribution='dag_all_children'"
+          },
+          {
+            "check": "oracle_ran",
+            "ok": true,
+            "detail": "oracle='PASS'"
+          },
+          {
+            "check": "oracle_environment",
+            "ok": true,
+            "detail": "oracle status='PASS'"
+          },
+          {
+            "check": "artifact_exported",
+            "ok": true,
+            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c02\\\\dag-runs\\\\sf-a2-02\\\\f-p1-connector-migration\\\\r1-eval-30ab3471c285\\\\workspace'"
+          },
+          {
+            "check": "usage_complete",
+            "ok": true,
+            "detail": "complete"
+          }
+        ],
+        "stops": [],
+        "agent_success": true,
+        "public_test_status": "NOT_CONFIGURED",
+        "public_test_runs": null,
+        "execution_integrity": "UNKNOWN",
+        "delivered_success": true,
+        "oracle_status": "PASS"
+      },
+      "settlement": {
+        "usage_fields": {
+          "main_cumulative_input_tokens": 5949,
+          "main_completion_tokens": 743,
+          "child_total_prompt_tokens": 7279,
+          "child_completion_tokens": 796,
+          "system_total_tokens": 14767
+        },
+        "delta_cost_usd": 0.0031388999999999996,
+        "cumulative_cost_usd": 0.005815,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+      },
+      "duration_s": 0.0,
+      "checks": [
+        {
+          "check": "cell_passed_audit",
+          "ok": true,
+          "detail": "verdict=PASS"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "workspace_exported",
+          "ok": true,
+          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c02\\\\dag-runs\\\\sf-a2-02\\\\f-p1-connector-migration\\\\r1-eval-30ab3471c285\\\\workspace'"
+        },
+        {
+          "check": "usage_complete",
+          "ok": true,
+          "detail": "blocks=1 system_total=8075"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=13"
+        },
+        {
+          "check": "three_dag_nodes",
+          "ok": true,
+          "detail": "nodes=3"
+        },
+        {
+          "check": "two_independent_nodes",
+          "ok": true,
+          "detail": "csv and jsonl declare no dependency"
+        },
+        {
+          "check": "integration_node_after_both",
+          "ok": true,
+          "detail": "the sink node is the one with dependencies"
+        },
+        {
+          "check": "independent_pair_overlapped",
+          "ok": true,
+          "detail": "pairs=[['coding_worker:eval-30ab3471c285-csv', 'coding_worker:eval-30ab3471c285-jsonl']]"
+        },
+        {
+          "check": "integration_context_recorded",
+          "ok": true,
+          "detail": "peak=695"
+        },
+        {
+          "check": "implementation_nodes_20_and_integration_40",
+          "ok": true,
+          "detail": "applied={'csv': 20, 'jsonl': 20, 'integrate': 40}"
+        },
+        {
+          "check": "main_metrics_not_applicable",
+          "ok": true,
+          "detail": "no Main exists in a static DAG"
+        },
+        {
+          "check": "shared_budget_guarded",
+          "ok": true,
+          "detail": "limit=1000000"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "arm_id": "A1",
+      "cell_id": "f.f-p1-connector-migration.A1.r1",
+      "task_id": "f-p1-connector-migration",
+      "execution_mode": "atlas_direct",
+      "execution_entry": "experiments.stage_f.runners.main_driven_cell_runner -> atlasos.app.main_driven.run_goal (delegation compiled out of the tool surface)",
+      "effective_config": {
+        "max_turns": 40,
+        "worker_max_turns": 20,
+        "integration_max_turns": null,
+        "token_budget": 1000000,
+        "delegation": {
+          "enabled": false,
+          "tools_visible": false,
+          "limits": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          }
+        },
+        "worker_profiles": [
+          "coding_worker"
+        ],
+        "worker_exposure": "card",
+        "provider": "scripted (deterministic, no model call)",
+        "budget_mode": "guarded"
+      },
+      "provider": {
+        "model": "scripted-stage-f",
+        "scripts": {
+          "main": 7
+        },
+        "markers": {
+          "main": "The ingest layer is moving to the v2 connector interface fro"
+        },
+        "requests": [
+          {
+            "index": 0,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 409,
+            "prompt_tokens": 103,
+            "completion_tokens": 125,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.04,
+            "trusted_task_id": "bplus-c03-main",
+            "trusted_worker_id": "bplus-c03-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c03"
+          },
+          {
+            "index": 1,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 909,
+            "prompt_tokens": 228,
+            "completion_tokens": 250,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.061,
+            "trusted_task_id": "bplus-c03-main",
+            "trusted_worker_id": "bplus-c03-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c03"
+          },
+          {
+            "index": 2,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 1910,
+            "prompt_tokens": 478,
+            "completion_tokens": 193,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.099,
+            "trusted_task_id": "bplus-c03-main",
+            "trusted_worker_id": "bplus-c03-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c03"
+          },
+          {
+            "index": 3,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 2682,
+            "prompt_tokens": 671,
+            "completion_tokens": 147,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.089,
+            "trusted_task_id": "bplus-c03-main",
+            "trusted_worker_id": "bplus-c03-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c03"
+          },
+          {
+            "index": 4,
+            "script": "main",
+            "tool": "list_files",
+            "prompt_chars": 3270,
+            "prompt_tokens": 818,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.099,
+            "trusted_task_id": "bplus-c03-main",
+            "trusted_worker_id": "bplus-c03-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c03"
+          },
+          {
+            "index": 5,
+            "script": "main",
+            "tool": "bash",
+            "prompt_chars": 3285,
+            "prompt_tokens": 822,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.111,
+            "trusted_task_id": "bplus-c03-main",
+            "trusted_worker_id": "bplus-c03-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c03"
+          },
+          {
+            "index": 6,
+            "script": "main",
+            "tool": "run_public_tests",
+            "prompt_chars": 3347,
+            "prompt_tokens": 837,
+            "completion_tokens": 17,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.1,
+            "trusted_task_id": "bplus-c03-main",
+            "trusted_worker_id": "bplus-c03-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c03"
+          },
+          {
+            "index": 7,
+            "script": "main",
+            "tool": null,
+            "prompt_chars": 3416,
+            "prompt_tokens": 854,
+            "completion_tokens": 11,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.128,
+            "trusted_task_id": "bplus-c03-main",
+            "trusted_worker_id": "bplus-c03-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c03"
+          }
+        ],
+        "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+        "cache_split": "structural zero: this provider has no prompt cache"
+      },
+      "container": {
+        "agent": {
+          "provider": "opensandbox",
+          "provider_is_real": true,
+          "capabilities": {
+            "provider": "opensandbox",
+            "contract_version": "1.0",
+            "isolation": "container",
+            "networking": "allowlist",
+            "persistent_filesystem": true,
+            "snapshots": false,
+            "command_streaming": false,
+            "cancellation": true,
+            "file_transfer": true,
+            "evidence": true,
+            "limitations": [
+              "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+              "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+              "Point-in-time snapshots are not exposed through this adapter.",
+              "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+            ]
+          },
+          "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+          "binding_id": "853197699c61bfa5fd4c3d070aeeea345775db235e15265ba9fda5d6c0952397",
+          "sandbox_id": "640ef9eb-3eac-4ade-aa99-edd299572bee",
+          "binding_state": "READY",
+          "workspace_root": "/workspace/project",
+          "network_probe": "PASS",
+          "host_separation": {
+            "host_only_visible": false,
+            "sandbox_only_visible_on_host": false,
+            "sandbox_only_read_back": true
+          },
+          "provision_commands": 4,
+          "provision_uploads": 1,
+          "created": true,
+          "destroyed": true,
+          "retained": false,
+          "patch_digest": "sha256:2a78869a7bd64704362c1fca1dd99597b1980bc3d592b688e3c1f1a1b4e53c91",
+          "patch_changed_files": 4,
+          "export_digest": "sha256:44c9857dccbc6b59b1f98bccd85c0ca54d9253fef09c5a3dd413887d4e77f85e",
+          "export_files": 10,
+          "export_size_bytes": 30720,
+          "check_runs": 1,
+          "tool_error_mode": "corrected",
+          "error": null
+        },
+        "oracle": {
+          "sandbox_id": "77a8a17e-6122-44fc-9496-4986f456f369",
+          "mode": "sandbox",
+          "cleanup_failure": null
+        },
+        "created_and_destroyed": {
+          "sandbox_id": "640ef9eb-3eac-4ade-aa99-edd299572bee",
+          "created": true,
+          "destroyed": true,
+          "provider": "opensandbox",
+          "network": null,
+          "image": null
+        }
+      },
+      "raw_result": {
+        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c03\\agent\\bplus-c03\\session.json",
+        "basename": "session.json",
+        "found": true,
+        "bytes": 15016,
+        "digest": "sha256:sha256:749fd1354579b4db005ae8c1d7c4337ade63dbb163619b333004436bc8e8ffff"
+      },
+      "workspace_export": {
+        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c03\\agent\\bplus-c03\\workspace",
+        "patch_digest": null,
+        "analysis_export": {
+          "patch_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c03\\agent\\bplus-c03\\workspace.patch",
+          "patch_digest": "sha256:2a78869a7bd64704362c1fca1dd99597b1980bc3d592b688e3c1f1a1b4e53c91",
+          "patch_changed_files": 4,
+          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c03\\agent\\bplus-c03\\workspace",
+          "workspace_digest": "sha256:44c9857dccbc6b59b1f98bccd85c0ca54d9253fef09c5a3dd413887d4e77f85e",
+          "workspace_files": 10,
+          "workspace_size_bytes": 30720,
+          "directory_digest": "sha256:33f58035a5873b53f0ced9a0b2b9219f40b8e10e8c235977e782077e6eecb087",
+          "directory_files": 10,
+          "directory_digest_source": "host, computed from the extracted export directory",
+          "archive_digest_verifiable": false,
+          "archive_digest_source": "producer (GoalSandbox export.archive_digest, sha256 of the transferred archive); the archive bytes are not retained, so this value is recorded, not re-derived"
+        }
+      },
+      "oracle": {
+        "status": "PASS",
+        "passed": true,
+        "record": {
+          "status": "PASS",
+          "kind": "HIDDEN_TESTS_PASSED",
+          "passed": true,
+          "environment_failure": false,
+          "cleanup_failure": null,
+          "execution_mode": "sandbox",
+          "sandbox_id": "77a8a17e-6122-44fc-9496-4986f456f369",
+          "returncode": 0,
+          "timings_ms": {
+            "creation_ms": 2314.763,
+            "upload_ms": 569.078,
+            "execution_ms": 1311.265,
+            "cleanup_ms": 731.377,
+            "total_ms": 4929.602
+          },
+          "image": "atlas-uat-python:3.12",
+          "workspace_files": 10,
+          "hidden_files_in_workspace": [],
+          "stderr_excerpt": "",
+          "source": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
+          "fixture_after_run": "92ecd44515faa1319ae1b1745db12adef1fbfa9a2680c0b7bf85d6ac7e63e51a"
+        },
+        "sandbox_id": "77a8a17e-6122-44fc-9496-4986f456f369"
+      },
+      "normalized": {
+        "usage": {
+          "main": {
+            "prompt_tokens": 4811,
+            "completion_tokens": 762,
+            "cache_hit_tokens": 0,
+            "cache_miss_tokens": 4811
+          },
+          "children": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "cache_hit_tokens": null,
+            "cache_miss_tokens": null
+          },
+          "system_total_tokens": 5573,
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 5573,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "context": {
+          "primary_agent_peak_context": 854,
+          "primary_agent_cumulative_input": 4811,
+          "main_peak_context": 854,
+          "main_cumulative_input": 4811,
+          "integration_node_context": "NOT_APPLICABLE",
+          "system_max_agent_context": 854,
+          "per_request_input_tokens": [
+            103,
+            228,
+            478,
+            671,
+            818,
+            822,
+            837,
+            854
+          ],
+          "per_agent_peak_context_tokens": {
+            "bplus-c03-main": 854
+          }
+        },
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "success",
+          "static_acceptance": "PASS",
+          "public_test": "PASS",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "PASS",
+          "delivered_success": true,
+          "failure_kind": null
+        },
+        "delegation": {
+          "natural_proposal": false,
+          "proposal_count": 0,
+          "proposals": [],
+          "rounds": 0,
+          "batches": []
+        },
+        "handoff": {
+          "preview_delivered": [],
+          "full_reference_read": 0,
+          "read_metrics": null
+        },
+        "workers": null,
+        "adapter_problems": []
+      },
+      "audit": {
+        "verdict": "PASS",
+        "checks": [
+          {
+            "check": "evidence_schema",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "check": "identity_matches_plan",
+            "ok": true,
+            "detail": "cell='f.f-p1-connector-migration.A1.r1' plan='stage-f-runner-proof-v1'"
+          },
+          {
+            "check": "attribution_matches_arm",
+            "ok": true,
+            "detail": "attribution='main_child'"
+          },
+          {
+            "check": "oracle_ran",
+            "ok": true,
+            "detail": "oracle='PASS'"
+          },
+          {
+            "check": "oracle_environment",
+            "ok": true,
+            "detail": "oracle status='PASS'"
+          },
+          {
+            "check": "artifact_exported",
+            "ok": true,
+            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c03\\\\agent\\\\bplus-c03\\\\workspace'"
+          },
+          {
+            "check": "usage_complete",
+            "ok": true,
+            "detail": "complete"
+          }
+        ],
+        "stops": [],
+        "agent_success": true,
+        "public_test_status": "PASS",
+        "public_test_runs": 1,
+        "execution_integrity": "PASS",
+        "delivered_success": true,
+        "oracle_status": "PASS"
+      },
+      "settlement": {
+        "usage_fields": {
+          "main_cumulative_input_tokens": 10760,
+          "main_completion_tokens": 1505,
+          "child_total_prompt_tokens": 7279,
+          "child_completion_tokens": 796,
+          "system_total_tokens": 20340
+        },
+        "delta_cost_usd": 0.0023577,
+        "cumulative_cost_usd": 0.008173,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+      },
+      "duration_s": 30.40600000001723,
+      "checks": [
+        {
+          "check": "cell_passed_audit",
+          "ok": true,
+          "detail": "verdict=PASS"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "workspace_exported",
+          "ok": true,
+          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c03\\\\agent\\\\bplus-c03\\\\workspace'"
+        },
+        {
+          "check": "usage_complete",
+          "ok": true,
+          "detail": "blocks=2 system_total=5573"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=8"
+        },
+        {
+          "check": "main_turn_cap_is_40",
+          "ok": true,
+          "detail": "max_turns=40"
+        },
+        {
+          "check": "shared_budget_is_one_million",
+          "ok": true,
+          "detail": "token_budget=1000000"
+        },
+        {
+          "check": "delegation_switch_is_the_arms",
+          "ok": true,
+          "detail": "enabled=False"
+        },
+        {
+          "check": "external_oracle_contract",
+          "ok": true,
+          "detail": "oracle_mode='EXTERNAL_SANDBOX_ORACLE'"
+        },
+        {
+          "check": "delegation_tools_absent",
+          "ok": true,
+          "detail": "neither delegate_tasks nor delegate.read appears in the recorded tool surface"
+        },
+        {
+          "check": "public_test_ran",
+          "ok": true,
+          "detail": "runs=1"
+        },
+        {
+          "check": "execution_integrity_recorded",
+          "ok": true,
+          "detail": "integrity='PASS'"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "arm_id": "A3",
+      "cell_id": "f.f-p1-connector-migration.A3.r1",
+      "task_id": "f-p1-connector-migration",
+      "execution_mode": "atlas_dynamic",
+      "execution_entry": "experiments.stage_f.runners.main_driven_cell_runner -> atlasos.app.main_driven.run_goal (delegation enabled, DelegateTasksTool -> DelegationService)",
+      "effective_config": {
+        "max_turns": 40,
+        "worker_max_turns": 20,
+        "integration_max_turns": null,
+        "token_budget": 1000000,
+        "delegation": {
+          "enabled": true,
+          "tools_visible": true,
+          "limits": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          }
+        },
+        "worker_profiles": [
+          "research_worker",
+          "coding_worker"
+        ],
+        "worker_exposure": "card",
+        "provider": "scripted (deterministic, no model call)",
+        "budget_mode": "guarded"
+      },
+      "provider": {
+        "model": "scripted-stage-f",
+        "scripts": {
+          "main": 6,
+          "sources/csv_source.py": 3,
+          "sources/jsonl_source.py": 3
+        },
+        "markers": {
+          "main": "The ingest layer is moving to the v2 connector interface fro",
+          "sources/csv_source.py": "Implement `sources/csv_source.py` against the frozen interface in `docs/INTERFACE.md`: quoted values may contain a comma, blank lines are skipped, fields are trimmed, and a line with other than two fields is a `ValueError`. Do not edit `sources/base.py`, `test_public.py` or any other task's files.",
+          "sources/jsonl_source.py": "Implement `sources/jsonl_source.py` against the frozen interface: blank lines skipped, extra keys ignored, `name`/`value` stringified, and a missing key, a non-object line or invalid JSON is a `ValueError`. Do not edit `sources/base.py`, `test_public.py` or any other task's files."
+        },
+        "requests": [
+          {
+            "index": 0,
+            "script": "main",
+            "tool": "delegate_tasks",
+            "prompt_chars": 409,
+            "prompt_tokens": 103,
+            "completion_tokens": 319,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.057,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 1,
+            "script": "sources/csv_source.py",
+            "tool": "file_write",
+            "prompt_chars": 298,
+            "prompt_tokens": 75,
+            "completion_tokens": 250,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.046,
+            "trusted_task_id": "bplus-c04-main:r1:csv-source",
+            "trusted_worker_id": "bplus-c04-main:r1:csv-source",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 2,
+            "script": "sources/jsonl_source.py",
+            "tool": "file_write",
+            "prompt_chars": 281,
+            "prompt_tokens": 71,
+            "completion_tokens": 193,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.043,
+            "trusted_task_id": "bplus-c04-main:r1:jsonl-source",
+            "trusted_worker_id": "bplus-c04-main:r1:jsonl-source",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 3,
+            "script": "sources/csv_source.py",
+            "tool": "list_files",
+            "prompt_chars": 1299,
+            "prompt_tokens": 325,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.066,
+            "trusted_task_id": "bplus-c04-main:r1:csv-source",
+            "trusted_worker_id": "bplus-c04-main:r1:csv-source",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 4,
+            "script": "sources/jsonl_source.py",
+            "tool": "list_files",
+            "prompt_chars": 1053,
+            "prompt_tokens": 264,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.065,
+            "trusted_task_id": "bplus-c04-main:r1:jsonl-source",
+            "trusted_worker_id": "bplus-c04-main:r1:jsonl-source",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 5,
+            "script": "sources/csv_source.py",
+            "tool": "bash",
+            "prompt_chars": 1314,
+            "prompt_tokens": 329,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.093,
+            "trusted_task_id": "bplus-c04-main:r1:csv-source",
+            "trusted_worker_id": "bplus-c04-main:r1:csv-source",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 6,
+            "script": "sources/csv_source.py",
+            "tool": null,
+            "prompt_chars": 1376,
+            "prompt_tokens": 344,
+            "completion_tokens": 13,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.055,
+            "trusted_task_id": "bplus-c04-main:r1:csv-source",
+            "trusted_worker_id": "bplus-c04-main:r1:csv-source",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 7,
+            "script": "sources/jsonl_source.py",
+            "tool": "bash",
+            "prompt_chars": 1068,
+            "prompt_tokens": 267,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.087,
+            "trusted_task_id": "bplus-c04-main:r1:jsonl-source",
+            "trusted_worker_id": "bplus-c04-main:r1:jsonl-source",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 8,
+            "script": "sources/jsonl_source.py",
+            "tool": null,
+            "prompt_chars": 1130,
+            "prompt_tokens": 283,
+            "completion_tokens": 13,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.067,
+            "trusted_task_id": "bplus-c04-main:r1:jsonl-source",
+            "trusted_worker_id": "bplus-c04-main:r1:jsonl-source",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 9,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 1687,
+            "prompt_tokens": 422,
+            "completion_tokens": 147,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.235,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 10,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 2275,
+            "prompt_tokens": 569,
+            "completion_tokens": 125,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.078,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 11,
+            "script": "main",
+            "tool": "list_files",
+            "prompt_chars": 2775,
+            "prompt_tokens": 694,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.085,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 12,
+            "script": "main",
+            "tool": "bash",
+            "prompt_chars": 2790,
+            "prompt_tokens": 698,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.095,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 13,
+            "script": "main",
+            "tool": "run_public_tests",
+            "prompt_chars": 2852,
+            "prompt_tokens": 713,
+            "completion_tokens": 18,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.098,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 14,
+            "script": "main",
+            "tool": null,
+            "prompt_chars": 2924,
+            "prompt_tokens": 731,
+            "completion_tokens": 13,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.136,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          }
+        ],
+        "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+        "cache_split": "structural zero: this provider has no prompt cache"
+      },
+      "container": {
+        "agent": {
+          "provider": "opensandbox",
+          "provider_is_real": true,
+          "capabilities": {
+            "provider": "opensandbox",
+            "contract_version": "1.0",
+            "isolation": "container",
+            "networking": "allowlist",
+            "persistent_filesystem": true,
+            "snapshots": false,
+            "command_streaming": false,
+            "cancellation": true,
+            "file_transfer": true,
+            "evidence": true,
+            "limitations": [
+              "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+              "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+              "Point-in-time snapshots are not exposed through this adapter.",
+              "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+            ]
+          },
+          "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+          "binding_id": "14f4d4a0f75db640492b1ba7fdbf14fc1d51d8ba11cb0bb20ad1448dc9e64f81",
+          "sandbox_id": "f1e33e38-6653-4eab-8b9d-1afef5d5416d",
+          "binding_state": "READY",
+          "workspace_root": "/workspace/project",
+          "network_probe": "PASS",
+          "host_separation": {
+            "host_only_visible": false,
+            "sandbox_only_visible_on_host": false,
+            "sandbox_only_read_back": true
+          },
+          "provision_commands": 4,
+          "provision_uploads": 1,
+          "created": true,
+          "destroyed": true,
+          "retained": false,
+          "patch_digest": "sha256:2a78869a7bd64704362c1fca1dd99597b1980bc3d592b688e3c1f1a1b4e53c91",
+          "patch_changed_files": 4,
+          "export_digest": "sha256:67d82c0a775d14758c8c0a7f700bcf50dff9fd77c5d1b40981abe665cc5ba7a4",
+          "export_files": 10,
+          "export_size_bytes": 30720,
+          "check_runs": 1,
+          "tool_error_mode": "corrected",
+          "error": null
+        },
+        "oracle": {
+          "sandbox_id": "a1aea438-e6fc-4306-8353-4ed2913612ed",
+          "mode": "sandbox",
+          "cleanup_failure": null
+        },
+        "created_and_destroyed": {
+          "sandbox_id": "f1e33e38-6653-4eab-8b9d-1afef5d5416d",
+          "created": true,
+          "destroyed": true,
+          "provider": "opensandbox",
+          "network": null,
+          "image": null
+        }
+      },
+      "raw_result": {
+        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c04\\agent\\bplus-c04\\session.json",
+        "basename": "session.json",
+        "found": true,
+        "bytes": 27833,
+        "digest": "sha256:sha256:8bc980cbb51db4d67b9ed3fff402c31639fad8d7b6e4f0069d5f9e1c755569f3"
+      },
+      "workspace_export": {
+        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
+        "patch_digest": null,
+        "analysis_export": {
+          "patch_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace.patch",
+          "patch_digest": "sha256:2a78869a7bd64704362c1fca1dd99597b1980bc3d592b688e3c1f1a1b4e53c91",
+          "patch_changed_files": 4,
+          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
+          "workspace_digest": "sha256:67d82c0a775d14758c8c0a7f700bcf50dff9fd77c5d1b40981abe665cc5ba7a4",
+          "workspace_files": 10,
+          "workspace_size_bytes": 30720,
+          "directory_digest": "sha256:33f58035a5873b53f0ced9a0b2b9219f40b8e10e8c235977e782077e6eecb087",
+          "directory_files": 10,
+          "directory_digest_source": "host, computed from the extracted export directory",
+          "archive_digest_verifiable": false,
+          "archive_digest_source": "producer (GoalSandbox export.archive_digest, sha256 of the transferred archive); the archive bytes are not retained, so this value is recorded, not re-derived"
+        }
+      },
+      "oracle": {
+        "status": "PASS",
+        "passed": true,
+        "record": {
+          "status": "PASS",
+          "kind": "HIDDEN_TESTS_PASSED",
+          "passed": true,
+          "environment_failure": false,
+          "cleanup_failure": null,
+          "execution_mode": "sandbox",
+          "sandbox_id": "a1aea438-e6fc-4306-8353-4ed2913612ed",
+          "returncode": 0,
+          "timings_ms": {
+            "creation_ms": 2516.251,
+            "upload_ms": 543.526,
+            "execution_ms": 1313.738,
+            "cleanup_ms": 702.21,
+            "total_ms": 5078.841
+          },
+          "image": "atlas-uat-python:3.12",
+          "workspace_files": 10,
+          "hidden_files_in_workspace": [],
+          "stderr_excerpt": "",
+          "source": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
+          "fixture_after_run": "92ecd44515faa1319ae1b1745db12adef1fbfa9a2680c0b7bf85d6ac7e63e51a"
+        },
+        "sandbox_id": "a1aea438-e6fc-4306-8353-4ed2913612ed"
+      },
+      "normalized": {
+        "usage": {
+          "main": {
+            "prompt_tokens": 3930,
+            "completion_tokens": 641,
+            "cache_hit_tokens": 0,
+            "cache_miss_tokens": 3930
+          },
+          "children": {
+            "prompt_tokens": 1958,
+            "completion_tokens": 507,
+            "cache_hit_tokens": 0,
+            "cache_miss_tokens": 1958
+          },
+          "system_total_tokens": 7036,
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 7036,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "context": {
+          "primary_agent_peak_context": 731,
+          "primary_agent_cumulative_input": 3930,
+          "main_peak_context": 731,
+          "main_cumulative_input": 3930,
+          "integration_node_context": "NOT_APPLICABLE",
+          "system_max_agent_context": 731,
+          "per_request_input_tokens": [
+            103,
+            75,
+            71,
+            325,
+            264,
+            329,
+            344,
+            267,
+            283,
+            422,
+            569,
+            694,
+            698,
+            713,
+            731
+          ],
+          "per_agent_peak_context_tokens": {
+            "bplus-c04-main": 731,
+            "bplus-c04-main:r1:csv-source": 344,
+            "bplus-c04-main:r1:jsonl-source": 283
+          }
+        },
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "success",
+          "static_acceptance": "PASS",
+          "public_test": "PASS",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "PASS",
+          "delivered_success": true,
+          "failure_kind": null
+        },
+        "delegation": {
+          "natural_proposal": true,
+          "proposal_count": 1,
+          "proposals": [
+            {
+              "task_id": "bplus-c04-main",
+              "input": {
+                "reason": "two independent connector implementations with disjoint write scopes; the shared merge and registry stay in the Main",
+                "tasks": [
+                  {
+                    "background": "The project is at /workspace/project and `docs/INTERFACE.md` is frozen. Edit only `sources/csv_source.py`; the public suite is `test_public.py`.",
+                    "key": "csv-source",
+                    "objective": "Implement `sources/csv_source.py` against the frozen interface in `docs/INTERFACE.md`: quoted values may contain a comma, blank lines are skipped, fields are trimmed, and a line with other than two fields is a `ValueError`. Do not edit `sources/base.py`, `test_public.py` or any other task's files.",
+                    "profile_id": "coding_worker",
+                    "write_paths": [
+                      "sources/csv_source.py"
+                    ]
+                  },
+                  {
+                    "background": "The project is at /workspace/project and `docs/INTERFACE.md` is frozen. Edit only `sources/jsonl_source.py`; the public suite is `test_public.py`.",
+                    "key": "jsonl-source",
+                    "objective": "Implement `sources/jsonl_source.py` against the frozen interface: blank lines skipped, extra keys ignored, `name`/`value` stringified, and a missing key, a non-object line or invalid JSON is a `ValueError`. Do not edit `sources/base.py`, `test_public.py` or any other task's files.",
+                    "profile_id": "coding_worker",
+                    "write_paths": [
+                      "sources/jsonl_source.py"
+                    ]
+                  }
+                ]
+              },
+              "block_type": "tool_use",
+              "source": "tool_conversations.json"
+            }
+          ],
+          "rounds": 1,
+          "batches": [
+            {
+              "round": 1,
+              "route": "delegate_parallel",
+              "reason_codes": [
+                "DELEGATION_ADMITTED"
+              ],
+              "blocked_gates": [],
+              "children": [
+                {
+                  "key": "csv-source",
+                  "status": "completed",
+                  "success": true,
+                  "stop_reason": "success",
+                  "turns": 4,
+                  "tool_calls": 3,
+                  "prompt_tokens": 1073,
+                  "completion_tokens": 282
+                },
+                {
+                  "key": "jsonl-source",
+                  "status": "completed",
+                  "success": true,
+                  "stop_reason": "success",
+                  "turns": 4,
+                  "tool_calls": 3,
+                  "prompt_tokens": 885,
+                  "completion_tokens": 225
+                }
+              ],
+              "max_observed_concurrency": 2
+            }
+          ]
+        },
+        "handoff": {
+          "preview_delivered": [
+            {
+              "round": 1,
+              "result_chars": [
+                49,
+                49
+              ]
+            }
+          ],
+          "full_reference_read": 3,
+          "read_metrics": {
+            "read_calls": 0,
+            "read_success": 0,
+            "read_denied": 0
+          }
+        },
+        "workers": null,
+        "adapter_problems": []
+      },
+      "audit": {
+        "verdict": "PASS",
+        "checks": [
+          {
+            "check": "evidence_schema",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "check": "identity_matches_plan",
+            "ok": true,
+            "detail": "cell='f.f-p1-connector-migration.A3.r1' plan='stage-f-runner-proof-v1'"
+          },
+          {
+            "check": "attribution_matches_arm",
+            "ok": true,
+            "detail": "attribution='main_child'"
+          },
+          {
+            "check": "oracle_ran",
+            "ok": true,
+            "detail": "oracle='PASS'"
+          },
+          {
+            "check": "oracle_environment",
+            "ok": true,
+            "detail": "oracle status='PASS'"
+          },
+          {
+            "check": "artifact_exported",
+            "ok": true,
+            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
+          },
+          {
+            "check": "usage_complete",
+            "ok": true,
+            "detail": "complete"
+          }
+        ],
+        "stops": [],
+        "agent_success": true,
+        "public_test_status": "PASS",
+        "public_test_runs": 1,
+        "execution_integrity": "PASS",
+        "delivered_success": true,
+        "oracle_status": "PASS"
+      },
+      "settlement": {
+        "usage_fields": {
+          "main_cumulative_input_tokens": 14690,
+          "main_completion_tokens": 2146,
+          "child_total_prompt_tokens": 9237,
+          "child_completion_tokens": 1303,
+          "system_total_tokens": 27376
+        },
+        "delta_cost_usd": 0.003144,
+        "cumulative_cost_usd": 0.011317,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+      },
+      "duration_s": 32.92200000002049,
+      "checks": [
+        {
+          "check": "cell_passed_audit",
+          "ok": true,
+          "detail": "verdict=PASS"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "workspace_exported",
+          "ok": true,
+          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
+        },
+        {
+          "check": "usage_complete",
+          "ok": true,
+          "detail": "blocks=2 system_total=7036"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=15"
+        },
+        {
+          "check": "main_turn_cap_is_40",
+          "ok": true,
+          "detail": "max_turns=40"
+        },
+        {
+          "check": "shared_budget_is_one_million",
+          "ok": true,
+          "detail": "token_budget=1000000"
+        },
+        {
+          "check": "delegation_switch_is_the_arms",
+          "ok": true,
+          "detail": "enabled=True"
+        },
+        {
+          "check": "external_oracle_contract",
+          "ok": true,
+          "detail": "oracle_mode='EXTERNAL_SANDBOX_ORACLE'"
+        },
+        {
+          "check": "proposal_recorded",
+          "ok": true,
+          "detail": "proposals=1"
+        },
+        {
+          "check": "two_children_admitted",
+          "ok": true,
+          "detail": "children=['csv-source', 'jsonl-source']"
+        },
+        {
+          "check": "children_overlapped",
+          "ok": true,
+          "detail": "max_concurrency=[2]"
+        },
+        {
+          "check": "system_max_context_from_all_agents",
+          "ok": true,
+          "detail": "agents=['bplus-c04-main', 'bplus-c04-main:r1:csv-source', 'bplus-c04-main:r1:jsonl-source']"
+        },
+        {
+          "check": "child_usage_attributed",
+          "ok": true,
+          "detail": "child_prompt=1958"
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "duration_s": 130.012,
+  "negatives": [
+    {
+      "case": "budget_guard_refuses_and_sends_nothing",
+      "ok": true,
+      "detail": {
+        "admission_rejections": 1,
+        "requests_started": 0,
+        "provider_requests": 0,
+        "token_budget": 600,
+        "error": null,
+        "session_status": "failed"
+      }
+    },
+    {
+      "case": "agent_completed_but_oracle_failed",
+      "ok": true,
+      "detail": {
+        "oracle": "FAIL",
+        "verdict": "MEASURED_FAILURE",
+        "agent_success": true,
+        "delivered_success": false
+      }
+    },
+    {
+      "case": "agent_did_not_complete_but_artifact_correct",
+      "ok": true,
+      "detail": {
+        "oracle": "PASS",
+        "agent_success": false,
+        "delivered_success": false
+      }
+    },
+    {
+      "case": "oracle_environment_failure_stops",
+      "ok": true,
+      "detail": {
+        "stops": [
+          "ORACLE_ENVIRONMENT_FAILURE",
+          "EXPORT_INVALID",
+          "UNKNOWN_OR_ILLEGAL_USAGE"
+        ],
+        "verdict": "STOPPED"
+      }
+    },
+    {
+      "case": "unknown_or_missing_evidence_is_not_zero_or_pass",
+      "ok": true,
+      "detail": {
+        "stops": [
+          "EXPORT_INVALID",
+          "UNKNOWN_OR_ILLEGAL_USAGE"
+        ],
+        "usage": {
+          "main_cumulative_input_tokens": null,
+          "main_completion_tokens": null,
+          "child_total_prompt_tokens": null,
+          "child_completion_tokens": null,
+          "system_total_tokens": null
+        },
+        "cost_usd": null
+      }
+    }
+  ],
+  "all_arms_passed": true,
+  "status": "STAGE_F_RUNNER_PROOF_PASS"
+}
