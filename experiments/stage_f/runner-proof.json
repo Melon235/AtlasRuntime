@@ -1,8 +1,8 @@
 {
   "stage": "F",
   "kind": "four_arm_real_runner_proof",
-  "generated_at": "2026-11-26T06:43:23.833515+00:00",
-  "repo_head": "726e2ec77964e3a1263d71eceba9bded698f8fcb",
+  "generated_at": "2026-11-26T06:50:55.311867+00:00",
+  "repo_head": "8bbe7a73194a7f97ea692482c70022db4cd58d5d",
   "plan": {
     "plan_id": "stage-f-runner-proof-v1",
     "plan_digest": "sha256:18c288973afe21fb9b09f4c78593c7cac8b7d272be4b1f7f473b1c31a670bfb7",
@@ -19,9 +19,9 @@
   "model_calls": 0,
   "production_claims_consumed": 0,
   "scripted_provider": true,
-  "scratch_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113",
-  "runs_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\runs",
-  "evidence_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence",
+  "scratch_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844",
+  "runs_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\runs",
+  "evidence_root": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence",
   "dispatch": {
     "stop_reason": "NONE",
     "complete": true,
@@ -37,7 +37,7 @@
         "cost_usd": 0.002676,
         "cumulative_tokens": 6692,
         "order": 1,
-        "recorded_at": "2026-11-26T06:41:45Z",
+        "recorded_at": "2026-11-26T06:49:16Z",
         "stops": [],
         "verdict": "PASS"
       },
@@ -46,7 +46,7 @@
         "cost_usd": 0.005815,
         "cumulative_tokens": 14767,
         "order": 2,
-        "recorded_at": "2026-11-26T06:42:20Z",
+        "recorded_at": "2026-11-26T06:49:51Z",
         "stops": [],
         "verdict": "PASS"
       },
@@ -55,7 +55,7 @@
         "cost_usd": 0.008173,
         "cumulative_tokens": 20340,
         "order": 3,
-        "recorded_at": "2026-11-26T06:42:50Z",
+        "recorded_at": "2026-11-26T06:50:22Z",
         "stops": [],
         "verdict": "PASS"
       },
@@ -64,7 +64,7 @@
         "cost_usd": 0.011317,
         "cumulative_tokens": 27376,
         "order": 4,
-        "recorded_at": "2026-11-26T06:43:23Z",
+        "recorded_at": "2026-11-26T06:50:55Z",
         "stops": [],
         "verdict": "PASS"
       }
@@ -115,7 +115,7 @@
             "prompt_tokens": 387,
             "completion_tokens": 125,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.059
+            "latency_ms": 0.068
           },
           {
             "index": 1,
@@ -125,7 +125,7 @@
             "prompt_tokens": 512,
             "completion_tokens": 250,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.104
+            "latency_ms": 0.069
           },
           {
             "index": 2,
@@ -135,7 +135,7 @@
             "prompt_tokens": 763,
             "completion_tokens": 193,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.116
+            "latency_ms": 0.096
           },
           {
             "index": 3,
@@ -145,7 +145,7 @@
             "prompt_tokens": 956,
             "completion_tokens": 147,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.138
+            "latency_ms": 0.099
           },
           {
             "index": 4,
@@ -155,7 +155,7 @@
             "prompt_tokens": 1103,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.16
+            "latency_ms": 0.142
           },
           {
             "index": 5,
@@ -165,7 +165,7 @@
             "prompt_tokens": 1106,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.109
+            "latency_ms": 0.336
           },
           {
             "index": 6,
@@ -175,7 +175,7 @@
             "prompt_tokens": 1122,
             "completion_tokens": 9,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.084
+            "latency_ms": 0.187
           }
         ],
         "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
@@ -184,17 +184,17 @@
       "container": {
         "agent": {
           "provider": "opensandbox",
-          "sandbox_id": "ac1cb7c0-ee95-40a4-8c8d-2f918d05c7dd",
+          "sandbox_id": "3cb29679-e730-4089-94c1-76a6b6f78936",
           "image": "atlas-uat-python:3.12",
           "network": "none",
           "workspace_root": "/workspace/project",
-          "source_commit": "1ed4abf5c5e33b16dcb1a0fd5d569e500c4707a9",
-          "source_digest": "sha256:541eb11476626e65fdaa8c47173adcee45e09f4334c5426ac4c74f9bca811f2f",
+          "source_commit": "5cc1038c9bbaff6a1e35d46f2ff24a2bcdbe022e",
+          "source_digest": "sha256:ad529c6a2ff244e36ca7b9981ed276fd8f57644dd1cb8bacf030fdabf0fba665",
           "provision_commands": 4,
           "provision_uploads": 1,
           "timings_ms": {
-            "provision_ms": 4356.786,
-            "isolation_ms": 4288.601
+            "provision_ms": 4325.105,
+            "isolation_ms": 4281.694
           },
           "isolation": {
             "workspace_preparation_mode": "public_fixture_clone",
@@ -213,12 +213,12 @@
           }
         },
         "oracle": {
-          "sandbox_id": "0ee9b285-61e6-4e05-b0fd-357cb9c7c78e",
+          "sandbox_id": "9847f498-6d82-458f-bdbc-c40568617ad5",
           "mode": "sandbox",
           "cleanup_failure": null
         },
         "created_and_destroyed": {
-          "sandbox_id": "ac1cb7c0-ee95-40a4-8c8d-2f918d05c7dd",
+          "sandbox_id": "3cb29679-e730-4089-94c1-76a6b6f78936",
           "created": true,
           "destroyed": true,
           "provider": "opensandbox",
@@ -227,18 +227,18 @@
         }
       },
       "raw_result": {
-        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-38f33fa0cf18\\result.json",
+        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-cd8999a0f19d\\result.json",
         "basename": "result.json",
         "found": true,
-        "bytes": 20140,
-        "digest": "sha256:sha256:9b061dcdde85a1d33662c77ed97b7f846e103bd36383c0e4745df593a59c3c05"
+        "bytes": 20141,
+        "digest": "sha256:sha256:384bd0ff1f9ded359b4d0af6eacec40ca3229b1d274886527de573f4dfa92f17"
       },
       "workspace_export": {
-        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-38f33fa0cf18\\workspace",
-        "patch_digest": "sha256:7c2dab4456f367f0df080781a3ee92d18c088ead08769aa30b55e30d04eb47d7",
+        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-cd8999a0f19d\\workspace",
+        "patch_digest": "sha256:20d6472ced886b82002a3a5f4237d9804e20492f22c3bd0e8c10c8763248bcfe",
         "analysis_export": {
-          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-38f33fa0cf18\\workspace",
-          "patch_digest": "sha256:7c2dab4456f367f0df080781a3ee92d18c088ead08769aa30b55e30d04eb47d7",
+          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-cd8999a0f19d\\workspace",
+          "patch_digest": "sha256:20d6472ced886b82002a3a5f4237d9804e20492f22c3bd0e8c10c8763248bcfe",
           "sandbox_created": true,
           "sandbox_destroyed": true
         }
@@ -285,7 +285,7 @@
               "stdout_tail": "...............                                                          [100%]\n15 passed in 0.02s",
               "stderr_tail": "",
               "failure_kind": "HIDDEN_TESTS_PASSED",
-              "sandbox_id": "0ee9b285-61e6-4e05-b0fd-357cb9c7c78e"
+              "sandbox_id": "9847f498-6d82-458f-bdbc-c40568617ad5"
             },
             "digests": {
               "oracle_contract_digest": "72f0738b57bf8d0daca3c25b3348e06b2bf517c97a96ad716821e3a94ae00c94",
@@ -307,15 +307,15 @@
             "oracle_workspace_digest": "27f50657e7d259a34fda727cfe950b910c64666b1ad7c2f0a9bca76ad9639ba5"
           },
           "timings_ms": {
-            "creation_ms": 2563.69,
-            "upload_ms": 548.124,
-            "execution_ms": 1336.959,
-            "cleanup_ms": 750.456,
-            "total_ms": 5203.371
+            "creation_ms": 2637.597,
+            "upload_ms": 652.582,
+            "execution_ms": 1367.039,
+            "cleanup_ms": 806.35,
+            "total_ms": 5467.179
           },
           "status": "PASS"
         },
-        "sandbox_id": "0ee9b285-61e6-4e05-b0fd-357cb9c7c78e"
+        "sandbox_id": "9847f498-6d82-458f-bdbc-c40568617ad5"
       },
       "normalized": {
         "usage": {
@@ -405,7 +405,7 @@
           {
             "check": "artifact_exported",
             "ok": true,
-            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-38f33fa0cf18\\\\workspace'"
+            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064844\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-cd8999a0f19d\\\\workspace'"
           },
           {
             "check": "usage_complete",
@@ -448,7 +448,7 @@
         {
           "check": "workspace_exported",
           "ok": true,
-          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-38f33fa0cf18\\\\workspace'"
+          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064844\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-cd8999a0f19d\\\\workspace'"
         },
         {
           "check": "usage_complete",
@@ -538,11 +538,11 @@
             "prompt_tokens": 364,
             "completion_tokens": 250,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.083,
-            "trusted_task_id": "eval-30ab3471c285-csv",
-            "trusted_worker_id": "eval-30ab3471c285-csv",
+            "latency_ms": 0.081,
+            "trusted_task_id": "eval-e9876ada2fef-csv",
+            "trusted_worker_id": "eval-e9876ada2fef-csv",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 1,
@@ -552,11 +552,11 @@
             "prompt_tokens": 360,
             "completion_tokens": 193,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.098,
-            "trusted_task_id": "eval-30ab3471c285-jsonl",
-            "trusted_worker_id": "eval-30ab3471c285-jsonl",
+            "latency_ms": 0.065,
+            "trusted_task_id": "eval-e9876ada2fef-jsonl",
+            "trusted_worker_id": "eval-e9876ada2fef-jsonl",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 2,
@@ -566,11 +566,11 @@
             "prompt_tokens": 614,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.057,
-            "trusted_task_id": "eval-30ab3471c285-csv",
-            "trusted_worker_id": "eval-30ab3471c285-csv",
+            "latency_ms": 0.059,
+            "trusted_task_id": "eval-e9876ada2fef-csv",
+            "trusted_worker_id": "eval-e9876ada2fef-csv",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 3,
@@ -580,11 +580,11 @@
             "prompt_tokens": 553,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.056,
-            "trusted_task_id": "eval-30ab3471c285-jsonl",
-            "trusted_worker_id": "eval-30ab3471c285-jsonl",
+            "latency_ms": 0.116,
+            "trusted_task_id": "eval-e9876ada2fef-jsonl",
+            "trusted_worker_id": "eval-e9876ada2fef-jsonl",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 4,
@@ -594,11 +594,11 @@
             "prompt_tokens": 618,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.133,
-            "trusted_task_id": "eval-30ab3471c285-csv",
-            "trusted_worker_id": "eval-30ab3471c285-csv",
+            "latency_ms": 0.068,
+            "trusted_task_id": "eval-e9876ada2fef-csv",
+            "trusted_worker_id": "eval-e9876ada2fef-csv",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 5,
@@ -608,11 +608,11 @@
             "prompt_tokens": 557,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.126,
-            "trusted_task_id": "eval-30ab3471c285-jsonl",
-            "trusted_worker_id": "eval-30ab3471c285-jsonl",
+            "latency_ms": 0.112,
+            "trusted_task_id": "eval-e9876ada2fef-jsonl",
+            "trusted_worker_id": "eval-e9876ada2fef-jsonl",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 6,
@@ -622,11 +622,11 @@
             "prompt_tokens": 634,
             "completion_tokens": 8,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.094,
-            "trusted_task_id": "eval-30ab3471c285-csv",
-            "trusted_worker_id": "eval-30ab3471c285-csv",
+            "latency_ms": 0.087,
+            "trusted_task_id": "eval-e9876ada2fef-csv",
+            "trusted_worker_id": "eval-e9876ada2fef-csv",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 7,
@@ -636,11 +636,11 @@
             "prompt_tokens": 573,
             "completion_tokens": 8,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.076,
-            "trusted_task_id": "eval-30ab3471c285-jsonl",
-            "trusted_worker_id": "eval-30ab3471c285-jsonl",
+            "latency_ms": 0.07,
+            "trusted_task_id": "eval-e9876ada2fef-jsonl",
+            "trusted_worker_id": "eval-e9876ada2fef-jsonl",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 8,
@@ -650,11 +650,11 @@
             "prompt_tokens": 404,
             "completion_tokens": 147,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.052,
-            "trusted_task_id": "eval-30ab3471c285-integrate",
-            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "latency_ms": 0.054,
+            "trusted_task_id": "eval-e9876ada2fef-integrate",
+            "trusted_worker_id": "eval-e9876ada2fef-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 9,
@@ -664,11 +664,11 @@
             "prompt_tokens": 551,
             "completion_tokens": 125,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.062,
-            "trusted_task_id": "eval-30ab3471c285-integrate",
-            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "latency_ms": 0.059,
+            "trusted_task_id": "eval-e9876ada2fef-integrate",
+            "trusted_worker_id": "eval-e9876ada2fef-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 10,
@@ -678,11 +678,11 @@
             "prompt_tokens": 676,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.12,
-            "trusted_task_id": "eval-30ab3471c285-integrate",
-            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "latency_ms": 0.084,
+            "trusted_task_id": "eval-e9876ada2fef-integrate",
+            "trusted_worker_id": "eval-e9876ada2fef-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 11,
@@ -692,11 +692,11 @@
             "prompt_tokens": 680,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.129,
-            "trusted_task_id": "eval-30ab3471c285-integrate",
-            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "latency_ms": 0.071,
+            "trusted_task_id": "eval-e9876ada2fef-integrate",
+            "trusted_worker_id": "eval-e9876ada2fef-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           },
           {
             "index": 12,
@@ -706,11 +706,11 @@
             "prompt_tokens": 695,
             "completion_tokens": 8,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.057,
-            "trusted_task_id": "eval-30ab3471c285-integrate",
-            "trusted_worker_id": "eval-30ab3471c285-integrate",
+            "latency_ms": 0.056,
+            "trusted_task_id": "eval-e9876ada2fef-integrate",
+            "trusted_worker_id": "eval-e9876ada2fef-integrate",
             "trusted_profile_id": "coding_worker",
-            "trusted_run_id": "eval-30ab3471c285"
+            "trusted_run_id": "eval-e9876ada2fef"
           }
         ],
         "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
@@ -719,7 +719,7 @@
       "container": {
         "agent": null,
         "oracle": {
-          "sandbox_id": "b44335b9-2a32-42fd-9d2b-a61a8529d0d5",
+          "sandbox_id": "2e309d02-00e0-41f9-9645-7c311bef3e52",
           "mode": "sandbox",
           "cleanup_failure": null
         },
@@ -733,18 +733,18 @@
         }
       },
       "raw_result": {
-        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c02\\dag-runs\\sf-a2-02\\f-p1-connector-migration\\r1-eval-30ab3471c285\\result.json",
+        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c02\\dag-runs\\sf-a2-02\\f-p1-connector-migration\\r1-eval-e9876ada2fef\\result.json",
         "basename": "result.json",
         "found": true,
         "bytes": 50549,
-        "digest": "sha256:sha256:3bfb9e6b0376e78d4f8234dc1c478c97eb0ad5ee8664b0e9c0ea820c64a177a1"
+        "digest": "sha256:sha256:e30742aec038828b01244085d02ca8fa65a64921f5704a5e778c934b212645ce"
       },
       "workspace_export": {
-        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c02\\dag-runs\\sf-a2-02\\f-p1-connector-migration\\r1-eval-30ab3471c285\\workspace",
-        "patch_digest": "sha256:1e0343e97faaabe60ee1111352a55895a838c3c256f9fddc4e276117f1a8f812",
+        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c02\\dag-runs\\sf-a2-02\\f-p1-connector-migration\\r1-eval-e9876ada2fef\\workspace",
+        "patch_digest": "sha256:b2310e24630febeaf6ab8bbf187222112977daa43752762b2beb10c72a7c6c3a",
         "analysis_export": {
-          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c02\\dag-runs\\sf-a2-02\\f-p1-connector-migration\\r1-eval-30ab3471c285\\workspace",
-          "patch_digest": "sha256:1e0343e97faaabe60ee1111352a55895a838c3c256f9fddc4e276117f1a8f812",
+          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c02\\dag-runs\\sf-a2-02\\f-p1-connector-migration\\r1-eval-e9876ada2fef\\workspace",
+          "patch_digest": "sha256:b2310e24630febeaf6ab8bbf187222112977daa43752762b2beb10c72a7c6c3a",
           "sandbox_created": true,
           "sandbox_destroyed": true
         }
@@ -790,14 +790,14 @@
             "worker_contract": {
               "expected_workers": 3,
               "successful_workers": [
-                "coding_worker:eval-30ab3471c285-csv",
-                "coding_worker:eval-30ab3471c285-jsonl",
-                "coding_worker:eval-30ab3471c285-integrate"
+                "coding_worker:eval-e9876ada2fef-csv",
+                "coding_worker:eval-e9876ada2fef-jsonl",
+                "coding_worker:eval-e9876ada2fef-integrate"
               ],
               "worker_output_chars": {
-                "coding_worker:eval-30ab3471c285-csv": 29,
-                "coding_worker:eval-30ab3471c285-jsonl": 29,
-                "coding_worker:eval-30ab3471c285-integrate": 29
+                "coding_worker:eval-e9876ada2fef-csv": 29,
+                "coding_worker:eval-e9876ada2fef-jsonl": 29,
+                "coding_worker:eval-e9876ada2fef-integrate": 29
               }
             },
             "hidden_tests": {
@@ -805,7 +805,7 @@
               "stdout_tail": "...............                                                          [100%]\n15 passed in 0.02s",
               "stderr_tail": "",
               "failure_kind": "HIDDEN_TESTS_PASSED",
-              "sandbox_id": "b44335b9-2a32-42fd-9d2b-a61a8529d0d5"
+              "sandbox_id": "2e309d02-00e0-41f9-9645-7c311bef3e52"
             },
             "digests": {
               "oracle_contract_digest": "72f0738b57bf8d0daca3c25b3348e06b2bf517c97a96ad716821e3a94ae00c94",
@@ -827,15 +827,15 @@
             "oracle_workspace_digest": "27f50657e7d259a34fda727cfe950b910c64666b1ad7c2f0a9bca76ad9639ba5"
           },
           "timings_ms": {
-            "creation_ms": 2431.034,
-            "upload_ms": 646.105,
-            "execution_ms": 1347.121,
-            "cleanup_ms": 772.236,
-            "total_ms": 5200.678
+            "creation_ms": 2660.853,
+            "upload_ms": 560.912,
+            "execution_ms": 1334.354,
+            "cleanup_ms": 801.101,
+            "total_ms": 5361.015
           },
           "status": "PASS"
         },
-        "sandbox_id": "b44335b9-2a32-42fd-9d2b-a61a8529d0d5"
+        "sandbox_id": "2e309d02-00e0-41f9-9645-7c311bef3e52"
       },
       "normalized": {
         "usage": {
@@ -878,9 +878,9 @@
             695
           ],
           "per_agent_peak_context_tokens": {
-            "eval-30ab3471c285-csv": 634,
-            "eval-30ab3471c285-integrate": 695,
-            "eval-30ab3471c285-jsonl": 573
+            "eval-e9876ada2fef-csv": 634,
+            "eval-e9876ada2fef-integrate": 695,
+            "eval-e9876ada2fef-jsonl": 573
           }
         },
         "correctness": {
@@ -902,7 +902,7 @@
           {
             "task_id": "csv",
             "depends_on": [],
-            "agent": "coding_worker:eval-30ab3471c285-csv",
+            "agent": "coding_worker:eval-e9876ada2fef-csv",
             "success": true,
             "stop_reason": {
               "code": "success",
@@ -923,7 +923,7 @@
           {
             "task_id": "jsonl",
             "depends_on": [],
-            "agent": "coding_worker:eval-30ab3471c285-jsonl",
+            "agent": "coding_worker:eval-e9876ada2fef-jsonl",
             "success": true,
             "stop_reason": {
               "code": "success",
@@ -947,7 +947,7 @@
               "csv",
               "jsonl"
             ],
-            "agent": "coding_worker:eval-30ab3471c285-integrate",
+            "agent": "coding_worker:eval-e9876ada2fef-integrate",
             "success": true,
             "stop_reason": {
               "code": "success",
@@ -999,7 +999,7 @@
           {
             "check": "artifact_exported",
             "ok": true,
-            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c02\\\\dag-runs\\\\sf-a2-02\\\\f-p1-connector-migration\\\\r1-eval-30ab3471c285\\\\workspace'"
+            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064844\\\\evidence\\\\cells\\\\c02\\\\dag-runs\\\\sf-a2-02\\\\f-p1-connector-migration\\\\r1-eval-e9876ada2fef\\\\workspace'"
           },
           {
             "check": "usage_complete",
@@ -1042,7 +1042,7 @@
         {
           "check": "workspace_exported",
           "ok": true,
-          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c02\\\\dag-runs\\\\sf-a2-02\\\\f-p1-connector-migration\\\\r1-eval-30ab3471c285\\\\workspace'"
+          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064844\\\\evidence\\\\cells\\\\c02\\\\dag-runs\\\\sf-a2-02\\\\f-p1-connector-migration\\\\r1-eval-e9876ada2fef\\\\workspace'"
         },
         {
           "check": "usage_complete",
@@ -1072,7 +1072,7 @@
         {
           "check": "independent_pair_overlapped",
           "ok": true,
-          "detail": "pairs=[['coding_worker:eval-30ab3471c285-csv', 'coding_worker:eval-30ab3471c285-jsonl']]"
+          "detail": "pairs=[['coding_worker:eval-e9876ada2fef-csv', 'coding_worker:eval-e9876ada2fef-jsonl']]"
         },
         {
           "check": "integration_context_recorded",
@@ -1143,7 +1143,7 @@
             "prompt_tokens": 103,
             "completion_tokens": 125,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.04,
+            "latency_ms": 0.037,
             "trusted_task_id": "bplus-c03-main",
             "trusted_worker_id": "bplus-c03-main-worker",
             "trusted_profile_id": null,
@@ -1157,7 +1157,7 @@
             "prompt_tokens": 228,
             "completion_tokens": 250,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.061,
+            "latency_ms": 0.078,
             "trusted_task_id": "bplus-c03-main",
             "trusted_worker_id": "bplus-c03-main-worker",
             "trusted_profile_id": null,
@@ -1171,7 +1171,7 @@
             "prompt_tokens": 478,
             "completion_tokens": 193,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.099,
+            "latency_ms": 0.072,
             "trusted_task_id": "bplus-c03-main",
             "trusted_worker_id": "bplus-c03-main-worker",
             "trusted_profile_id": null,
@@ -1185,7 +1185,7 @@
             "prompt_tokens": 671,
             "completion_tokens": 147,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.089,
+            "latency_ms": 0.082,
             "trusted_task_id": "bplus-c03-main",
             "trusted_worker_id": "bplus-c03-main-worker",
             "trusted_profile_id": null,
@@ -1199,7 +1199,7 @@
             "prompt_tokens": 818,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.099,
+            "latency_ms": 0.096,
             "trusted_task_id": "bplus-c03-main",
             "trusted_worker_id": "bplus-c03-main-worker",
             "trusted_profile_id": null,
@@ -1213,7 +1213,7 @@
             "prompt_tokens": 822,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.111,
+            "latency_ms": 0.094,
             "trusted_task_id": "bplus-c03-main",
             "trusted_worker_id": "bplus-c03-main-worker",
             "trusted_profile_id": null,
@@ -1227,7 +1227,7 @@
             "prompt_tokens": 837,
             "completion_tokens": 17,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.1,
+            "latency_ms": 0.122,
             "trusted_task_id": "bplus-c03-main",
             "trusted_worker_id": "bplus-c03-main-worker",
             "trusted_profile_id": null,
@@ -1241,7 +1241,7 @@
             "prompt_tokens": 854,
             "completion_tokens": 11,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.128,
+            "latency_ms": 0.104,
             "trusted_task_id": "bplus-c03-main",
             "trusted_worker_id": "bplus-c03-main-worker",
             "trusted_profile_id": null,
@@ -1274,8 +1274,8 @@
             ]
           },
           "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
-          "binding_id": "853197699c61bfa5fd4c3d070aeeea345775db235e15265ba9fda5d6c0952397",
-          "sandbox_id": "640ef9eb-3eac-4ade-aa99-edd299572bee",
+          "binding_id": "1ef3b896b2a8cc0c85db76463016cfe1b51ca82ed6a257e974c80eeae0d2ba82",
+          "sandbox_id": "7e86eb98-1062-4958-b5a2-22fee6edc796",
           "binding_state": "READY",
           "workspace_root": "/workspace/project",
           "network_probe": "PASS",
@@ -1291,7 +1291,7 @@
           "retained": false,
           "patch_digest": "sha256:2a78869a7bd64704362c1fca1dd99597b1980bc3d592b688e3c1f1a1b4e53c91",
           "patch_changed_files": 4,
-          "export_digest": "sha256:44c9857dccbc6b59b1f98bccd85c0ca54d9253fef09c5a3dd413887d4e77f85e",
+          "export_digest": "sha256:1f5745682d3be26eb04e60ba1b3225461ba1b38e7c85318c5024b64b2ec10fbb",
           "export_files": 10,
           "export_size_bytes": 30720,
           "check_runs": 1,
@@ -1299,12 +1299,12 @@
           "error": null
         },
         "oracle": {
-          "sandbox_id": "77a8a17e-6122-44fc-9496-4986f456f369",
+          "sandbox_id": "d0faca82-a300-438f-a1be-7fdaf301b940",
           "mode": "sandbox",
           "cleanup_failure": null
         },
         "created_and_destroyed": {
-          "sandbox_id": "640ef9eb-3eac-4ade-aa99-edd299572bee",
+          "sandbox_id": "7e86eb98-1062-4958-b5a2-22fee6edc796",
           "created": true,
           "destroyed": true,
           "provider": "opensandbox",
@@ -1313,21 +1313,21 @@
         }
       },
       "raw_result": {
-        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c03\\agent\\bplus-c03\\session.json",
+        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c03\\agent\\bplus-c03\\session.json",
         "basename": "session.json",
         "found": true,
         "bytes": 15016,
-        "digest": "sha256:sha256:749fd1354579b4db005ae8c1d7c4337ade63dbb163619b333004436bc8e8ffff"
+        "digest": "sha256:sha256:7438eb6dd2638f061ab2b85131e8cb4bf9d9e59ad63f966ae160d9d52e45be93"
       },
       "workspace_export": {
-        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c03\\agent\\bplus-c03\\workspace",
+        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c03\\agent\\bplus-c03\\workspace",
         "patch_digest": null,
         "analysis_export": {
-          "patch_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c03\\agent\\bplus-c03\\workspace.patch",
+          "patch_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c03\\agent\\bplus-c03\\workspace.patch",
           "patch_digest": "sha256:2a78869a7bd64704362c1fca1dd99597b1980bc3d592b688e3c1f1a1b4e53c91",
           "patch_changed_files": 4,
-          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c03\\agent\\bplus-c03\\workspace",
-          "workspace_digest": "sha256:44c9857dccbc6b59b1f98bccd85c0ca54d9253fef09c5a3dd413887d4e77f85e",
+          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c03\\agent\\bplus-c03\\workspace",
+          "workspace_digest": "sha256:1f5745682d3be26eb04e60ba1b3225461ba1b38e7c85318c5024b64b2ec10fbb",
           "workspace_files": 10,
           "workspace_size_bytes": 30720,
           "directory_digest": "sha256:33f58035a5873b53f0ced9a0b2b9219f40b8e10e8c235977e782077e6eecb087",
@@ -1347,14 +1347,14 @@
           "environment_failure": false,
           "cleanup_failure": null,
           "execution_mode": "sandbox",
-          "sandbox_id": "77a8a17e-6122-44fc-9496-4986f456f369",
+          "sandbox_id": "d0faca82-a300-438f-a1be-7fdaf301b940",
           "returncode": 0,
           "timings_ms": {
-            "creation_ms": 2314.763,
-            "upload_ms": 569.078,
-            "execution_ms": 1311.265,
-            "cleanup_ms": 731.377,
-            "total_ms": 4929.602
+            "creation_ms": 2418.869,
+            "upload_ms": 640.687,
+            "execution_ms": 1357.295,
+            "cleanup_ms": 751.811,
+            "total_ms": 5171.489
           },
           "image": "atlas-uat-python:3.12",
           "workspace_files": 10,
@@ -1363,7 +1363,7 @@
           "source": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
           "fixture_after_run": "92ecd44515faa1319ae1b1745db12adef1fbfa9a2680c0b7bf85d6ac7e63e51a"
         },
-        "sandbox_id": "77a8a17e-6122-44fc-9496-4986f456f369"
+        "sandbox_id": "d0faca82-a300-438f-a1be-7fdaf301b940"
       },
       "normalized": {
         "usage": {
@@ -1468,7 +1468,7 @@
           {
             "check": "artifact_exported",
             "ok": true,
-            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c03\\\\agent\\\\bplus-c03\\\\workspace'"
+            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064844\\\\evidence\\\\cells\\\\c03\\\\agent\\\\bplus-c03\\\\workspace'"
           },
           {
             "check": "usage_complete",
@@ -1496,7 +1496,7 @@
         "cumulative_cost_usd": 0.008173,
         "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
       },
-      "duration_s": 30.40600000001723,
+      "duration_s": 30.85899999999674,
       "checks": [
         {
           "check": "cell_passed_audit",
@@ -1511,7 +1511,7 @@
         {
           "check": "workspace_exported",
           "ok": true,
-          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c03\\\\agent\\\\bplus-c03\\\\workspace'"
+          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064844\\\\evidence\\\\cells\\\\c03\\\\agent\\\\bplus-c03\\\\workspace'"
         },
         {
           "check": "usage_complete",
@@ -1612,7 +1612,7 @@
             "prompt_tokens": 103,
             "completion_tokens": 319,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.057,
+            "latency_ms": 0.069,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
@@ -1626,7 +1626,7 @@
             "prompt_tokens": 75,
             "completion_tokens": 250,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.046,
+            "latency_ms": 0.05,
             "trusted_task_id": "bplus-c04-main:r1:csv-source",
             "trusted_worker_id": "bplus-c04-main:r1:csv-source",
             "trusted_profile_id": "coding_worker",
@@ -1640,7 +1640,7 @@
             "prompt_tokens": 71,
             "completion_tokens": 193,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.043,
+            "latency_ms": 0.07,
             "trusted_task_id": "bplus-c04-main:r1:jsonl-source",
             "trusted_worker_id": "bplus-c04-main:r1:jsonl-source",
             "trusted_profile_id": "coding_worker",
@@ -1654,7 +1654,7 @@
             "prompt_tokens": 325,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.066,
+            "latency_ms": 0.074,
             "trusted_task_id": "bplus-c04-main:r1:csv-source",
             "trusted_worker_id": "bplus-c04-main:r1:csv-source",
             "trusted_profile_id": "coding_worker",
@@ -1668,7 +1668,7 @@
             "prompt_tokens": 264,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.065,
+            "latency_ms": 0.083,
             "trusted_task_id": "bplus-c04-main:r1:jsonl-source",
             "trusted_worker_id": "bplus-c04-main:r1:jsonl-source",
             "trusted_profile_id": "coding_worker",
@@ -1682,7 +1682,7 @@
             "prompt_tokens": 329,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.093,
+            "latency_ms": 0.081,
             "trusted_task_id": "bplus-c04-main:r1:csv-source",
             "trusted_worker_id": "bplus-c04-main:r1:csv-source",
             "trusted_profile_id": "coding_worker",
@@ -1696,7 +1696,7 @@
             "prompt_tokens": 344,
             "completion_tokens": 13,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.055,
+            "latency_ms": 0.058,
             "trusted_task_id": "bplus-c04-main:r1:csv-source",
             "trusted_worker_id": "bplus-c04-main:r1:csv-source",
             "trusted_profile_id": "coding_worker",
@@ -1710,7 +1710,7 @@
             "prompt_tokens": 267,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.087,
+            "latency_ms": 0.083,
             "trusted_task_id": "bplus-c04-main:r1:jsonl-source",
             "trusted_worker_id": "bplus-c04-main:r1:jsonl-source",
             "trusted_profile_id": "coding_worker",
@@ -1724,7 +1724,7 @@
             "prompt_tokens": 283,
             "completion_tokens": 13,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.067,
+            "latency_ms": 0.116,
             "trusted_task_id": "bplus-c04-main:r1:jsonl-source",
             "trusted_worker_id": "bplus-c04-main:r1:jsonl-source",
             "trusted_profile_id": "coding_worker",
@@ -1738,7 +1738,7 @@
             "prompt_tokens": 422,
             "completion_tokens": 147,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.235,
+            "latency_ms": 0.102,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
@@ -1752,7 +1752,7 @@
             "prompt_tokens": 569,
             "completion_tokens": 125,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.078,
+            "latency_ms": 0.118,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
@@ -1766,7 +1766,7 @@
             "prompt_tokens": 694,
             "completion_tokens": 4,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.085,
+            "latency_ms": 0.187,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
@@ -1780,7 +1780,7 @@
             "prompt_tokens": 698,
             "completion_tokens": 15,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.095,
+            "latency_ms": 0.176,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
@@ -1794,7 +1794,7 @@
             "prompt_tokens": 713,
             "completion_tokens": 18,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.098,
+            "latency_ms": 0.094,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
@@ -1808,7 +1808,7 @@
             "prompt_tokens": 731,
             "completion_tokens": 13,
             "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
-            "latency_ms": 0.136,
+            "latency_ms": 0.095,
             "trusted_task_id": "bplus-c04-main",
             "trusted_worker_id": "bplus-c04-main-worker",
             "trusted_profile_id": null,
@@ -1841,8 +1841,8 @@
             ]
           },
           "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
-          "binding_id": "14f4d4a0f75db640492b1ba7fdbf14fc1d51d8ba11cb0bb20ad1448dc9e64f81",
-          "sandbox_id": "f1e33e38-6653-4eab-8b9d-1afef5d5416d",
+          "binding_id": "78af9772faff6fc2a1a4384d2b1438d4ffd37ae38abee21ae39dc84288c3d70f",
+          "sandbox_id": "0aed0ee3-a7eb-4ea1-a1db-12f74417df9f",
           "binding_state": "READY",
           "workspace_root": "/workspace/project",
           "network_probe": "PASS",
@@ -1858,7 +1858,7 @@
           "retained": false,
           "patch_digest": "sha256:2a78869a7bd64704362c1fca1dd99597b1980bc3d592b688e3c1f1a1b4e53c91",
           "patch_changed_files": 4,
-          "export_digest": "sha256:67d82c0a775d14758c8c0a7f700bcf50dff9fd77c5d1b40981abe665cc5ba7a4",
+          "export_digest": "sha256:6ef98d20be0541fdf35e4e3423ae2fd8ffcd30ec03d8f0769e450fa97a280a8e",
           "export_files": 10,
           "export_size_bytes": 30720,
           "check_runs": 1,
@@ -1866,12 +1866,12 @@
           "error": null
         },
         "oracle": {
-          "sandbox_id": "a1aea438-e6fc-4306-8353-4ed2913612ed",
+          "sandbox_id": "1d3abcb8-74d8-405b-a64d-fcfaa71bb5c0",
           "mode": "sandbox",
           "cleanup_failure": null
         },
         "created_and_destroyed": {
-          "sandbox_id": "f1e33e38-6653-4eab-8b9d-1afef5d5416d",
+          "sandbox_id": "0aed0ee3-a7eb-4ea1-a1db-12f74417df9f",
           "created": true,
           "destroyed": true,
           "provider": "opensandbox",
@@ -1880,21 +1880,21 @@
         }
       },
       "raw_result": {
-        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c04\\agent\\bplus-c04\\session.json",
+        "file": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c04\\agent\\bplus-c04\\session.json",
         "basename": "session.json",
         "found": true,
         "bytes": 27833,
-        "digest": "sha256:sha256:8bc980cbb51db4d67b9ed3fff402c31639fad8d7b6e4f0069d5f9e1c755569f3"
+        "digest": "sha256:sha256:ee94414878203a1d83f97cea5423e025e42955b239012d1c21b1f55b41aead2a"
       },
       "workspace_export": {
-        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
+        "path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
         "patch_digest": null,
         "analysis_export": {
-          "patch_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace.patch",
+          "patch_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace.patch",
           "patch_digest": "sha256:2a78869a7bd64704362c1fca1dd99597b1980bc3d592b688e3c1f1a1b4e53c91",
           "patch_changed_files": 4,
-          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064113\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
-          "workspace_digest": "sha256:67d82c0a775d14758c8c0a7f700bcf50dff9fd77c5d1b40981abe665cc5ba7a4",
+          "workspace_path": "C:\\Users\\86180\\AppData\\Local\\Temp\\sf-proof\\20261126064844\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
+          "workspace_digest": "sha256:6ef98d20be0541fdf35e4e3423ae2fd8ffcd30ec03d8f0769e450fa97a280a8e",
           "workspace_files": 10,
           "workspace_size_bytes": 30720,
           "directory_digest": "sha256:33f58035a5873b53f0ced9a0b2b9219f40b8e10e8c235977e782077e6eecb087",
@@ -1914,14 +1914,14 @@
           "environment_failure": false,
           "cleanup_failure": null,
           "execution_mode": "sandbox",
-          "sandbox_id": "a1aea438-e6fc-4306-8353-4ed2913612ed",
+          "sandbox_id": "1d3abcb8-74d8-405b-a64d-fcfaa71bb5c0",
           "returncode": 0,
           "timings_ms": {
-            "creation_ms": 2516.251,
-            "upload_ms": 543.526,
-            "execution_ms": 1313.738,
-            "cleanup_ms": 702.21,
-            "total_ms": 5078.841
+            "creation_ms": 2580.025,
+            "upload_ms": 568.278,
+            "execution_ms": 1362.483,
+            "cleanup_ms": 770.665,
+            "total_ms": 5284.347
           },
           "image": "atlas-uat-python:3.12",
           "workspace_files": 10,
@@ -1930,7 +1930,7 @@
           "source": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
           "fixture_after_run": "92ecd44515faa1319ae1b1745db12adef1fbfa9a2680c0b7bf85d6ac7e63e51a"
         },
-        "sandbox_id": "a1aea438-e6fc-4306-8353-4ed2913612ed"
+        "sandbox_id": "1d3abcb8-74d8-405b-a64d-fcfaa71bb5c0"
       },
       "normalized": {
         "usage": {
@@ -2117,7 +2117,7 @@
           {
             "check": "artifact_exported",
             "ok": true,
-            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
+            "detail": "workspace_path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064844\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
           },
           {
             "check": "usage_complete",
@@ -2145,7 +2145,7 @@
         "cumulative_cost_usd": 0.011317,
         "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
       },
-      "duration_s": 32.92200000002049,
+      "duration_s": 33.26500000001397,
       "checks": [
         {
           "check": "cell_passed_audit",
@@ -2160,7 +2160,7 @@
         {
           "check": "workspace_exported",
           "ok": true,
-          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064113\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
+          "detail": "path='C:\\\\Users\\\\86180\\\\AppData\\\\Local\\\\Temp\\\\sf-proof\\\\20261126064844\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
         },
         {
           "check": "usage_complete",
@@ -2221,7 +2221,7 @@
       "passed": true
     }
   ],
-  "duration_s": 130.012,
+  "duration_s": 130.633,
   "negatives": [
     {
       "case": "budget_guard_refuses_and_sends_nothing",
