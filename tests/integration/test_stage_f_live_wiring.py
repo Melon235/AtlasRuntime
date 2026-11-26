@@ -188,14 +188,17 @@ def test_the_same_composition_costs_the_same_in_every_topology() -> None:
             ("main_child", main_child),
         )
     }
+    assert all(value is not None for value in costs.values()), costs
     assert len(set(costs.values())) == 1, costs
     expected = (hit * 0.006 + miss * 0.3 + completion * 1.2) / 1_000_000
     assert costs["single"] == pytest.approx(expected, rel=1e-9)
     # A hit is cheaper than a miss and is not counted twice: the same input priced as all-miss is
     # strictly more expensive.
-    assert costs["single"] < executor.cell_cost(
+    unsplit = executor.cell_cost(
         {key: value for key, value in single.items() if "cache" not in key}, _prices()
     )
+    assert unsplit is not None and costs["single"] is not None
+    assert costs["single"] < unsplit
 
 
 def test_a_missing_split_is_priced_as_a_miss_and_never_as_a_hit() -> None:
