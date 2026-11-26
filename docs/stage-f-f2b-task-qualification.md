@@ -15,7 +15,7 @@ request was made and no sandbox container was opened.
 |---|---|
 | Branch | `feat/stage-f-unified-evaluation` |
 | Base | `56f5b578c1a69085d1d21129e0c5e871180f71e` |
-| Task construction commit | the commit that adds `fixtures/`, `tasks/fixtures.py`, `mutations.py` and `qualification.py`, immediately before this document's commit |
+| Task construction commit | `315bc0d705f6c2a4a071451ba7a289ffc064f27d` (fixtures, catalog, harness, evidence and this document) |
 | Task data | `experiments/stage_f/fixtures/` (202 files, six task trees) |
 | Task catalog | `experiments/stage_f/tasks/{p,x,c}.py`, `tasks/fixtures.py`, `tasks/__init__.py` |
 | Qualification harness | `experiments/stage_f/qualification.py`, `experiments/stage_f/mutations.py` |
@@ -235,7 +235,9 @@ mutation list; it is evidence, not a workspace input.
    must refreeze them together with the cross-batch guard; this stage did not.
 4. **The Stage B frozen runtime digest does not match this checkout** and the preflight `F06`
    evidence-adapter sample predates `normalize.py` at `726e2ec`. Both are pre-existing and outside
-   this stage's scope; `F01`, `F04`, `F07`, `F08` and `F12` pass.
+   this stage's scope; `F01`, `F04`, `F07`, `F08` and `F12` pass. The current preflight therefore
+   returns `STAGE_F_UNIFIED_96_CELL_EVALUATION_BLOCKED` with `F06` as the only failed gate; the
+   mandated overall status stays `..._PREPARATION_BLOCKED`.
 5. **The full repository suite is not green in this worktree** for pre-existing reasons (the Stage B
    freezes point at `D:\Work\AtlasRuntime`; the calibration/executor artefacts are historical). The
    Stage F production-seam tests pass 14/14 and the Stage F preflight gates listed above pass.
