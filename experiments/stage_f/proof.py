@@ -836,11 +836,11 @@ def proof_checks(
             len(context.get("per_agent_peak_context_tokens") or {}) >= 2,
             f"agents={list(context.get('per_agent_peak_context_tokens') or {})}",
         )
+        child_prompt = (usage.get("children") or {}).get("prompt_tokens")
         check(
             "child_usage_attributed",
-            isinstance((usage.get("children") or {}).get("prompt_tokens"), int)
-            and (usage.get("children") or {}).get("prompt_tokens") > 0,
-            f"child_prompt={(usage.get('children') or {}).get('prompt_tokens')}",
+            isinstance(child_prompt, int) and child_prompt > 0,
+            f"child_prompt={child_prompt}",
         )
     return checks
 
@@ -1004,7 +1004,7 @@ async def run_negatives(*, scratch: Path, task: Any) -> list[dict[str, Any]]:
             session=stop_evidence, run_dir=None, fixture_root=None, oracle=None, export=None
         ),
         plan=plan,
-        usage_before=None,
+        usage_before={},
         cost_before=None,
         prices=prices,
     )
@@ -1093,7 +1093,9 @@ async def _one_off(
         cell=cell,
         run=result,
         plan={"plan_id": cell["plan_id"], "scope": cell["scope"]},
-        usage_before=None,
+        # No earlier cell in this ad-hoc run: an empty baseline is the same thing the dispatcher
+        # passes for its first cell, and the audit reads it as zero prior consumption.
+        usage_before={},
         cost_before=None,
         prices=prices,
     )
