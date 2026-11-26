@@ -1523,18 +1523,25 @@ def single_step(task: Task) -> tuple[WorkerStep, ...]:
 
 
 def build_task(task: Task, *, topology: Topology) -> BenchmarkTask:
-    """The one builder both arms use, so the digest cannot drift between them."""
+    """The one builder both arms use, so the digest cannot drift between them.
+
+    The public suite is part of what the agent is given: a task whose ``public_tests`` are declared
+    separately from its seed used to be materialised without them, so the frozen public-test command
+    ran against a workspace that had no ``test_public.py`` and every such cell failed with a pytest
+    usage error instead of a measurement.
+    """
 
     if topology not in ("single", "multi"):
         raise ValueError(f"unknown topology {topology!r}")
     multi = topology == "multi"
+    public = dict(getattr(task, "public_tests", {}) or {})
     return BenchmarkTask(
         sample_id=task.task_id,
         category="feature",
         mode="multi_worker" if multi else "coding",
         prompt=single_worker_turn(task),
         target="",
-        visible_files=dict(task.seed),
+        visible_files={**dict(task.seed), **public},
         hidden_files=dict(task.oracle_tests),
         workers=worker_steps(task) if multi else single_step(task),
         allowed_paths=tuple(task.allowed_paths),

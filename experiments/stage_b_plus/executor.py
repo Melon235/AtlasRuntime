@@ -27,8 +27,8 @@ argument with no default in the CLI wrapper.
 from __future__ import annotations
 
 import asyncio
-import dataclasses
 import contextlib
+import dataclasses
 import hashlib
 import json
 import os
@@ -57,7 +57,7 @@ from experiments.evaluation.sandboxed_oracle import (
 from experiments.stage_b_plus import authority as authority_module
 from experiments.stage_b_plus import contract, cost
 
-EXECUTOR_VERSION = "bplus-executor-1.8"
+EXECUTOR_VERSION = "bplus-executor-1.9"
 
 #: Files whose bytes *are* the executor identity. A dispatch is bound to their digests, so editing
 #: any of them invalidates an existing signature rather than silently running different code.
@@ -87,6 +87,13 @@ EXECUTOR_FILES: tuple[str, ...] = (
     "experiments/stage_f/normalize.py",
     "experiments/stage_f/runners.py",
     "experiments/stage_f/cumulative.py",
+    # The preparation gate decides whether the matrix is READY, and its record is what the Owner
+    # reads before signing; a gate outside the signed identity could be edited after the fact.
+    "experiments/stage_f/preflight.py",
+    # The bytes a cell starts from are produced by these two modules: the task builder decides
+    # the visible fixture and the materialiser writes it, so a change there changes every cell.
+    "experiments/evaluation/closure2/catalog.py",
+    "experiments/evaluation/fixtures.py",
     # Stage C1-B: the worker completion contract and the failure classification are part of what a
     # cell executes, so a signature has to cover them.
     "src/atlasos/workers/catalog.py",
@@ -126,6 +133,12 @@ STOP_COST_REACHED = "COST_STOP_REACHED"
 STOP_TOKEN_REACHED = "TOKEN_STOP_REACHED"
 STOP_NOT_AUTHORIZED = "NOT_AUTHORIZED"
 STOP_MODE_VIOLATION = "MODE_VIOLATION"
+#: A common integrity check failed or could not be evaluated. Distinct from a measured task
+#: failure: the cell's own contract was not established, so the matrix must not continue.
+STOP_INTEGRITY = "EXECUTION_INTEGRITY_FAILED"
+#: An earlier Stage F batch did not settle: missing report, unknown consumption, a frozen stop, a
+#: plan/executor identity mismatch, or no headroom left. Refused before any claim is written.
+STOP_CUMULATIVE = "CUMULATIVE_SETTLEMENT_REFUSED"
 #: The run never reached the model: admission refused the configuration. Distinct from a provider
 #: failure, which means a request was attempted and failed.
 STOP_LIVE_PREFLIGHT = "LIVE_PREFLIGHT_BLOCKED"
@@ -374,6 +387,9 @@ class CellRun:
     sandbox_plan: dict[str, Any] | None = None
     oracle_sandbox: dict[str, Any] | None = None
     expected_run_id: str | None = None
+    #: Stage-level wall clock, in milliseconds. A stage the arm does not time stays absent, which
+    #: the evidence layer reports as UNKNOWN rather than as zero.
+    timings: dict[str, Any] | None = None
 
 
 CellRunner = Callable[[dict[str, Any], Mapping[str, Any]], Awaitable[CellRun]]
@@ -1269,6 +1285,84 @@ class DispatchContext(Mapping[str, Any]):
         return len(self._fields())
 
 
+def _is_stage_f_batch(plan: Mapping[str, Any]) -> bool:
+    """A Stage F batch plan, identified by the frozen master identity and its batch number."""
+
+    return (
+        str(plan.get("master_id") or "") == "stage-f-96-manifest-v1"
+        and plan.get("batch") in (1, 2, 3)
+        and bool(plan.get("cells"))
+    )
+
+
+def _stage_f_evidence_root(
+    plan: Mapping[str, Any], evidence_root: Path, stage_f_root: Path | None
+) -> Path:
+    """The canonical layout: ``<stage-f-root>/<plan_id>/{matrix-report,...}``.
+
+    One root holds all three batches, so the settlement reader and the dispatch writer cannot
+    disagree about where a batch's report lives. A caller that passes the batch directory itself
+    (whose name *is* the plan id) is normalised to the same layout instead of being silently
+    treated as a second root.
+    """
+
+    if _is_stage_f_batch(plan):
+        root = Path(stage_f_root) if stage_f_root is not None else Path(evidence_root)
+        if root.name != str(plan["plan_id"]):
+            root = root / str(plan["plan_id"])
+        return root
+    return Path(evidence_root)
+
+
+def _stage_f_settlement(
+    plan: Mapping[str, Any], *, stage_root: Path, identity: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Settle a Stage F batch against its predecessors and this dispatch's own identity.
+
+    The manifest is the frozen source of both the batch digests and the global ceiling; the prior
+    reports are the evidence; the claim files say whether a batch was actually spent. A batch whose
+    manifest entry does not name this plan digest has been rebuilt after the freeze, which is a
+    refusal rather than a warning.
+    """
+
+    from experiments.stage_f import cumulative
+    from experiments.stage_f import plan as f_plan
+
+    manifest = f_plan.manifest()
+    batch = int(plan["batch"])
+    problems: list[str] = []
+    frozen = next((item for item in manifest["batches"] if item["batch"] == batch), None)
+    if frozen is None:
+        problems.append(f"the master manifest has no batch {batch}")
+    elif frozen["plan_digest"] != plan.get("digest"):
+        problems.append(
+            f"the dispatched plan digest {plan.get('digest')!r} is not the frozen "
+            f"{frozen['plan_digest']!r}"
+        )
+    payload = cumulative.settlement(
+        manifest,
+        batch=batch,
+        evidence_root=Path(stage_root),
+        executor_digest=str(identity["executor_digest"]),
+        claim_consumed=lambda digest: claim_path(digest).exists(),
+    )
+    payload.update(
+        {
+            "plan_id": plan["plan_id"],
+            "plan_digest": plan.get("digest"),
+            "manifest_digest": authority_module.digest_of(manifest),
+            "executor_digest": identity["executor_digest"],
+            "authorized_against": "stage-f-96-manifest-v1",
+        }
+    )
+    if problems:
+        payload["problems"] = [*payload["problems"], *problems]
+        payload["allowed_tokens"] = 0
+        payload["allowed_cost_usd"] = 0.0
+        payload["may_start"] = False
+    return payload
+
+
 async def dispatch(
     plan_id: str,
     *,
@@ -1282,6 +1376,7 @@ async def dispatch(
     prices: Mapping[str, Any] | None = None,
     clock: Callable[[], str] = now,
     plan: Mapping[str, Any] | None = None,
+    stage_f_root: Path | None = None,
 ) -> dict[str, Any]:
     """Run one plan, or refuse and say why. The only entry point that may execute a cell.
 
@@ -1289,6 +1384,9 @@ async def dispatch(
     temporary four-arm runner proof) instead of registering a new frozen plan id. Offline mode is
     required for it, because every live refusal rule — head, claim root, dirty worktree, admission —
     is about a plan that will spend a real budget.
+
+    ``stage_f_root`` names the one root the three Stage F batches share. It is only read for a
+    Stage F batch plan; every earlier stage keeps ``evidence_root`` exactly as it was.
     """
 
     if mode not in MODES:
@@ -1298,7 +1396,7 @@ async def dispatch(
         raise ValueError("an injected plan record is only accepted in offline-proof mode")
 
     plan = dict(plan) if plan is not None else contract.scope_plan(plan_id)
-    evidence = Path(evidence_root)
+    evidence = _stage_f_evidence_root(plan, Path(evidence_root), stage_f_root)
     await asyncio.to_thread(evidence.mkdir, parents=True, exist_ok=True)
     document = contract.protocol_document()
     identity = executor_identity(repo_root)
@@ -1348,6 +1446,40 @@ async def dispatch(
             json.dumps(report, indent=2) + "\n", encoding="utf-8"
         )
         return report
+
+    # -- cross-batch settlement, before the claim ------------------------------------------------
+    #
+    # Three batch plans with three claims would each see the full ceiling. For a Stage F batch the
+    # settlement of the earlier batches is consulted here, and its allowance becomes the batch's
+    # effective stop. This is a read of evidence that already exists; it writes its decision next
+    # to that batch's report.
+    settlement: dict[str, Any] | None = None
+    if _is_stage_f_batch(plan):
+        settlement = _stage_f_settlement(
+            plan,
+            stage_root=evidence.parent,
+            identity=identity,
+        )
+        settlement["stage_f_root"] = str(evidence.parent)
+        settlement["evidence_root"] = str(evidence)
+        (evidence / "cumulative-settlement.json").write_text(
+            json.dumps(settlement, indent=2, default=str) + "\n", encoding="utf-8"
+        )
+        if not settlement["may_start"]:
+            report = _refused_report(
+                plan,
+                identity,
+                actual_head,
+                list(settlement["problems"]) or ["the cross-batch settlement refuses this batch"],
+                STOP_CUMULATIVE,
+                clock,
+                mode,
+                settlement=settlement,
+            )
+            (evidence / "dispatch-refused.json").write_text(
+                json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8"
+            )
+            return report
 
     # A live dispatch admits the six production configurations *before* the claim exists, so a
     # configuration that cannot run costs no attempt. v1 discovered its refusal on the first cell,
@@ -1432,6 +1564,19 @@ async def dispatch(
     cost_stop = float((record or {}).get("cost_stop_usd") or 0.0)
     per_cell_stop = float((record or {}).get("per_cell_cost_stop_usd") or 0.0)
     token_stop = int((record or {}).get("token_stop") or 0)
+    authorized_stops = {"cost_stop_usd": cost_stop, "token_stop": token_stop}
+    if settlement is not None:
+        # The effective ceiling is the smallest of the three: the frozen batch allowance, what the
+        # Owner authorized, and what is left of the global budget. It is the value the loop below
+        # actually compares against, not a number that only appears in the report.
+        allowances = [float(settlement["allowed_cost_usd"])]
+        if cost_stop > 0:
+            allowances.append(cost_stop)
+        cost_stop = min(allowances)
+        token_allowances = [int(settlement["allowed_tokens"])]
+        if token_stop > 0:
+            token_allowances.append(token_stop)
+        token_stop = min(token_allowances)
 
     for cell in plan["cells"]:
         # Same short key the runner uses, so the attempt marker, the analysis and the run sit
@@ -1582,6 +1727,12 @@ async def dispatch(
         "cost_stop_usd": cost_stop,
         "per_cell_cost_stop_usd": per_cell_stop,
         "token_stop": token_stop,
+        "effective_stops": {
+            "authorized": authorized_stops,
+            "applied": {"cost_stop_usd": cost_stop, "token_stop": token_stop},
+            "rule": "min(frozen batch allowance, owner authorization, global remaining)",
+        },
+        "cumulative_settlement": settlement,
         "pricing": dict(context.prices),
         "cells": cells,
         "aggregate_includes_sample": bool(plan["is_benchmark_sample"]),
@@ -1604,6 +1755,7 @@ def _refused_report(
     mode: str,
     *,
     admission: Mapping[str, Any] | None = None,
+    settlement: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     report: dict[str, Any] = {
         "stage": contract.STAGE_ID,
@@ -1627,6 +1779,8 @@ def _refused_report(
     }
     if admission is not None:
         report["admission"] = dict(admission)
+    if settlement is not None:
+        report["cumulative_settlement"] = dict(settlement)
     return report
 
 
@@ -1681,9 +1835,11 @@ def prepare_fixture(task: Any, destination: Path) -> dict[str, Any]:
         if path.is_file() and ".git" not in path.relative_to(destination).parts
     }
     seed_digest = canonical_digest(dict(sorted(written.items())))
-    # The same value ``task_digests`` reports, computed directly: a Stage F task may declare one
-    # worker, and that helper also builds the multi-worker topology, which such a task cannot have.
-    frozen = canonical_digest(dict(sorted(task.seed.items())))
+    # The visible fixture is the seed *plus* the declared public suite. A task that keeps its public
+    # tests outside ``seed`` still hands them to the agent, so the frozen value has to include them;
+    # for a task whose seed already carries them the union is the seed and nothing moves.
+    visible = {**dict(task.seed), **dict(getattr(task, "public_tests", {}) or {})}
+    frozen = canonical_digest(dict(sorted(visible.items())))
     return {
         "path": str(destination),
         "commit": commit,
@@ -2017,8 +2173,8 @@ def run_admission_preflight(
                 }
             else:
                 # A native or static-DAG cell has no GoalRunOptions. Admitting it through one would
-                # be admitting a configuration it never runs; it is admitted against its own contract
-                # instead, and the record says which checks were applied.
+                # be admitting a configuration it never runs; it is admitted against its own
+                # contract instead, and the record says which checks were applied.
                 from experiments.stage_f import runners as stage_f_runners
 
                 report, detail = stage_f_runners.arm_admission(cell, fixture=fixture, config=active)
@@ -2141,6 +2297,7 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
             run_id=run_id,
         )
 
+        goal_started = time.monotonic()
         try:
             session = await run_goal(options)
         except BaseException as error:  # noqa: BLE001 - classified by the gate
@@ -2157,6 +2314,7 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
                 expected_run_id=run_id,
             )
 
+        agent_ms = round((time.monotonic() - goal_started) * 1000.0, 3)
         artifacts = session.get("artifacts")
         export = dict(artifacts) if isinstance(artifacts, Mapping) else None
         if export and export.get("workspace_path"):
@@ -2174,6 +2332,7 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
         workspace_value = (export or {}).get("workspace_path")
         oracle: dict[str, Any] | None = None
         oracle_sandbox: dict[str, Any] | None = None
+        oracle_ms: float | None = None
         if not workspace_value:
             oracle = {
                 "status": "ERROR",
@@ -2188,6 +2347,7 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
             # oracle can never inherit its state.
             oracle_root = evidence / "oracle-sandbox"
             agent_after = await asyncio.to_thread(workspace_digest, fixture_dir)
+            oracle_started = time.monotonic()
             oracle = await asyncio.to_thread(
                 judge_export,
                 Path(str(workspace_value)),
@@ -2197,6 +2357,7 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
                 image=plan.image,
                 timeout_seconds=active.oracle_timeout_seconds,
             )
+            oracle_ms = round((time.monotonic() - oracle_started) * 1000.0, 3)
             oracle_sandbox = {
                 "provider": plan.provider_name,
                 "root": str(oracle_root),
@@ -2206,17 +2367,25 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
             if agent_after != fixture.get("seed_digest"):
                 oracle["fixture_after_run"] = agent_after
 
+        duration_s = time.monotonic() - started
         return CellRun(
             session=session,
             run_dir=Path(session["run_dir"]),
             fixture_root=fixture_dir,
             oracle=oracle,
-            duration_s=time.monotonic() - started,
+            duration_s=duration_s,
             fixture=fixture,
             export=export,
             sandbox_plan=plan.as_dict(),
             oracle_sandbox=oracle_sandbox,
             expected_run_id=run_id,
+            timings={
+                # ``run_goal`` owns the sandbox lifecycle and the export, so it is measured as one
+                # stage; the split is unavailable rather than zero.
+                "agent_execution_ms": agent_ms,
+                "oracle_ms": oracle_ms,
+                "end_to_end_ms": round(duration_s * 1000.0, 3),
+            },
             notes=(
                 "host-side scoring is not used: the oracle ran in its own sandbox",
                 f"provider={plan.provider_name}",

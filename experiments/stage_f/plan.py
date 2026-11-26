@@ -13,10 +13,13 @@ from __future__ import annotations
 import hashlib
 import random
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 from experiments.stage_b_plus import authority, contract
 from experiments.stage_f import arms, tasks
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 SCOPE = "F_UNIFIED_96_CELL_EVALUATION"
 MASTER_ID = "stage-f-96-manifest-v1"
@@ -105,6 +108,12 @@ def batch_plan(batch: int) -> dict[str, Any]:
         "stage": "F",
         "design_version": DESIGN_VERSION,
         "master_id": MASTER_ID,
+        "executor_version": _executor_identity()["executor_version"],
+        "executor_digest": _executor_identity()["executor_digest"],
+        "adapter_version": arms.ADAPTER_VERSION,
+        "adapter_digest": adapter_identity()["normaliser_digest"],
+        "pricing_digest": pricing_identity()["digest"],
+        "settlement_digest": settlement_contract()["digest"],
         "plan_id": BATCH_PLAN_IDS[batch],
         "scope": SCOPE,
         "batch": batch,
@@ -136,25 +145,106 @@ def batch_plans() -> dict[int, dict[str, Any]]:
     return {batch: batch_plan(batch) for batch in range(1, arms.BATCH_COUNT + 1)}
 
 
+def _executor_identity() -> dict[str, Any]:
+    """The executor identity, imported lazily: the executor resolves Stage F plans at call time."""
+
+    from experiments.stage_b_plus import executor
+
+    return executor.executor_identity(REPO_ROOT)
+
+
+def adapter_identity() -> dict[str, Any]:
+    """What turns a raw result into Unified Cell Evidence, and the schema it writes."""
+
+    from experiments.stage_f import normalize
+
+    files = {
+        relative: "sha256:" + hashlib.sha256((REPO_ROOT / relative).read_bytes()).hexdigest()
+        for relative in (
+            "experiments/stage_f/normalize.py",
+            "experiments/stage_f/runners.py",
+        )
+    }
+    return {
+        "adapter_version": arms.ADAPTER_VERSION,
+        "schema_version": normalize.SCHEMA_VERSION,
+        "normaliser_digest": authority.digest_of(files),
+        "files": files,
+    }
+
+
+def pricing_identity() -> dict[str, Any]:
+    """The frozen price block, with where it came from and what it is not."""
+
+    from experiments.stage_b_plus import cost
+
+    pricing = dict(cost.stage_b_estimate.pricing())
+    return {
+        **pricing,
+        "currency": "USD",
+        "model": "deepseek-chat",
+        "model_alias_resolution": "deepseek-chat resolves to deepseek-flash",
+        "digest": authority.digest_of(pricing),
+        "is_an_estimate": True,
+        "is_a_bill": False,
+        "missing_cache_split": "price the whole input as a miss; never assume a hit",
+    }
+
+
+def settlement_contract() -> dict[str, Any]:
+    """How a batch is settled against its predecessors, frozen with the matrix."""
+
+    contract_block = {
+        "rule": "min(frozen batch allowance, owner authorization, global remaining)",
+        "per_batch_token_ceiling": arms.TOKEN_STOP_PER_BATCH,
+        "global_token_ceiling": arms.TOKEN_STOP_TOTAL,
+        "per_batch_cost_ceiling_usd": arms.COST_STOP_PER_BATCH,
+        "global_cost_ceiling_usd": arms.COST_STOP_TOTAL,
+        "refuses": (
+            "a missing prior report, an unconsumed prior claim, a plan or executor identity "
+            "mismatch, incomplete usage, a prior frozen stop, or no remaining headroom"
+        ),
+        "reader": "experiments.stage_f.cumulative.settlement",
+        "entry": "executor.dispatch (pre-claim)",
+    }
+    return {**contract_block, "digest": authority.digest_of(contract_block)}
+
+
+def visible_files(task_id: str) -> dict[str, str]:
+    """The bytes a cell starts from: the seed plus the declared public suite.
+
+    ``prepare_fixture`` materialises exactly this set and digests it, so the manifest and the
+    per-cell fixture check compare the same object instead of two different ones.
+    """
+
+    task = tasks.task_by_id(task_id)
+    return {**dict(task.seed), **dict(task.public_tests)}
+
+
+def _task_facts(task_id: str) -> dict[str, Any]:
+    task = tasks.task_by_id(task_id)
+    return {
+        "family": tasks.family_of(task_id),
+        "goal_digest": arms.goal_digest(task_id),
+        "grant_digest": arms.grant_digest(task_id),
+        "static_dag_digest": arms.static_dag_digest(task_id),
+        "static_dag": arms.static_dag(task_id),
+        # The frozen fixture identity: a fixture edit after the freeze moves this digest.
+        "seed_digest": authority.digest_of(dict(sorted(visible_files(task_id).items()))),
+        "seed_files": len(visible_files(task_id)),
+        "deliverables": list(task.deliverables),
+        "public_tests": sorted(task.public_tests),
+        "oracle_tests": sorted(task.oracle_tests),
+        "allowed_paths": list(task.allowed_paths),
+        "forbidden_paths": list(task.forbidden_paths),
+    }
+
+
 def manifest() -> dict[str, Any]:
     orders = {str(batch): list(batch_task_order(batch)) for batch in range(1, 4)}
     assignments = {str(batch): batch_sequence_assignment(batch) for batch in range(1, 4)}
     plans = batch_plans()
-    task_facts = {
-        task_id: {
-            "family": tasks.family_of(task_id),
-            "goal_digest": arms.goal_digest(task_id),
-            "grant_digest": arms.grant_digest(task_id),
-            "static_dag_digest": arms.static_dag_digest(task_id),
-            "static_dag": arms.static_dag(task_id),
-            "deliverables": list(tasks.task_by_id(task_id).deliverables),
-            "public_tests": sorted(tasks.task_by_id(task_id).public_tests),
-            "oracle_tests": sorted(tasks.task_by_id(task_id).oracle_tests),
-            "allowed_paths": list(tasks.task_by_id(task_id).allowed_paths),
-            "forbidden_paths": list(tasks.task_by_id(task_id).forbidden_paths),
-        }
-        for task_id in tasks.TASK_IDS
-    }
+    task_facts = {task_id: _task_facts(task_id) for task_id in tasks.TASK_IDS}
     return {
         "stage": "F",
         "design_version": DESIGN_VERSION,
@@ -192,7 +282,12 @@ def manifest() -> dict[str, Any]:
             "approved": False,
         },
         "adapter_version": arms.ADAPTER_VERSION,
-        "executor_version": "pending-freeze",
+        "adapter": adapter_identity(),
+        "executor_version": _executor_identity()["executor_version"],
+        "executor_digest": _executor_identity()["executor_digest"],
+        "executor_files": _executor_identity()["files"],
+        "pricing": pricing_identity(),
+        "settlement_contract": settlement_contract(),
         "execution_contract": contract.EXECUTION_CONTRACT_DIGEST,
         "main_prompt_digest": arms.main_prompt_digest(),
         "worker_contract_digest": arms.worker_contract()["rendered_prompt_digest"],

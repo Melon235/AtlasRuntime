@@ -7,13 +7,19 @@ separate promises instead of one limit.
 
 This module is the check, not a budget scheduler: it reads the evidence the earlier batches already
 wrote and answers "may batch *b* start, and with what left". An unknown consumption is **not** zero:
-a batch with no report, or a report whose usage is not `COMPLETE`, blocks the next batch.
+a batch with no report, a report whose usage is not `COMPLETE`, a report that names a different plan
+digest, a claim that was never consumed, or a batch that stopped rather than completed all block the
+next batch.
+
+The caller passes what this module cannot know on its own — the identity of the code that would run
+now, and whether a plan's one-shot claim was consumed — so the check has no import of the executor
+and can be exercised without one.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +37,14 @@ def _report(evidence_root: Path, plan_id: str) -> dict[str, Any] | None:
     return payload if isinstance(payload, Mapping) else None
 
 
-def settlement(manifest: Mapping[str, Any], *, batch: int, evidence_root: Path) -> dict[str, Any]:
+def settlement(
+    manifest: Mapping[str, Any],
+    *,
+    batch: int,
+    evidence_root: Path,
+    executor_digest: str | None = None,
+    claim_consumed: Callable[[str], bool] | None = None,
+) -> dict[str, Any]:
     """Everything the earlier batches actually consumed, and what is left for ``batch``."""
 
     batches = manifest["batches"]
@@ -54,6 +67,39 @@ def settlement(manifest: Mapping[str, Any], *, batch: int, evidence_root: Path) 
             unknown = True
             prior.append({"batch": item["batch"], "state": "NO_REPORT"})
             continue
+
+        # The report must be the frozen batch, not merely a file at the expected path.
+        if report.get("plan_id") != item["plan_id"]:
+            problems.append(
+                f"batch {item['batch']} report names plan {report.get('plan_id')!r}, "
+                f"the manifest says {item['plan_id']!r}"
+            )
+            unknown = True
+        if report.get("plan_digest") != item["plan_digest"]:
+            problems.append(
+                f"batch {item['batch']} ran plan digest {report.get('plan_digest')!r}, "
+                f"the manifest froze {item['plan_digest']!r}"
+            )
+            unknown = True
+        if executor_digest is not None and report.get("executor_digest") != executor_digest:
+            problems.append(
+                f"batch {item['batch']} ran executor {report.get('executor_digest')!r}, "
+                f"this dispatch is {executor_digest!r}"
+            )
+            unknown = True
+        if claim_consumed is not None and not claim_consumed(str(item["plan_digest"])):
+            problems.append(f"batch {item['batch']} has no consumed production claim")
+            unknown = True
+        if report.get("complete") is not True:
+            problems.append(f"batch {item['batch']} did not complete its plan")
+            unknown = True
+        if str(report.get("stop_reason") or "NONE") != "NONE":
+            problems.append(
+                f"batch {item['batch']} stopped at {report.get('stop_reason')!r}; a frozen stop "
+                f"condition blocks the next batch"
+            )
+            unknown = True
+
         usage_complete = str(report.get("usage_completeness")) == COMPLETE
         batch_tokens = report.get("total_tokens")
         batch_cost = report.get("total_cost_usd")
@@ -77,6 +123,8 @@ def settlement(manifest: Mapping[str, Any], *, batch: int, evidence_root: Path) 
                 "tokens": batch_tokens,
                 "cost_usd": batch_cost,
                 "usage_completeness": report.get("usage_completeness"),
+                "plan_digest": report.get("plan_digest"),
+                "executor_digest": report.get("executor_digest"),
             }
         )
 
@@ -89,7 +137,7 @@ def settlement(manifest: Mapping[str, Any], *, batch: int, evidence_root: Path) 
     remaining_cost = global_cost_stop - cost
     allowance_tokens = min(batch_token_stop, remaining_tokens)
     allowance_cost = min(batch_cost_stop, remaining_cost)
-    if unknown:
+    if unknown or remaining_tokens <= 0 or remaining_cost <= 0:
         allowance_tokens = 0
         allowance_cost = 0.0
 

@@ -24,11 +24,13 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-SCHEMA_VERSION = "stage-f-cell-evidence/1.1"
+SCHEMA_VERSION = "stage-f-cell-evidence/1.2"
 
 NOT_APPLICABLE = "NOT_APPLICABLE"
 UNKNOWN = "UNKNOWN"
 NOT_RUN = "NOT_RUN"
+PASS = "PASS"
+FAIL = "FAIL"
 
 PRIMARY_ATTRIBUTIONS = frozenset({"single_agent", "main_child"})
 
@@ -83,19 +85,23 @@ def _delivered(
     execution_integrity: Any,
     agent_success: Any,
 ) -> bool:
-    """Delivered success: a correct artifact was produced by a run whose own checks did not fail.
+    """Delivered success: a correct artifact produced by a run whose own checks all passed.
 
-    It is deliberately a conjunction of four *independently recorded* verdicts and never a copy of
-    one of them: an oracle PASS alone is not delivery (the agent may have failed), and an agent
-    completion alone is not delivery (the artifact may be wrong). A verdict that does not exist for
-    the arm (``NOT_APPLICABLE``) does not block delivery; a verdict that failed does.
+    It is a conjunction of four *independently recorded* verdicts: an oracle PASS alone is not
+    delivery (the agent may have failed), and an agent completion alone is not delivery (the
+    artifact may be wrong). ``execution_integrity`` must be **PASS**, not merely "not FAIL": a
+    common integrity check that could not be evaluated is ``UNKNOWN`` and does not establish
+    delivery. Only an architecture-specific mechanism that does not exist for this arm is exempt,
+    and that exemption happens before this function sees the value.
     """
 
     if agent_success is not True:
         return False
     if oracle_status != "PASS":
         return False
-    return all(verdict != "FAIL" for verdict in (public_test, execution_integrity))
+    if execution_integrity != PASS:
+        return False
+    return public_test != FAIL
 
 
 def _correctness(
@@ -147,6 +153,27 @@ def _integrity_verdict(block: Any) -> str:
     return "PASS" if int(block.get("records") or 0) > 0 else UNKNOWN
 
 
+def apply_integrity(evidence: dict[str, Any], report: Mapping[str, Any]) -> dict[str, Any]:
+    """Stamp the common integrity verdict onto an evidence record and re-derive delivery.
+
+    The verdict is the runner's, not the adapter's: only the runner holds the fixture digest, the
+    exported directory and the oracle's sandbox identity at the same time. ``delivered_success`` is
+    recomputed from the stamped verdict so the two can never disagree in a written record.
+    """
+
+    correctness = evidence.setdefault("correctness", {})
+    verdict = str(report.get("verdict") or UNKNOWN)
+    correctness["execution_integrity"] = verdict
+    correctness["delivered_success"] = _delivered(
+        oracle_status=(correctness.get("independent_oracle") or {}).get("status"),
+        public_test=correctness.get("public_test"),
+        execution_integrity=verdict,
+        agent_success=correctness.get("agent_success"),
+    )
+    evidence["integrity"] = dict(report)
+    return evidence
+
+
 def _request_rows(requests: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
     return [dict(row) for row in (requests or [])]
 
@@ -179,6 +206,185 @@ def _node_requests(requests: Sequence[Mapping[str, Any]] | None, task_id: str) -
     return _node_value(requests, task_id, "per_agent_requests")
 
 
+# -- production measurement --------------------------------------------------------------------
+#
+# The proof's request rows come from the deterministic provider; a production run has no such
+# injector, and its usage lives in the record each arm actually writes. These readers map that
+# record onto the same row shape, so one peak/uniqueness rule scores both. Nothing here estimates a
+# token count: a counter the record does not carry stays ``None`` and becomes ``UNKNOWN``.
+
+
+def _int_or_none(value: Any) -> int | None:
+    return int(value) if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _main_request_rows(session: Mapping[str, Any], *, agent: str) -> list[dict[str, Any]]:
+    """The Main's own per-request context series, from the session's provider-observed metrics."""
+
+    metrics = session.get("metrics") or {}
+    series = metrics.get("main_context_tokens_by_request")
+    if not isinstance(series, list):
+        main = session.get("main") or {}
+        series = main.get("context_tokens_by_request")
+    rows: list[dict[str, Any]] = []
+    for index, value in enumerate(series if isinstance(series, list) else []):
+        tokens = _int_or_none(value)
+        if tokens is not None:
+            rows.append(
+                {
+                    "index": index,
+                    "trusted_task_id": agent,
+                    "prompt_tokens": tokens,
+                    "source": "session.main.context_tokens_by_request",
+                }
+            )
+    return rows
+
+
+def _native_request_rows(result: Mapping[str, Any], *, agent: str) -> list[dict[str, Any]]:
+    """The native run's ``per_request_usage`` rows, in the order the requests were sent."""
+
+    metrics = result.get("metrics") or {}
+    rows: list[dict[str, Any]] = []
+    for record in metrics.get("per_request_usage") or []:
+        if not isinstance(record, Mapping):
+            continue
+        tokens = _int_or_none(record.get("prompt_tokens"))
+        if tokens is not None:
+            rows.append(
+                {
+                    "index": record.get("index"),
+                    "trusted_task_id": agent,
+                    "prompt_tokens": tokens,
+                    "completion_tokens": _int_or_none(record.get("completion_tokens")),
+                    "source": "result.metrics.per_request_usage",
+                }
+            )
+    return rows
+
+
+def _dag_request_rows(result: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The evaluation runner's request-evidence records, one per observed provider request."""
+
+    metrics = result.get("metrics") or {}
+    evidence = metrics.get("request_evidence")
+    records = evidence.get("requests") if isinstance(evidence, Mapping) else None
+    rows: list[dict[str, Any]] = []
+    for record in records or []:
+        if not isinstance(record, Mapping):
+            continue
+        usage = record.get("usage") if isinstance(record.get("usage"), Mapping) else {}
+        tokens = _int_or_none(usage.get("prompt_tokens"))
+        if tokens is None:
+            continue
+        rows.append(
+            {
+                "index": record.get("call_index"),
+                "trusted_task_id": record.get("trusted_task_id"),
+                "prompt_tokens": tokens,
+                "cache_hit_tokens": usage.get("cache_hit_tokens"),
+                "cache_miss_tokens": usage.get("cache_miss_tokens"),
+                "source": "request_evidence.records",
+            }
+        )
+    return rows
+
+
+def _census(
+    *,
+    rows: Sequence[Mapping[str, Any]],
+    expected: Sequence[str],
+    fallback: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Peak context for every agent that actually ran, and whether the census is complete.
+
+    ``system_max_agent_context`` is the maximum over **all** agents. A Main peak is never promoted
+    to a system peak: if one expected agent has no observed peak, the system value is ``UNKNOWN``
+    and the missing agent is named.
+    """
+
+    observed = _peaks(rows)["per_agent_peak_context_tokens"] if rows else {}
+    # A single-agent arm whose provider did not carry a trusted task id still measured exactly one
+    # agent: all of its requests belong to the only agent that ran. That is an attribution of one
+    # observation to one expected agent, not a guess between several.
+    sole_observed = (
+        next(iter(observed.values())) if len(observed) == 1 and len(expected) == 1 else None
+    )
+    peaks: dict[str, Any] = {}
+    missing: list[str] = []
+    for agent in expected:
+        value = observed.get(agent)
+        if value is None:
+            matches = [item for key, item in observed.items() if key.endswith(f"-{agent}")]
+            value = matches[0] if len(matches) == 1 else None
+        if value is None:
+            value = sole_observed
+        if value is None:
+            fallback_value = fallback.get(agent)
+            value = fallback_value if _int_or_none(fallback_value) is not None else None
+        if value is None:
+            peaks[agent] = UNKNOWN
+            missing.append(agent)
+        else:
+            peaks[agent] = int(value)
+    complete = not missing and bool(peaks)
+    return {
+        "peaks": peaks,
+        "complete": complete,
+        "missing_agents": sorted(missing),
+        "system_max_agent_context": max(peaks.values()) if complete else UNKNOWN,
+        "basis": (
+            "per-request provider-observed prompt size for every agent that ran"
+            if complete
+            else "at least one agent's peak context was not observed"
+        ),
+    }
+
+
+def _request_count(*, main_requests: Any, child_requests: Any, total: Any) -> dict[str, Any]:
+    """Request accounting, with the child side ``NOT_APPLICABLE`` when the arm has no children.
+
+    A role the arm does not have is ``NOT_APPLICABLE``; a role that exists but whose count was not
+    recorded is ``UNKNOWN`` and makes the total unknown, instead of silently equal to the Main's.
+    """
+
+    main = _int_or_none(main_requests)
+    if child_requests in (NOT_APPLICABLE, UNKNOWN):
+        children: Any = child_requests
+    else:
+        children = _int_or_none(child_requests)
+    combined = _int_or_none(total)
+    if combined is None and main is not None:
+        if children == NOT_APPLICABLE:
+            combined = main
+        elif isinstance(children, int):
+            combined = main + children
+    return {"main": main, "children": children, "total": combined}
+
+
+def _latency(block: Mapping[str, Any]) -> dict[str, Any]:
+    """Wall-clock split. ``UNKNOWN`` for a stage the arm does not time, never ``0``."""
+
+    stages = (
+        "agent_execution_ms",
+        "sandbox_provision_ms",
+        "export_ms",
+        "oracle_ms",
+        "cleanup_ms",
+        "end_to_end_ms",
+    )
+    known: dict[str, Any] = {}
+    unknown: list[str] = []
+    for stage in stages:
+        value = block.get(stage)
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+            known[stage] = round(float(value), 3)
+        else:
+            known[stage] = UNKNOWN
+            unknown.append(stage)
+    return {**known, "unknown_stages": unknown}
+
+
 # -- A1 / A3: the goal runtime session ---------------------------------------------------------
 
 
@@ -191,6 +397,7 @@ def from_main_child_session(
     proposals: Sequence[Mapping[str, Any]] | None = None,
     requests: Sequence[Mapping[str, Any]] | None = None,
     public_test: Any = None,
+    latency: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Normalise a main-driven ``session.json``. Every field is read, none is invented.
 
@@ -209,8 +416,22 @@ def from_main_child_session(
     main = session.get("main") or {}
     oracle = oracle or {}
     export = export or {}
-    peaks = _peaks(requests)
     main_peak = metrics.get("main_peak_context_tokens")
+    main_agent = str(main.get("task_id") or "main")
+    # A child's provider identity is its ``worker_id`` (the trusted id the provider context
+    # carries); the plan ``key`` is only the delegation name. Using the key would report an observed
+    # child as missing and turn a complete census into UNKNOWN.
+    children_seen = [
+        str(child.get("worker_id") or child.get("key") or "child")
+        for batch in batches
+        for child in (batch.get("children") or [])
+    ]
+    rows = _request_rows(requests) or _main_request_rows(session, agent=main_agent)
+    census = _census(
+        rows=rows,
+        expected=[main_agent, *children_seen],
+        fallback={main_agent: main_peak},
+    )
 
     public_verdict = public_test
     if public_verdict is None:
@@ -228,7 +449,7 @@ def from_main_child_session(
                 public_test=public_verdict or NOT_RUN,
                 oracle_status=oracle.get("status", UNKNOWN),
                 oracle_passed=oracle.get("passed"),
-                execution_integrity=_integrity_verdict(session.get("execution_integrity")),
+                execution_integrity=UNKNOWN,
                 failure_kind=(session.get("failure") or {}).get("kind"),
             ),
             "usage": {
@@ -245,6 +466,18 @@ def from_main_child_session(
                     cache_miss=totals.get("cache_miss_tokens"),
                 ),
                 "system_total_tokens": metrics.get("system_total_tokens"),
+                "requests": _request_count(
+                    main_requests=metrics.get("main_requests"),
+                    # A child's request count is not part of the delegation evidence, so an arm
+                    # with children reports the total as unknown instead of assuming turns = calls.
+                    child_requests=UNKNOWN if children_seen else NOT_APPLICABLE,
+                    total=None,
+                ),
+                "requested_model": str((cell.get("budget") or {}).get("model") or UNKNOWN),
+                # The goal path records the model it *asked for*; it does not record the model the
+                # provider resolved it to, so the returned identity is unknown rather than assumed.
+                "returned_model": UNKNOWN,
+                "accounting": "provider-reported per request (Atlas UsageAttributionHook)",
                 "budget": {
                     "limit_tokens": budget.get("limit_tokens"),
                     "used_tokens": budget.get("used_tokens"),
@@ -259,11 +492,10 @@ def from_main_child_session(
                 "main_peak_context": main_peak,
                 "main_cumulative_input": metrics.get("main_cumulative_input_tokens"),
                 "integration_node_context": NOT_APPLICABLE,
-                "system_max_agent_context": peaks["system_max_agent_context"],
-                "per_request_input_tokens": [
-                    row.get("prompt_tokens") for row in _request_rows(requests)
-                ],
-                "per_agent_peak_context_tokens": peaks["per_agent_peak_context_tokens"],
+                "system_max_agent_context": census["system_max_agent_context"],
+                "per_request_input_tokens": [row.get("prompt_tokens") for row in rows],
+                "per_agent_peak_context_tokens": census["peaks"],
+                "agent_context_census": census,
             },
             "delegation": {
                 "natural_proposal": bool(proposals),
@@ -281,6 +513,7 @@ def from_main_child_session(
                                 key: child.get(key)
                                 for key in (
                                     "key",
+                                    "worker_id",
                                     "status",
                                     "success",
                                     "stop_reason",
@@ -321,6 +554,7 @@ def from_main_child_session(
                 "ownership": session.get("ownership"),
                 "sandbox": session.get("sandbox"),
                 "artifact_export": export.get("workspace_path"),
+                "latency": _latency(latency or {}),
             },
             "provenance": {
                 "source": "main-driven session.json",
@@ -329,6 +563,11 @@ def from_main_child_session(
                 "model": session.get("model"),
             },
         }
+    )
+    # Architecture-specific mechanism, recorded beside the common verdict rather than instead of
+    # it: the payload corpus is Atlas's own record, not the shared integrity gate.
+    evidence["correctness"]["atlas_execution_records"] = _integrity_verdict(
+        session.get("execution_integrity")
     )
     return evidence
 
@@ -343,6 +582,7 @@ def from_native_result(
     oracle: Mapping[str, Any] | None,
     export: Mapping[str, Any] | None,
     requests: Sequence[Mapping[str, Any]] | None = None,
+    latency: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Normalise a Closure-1B ``EvalRunResult`` shaped mapping.
 
@@ -357,12 +597,24 @@ def from_native_result(
     safety = result.get("safety") or {}
     oracle = oracle or {}
     export = export or {}
-    peaks = _peaks(requests)
+    agent = "primary_agent"
+    rows = _request_rows(requests) or _native_request_rows(result, agent=agent)
+    census = _census(
+        rows=rows,
+        expected=[agent],
+        fallback={agent: metrics.get("peak_context_tokens")},
+    )
 
     prompt = metrics.get("prompt_tokens")
     completion = metrics.get("completion_tokens")
     total = (
         prompt + completion if isinstance(prompt, int) and isinstance(completion, int) else UNKNOWN
+    )
+    resolved = environment.get("resolved_models")
+    returned_model = (
+        resolved[0]
+        if isinstance(resolved, list) and len(resolved) == 1 and isinstance(resolved[0], str)
+        else UNKNOWN
     )
 
     evidence = blank_evidence(cell)
@@ -376,9 +628,10 @@ def from_native_result(
                 public_test=NOT_APPLICABLE,
                 oracle_status=oracle.get("status", UNKNOWN),
                 oracle_passed=oracle.get("passed"),
-                # The native arm runs no Atlas integrity mechanism; its own isolation facts are
-                # recorded separately under ``safety``.
-                execution_integrity=NOT_APPLICABLE,
+                # Replaced by the common integrity verdict the runner computes. Until then the
+                # adapter says "not established" rather than "not applicable": the common checks
+                # are not an Atlas-only mechanism.
+                execution_integrity=UNKNOWN,
                 failure_kind=result.get("failure_class"),
             ),
             "usage": {
@@ -391,6 +644,14 @@ def from_native_result(
                     cache_miss=metrics.get("cache_miss_tokens"),
                 ),
                 "system_total_tokens": total,
+                "requests": _request_count(
+                    main_requests=len(rows) or metrics.get("model_turns"),
+                    child_requests=NOT_APPLICABLE,
+                    total=None,
+                ),
+                "requested_model": str((cell.get("budget") or {}).get("model") or UNKNOWN),
+                "returned_model": returned_model,
+                "accounting": "provider-reported (InferenceObservation.usage)",
                 "budget": {
                     "limit_tokens": budget.get("limit_tokens", UNKNOWN),
                     "used_tokens": budget.get("used_tokens", UNKNOWN),
@@ -400,16 +661,15 @@ def from_native_result(
                 },
             },
             "context": {
-                "primary_agent_peak_context": peaks["system_max_agent_context"],
+                "primary_agent_peak_context": census["peaks"].get(agent),
                 "primary_agent_cumulative_input": prompt,
                 "main_peak_context": NOT_APPLICABLE,
                 "main_cumulative_input": NOT_APPLICABLE,
                 "integration_node_context": NOT_APPLICABLE,
-                "system_max_agent_context": peaks["system_max_agent_context"],
-                "per_request_input_tokens": [
-                    row.get("prompt_tokens") for row in _request_rows(requests)
-                ],
-                "per_agent_peak_context_tokens": peaks["per_agent_peak_context_tokens"],
+                "system_max_agent_context": census["system_max_agent_context"],
+                "per_request_input_tokens": [row.get("prompt_tokens") for row in rows],
+                "per_agent_peak_context_tokens": census["peaks"],
+                "agent_context_census": census,
             },
             "delegation": NOT_APPLICABLE,
             "handoff": NOT_APPLICABLE,
@@ -424,6 +684,16 @@ def from_native_result(
                 "sandbox": environment.get("sandbox"),
                 "ownership": NOT_APPLICABLE,
                 "artifact_export": export.get("workspace_path"),
+                "latency": _latency(
+                    latency
+                    or {
+                        "agent_execution_ms": environment.get("agent_latency_ms"),
+                        "sandbox_provision_ms": metrics.get("provision_latency_ms"),
+                        "export_ms": metrics.get("export_latency_ms"),
+                        "oracle_ms": metrics.get("oracle_latency_ms"),
+                        "end_to_end_ms": metrics.get("latency_ms"),
+                    }
+                ),
             },
             "safety": safety,
             "provenance": {
@@ -486,6 +756,7 @@ def from_dag_result(
     oracle: Mapping[str, Any] | None,
     export: Mapping[str, Any] | None,
     requests: Sequence[Mapping[str, Any]] | None = None,
+    latency: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Normalise a static-DAG run.
 
@@ -502,15 +773,17 @@ def from_dag_result(
     oracle = oracle or {}
     export = export or {}
     _, concurrency = _dag_events(result)
-    peaks = _peaks(requests)
+    rows = _request_rows(requests) or _dag_request_rows(result)
 
     nodes = [dict(item) for item in (cell.get("static_dag") or [])]
+    node_ids = [str(node["task_id"]) for node in nodes]
+    census = _census(rows=rows, expected=node_ids, fallback={})
     # The integration node is the one nothing depends on. "No dependencies of its own" describes a
     # source node, which is the opposite end of the same DAG.
     depended_on = {str(dep) for node in nodes for dep in node.get("depends_on") or ()}
     sinks = [node for node in nodes if str(node["task_id"]) not in depended_on]
     sink = sinks[0] if len(sinks) == 1 else None
-    integration_peak = _node_peak(requests, str(sink["task_id"])) if sink else UNKNOWN
+    integration_peak = census["peaks"].get(str(sink["task_id"])) if sink else UNKNOWN
 
     workers: list[dict[str, Any]] = []
     for node in nodes:
@@ -533,8 +806,8 @@ def from_dag_result(
                 "stop_reason": (record or {}).get("stop_reason"),
                 "tool_calls": (record or {}).get("tool_calls"),
                 "token_usage": (record or {}).get("token_usage"),
-                "peak_context_tokens": _node_peak(requests, task_id),
-                "requests": _node_requests(requests, task_id),
+                "peak_context_tokens": census["peaks"].get(task_id, UNKNOWN),
+                "requests": _node_requests(rows, task_id),
                 "is_integration_node": bool(sink and task_id == str(sink["task_id"])),
             }
         )
@@ -557,11 +830,7 @@ def from_dag_result(
                 ).get("state", NOT_RUN),
                 oracle_status=oracle.get("status", UNKNOWN),
                 oracle_passed=oracle.get("passed"),
-                execution_integrity=_integrity_verdict(
-                    (result.get("environment") or {}).get("execution_integrity")
-                )
-                if isinstance((result.get("environment") or {}).get("execution_integrity"), Mapping)
-                else UNKNOWN,
+                execution_integrity=UNKNOWN,
                 failure_kind=result.get("failure_class"),
             ),
             "usage": {
@@ -573,6 +842,23 @@ def from_dag_result(
                     cache_miss=metrics.get("cache_miss_tokens"),
                 ),
                 "system_total_tokens": total,
+                "requests": _request_count(
+                    main_requests=NOT_APPLICABLE,
+                    child_requests=len(rows) or metrics.get("model_turns"),
+                    total=None,
+                ),
+                "requested_model": str(
+                    (result.get("environment") or {}).get("requested_model")
+                    or (cell.get("budget") or {}).get("model")
+                    or UNKNOWN
+                ),
+                "returned_model": (
+                    (result.get("environment") or {}).get("resolved_models")[0]
+                    if isinstance((result.get("environment") or {}).get("resolved_models"), list)
+                    and len((result.get("environment") or {}).get("resolved_models")) == 1
+                    else UNKNOWN
+                ),
+                "accounting": "provider-reported per request (request_evidence.records)",
                 "budget": {
                     "limit_tokens": budget.get("limit_tokens", UNKNOWN),
                     "used_tokens": budget.get("used_tokens", UNKNOWN),
@@ -587,11 +873,10 @@ def from_dag_result(
                 "main_peak_context": NOT_APPLICABLE,
                 "main_cumulative_input": NOT_APPLICABLE,
                 "integration_node_context": integration_peak,
-                "system_max_agent_context": peaks["system_max_agent_context"],
-                "per_request_input_tokens": [
-                    row.get("prompt_tokens") for row in _request_rows(requests)
-                ],
-                "per_agent_peak_context_tokens": peaks["per_agent_peak_context_tokens"],
+                "system_max_agent_context": census["system_max_agent_context"],
+                "per_request_input_tokens": [row.get("prompt_tokens") for row in rows],
+                "per_agent_peak_context_tokens": census["peaks"],
+                "agent_context_census": census,
             },
             "delegation": NOT_APPLICABLE,
             "handoff": NOT_APPLICABLE,
@@ -603,6 +888,18 @@ def from_dag_result(
                 "ownership": "off",
                 "sandbox": (result.get("environment") or {}).get("sandbox"),
                 "artifact_export": export.get("workspace_path"),
+                "latency": _latency(
+                    latency
+                    or {
+                        "agent_execution_ms": (result.get("environment") or {}).get(
+                            "agent_latency_ms"
+                        ),
+                        "sandbox_provision_ms": metrics.get("provision_latency_ms"),
+                        "export_ms": metrics.get("export_latency_ms"),
+                        "oracle_ms": metrics.get("oracle_latency_ms"),
+                        "end_to_end_ms": metrics.get("latency_ms"),
+                    }
+                ),
             },
             "provenance": {
                 "source": "evaluation runner result.json",
@@ -611,6 +908,12 @@ def from_dag_result(
                 "model": (result.get("identity") or {}).get("model"),
             },
         }
+    )
+    environment = result.get("environment") or {}
+    evidence["correctness"]["atlas_execution_records"] = (
+        _integrity_verdict(environment.get("execution_integrity"))
+        if isinstance(environment, Mapping)
+        else UNKNOWN
     )
     return evidence
 
@@ -657,6 +960,22 @@ def validate_evidence(evidence: Mapping[str, Any]) -> list[str]:
                 problems.append(f"{key} is present for a {attribution} arm")
     if attribution == "dag_all_children" and evidence.get("delegation") != NOT_APPLICABLE:
         problems.append("a DAG arm must report delegation as NOT_APPLICABLE")
+    census = context.get("agent_context_census")
+    if isinstance(census, Mapping):
+        if census.get("system_max_agent_context") != context.get("system_max_agent_context"):
+            problems.append("the system max agent context disagrees with its own census")
+        if census.get("complete") is False and context.get("system_max_agent_context") not in (
+            UNKNOWN,
+        ):
+            problems.append("an incomplete agent census reported a system maximum")
+    if "integrity" in evidence:
+        report = evidence.get("integrity")
+        if not isinstance(report, Mapping):
+            problems.append("integrity is not a report")
+        elif report.get("verdict") not in {PASS, FAIL, UNKNOWN}:
+            problems.append(f"integrity verdict is {report.get('verdict')!r}")
+        elif not report.get("checks"):
+            problems.append("integrity carries no checks")
     correctness = evidence.get("correctness") or {}
     for key in (
         "agent_success",
@@ -677,10 +996,13 @@ def evidence_digest(evidence: Mapping[str, Any]) -> str:
 
 
 __all__ = [
+    "FAIL",
     "NOT_APPLICABLE",
     "NOT_RUN",
+    "PASS",
     "SCHEMA_VERSION",
     "UNKNOWN",
+    "apply_integrity",
     "blank_evidence",
     "evidence_digest",
     "from_dag_result",

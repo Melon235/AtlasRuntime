@@ -1,0 +1,168 @@
+{
+  "stage": "F",
+  "kind": "cross_batch_settlement_check",
+  "generated_at": "2026-11-26T09:53:09Z",
+  "executor_version": "bplus-executor-1.9",
+  "executor_digest": "sha256:9ca0a48d3e467edff4c1d75baaf7363a64243f08bdcc1fb3c6f00e1666941f08",
+  "repo_head": "0b466ba991023987c68b00792494c7e97bfe903a",
+  "ok": true,
+  "status": "STAGE_F_CROSS_BATCH_SETTLEMENT_PASS",
+  "scenarios": [
+    {
+      "scenario": "1_normal_chain",
+      "expectation": "b1 → b2 → b3 each complete 32/32 and each is settled on its predecessors' reports",
+      "observed": {
+        "batches": [
+          {
+            "batch": 1,
+            "complete": true,
+            "cells_passed": 32,
+            "may_start": true,
+            "allowed_tokens": 32000000,
+            "applied_token_stop": 32000000,
+            "stop_reason": "NONE"
+          },
+          {
+            "batch": 2,
+            "complete": true,
+            "cells_passed": 32,
+            "may_start": true,
+            "allowed_tokens": 32000000,
+            "applied_token_stop": 32000000,
+            "stop_reason": "NONE"
+          },
+          {
+            "batch": 3,
+            "complete": true,
+            "cells_passed": 32,
+            "may_start": true,
+            "allowed_tokens": 32000000,
+            "applied_token_stop": 32000000,
+            "stop_reason": "NONE"
+          }
+        ]
+      },
+      "ok": true
+    },
+    {
+      "scenario": "2_prior_report_missing",
+      "expectation": "without batch 1's report, batch 2 is refused before any claim",
+      "observed": {
+        "stop_reason": "CUMULATIVE_SETTLEMENT_REFUSED",
+        "refused": true,
+        "problems": [
+          "batch 1 has no matrix report"
+        ],
+        "claim_exists": false
+      },
+      "ok": true
+    },
+    {
+      "scenario": "3_prior_claim_missing",
+      "expectation": "a report without a consumed claim is not evidence that the batch was spent",
+      "observed": {
+        "stop_reason": "CUMULATIVE_SETTLEMENT_REFUSED",
+        "problems": [
+          "batch 1 has no consumed production claim"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "scenario": "4_plan_identity_mismatch",
+      "expectation": "a report from a different frozen plan refuses the next batch",
+      "observed": {
+        "stop_reason": "CUMULATIVE_SETTLEMENT_REFUSED",
+        "problems": [
+          "batch 1 ran plan digest 'sha256:0000000000000000000000000000000000000000000000000000000000000000', the manifest froze 'sha256:6fcfd69d74d1ad0158d162e0dd42cd710df90fbb7bf60acbc37ab520f99a8587'",
+          "batch 1 has no consumed production claim"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "scenario": "5_unknown_consumption",
+      "expectation": "usage that is not COMPLETE is unknown, not zero",
+      "observed": {
+        "stop_reason": "CUMULATIVE_SETTLEMENT_REFUSED",
+        "unknown_consumption": true,
+        "problems": [
+          "batch 1 has no consumed production claim",
+          "batch 1 usage is not COMPLETE"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "scenario": "6_prior_frozen_stop",
+      "expectation": "a batch that stopped does not authorize the next one",
+      "observed": {
+        "stop_reason": "CUMULATIVE_SETTLEMENT_REFUSED",
+        "problems": [
+          "batch 1 has no consumed production claim",
+          "batch 1 did not complete its plan",
+          "batch 1 stopped at 'COST_STOP_REACHED'; a frozen stop condition blocks the next batch"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "scenario": "7_global_remainder",
+      "expectation": "with 90M of 96M consumed, batch 2's ceiling is the 6M remainder, not 32M",
+      "observed": {
+        "allowed_tokens": 6000000,
+        "applied_token_stop": 6000000,
+        "may_start": true,
+        "complete": true
+      },
+      "ok": true
+    },
+    {
+      "scenario": "10_effective_allowance_in_dispatcher",
+      "expectation": "the dispatcher's own token stop equals the settled allowance",
+      "observed": {
+        "effective_stops": {
+          "authorized": {
+            "cost_stop_usd": 32.0,
+            "token_stop": 32000000
+          },
+          "applied": {
+            "cost_stop_usd": 6.0,
+            "token_stop": 6000000
+          },
+          "rule": "min(frozen batch allowance, owner authorization, global remaining)"
+        },
+        "allowed_tokens": 6000000
+      },
+      "ok": true
+    },
+    {
+      "scenario": "8_refusal_is_dispatcher_refusal",
+      "expectation": "every refusal names the cumulative stop and returns a refused report",
+      "observed": {
+        "scenarios": [
+          "2_prior_report_missing",
+          "3_prior_claim_missing",
+          "4_plan_identity_mismatch",
+          "5_unknown_consumption",
+          "6_prior_frozen_stop"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "scenario": "9_refusal_consumes_no_claim",
+      "expectation": "a refused batch leaves no claim behind",
+      "observed": {
+        "claim_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\settlement-6\\claims-mr\\23bd5635e8f0246fe1578b283f9cd8c2477e31621a8ae5715a7b775adc041c2b.claim",
+        "production_claim_root": false
+      },
+      "ok": true
+    }
+  ],
+  "model_calls": 0,
+  "production_claims_consumed": 0,
+  "scratch_root": "D:\\Work\\AtlasOS\\.f2c-scratch\\settlement-6",
+  "effective_rule": "min(frozen batch allowance, owner authorization, global remaining)",
+  "note": "the last two scenarios set batch 2's ceiling to USD 6.00 as well, from the same 90/96 USD prior consumption; the assertions read the token side, which is the one the dispatcher compares first"
+}

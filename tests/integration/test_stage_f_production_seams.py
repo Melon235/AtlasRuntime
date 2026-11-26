@@ -118,6 +118,9 @@ def test_the_stage_f_audit_returns_the_dispatcher_contract(tmp_path: Path) -> No
         oracle={"status": "PASS", "passed": True},
         export={"workspace_path": str(workspace)},
     )
+    # A real run stamps the common integrity verdict before the audit; the runner is the only
+    # place the fixture, the export and the oracle identity exist together.
+    normalize.apply_integrity(evidence, {"verdict": normalize.PASS, "checks": [{"check": "probe"}]})
     run = executor.CellRun(
         session=evidence, run_dir=None, fixture_root=None, oracle=None, duration_s=1.5
     )
@@ -152,9 +155,15 @@ def test_cumulative_settlement_refuses_an_unknown_prior_batch(tmp_path: Path) ->
 
     evidence = tmp_path / plan.BATCH_PLAN_IDS[1]
     evidence.mkdir(parents=True)
+    frozen = manifest["batches"][0]
     (evidence / "matrix-report.json").write_text(
         json.dumps(
             {
+                # The identity the settlement insists on: a report from another plan, or one whose
+                # claim was never consumed, is not evidence that this batch was spent.
+                "plan_id": frozen["plan_id"],
+                "plan_digest": frozen["plan_digest"],
+                "executor_digest": "sha256:" + "1" * 64,
                 "total_tokens": 30_000_000,
                 "total_cost_usd": 30.0,
                 "usage_completeness": cumulative.COMPLETE,
@@ -164,11 +173,28 @@ def test_cumulative_settlement_refuses_an_unknown_prior_batch(tmp_path: Path) ->
         ),
         encoding="utf-8",
     )
-    b2 = cumulative.settlement(manifest, batch=2, evidence_root=tmp_path)
+    b2 = cumulative.settlement(
+        manifest,
+        batch=2,
+        evidence_root=tmp_path,
+        executor_digest="sha256:" + "1" * 64,
+        claim_consumed=lambda digest: digest == frozen["plan_digest"],
+    )
     assert b2["unknown_consumption"] is False
     assert b2["may_start"] is True
     assert b2["allowed_tokens"] == min(32_000_000, 96_000_000 - 30_000_000)
     assert b2["allowed_cost_usd"] == pytest.approx(min(32.0, 96.0 - 30.0))
+
+    # The same report without a consumed claim is unknown, even though every number is present.
+    b3 = cumulative.settlement(
+        manifest,
+        batch=2,
+        evidence_root=tmp_path,
+        executor_digest="sha256:" + "1" * 64,
+        claim_consumed=lambda digest: False,
+    )
+    assert b3["unknown_consumption"] is True
+    assert b3["may_start"] is False
 
 
 def test_the_runner_and_adapter_code_is_inside_the_signed_identity() -> None:

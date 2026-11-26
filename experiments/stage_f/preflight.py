@@ -350,68 +350,245 @@ def check_tool_surface(scratch: Path) -> dict[str, Any]:
 
 
 def check_adapters() -> dict[str, Any]:
-    """The three normalisers accept their own shape and refuse to fake a Main."""
+    """The three normalisers read the records the three arms really write.
+
+    The samples below are the production shapes, not hand-built convenience mappings: an
+    ``EvalRunResult`` with ``per_request_usage`` and ``environment.resolved_models``, an evaluation
+    runner result with ``metrics.request_evidence.records``, and a main-driven ``session.json`` with
+    ``main_context_tokens_by_request``. A sample that no producer writes would pass this gate while
+    the real run fails, which is the defect this gate exists to prevent.
+    """
 
     problems: list[str] = []
     cell_by_arm = {}
     for cell in plan.batch_cells(1):
-        cell_by_arm.setdefault(str(cell["arm_id"]), cell)
+        # P1 is the task whose decomposition has two sources and one integration node, so the
+        # A2 sample can assert the integration node is recorded on its own.
+        if str(cell["task_id"]) == "f-p1-connector-migration":
+            cell_by_arm.setdefault(str(cell["arm_id"]), cell)
+    if set(cell_by_arm) != set(arms.ARM_ORDER):
+        return _check(
+            "F06_evidence_adapters",
+            False,
+            f"batch 1 does not carry all four arms for P1: {sorted(cell_by_arm)}",
+        )
 
     native = normalize.from_native_result(
         cell_by_arm["A0"],
         {
             "agent_success": True,
-            "failure_class": None,
+            "failure_class": "TASK_SUCCESS",
             "metrics": {
                 "prompt_tokens": 1200,
                 "completion_tokens": 200,
-                "peak_context_tokens": 900,
                 "cache_hit_tokens": 800,
                 "cache_miss_tokens": 400,
+                "budget": {
+                    "limit_tokens": 1_000_000,
+                    "used_tokens": 1400,
+                    "stop_reason": None,
+                    "admission_rejections": 0,
+                },
+                "per_request_usage": [
+                    {"index": 0, "prompt_tokens": 500, "completion_tokens": 80},
+                    {"index": 1, "prompt_tokens": 900, "completion_tokens": 120},
+                ],
+                "model_turns": 2,
+                "provision_latency_ms": 4200.0,
+                "latency_ms": 33000.0,
             },
-            "budget": {"limit_tokens": 1_000_000, "used_tokens": 1400, "stop_reason": None},
-            "environment": {"budget_enforcement": "pre_admission_guard", "agent_latency_ms": 12.0},
+            "environment": {
+                "budget_enforcement": "pre_admission_guard",
+                "agent_latency_ms": 12000.0,
+                "resolved_models": ["deepseek-flash"],
+                "sandbox": {"sandbox_id": "sbx-a0", "destroyed": True},
+            },
+            "safety": {"sandbox_destroyed": True, "host_fixture_unchanged": True},
+            "identity": {"run_id": "run-a0", "model": "deepseek-chat"},
         },
         oracle={"status": "PASS", "passed": True},
-        export={"static_acceptance": "PASS", "execution_integrity": "PASS"},
+        export={"workspace_path": None},
     )
     dag = normalize.from_dag_result(
         cell_by_arm["A2"],
         {
             "agent_success": True,
+            "failure_class": "TASK_SUCCESS",
+            "identity": {"run_id": "run-a2", "model": "deepseek-chat"},
             "metrics": {
-                "child_total_prompt_tokens": 3000,
-                "child_completion_tokens": 400,
-                "system_total_tokens": 3400,
-                "max_worker_peak_context": 2100,
+                "prompt_tokens": 3000,
+                "completion_tokens": 400,
+                "cache_hit_tokens": 1000,
+                "cache_miss_tokens": 2000,
+                "model_turns": 3,
+                "budget": {"limit_tokens": 1_000_000, "used_tokens": 3400},
+                "request_evidence": {
+                    "requests": [
+                        {
+                            "call_index": 0,
+                            "trusted_task_id": "run-a2-csv",
+                            "usage": {"prompt_tokens": 1500, "cache_hit_tokens": None},
+                        },
+                        {
+                            "call_index": 1,
+                            "trusted_task_id": "run-a2-jsonl",
+                            "usage": {"prompt_tokens": 1800, "cache_hit_tokens": None},
+                        },
+                        {
+                            "call_index": 2,
+                            "trusted_task_id": "run-a2-integrate",
+                            "usage": {"prompt_tokens": 2100, "cache_hit_tokens": None},
+                        },
+                    ]
+                },
             },
-            "budget": {"limit_tokens": 1_000_000, "used_tokens": 3400},
-            "workers": [{"task_id": "integrate", "peak_context_tokens": 1500, "downstream": []}],
-            "public_test_status": "PASS",
+            "environment": {
+                "public_tests": {"runs": []},
+                "resolved_models": ["deepseek-flash"],
+                "sandbox": {"sandbox_id": "sbx-a2"},
+                "task_events": [],
+            },
+            "worker_results": {},
         },
         oracle={"status": "PASS", "passed": True},
-        export={"static_acceptance": "PASS", "execution_integrity": "PASS"},
+        export={"workspace_path": None},
     )
-    for name, evidence in (("A0", native), ("A2", dag)):
+    session = {
+        "run_id": "run-a3",
+        "status": "succeeded",
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "main": {
+            "task_id": "run-a3-main",
+            "success": True,
+            "stop_reason": None,
+            "total_prompt_tokens": 5200,
+            "completion_tokens": 600,
+            "cache_hit_tokens": 4000,
+            "cache_miss_tokens": 1200,
+            "context_tokens_by_request": [1200, 2600, 4100],
+        },
+        "metrics": {
+            "main_requests": 3,
+            "main_peak_context_tokens": 4100,
+            "main_cumulative_input_tokens": 5200,
+            "main_context_tokens_by_request": [1200, 2600, 4100],
+            "main_cache_hit_tokens": 4000,
+            "main_cache_miss_tokens": 1200,
+            "main_completion_tokens": 600,
+            "child_total_prompt_tokens": 2600,
+            "child_completion_tokens": 300,
+            "system_total_tokens": 8700,
+            "delegation_rounds": 1,
+            "max_observed_child_concurrency": 2,
+        },
+        "delegation": {
+            "totals": {"cache_hit_tokens": 0, "cache_miss_tokens": 2600},
+            "batches": [
+                {
+                    "round": 1,
+                    "route": "delegate",
+                    "decision": {"reason_codes": ["two_independent_units"], "blocked_gates": []},
+                    "children": [
+                        {
+                            "key": "csv-source",
+                            "status": "completed",
+                            "success": True,
+                            "turns": 4,
+                            "prompt_tokens": 1600,
+                            "completion_tokens": 150,
+                        }
+                    ],
+                    "max_observed_concurrency": 1,
+                }
+            ],
+        },
+        "budget": {"limit_tokens": 1_000_000, "used_tokens": 8700, "admission_rejections": 0},
+        "public_tests": {"runs": []},
+        "verification": {"verdict": "PASS"},
+        "execution_integrity": {"mode": "record", "records": 4, "write_failures": 0},
+        "ownership": {"mode": "enforce"},
+        "sandbox": {"sandbox_id": "sbx-a3", "destroyed": True},
+        "tool_surface": [],
+        "handoff_reads": {},
+    }
+    goal = normalize.from_main_child_session(
+        cell_by_arm["A3"],
+        session,
+        oracle={"status": "PASS", "passed": True},
+        export={"workspace_path": None},
+        proposals=[{"task_id": "run-a3-main", "input": {"tasks": []}}],
+    )
+
+    for name, evidence in (("A0", native), ("A2", dag), ("A3", goal)):
         problems.extend(f"{name}: {item}" for item in normalize.validate_evidence(evidence))
+
     if native["context"]["main_peak_context"] != normalize.NOT_APPLICABLE:
         problems.append("A0 reports a Main context")
     if dag["context"]["main_peak_context"] != normalize.NOT_APPLICABLE:
         problems.append("A2 reports a Main context")
     if dag["delegation"] != normalize.NOT_APPLICABLE:
         problems.append("A2 reports delegation")
-    if dag["context"]["integration_node_context"] != 1500:
-        problems.append("A2 does not record the integration node separately")
+    if native["context"]["system_max_agent_context"] != 900:
+        problems.append(
+            f"A0 system max is {native['context']['system_max_agent_context']!r}, not the peak of "
+            "its per-request usage"
+        )
+    if native["usage"]["requests"]["total"] != 2:
+        problems.append(f"A0 request count is {native['usage']['requests']!r}")
+    if native["usage"]["returned_model"] != "deepseek-flash":
+        problems.append("A0 does not read the provider-resolved model")
+    if dag["context"]["integration_node_context"] != 2100:
+        problems.append(
+            "A2 integration node is "
+            f"{dag['context']['integration_node_context']!r}, not its own peak"
+        )
+    if dag["context"]["system_max_agent_context"] != 2100:
+        problems.append("A2 does not take the maximum over its nodes")
+    if goal["context"]["system_max_agent_context"] != normalize.UNKNOWN:
+        problems.append(
+            "A3 reports a system maximum although no child peak was observed; Main peak is not "
+            "the system peak"
+        )
+    if goal["context"]["agent_context_census"]["missing_agents"] != ["csv-source"]:
+        problems.append("A3 does not name the agent whose peak is missing")
+    if goal["context"]["per_request_input_tokens"] != [1200, 2600, 4100]:
+        problems.append("A3 does not read the Main's per-request context series")
+    if goal["usage"]["requests"]["children"] != normalize.UNKNOWN:
+        problems.append("A3 claims a child request count it never recorded")
+    if goal["correctness"]["atlas_execution_records"] != "PASS":
+        problems.append("A3 does not record the Atlas payload corpus verdict beside the common one")
+
+    # Integrity is a conjunction: only PASS establishes delivery.
+    delivered = {}
+    for verdict in (normalize.PASS, normalize.UNKNOWN, normalize.FAIL):
+        probe = {
+            "correctness": {
+                "agent_success": True,
+                "independent_oracle": {"status": "PASS", "passed": True},
+                "public_test": "PASS",
+            }
+        }
+        normalize.apply_integrity(probe, {"verdict": verdict, "checks": [{"check": "probe"}]})
+        delivered[verdict] = probe["correctness"]["delivered_success"]
+    if delivered != {normalize.PASS: True, normalize.UNKNOWN: False, normalize.FAIL: False}:
+        problems.append(f"delivered success is not the integrity conjunction: {delivered}")
     return _check(
         "F06_evidence_adapters",
         not problems,
         "; ".join(problems)
         or (
-            "the native and DAG normalisers produce valid Unified Cell Evidence: no Main metrics, "
-            "NOT_APPLICABLE instead of zero, the integration node recorded on its own, and the "
-            "main-driven adapter reads only fields the session actually carries"
+            "all three adapters read production field names: A0 and A2 have no Main and say so, "
+            "A2 records its integration node separately, A3 takes its system maximum from a "
+            "census and reports UNKNOWN when a child peak is unobserved, and delivered success "
+            "requires integrity PASS"
         ),
-        sample={"A0": native["context"], "A2": dag["context"]},
+        sample={
+            "A0": native["context"],
+            "A2": dag["context"],
+            "A3": goal["context"],
+            "delivered": delivered,
+        },
     )
 
 
@@ -445,7 +622,12 @@ def check_plans(scratch: Path) -> dict[str, Any]:
 
 
 def check_offline_dispatch(scratch: Path) -> dict[str, Any]:
-    """One batch through the real dispatch entry in offline proof mode."""
+    """The three real batch plans, in order, through the real dispatch entry.
+
+    One shared root, so batch 2 and batch 3 are settled against the reports batch 1 and batch 2
+    actually wrote. That is the production contract, not a convenience: a fresh root would (and
+    must) refuse batch 2, which is exactly what the settlement gate is for.
+    """
 
     from experiments.stage_b_plus.offline import synthetic_cell_run
 
@@ -454,60 +636,82 @@ def check_offline_dispatch(scratch: Path) -> dict[str, Any]:
 
     problems: list[str] = []
     results: dict[str, Any] = {}
-    for batch in (1, 2, 3):
-        plan_id = plan.BATCH_PLAN_IDS[batch]
-        batch_plan = contract.scope_plan(plan_id)
-        identity = executor.executor_identity(REPO)
-        # The same offline-signed record the C-series used: signed for the proof, never for a run.
-        from experiments.stage_c1 import checks as c1_checks
+    root = scratch / "stage-f-dispatch"
+    import asyncio
 
-        record = c1_checks._offline_signed(
-            batch_plan,
-            scratch=scratch / f"sign-{plan_id}",
-            head=executor.git_head(REPO),
-            identity=identity,
-            protocol_digest=authority.protocol_digest(contract.protocol_document()),
-            cost_stop_usd=float(batch_plan["cost_stop_usd"]),
-            per_cell_cost_stop_usd=float(batch_plan["per_cell_cost_stop_usd"]),
-        )
-        path = scratch / f"authority-{plan_id}.json"
-        path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-        evidence = scratch / f"dispatch-{plan_id}"
-        import asyncio
+    with executor.claim_root_override(scratch / "claims-stage-f-dispatch"):
+        for batch in (1, 2, 3):
+            plan_id = plan.BATCH_PLAN_IDS[batch]
+            batch_plan = contract.scope_plan(plan_id)
+            identity = executor.executor_identity(REPO)
+            # The same offline-signed record the C-series used: signed for the proof, never a run.
+            from experiments.stage_c1 import checks as c1_checks
 
-        with executor.claim_root_override(scratch / f"claims-{plan_id}"):
+            record = c1_checks._offline_signed(
+                batch_plan,
+                scratch=scratch / f"sign-{plan_id}",
+                head=executor.git_head(REPO),
+                identity=identity,
+                protocol_digest=authority.protocol_digest(contract.protocol_document()),
+                cost_stop_usd=float(batch_plan["cost_stop_usd"]),
+                per_cell_cost_stop_usd=float(batch_plan["per_cell_cost_stop_usd"]),
+            )
+            path = scratch / f"authority-{plan_id}.json"
+            path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+            evidence = root / plan_id
             report = asyncio.run(
                 executor.dispatch(
                     plan_id,
                     runs_root=evidence / "runs",
-                    evidence_root=evidence,
+                    evidence_root=root,
                     authority_path=path,
                     cell_runner=runner,
                     repo_root=REPO,
                     mode=executor.MODE_OFFLINE_PROOF,
                     clock=lambda: "2026-11-26T00:00:00Z",
+                    stage_f_root=root,
                 )
             )
-        results[plan_id] = {
-            "complete": report.get("complete"),
-            "cells_planned": report.get("cells_planned"),
-            "cells_passed": report.get("cells_passed"),
-            "stop_reason": report.get("stop_reason"),
-            "token_stop": report.get("token_stop"),
-        }
-        if not (
-            report.get("complete") is True
-            and report.get("cells_planned") == 32
-            and report.get("cells_passed") == 32
-            and int(report.get("token_stop") or 0) == 32_000_000
-        ):
-            problems.append(f"{plan_id}: the offline dispatch did not pass all 32 cells")
+            settlement = report.get("cumulative_settlement") or {}
+            results[plan_id] = {
+                "complete": report.get("complete"),
+                "cells_planned": report.get("cells_planned"),
+                "cells_passed": report.get("cells_passed"),
+                "stop_reason": report.get("stop_reason"),
+                "token_stop": report.get("token_stop"),
+                "settled": settlement.get("may_start"),
+                "allowed_tokens": settlement.get("allowed_tokens"),
+            }
+            if not (
+                report.get("complete") is True
+                and report.get("cells_planned") == 32
+                and report.get("cells_passed") == 32
+            ):
+                problems.append(
+                    f"{plan_id}: the offline dispatch did not pass all 32 cells "
+                    f"({report.get('stop_reason')})"
+                )
+            if settlement.get("may_start") is not True:
+                problems.append(f"{plan_id}: the settlement did not admit the batch")
+            if batch == 1 and int(report.get("token_stop") or 0) != 32_000_000:
+                problems.append(f"{plan_id}: token stop is not the frozen 32M")
+            if batch > 1:
+                prior = settlement.get("prior") or []
+                if len(prior) != batch - 1 or any(
+                    item.get("state") != "REPORTED" for item in prior
+                ):
+                    problems.append(f"{plan_id}: the settlement did not read its predecessors")
     return _check(
         "F08_offline_dispatch",
         not problems,
         "; ".join(problems)
-        or "all three batches resolve, claim in a throwaway root and pass 32/32 synthetic cells",
+        or (
+            "batches 1, 2 and 3 resolve from the real plan ids, claim in a throwaway root, pass "
+            "32/32 synthetic cells in order, and each later batch is settled against the reports "
+            "its predecessors wrote"
+        ),
         batches=results,
+        root=str(root),
     )
 
 
@@ -551,15 +755,19 @@ def check_history() -> dict[str, Any]:
     from experiments.stage_c2 import plan as c2
 
     problems: list[str] = []
+    # Seven production claims: the six the C2 checks already track plus the C2 run itself.
     claims = {
         label: executor.claim_path(digest).is_file() for label, digest in c2_checks.CONSUMED_CLAIMS
     }
-    if len(claims) != 6:
-        problems.append(f"there are {len(claims)} historical claims, not six")
+    claims["c2"] = executor.claim_path(contract.scope_plan(c2.PLAN_ID)["digest"]).is_file()
+    if len(claims) != 7:
+        problems.append(f"there are {len(claims)} historical claims, not seven")
     if not all(claims.values()):
         problems.append(f"missing historical claims: {[k for k, v in claims.items() if not v]}")
-    if executor.claim_path(plan.plan_digest(plan.batch_cells(1))).exists():
-        problems.append("a Stage F claim already exists")
+    for batch in (1, 2, 3):
+        digest = plan.plan_digest(plan.batch_cells(batch))
+        if executor.claim_path(digest).exists():
+            problems.append(f"a Stage F claim already exists for batch {batch}")
     earlier = {
         "c1": (contract.scope_plan(c1.PLAN_ID)["digest"], c1.PLAN_ID),
         "c1b": (contract.scope_plan(c1b.PLAN_ID)["digest"], c1b.PLAN_ID),
@@ -576,8 +784,8 @@ def check_history() -> dict[str, Any]:
         not problems,
         "; ".join(problems)
         or (
-            "all six consumed claims are present, no Stage F claim exists, and the C1/C1-B/C1-C/C2 "
-            "plan identities are unchanged"
+            "all seven consumed production claims are present, no Stage F claim exists, and the "
+            "C1/C1-B/C1-C/C2 plan identities are unchanged"
         ),
         claims=claims,
         earlier={key: value[0] for key, value in earlier.items()},
@@ -603,12 +811,35 @@ def check_pending() -> dict[str, Any]:
             protocol_digest_value=authority.protocol_digest(contract.protocol_document()),
             repo_root=REPO,
         )
+        signed_path = EVIDENCE_DIR / f"authorization-b{batch}.json"
+        signed: Mapping[str, Any] | None = None
+        if signed_path.is_file():
+            try:
+                parsed = json.loads(signed_path.read_text(encoding="utf-8"))
+                signed = parsed if isinstance(parsed, Mapping) else None
+            except json.JSONDecodeError:
+                signed = None
+        signed_verdict = (
+            authority.verify(
+                signed,
+                plan=batch_plan,
+                head=executor.git_head(REPO),
+                executor=identity,
+                protocol_digest_value=authority.protocol_digest(contract.protocol_document()),
+                repo_root=REPO,
+            )
+            if signed is not None
+            else {"ready": False, "problems": ["no checked-in record"]}
+        )
         rows[plan.BATCH_PLAN_IDS[batch]] = {
             "status": record.get("status"),
             "ready": verdict["ready"],
             "problems": len(verdict["problems"]),
             "cost_stop_usd": record.get("cost_stop_usd"),
             "token_stop": record.get("token_stop"),
+            "checked_in": signed_path.name if signed is not None else None,
+            "checked_in_ready": signed_verdict["ready"],
+            "checked_in_problems": len(signed_verdict["problems"]),
         }
         if verdict["ready"] is not False:
             problems.append(f"{plan.BATCH_PLAN_IDS[batch]}: the pending record authorizes a run")
@@ -616,48 +847,385 @@ def check_pending() -> dict[str, Any]:
             problems.append(f"{plan.BATCH_PLAN_IDS[batch]}: a cost stop is signed")
         if int(record.get("token_stop") or 0) != 32_000_000:
             problems.append(f"{plan.BATCH_PLAN_IDS[batch]}: token stop is not 32M")
+        if signed is None:
+            problems.append(f"{plan.BATCH_PLAN_IDS[batch]}: no checked-in authorization record")
+            continue
+        if signed_verdict["ready"] is not False:
+            problems.append(f"{plan.BATCH_PLAN_IDS[batch]}: the checked-in record would authorize")
+        if signed.get("authorizes_live_execution") is not False:
+            problems.append(f"{plan.BATCH_PLAN_IDS[batch]}: authorizes_live_execution is not false")
+        for field in (
+            "approved_by",
+            "approved_at",
+            "owner_statement",
+            "approval_provenance",
+            "reviewed_head",
+            "execution_head",
+            "cost_stop_usd",
+            "per_cell_cost_stop_usd",
+        ):
+            if signed.get(field) is not None:
+                problems.append(f"{plan.BATCH_PLAN_IDS[batch]}: {field} is filled in")
+        if signed.get("plan_digest") != batch_plan["digest"]:
+            problems.append(f"{plan.BATCH_PLAN_IDS[batch]}: the record names another plan")
     return _check(
         "F11_pending_authorization",
         not problems,
         "; ".join(problems)
-        or "all three pending records refuse to authorize; the cost fields stay null",
+        or (
+            "three checked-in pending records name the frozen plans, fill no signature field and "
+            "are refused by the live verifier"
+        ),
         batches=rows,
     )
 
 
+# -- the records this stage has to produce --------------------------------------------------------
+
+
+EVIDENCE_DIR = Path(__file__).resolve().parent
+RECORD_FILES: dict[str, str] = {
+    "runner_proof": "runner-proof.json",
+    "task_qualification": "task-qualification.json",
+    "settlement": "settlement-check.json",
+    "environment": "environment-qualification.json",
+    "p1_smoke": "p1-compat-smoke.json",
+}
+
+
+def _record(name: str) -> dict[str, Any] | None:
+    path = EVIDENCE_DIR / RECORD_FILES[name]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, Mapping) else None
+
+
+def _record_identity_problems(record: Mapping[str, Any] | None, *, name: str) -> list[str]:
+    """A record produced by different code does not certify this code."""
+
+    if record is None:
+        return [f"{name}: no record"]
+    expected = executor.executor_identity(REPO)["executor_digest"]
+    if record.get("executor_digest") != expected:
+        return [
+            f"{name}: produced by executor {record.get('executor_digest')!r}, "
+            f"this tree is {expected!r}"
+        ]
+    return []
+
+
+def check_settlement_record() -> dict[str, Any]:
+    """The ten cross-batch scenarios, from the record the real dispatcher wrote."""
+
+    record = _record("settlement")
+    problems = _record_identity_problems(record, name="settlement")
+    scenarios = list((record or {}).get("scenarios") or [])
+    if len(scenarios) != 10:
+        problems.append(f"the settlement record holds {len(scenarios)} scenarios, not ten")
+    failed = [item.get("scenario") for item in scenarios if item.get("ok") is not True]
+    if failed:
+        problems.append(f"failed scenarios: {failed}")
+    if (record or {}).get("ok") is not True:
+        problems.append(f"the settlement record status is {(record or {}).get('status')!r}")
+    return _check(
+        "F13_settlement_wiring",
+        not problems,
+        "; ".join(problems)
+        or (
+            "ten settlement scenarios ran through the real dispatcher: the normal chain, a missing "
+            "report, a missing claim, a plan-identity mismatch, unknown usage, a prior frozen "
+            "stop, the global remainder, the refusal stop, no claim consumed, and the effective "
+            "ceiling inside the dispatcher"
+        ),
+        scenarios=[item.get("scenario") for item in scenarios],
+        record=RECORD_FILES["settlement"],
+    )
+
+
+def check_environment_record() -> dict[str, Any]:
+    record = _record("environment")
+    problems = _record_identity_problems(record, name="environment")
+    rows = list((record or {}).get("tasks") or [])
+    if len(rows) != 8:
+        problems.append(f"the environment record holds {len(rows)} tasks, not eight")
+    bad = [row.get("task_id") for row in rows if row.get("ok") is not True]
+    if bad:
+        problems.append(f"tasks that did not qualify: {bad}")
+    created = int((record or {}).get("containers_created") or 0)
+    destroyed = int((record or {}).get("containers_destroyed") or 0)
+    if created != 8 or destroyed != 8:
+        problems.append(f"containers created/destroyed {created}/{destroyed}, expected 8/8")
+    return _check(
+        "F14_environment_qualification",
+        not problems,
+        "; ".join(problems)
+        or (
+            "all eight tasks were provisioned, ran their public suite in a real container, their "
+            "reference passed public and hidden there, and every container was destroyed"
+        ),
+        tasks={
+            row.get("task_id"): {
+                "seed_public_rc": (row.get("seed_public") or {}).get("exit_code"),
+                "reference_public_rc": (row.get("reference_public") or {}).get("exit_code"),
+                "reference_hidden_rc": (row.get("reference_hidden") or {}).get("exit_code"),
+            }
+            for row in rows
+        },
+        record=RECORD_FILES["environment"],
+    )
+
+
+def check_smoke_record() -> dict[str, Any]:
+    record = _record("p1_smoke")
+    problems = _record_identity_problems(record, name="p1_smoke")
+    if (record or {}).get("ok") is not True:
+        problems.append(f"the smoke status is {(record or {}).get('status')!r}")
+    dispatch = (record or {}).get("dispatch") or {}
+    if dispatch.get("cells_passed") != 4 or dispatch.get("cells_planned") != 4:
+        problems.append(f"the smoke passed {dispatch.get('cells_passed')}/4 cells")
+    counts = (record or {}).get("counts") or {}
+    if counts.get("external_model_requests") != 0:
+        problems.append("the smoke reports an external model request")
+    if counts.get("production_claims_consumed") != 0:
+        problems.append("the smoke consumed a production claim")
+    arms_rows = list((record or {}).get("arms") or [])
+    if len(arms_rows) != 4:
+        problems.append(f"the smoke holds {len(arms_rows)} arms, not four")
+    failed_checks = [
+        f"{row.get('arm_id')}:{item.get('check')}"
+        for row in arms_rows
+        for item in row.get("checks") or []
+        if item.get("ok") is not True
+    ]
+    if failed_checks:
+        problems.append(f"failed arm checks: {failed_checks}")
+    return _check(
+        "F15_p1_four_arm_smoke",
+        not problems,
+        "; ".join(problems)
+        or (
+            "the formal P1 ran once through all four real entries in a deterministic-provider "
+            "dispatch: 4/4 audited cells, an independent oracle per arm, no external request and "
+            "no production claim"
+        ),
+        arms=[
+            {
+                "arm_id": row.get("arm_id"),
+                "verdict": (row.get("audit") or {}).get("verdict"),
+                "integrity": (row.get("integrity") or {}).get("verdict"),
+                "oracle": (row.get("oracle") or {}).get("status"),
+                "requests": (row.get("requests") or {}).get("count"),
+            }
+            for row in arms_rows
+        ],
+        record=RECORD_FILES["p1_smoke"],
+    )
+
+
+def check_production_measurement() -> dict[str, Any]:
+    """Every arm's record carries a provider-observed accounting and a common integrity verdict."""
+
+    record = _record("p1_smoke")
+    problems = _record_identity_problems(record, name="p1_smoke")
+    rows = list((record or {}).get("arms") or [])
+    if not rows:
+        problems.append("the smoke holds no arm record")
+    for row in rows:
+        arm_id = row.get("arm_id")
+        context = (row.get("normalized") or {}).get("context") or {}
+        usage = (row.get("normalized") or {}).get("usage") or {}
+        census = context.get("agent_context_census") or {}
+        if not census:
+            problems.append(f"{arm_id}: no agent context census")
+        if context.get("system_max_agent_context") is None:
+            problems.append(f"{arm_id}: no system maximum, not even UNKNOWN")
+        if not isinstance(usage.get("requests"), Mapping):
+            problems.append(f"{arm_id}: no request accounting")
+        if (row.get("integrity") or {}).get("verdict") != "PASS":
+            problems.append(
+                f"{arm_id}: integrity is {(row.get('integrity') or {}).get('verdict')!r}"
+            )
+    return _check(
+        "F16_production_measurement",
+        not problems,
+        "; ".join(problems)
+        or (
+            "each arm's evidence carries provider-observed usage, a per-agent context census with "
+            "a stated system maximum, request accounting and a common integrity verdict"
+        ),
+        arms=len(rows),
+    )
+
+
+# -- blockers, read from the records rather than asserted -----------------------------------------
+
+
+def _blocker(blocker_id: str, closed: bool, evidence: str, detail: str) -> dict[str, Any]:
+    return {
+        "id": blocker_id,
+        "closed": bool(closed),
+        "evidence": evidence,
+        "detail": detail,
+    }
+
+
+def blocker_states() -> list[dict[str, Any]]:
+    """Every former blocker, with the record that closes it — or the reason it stays open."""
+
+    qualification = _record("task_qualification")
+    proof_record = _record("runner_proof")
+    qualification_ok = (
+        (qualification or {}).get("status") == "STAGE_F_TASK_QUALIFICATION_PASS"
+        and len((qualification or {}).get("complexity") or []) == 8
+        and len((qualification or {}).get("mutations") or []) >= 20
+    )
+    smallest = min(
+        (
+            int(row.get("business_source_loc") or 0)
+            for row in (qualification or {}).get("complexity") or []
+        ),
+        default=0,
+    )
+    proof_ok = (
+        (proof_record or {}).get("status") == "STAGE_F_RUNNER_PROOF_PASS"
+        and (proof_record or {}).get("all_arms_passed") is True
+        and int((proof_record or {}).get("model_calls") or 0) == 0
+        and int((proof_record or {}).get("production_claims_consumed") or 0) == 0
+    )
+    states = [
+        _blocker(
+            "task_scale",
+            qualification_ok and smallest >= 34,
+            RECORD_FILES["task_qualification"],
+            (
+                f"the six formal tasks were rebuilt and accepted; the smallest business LOC in the "
+                f"record is {smallest}"
+            )
+            if qualification_ok and smallest >= 34
+            else f"the qualification record does not show the accepted task scale ({smallest})",
+        ),
+        _blocker(
+            "task_qualification",
+            qualification_ok,
+            RECORD_FILES["task_qualification"],
+            "eight tasks qualified, twenty mutations detected"
+            if qualification_ok
+            else "the F2-B qualification record is missing or not PASS",
+        ),
+        _blocker(
+            "runner_proof",
+            proof_ok,
+            RECORD_FILES["runner_proof"],
+            "the four-arm real runner proof passed at its recorded head"
+            if proof_ok
+            else "the F2-A runner proof record is missing or not PASS",
+        ),
+        _blocker(
+            "production_measurement",
+            bool(check_production_measurement()["ok"]),
+            RECORD_FILES["p1_smoke"],
+            "provider-observed usage, a context census and an integrity verdict exist per arm"
+            if check_production_measurement()["ok"]
+            else "the measurement gate does not pass",
+        ),
+        _blocker(
+            "cumulative_wiring",
+            bool(check_settlement_record()["ok"]),
+            RECORD_FILES["settlement"],
+            "the settlement runs inside the pre-claim path and all ten scenarios pass"
+            if check_settlement_record()["ok"]
+            else "the settlement record is missing, stale or failing",
+        ),
+        _blocker(
+            "environment_qualification",
+            bool(check_environment_record()["ok"]),
+            RECORD_FILES["environment"],
+            "eight tasks qualified in real containers"
+            if check_environment_record()["ok"]
+            else "the environment qualification is missing or failing",
+        ),
+        _blocker(
+            "p1_compat_smoke",
+            bool(check_smoke_record()["ok"]),
+            RECORD_FILES["p1_smoke"],
+            "the formal P1 passed the four-arm smoke"
+            if check_smoke_record()["ok"]
+            else "the P1 four-arm smoke is missing or failing",
+        ),
+        _blocker(
+            "final_freeze",
+            not _freeze_problems(),
+            "manifest.json / plan-b*.json",
+            "the frozen manifest and plans recompute and carry the frozen identities"
+            if not _freeze_problems()
+            else "; ".join(_freeze_problems())[:400],
+        ),
+        _blocker(
+            "pending_authorization",
+            bool(check_pending()["ok"]),
+            "authorization-b1/b2/b3.json",
+            "three pending records exist and all refuse a live run"
+            if check_pending()["ok"]
+            else "a pending record is missing or would authorize a live run",
+        ),
+    ]
+    return states
+
+
+def _freeze_problems() -> list[str]:
+    """The checked-in freeze must be the current freeze, not a stale copy."""
+
+    problems: list[str] = []
+    manifest_path = EVIDENCE_DIR / "manifest.json"
+    try:
+        checked_in = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ["manifest.json is missing or unreadable"]
+    recomputed = plan.manifest()
+    if authority.digest_of(checked_in) != authority.digest_of(recomputed):
+        problems.append("the checked-in manifest differs from the recomputed one")
+    identity = executor.executor_identity(REPO)
+    if checked_in.get("executor_digest") != identity["executor_digest"]:
+        problems.append("the manifest's executor digest is not this tree's")
+    if checked_in.get("adapter_version") != arms.ADAPTER_VERSION:
+        problems.append("the manifest's adapter version moved")
+    plans = recomputed["batches"]
+    for batch, item in zip((1, 2, 3), plans, strict=True):
+        path = EVIDENCE_DIR / f"plan-b{batch}.json"
+        try:
+            checked_plan = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            problems.append(f"plan-b{batch}.json is missing")
+            continue
+        if checked_plan.get("digest") != plan.batch_plan(batch)["digest"]:
+            problems.append(f"plan-b{batch}.json does not carry the recomputed digest")
+        if checked_plan.get("digest") != item["plan_digest"]:
+            problems.append(f"plan-b{batch}.json disagrees with the manifest")
+    for batch in (1, 2, 3):
+        path = EVIDENCE_DIR / f"authorization-b{batch}.json"
+        if not path.is_file():
+            problems.append(f"authorization-b{batch}.json is missing")
+    try:
+        summary = json.loads((EVIDENCE_DIR / "freeze.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        summary = None
+    if not isinstance(summary, Mapping):
+        problems.append("freeze.json is missing or unreadable")
+    else:
+        if summary.get("manifest_digest") != authority.digest_of(checked_in):
+            problems.append("freeze.json describes a different manifest")
+        frozen_tasks = {
+            item.get("task_id"): item.get("seed_digest") for item in summary.get("tasks") or []
+        }
+        for task_id, facts in (checked_in.get("task_facts") or {}).items():
+            if frozen_tasks.get(task_id) != facts.get("seed_digest"):
+                problems.append(f"freeze.json: {task_id} seed digest is not the manifest's")
+    return problems
+
+
 # -- assembly -----------------------------------------------------------------------------------
-
-
-OPEN_BLOCKERS: tuple[dict[str, str], ...] = (
-    {
-        "id": "C_task_scale",
-        "package": "C",
-        "detail": (
-            "P1/P2/X1/X2/C1/C2 remain small fixtures (seed 77-136 lines). Package A/B wiring is fixed; the six task families still need substantive expansion or same-family replacements plus per-task mutation evidence."
-        ),
-    },
-    {
-        "id": "runner_proof",
-        "package": "5",
-        "detail": (
-            "The four-arm real runner proof (scripted provider + real OpenSandbox, dispatch -> real entry -> raw result -> normalise -> oracle -> audit -> ledger) has not been run. The adapters are exercised offline only."
-        ),
-    },
-    {
-        "id": "cumulative_wiring",
-        "package": "B6",
-        "detail": (
-            "stage_f.cumulative settles a batch against its predecessors, but dispatch does not yet consult it before a live start; wiring it needs a live-batch entry that does not exist."
-        ),
-    },
-    {
-        "id": "context_metrics",
-        "package": "B5",
-        "detail": (
-            "System max agent context is reported from the main-driven peak and from the native peak; it is not yet an aggregate over every agent, so it stays UNKNOWN where the arm runs more than one."
-        ),
-    },
-)
 
 
 def run(*, scratch: Path | None = None, include_qualification: bool = True) -> dict[str, Any]:
@@ -677,6 +1245,10 @@ def run(*, scratch: Path | None = None, include_qualification: bool = True) -> d
         check_classification(),
         check_history(),
         check_pending(),
+        check_settlement_record(),
+        check_environment_record(),
+        check_smoke_record(),
+        check_production_measurement(),
     ]
     manifest_record = plan.manifest()
     problems = plan.validate(manifest_record)
@@ -690,14 +1262,17 @@ def run(*, scratch: Path | None = None, include_qualification: bool = True) -> d
             cells=manifest_record["cells_total"],
         )
     )
+    blockers = blocker_states()
+    open_blockers = [item for item in blockers if not item["closed"]]
     failed = [item["check_id"] for item in checks if not item["ok"]]
+    identity = executor.executor_identity(REPO)
     return {
         "stage": "F",
         "design_version": plan.DESIGN_VERSION,
         "master_id": plan.MASTER_ID,
         "scope": plan.SCOPE,
-        "executor_version": executor.executor_identity(REPO)["executor_version"],
-        "executor_digest": executor.executor_identity(REPO)["executor_digest"],
+        "executor_version": identity["executor_version"],
+        "executor_digest": identity["executor_digest"],
         "adapter_version": arms.ADAPTER_VERSION,
         "manifest_digest": authority.digest_of(manifest_record),
         "budget_digest": arms.budget_digest(),
@@ -706,14 +1281,22 @@ def run(*, scratch: Path | None = None, include_qualification: bool = True) -> d
         "ok": not failed,
         "status": (
             STATUS_READY
-            if not failed and not OPEN_BLOCKERS
+            if not failed and not open_blockers
             else STATUS_PREPARATION_BLOCKED
             if not failed
             else STATUS_BLOCKED
         ),
-        "open_blockers": list(OPEN_BLOCKERS),
+        "blockers": blockers,
+        "open_blockers": open_blockers,
         "failed": failed,
         "checks": checks,
+        "records": {
+            name: {
+                "file": RECORD_FILES[name],
+                "present": _record(name) is not None,
+            }
+            for name in RECORD_FILES
+        },
         "live_execution_authorized": False,
         "real_model_calls": 0,
         "real_sandboxes": 0,

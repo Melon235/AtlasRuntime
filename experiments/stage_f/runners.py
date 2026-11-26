@@ -20,10 +20,16 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from experiments.evaluation.fixtures import (
+    changes_against_baseline,
+    path_matches,
+    workspace_hashes,
+)
 from experiments.stage_b_plus import executor
 from experiments.stage_f import normalize
 from experiments.stage_f.tasks import TASKS_BY_ID
@@ -91,7 +97,322 @@ def _export_evidence(payload: Mapping[str, Any]) -> dict[str, Any]:
         evidence.setdefault("sandbox_created", metrics.get("sandbox_created"))
     if metrics.get("sandbox_destroyed") is not None:
         evidence.setdefault("sandbox_destroyed", metrics.get("sandbox_destroyed"))
+    # A0 and A2 export a directory too; the Host identity of the scored directory is computed here,
+    # the same way the goal path computes it for A1/A3, so the audit compares like with like.
+    path = evidence.get("workspace_path")
+    if isinstance(path, str) and path and Path(path).is_dir():
+        for key, value in executor.workspace_identity(Path(path)).items():
+            evidence.setdefault(key, value)
     return evidence
+
+
+# -- common integrity ---------------------------------------------------------------------------
+#
+# The same eleven checks for every arm. They are the ones a reader needs to trust a cell:
+# the identity that ran, the frozen fixture, the raw record, the accounting, the export, the write
+# policy, host separation, what the oracle scored, that the oracle was a different sandbox, that
+# both were cleaned up, and that a failure is classifiable. An architecture-specific mechanism
+# (ownership enforcement, a delegation plane, whether a Main exists) may be NOT_APPLICABLE; these
+# may not, and an unevaluable one is UNKNOWN — which is not PASS.
+
+
+def _status(*, ok: bool | None, detail: str) -> dict[str, Any]:
+    if ok is None:
+        return {"status": normalize.UNKNOWN, "detail": detail}
+    return {"status": normalize.PASS if ok else normalize.FAIL, "detail": detail}
+
+
+def _oracle_sandbox_id(
+    oracle: Mapping[str, Any], oracle_sandbox: Mapping[str, Any] | None
+) -> str | None:
+    """Where each producer records the oracle's sandbox identity.
+
+    ``judge_export`` puts it at the top level; the evaluation runners put it under
+    ``details.hidden_tests``; the goal runner also records the oracle sandbox block.
+    """
+
+    if oracle.get("sandbox_id"):
+        return str(oracle["sandbox_id"])
+    details = oracle.get("details") if isinstance(oracle.get("details"), Mapping) else {}
+    hidden = details.get("hidden_tests") if isinstance(details.get("hidden_tests"), Mapping) else {}
+    if hidden.get("sandbox_id"):
+        return str(hidden["sandbox_id"])
+    if oracle_sandbox and oracle_sandbox.get("sandbox_id"):
+        return str(oracle_sandbox["sandbox_id"])
+    return None
+
+
+def _fixture_digest(root: Path) -> str | None:
+    """The fixture's own digest, recomputed exactly the way ``prepare_fixture`` computes it.
+
+    A different hash (file-by-file sha256, directory digest) would never equal the frozen value and
+    would fail every cell for a reason that has nothing to do with the run.
+    """
+
+    from experiments.evaluation.models import canonical_digest
+
+    if not root.is_dir():
+        return None
+    written = {
+        path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and ".git" not in path.relative_to(root).parts
+    }
+    return canonical_digest(dict(sorted(written.items())))
+
+
+def _changed_paths(fixture: Mapping[str, Any], workspace: Path) -> dict[str, Any]:
+    """Seed vs export, by content hash. The seed on disk is the baseline that actually ran."""
+
+    root = Path(str(fixture.get("path") or ""))
+    baseline = workspace_hashes(root) if root.is_dir() else {}
+    current = workspace_hashes(workspace)
+    return changes_against_baseline(baseline, current)
+
+
+def integrity_report(
+    *,
+    cell: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    run_dir: Path | None,
+    run_identity: str | None,
+    expected_run_id: str | None,
+    result_path: Path | None,
+    fixture: Mapping[str, Any] | None,
+    export: Mapping[str, Any] | None,
+    oracle: Mapping[str, Any] | None,
+    oracle_sandbox: Mapping[str, Any] | None,
+    agent_sandbox: Mapping[str, Any] | None,
+    usage: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Every common integrity check, from the facts the runner actually holds."""
+
+    checks: list[dict[str, Any]] = []
+    fixture = fixture or {}
+    export = export or {}
+    oracle = oracle or {}
+    oracle_sandbox = oracle_sandbox or {}
+    agent_sandbox = agent_sandbox or {}
+    correctness = evidence.get("correctness") or {}
+
+    def add(name: str, verdict: Mapping[str, Any], *, common: bool = True) -> None:
+        checks.append({"check": name, **dict(verdict), "affects_verdict": bool(common)})
+
+    identity_ok = (
+        evidence.get("cell_id") == cell.get("cell_id")
+        and evidence.get("plan_id") == cell.get("plan_id")
+        and (expected_run_id is None or run_identity == expected_run_id)
+    )
+    add(
+        "run_identity",
+        _status(
+            ok=identity_ok,
+            detail=(
+                f"cell={evidence.get('cell_id')!r} plan={evidence.get('plan_id')!r} "
+                f"run={run_identity!r} expected={expected_run_id!r}"
+            ),
+        ),
+    )
+
+    fixture_digest = fixture.get("seed_digest")
+    fixture_now = _fixture_digest(Path(str(fixture["path"]))) if fixture.get("path") else None
+    add(
+        "frozen_fixture",
+        _status(
+            ok=bool(fixture.get("matches_frozen_seed"))
+            and fixture_digest is not None
+            and fixture_now == fixture_digest
+            and fixture.get("frozen_seed_digest") == fixture_digest,
+            detail=(
+                f"matches_frozen_seed={fixture.get('matches_frozen_seed')} "
+                f"seed_digest={fixture_digest!r} recomputed={fixture_now!r}"
+            ),
+        ),
+    )
+
+    add(
+        "raw_evidence",
+        _status(
+            ok=bool(
+                result_path and Path(result_path).is_file() and Path(result_path).stat().st_size > 0
+            ),
+            detail=f"result={str(result_path) if result_path else None}",
+        ),
+    )
+
+    missing = [key for key, value in usage.items() if not isinstance(value, int)]
+    add(
+        "resource_accounting",
+        _status(
+            ok=not missing,
+            detail="complete" if not missing else f"unknown: {','.join(sorted(missing))}",
+        ),
+    )
+
+    workspace_path = export.get("workspace_path")
+    workspace = Path(str(workspace_path)) if workspace_path else None
+    recorded = export.get(executor.EXPORT_DIRECTORY_DIGEST)
+    recomputed = (
+        "sha256:" + executor.workspace_digest(workspace)
+        if workspace is not None and workspace.is_dir()
+        else None
+    )
+    add(
+        "final_export",
+        _status(
+            ok=bool(
+                workspace is not None and workspace.is_dir() and recorded and recomputed == recorded
+            ),
+            detail=f"path={workspace_path!r} recorded={recorded!r} recomputed={recomputed!r}",
+        ),
+    )
+
+    task = TASKS_BY_ID.get(str(cell.get("task_id")))
+    allowed = tuple(str(item) for item in (task.allowed_paths if task else ()))
+    forbidden = tuple(str(item) for item in (task.forbidden_paths if task else ()))
+    changed = (
+        _changed_paths(fixture, workspace)
+        if workspace is not None and workspace.is_dir()
+        else {"changed": [], "added": [], "removed": []}
+    )
+    written = sorted({*changed["changed"], *changed["added"], *changed["removed"]})
+    outside = [path for path in written if not path_matches(path, allowed)]
+    blocked = [path for path in written if path_matches(path, forbidden)]
+    add(
+        "path_policy",
+        _status(
+            ok=bool(workspace is not None and workspace.is_dir() and not outside and not blocked),
+            detail=(
+                f"written={len(written)} outside_allowed={outside[:5]} forbidden={blocked[:5]}"
+            ),
+        ),
+    )
+
+    add(
+        "host_separation",
+        _status(
+            ok=bool(fixture_now is not None and fixture_now == fixture_digest),
+            detail=f"host fixture digest {fixture_now!r} vs frozen {fixture_digest!r}",
+        ),
+    )
+
+    oracle_sandbox_id = _oracle_sandbox_id(oracle, oracle_sandbox)
+    export_files = len(workspace_hashes(workspace)) if workspace and workspace.is_dir() else None
+    scored = oracle.get("workspace_files")
+    if isinstance(scored, int) and not isinstance(scored, bool):
+        # The goal path records the file count it scored; it must be the exported directory's.
+        binding_ok = export_files is not None and scored == export_files
+        binding_detail = f"scored_files={scored} export_files={export_files}"
+    else:
+        # The evaluation runners score the workspace_export they just produced; their oracle record
+        # carries no separate file count, so the binding is the export's existence plus the mode.
+        binding_ok = bool(workspace is not None and workspace.is_dir())
+        binding_detail = f"scored the exported directory; export_files={export_files}"
+    add(
+        "oracle_binding",
+        _status(
+            ok=bool(
+                str(oracle.get("execution_mode")) == "sandbox" and oracle_sandbox_id and binding_ok
+            ),
+            detail=(
+                f"mode={oracle.get('execution_mode')!r} sandbox={oracle_sandbox_id!r} "
+                f"{binding_detail}"
+            ),
+        ),
+    )
+
+    agent_sandbox_id = agent_sandbox.get("sandbox_id") or agent_sandbox.get("sandbox_handle")
+    destroyed = agent_sandbox.get("destroyed")
+    if destroyed is None:
+        destroyed = agent_sandbox.get("sandbox_destroyed")
+    if oracle_sandbox_id and agent_sandbox_id:
+        isolation_ok: bool | None = str(oracle_sandbox_id) != str(agent_sandbox_id)
+        isolation_basis = "two recorded sandbox ids"
+    elif oracle_sandbox_id and destroyed is True:
+        # The evaluation runners record that the agent container was destroyed rather than its id.
+        # An oracle that carries its own id, created after that destroy, cannot inherit its state.
+        isolation_ok = True
+        isolation_basis = (
+            "the agent container was destroyed before the oracle's own sandbox existed"
+        )
+    else:
+        isolation_ok = None
+        isolation_basis = "no comparable sandbox identity"
+    add(
+        "oracle_isolation",
+        _status(
+            ok=isolation_ok,
+            detail=(
+                f"oracle={oracle_sandbox_id!r} agent={agent_sandbox_id!r} "
+                f"agent_destroyed={destroyed!r} ({isolation_basis})"
+            ),
+        ),
+    )
+    add(
+        "cleanup",
+        _status(
+            ok=(not oracle.get("cleanup_failure") and (destroyed is True or destroyed is None))
+            if (oracle or destroyed is not None)
+            else None,
+            detail=(
+                f"oracle_cleanup={oracle.get('cleanup_failure')!r} agent_destroyed={destroyed!r}"
+            ),
+        ),
+    )
+
+    kind = correctness.get("failure_kind")
+    succeeded = correctness.get("agent_success") is True
+    measurable = succeeded or str(kind) in executor.NORMAL_FAILURE_KINDS
+    add(
+        "failure_measurable",
+        _status(
+            ok=measurable,
+            detail=f"agent_success={correctness.get('agent_success')!r} kind={kind!r}",
+        ),
+    )
+
+    # Architecture-specific mechanisms: recorded, never used to cancel a common check.
+    add(
+        "atlas_ownership_enforcement",
+        {
+            "status": normalize.NOT_APPLICABLE
+            if str(cell.get("execution_mode")) in {"native", "atlas_static_dag"}
+            else normalize.UNKNOWN,
+            "detail": (
+                "this arm runs no Atlas ownership mechanism; the static DAG's concurrent write "
+                "sets are checked by the plan, which is a planning property"
+                if str(cell.get("execution_mode")) in {"native", "atlas_static_dag"}
+                else "reported by the goal runtime's session, not by the common gate"
+            ),
+        },
+        common=False,
+    )
+    add(
+        "atlas_delegation_plane",
+        {
+            "status": normalize.NOT_APPLICABLE
+            if str(cell.get("execution_mode")) in {"native", "atlas_static_dag"}
+            else normalize.UNKNOWN,
+            "detail": "no delegation plane exists on this arm"
+            if str(cell.get("execution_mode")) in {"native", "atlas_static_dag"}
+            else "reported under delegation evidence",
+        },
+        common=False,
+    )
+
+    decisive = [item for item in checks if item["affects_verdict"]]
+    failed = [item["check"] for item in decisive if item["status"] == normalize.FAIL]
+    unknown = [item["check"] for item in decisive if item["status"] == normalize.UNKNOWN]
+    verdict = normalize.FAIL if failed else normalize.UNKNOWN if unknown else normalize.PASS
+    return {
+        "verdict": verdict,
+        "failed": failed,
+        "unknown": unknown,
+        "checks": checks,
+        "workspace_changes": changed,
+        "run_dir": str(run_dir) if run_dir else None,
+        "basis": "the eleven common checks; architecture-specific rows never cancel one",
+    }
 
 
 def _benchmark_task(cell: Mapping[str, Any], *, multi: bool) -> Any:
@@ -180,10 +501,10 @@ def native_cell_runner(
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> executor.CellRun:
         from experiments.evaluation.closure1b import native_baseline
 
+        started = time.monotonic()
         root = _cell_root(context, cell)
-        fixture_dir = Path(
-            executor.prepare_fixture(TASKS_BY_ID[str(cell["task_id"])], root / "fixture")["path"]
-        )
+        fixture = executor.prepare_fixture(TASKS_BY_ID[str(cell["task_id"])], root / "fixture")
+        fixture_dir = Path(fixture["path"])
         settings, _task = _settings(cell, runs_root=root / "native-runs", multi=False)
         task_events: list[dict[str, Any]] = []
 
@@ -200,21 +521,51 @@ def native_cell_runner(
         oracle = _oracle_record(payload)
         export = _export_evidence(payload)
         requests = _requests_from(scripted_run)
+        environment = payload.get("environment") or {}
+        latency = {
+            "agent_execution_ms": environment.get("agent_latency_ms"),
+            "sandbox_provision_ms": (payload.get("metrics") or {}).get("provision_latency_ms"),
+            "export_ms": (payload.get("metrics") or {}).get("export_latency_ms"),
+            "oracle_ms": (payload.get("metrics") or {}).get("oracle_latency_ms"),
+            "end_to_end_ms": (payload.get("metrics") or {}).get("latency_ms"),
+        }
         evidence = normalize.from_native_result(
-            cell, payload, oracle=oracle, export=export, requests=requests
+            cell, payload, oracle=oracle, export=export, requests=requests, latency=latency
         )
         evidence["resources"]["task_events"] = task_events
         # The cap the runner was actually configured with, not the cap the cell declared.
         evidence["resources"]["applied_turn_caps"] = {"primary_agent": int(settings.max_turns)}
+        run_dir = Path(str(payload.get("run_dir") or root))
+        run_identity = str((payload.get("identity") or {}).get("run_id") or run_dir.name)
+        sandbox = dict(environment.get("sandbox") or {})
+        sandbox.setdefault("destroyed", (payload.get("safety") or {}).get("sandbox_destroyed"))
+        report = integrity_report(
+            cell=cell,
+            evidence=evidence,
+            run_dir=run_dir,
+            run_identity=run_identity,
+            expected_run_id=None,
+            result_path=run_dir / "result.json",
+            fixture=fixture,
+            export=export,
+            oracle=oracle,
+            oracle_sandbox=None,
+            agent_sandbox=sandbox,
+            usage=_usage_of(evidence),
+        )
+        normalize.apply_integrity(evidence, report)
         evidence["adapter_problems"] = normalize.validate_evidence(evidence)
         _write_json(root / "evidence.json", evidence)
         return executor.CellRun(
             session=evidence,
-            run_dir=Path(payload.get("run_dir") or root),
+            run_dir=run_dir,
             fixture_root=fixture_dir,
             oracle=oracle or None,
-            fixture={"matches_frozen_seed": True},
+            duration_s=time.monotonic() - started,
+            fixture=fixture,
             export=export or None,
+            expected_run_id=run_identity,
+            timings=latency,
         )
 
     return run
@@ -231,10 +582,10 @@ def static_dag_cell_runner(
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> executor.CellRun:
         from experiments.evaluation import runner as eval_runner
 
+        started = time.monotonic()
         root = _cell_root(context, cell)
-        fixture_dir = Path(
-            executor.prepare_fixture(TASKS_BY_ID[str(cell["task_id"])], root / "fixture")["path"]
-        )
+        fixture = executor.prepare_fixture(TASKS_BY_ID[str(cell["task_id"])], root / "fixture")
+        fixture_dir = Path(fixture["path"])
         settings, _task = _settings(cell, runs_root=root / "dag-runs", multi=True)
         benchmark = _benchmark_task(cell, multi=True)
 
@@ -248,22 +599,53 @@ def static_dag_cell_runner(
         oracle = _oracle_record(payload)
         export = _export_evidence(payload)
         requests = _requests_from(scripted_run)
+        environment = payload.get("environment") or {}
+        metrics = payload.get("metrics") or {}
+        latency = {
+            "agent_execution_ms": environment.get("agent_latency_ms"),
+            "sandbox_provision_ms": metrics.get("provision_latency_ms"),
+            "export_ms": metrics.get("export_latency_ms"),
+            "oracle_ms": metrics.get("oracle_latency_ms"),
+            "end_to_end_ms": metrics.get("latency_ms"),
+        }
         evidence = normalize.from_dag_result(
-            cell, payload, oracle=oracle, export=export, requests=requests
+            cell, payload, oracle=oracle, export=export, requests=requests, latency=latency
         )
         # The per-node caps the scheduler was actually given, from the benchmark task it ran.
         evidence["resources"]["applied_turn_caps"] = {
             step.task_id: int(step.max_turns or settings.max_turns) for step in benchmark.workers
         }
+        run_dir = Path(str(payload.get("run_dir") or root))
+        run_identity = str((payload.get("identity") or {}).get("run_id") or run_dir.name)
+        sandbox = dict(environment.get("sandbox") or {})
+        sandbox.setdefault("destroyed", metrics.get("sandbox_destroyed"))
+        report = integrity_report(
+            cell=cell,
+            evidence=evidence,
+            run_dir=run_dir,
+            run_identity=run_identity,
+            expected_run_id=None,
+            result_path=run_dir / "result.json",
+            fixture=fixture,
+            export=export,
+            oracle=oracle,
+            oracle_sandbox=None,
+            agent_sandbox=sandbox,
+            usage=_usage_of(evidence),
+        )
+        normalize.apply_integrity(evidence, report)
         evidence["adapter_problems"] = normalize.validate_evidence(evidence)
         _write_json(root / "evidence.json", evidence)
         return executor.CellRun(
             session=evidence,
-            run_dir=Path(payload.get("run_dir") or root),
+            run_dir=run_dir,
             fixture_root=fixture_dir,
             oracle=oracle or None,
-            fixture={"matches_frozen_seed": True},
+            duration_s=time.monotonic() - started,
+            fixture=fixture,
             export=export or None,
+            expected_run_id=run_identity,
+            timings=latency,
         )
 
     return run
@@ -334,6 +716,7 @@ def main_driven_cell_runner(
         main = session.get("main") or {}
         proposals = _conversation_proposals(result.run_dir, main.get("task_id"))
         requests = _requests_from(scripted_run)
+        latency = dict(getattr(result, "timings", None) or {})
         evidence = normalize.from_main_child_session(
             cell,
             session,
@@ -341,7 +724,23 @@ def main_driven_cell_runner(
             export=result.export,
             proposals=proposals,
             requests=requests,
+            latency=latency,
         )
+        report = integrity_report(
+            cell=cell,
+            evidence=evidence,
+            run_dir=result.run_dir,
+            run_identity=str(session.get("run_id") or ""),
+            expected_run_id=result.expected_run_id,
+            result_path=(Path(result.run_dir) / "session.json") if result.run_dir else None,
+            fixture=result.fixture,
+            export=result.export,
+            oracle=result.oracle,
+            oracle_sandbox=result.oracle_sandbox,
+            agent_sandbox=session.get("sandbox"),
+            usage=_usage_of(evidence),
+        )
+        normalize.apply_integrity(evidence, report)
         evidence["adapter_problems"] = normalize.validate_evidence(evidence)
         _write_json(root / "evidence.json", evidence)
         _write_json(root / "proposals.json", {"proposals": proposals})
@@ -531,10 +930,21 @@ def audit_stage_f_cell(
     correctness = evidence.get("correctness") or {}
     oracle = correctness.get("independent_oracle") or {}
     metrics = _usage_of(evidence)
+    integrity = evidence.get("integrity") or {}
 
     export_path = _export_path(evidence)
     checks = [
         {"check": "evidence_schema", "ok": not problems, "detail": "; ".join(problems)[:400]},
+        {
+            # The common integrity gate. ``UNKNOWN`` is not a pass: a check that could not be
+            # evaluated does not establish that the cell ran inside its contract.
+            "check": "execution_integrity",
+            "ok": integrity.get("verdict") == normalize.PASS,
+            "detail": (
+                f"verdict={integrity.get('verdict')!r} failed={integrity.get('failed')} "
+                f"unknown={integrity.get('unknown')}"
+            ),
+        },
         {
             "check": "identity_matches_plan",
             "ok": evidence.get("cell_id") == cell["cell_id"]
@@ -579,6 +989,7 @@ def audit_stage_f_cell(
     stops: list[str] = []
     for name, stop in (
         ("evidence_schema", executor.STOP_MODE_VIOLATION),
+        ("execution_integrity", executor.STOP_INTEGRITY),
         ("oracle_environment", executor.STOP_ORACLE_ENVIRONMENT),
         ("artifact_exported", executor.STOP_EXPORT),
         ("usage_complete", executor.STOP_UNKNOWN_USAGE),

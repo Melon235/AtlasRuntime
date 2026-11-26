@@ -1,0 +1,3096 @@
+{
+  "stage": "F",
+  "kind": "p1_four_arm_compatibility_smoke",
+  "generated_at": "2026-11-26T09:58:34Z",
+  "executor_version": "bplus-executor-1.9",
+  "executor_digest": "sha256:9ca0a48d3e467edff4c1d75baaf7363a64243f08bdcc1fb3c6f00e1666941f08",
+  "repo_head": "0b466ba991023987c68b00792494c7e97bfe903a",
+  "task_id": "f-p1-connector-migration",
+  "plan": {
+    "plan_id": "stage-f-p1-compat-smoke",
+    "scope": "F_P1_COMPAT_SMOKE",
+    "plan_digest": "sha256:74ab1ea435b6a2f2d8956e9662dcd5d0ebffbfef0bbdee5d26a72383c312f18d",
+    "cells": [
+      "f.f-p1-connector-migration.A0.r1",
+      "f.f-p1-connector-migration.A1.r1",
+      "f.f-p1-connector-migration.A2.r1",
+      "f.f-p1-connector-migration.A3.r1"
+    ],
+    "mode": "offline_proof",
+    "claim_root": "isolated offline claim (no production claim consumed)"
+  },
+  "provider": "deterministic scripted provider (no model call)",
+  "dispatch": {
+    "complete": true,
+    "cells_planned": 4,
+    "cells_started": 4,
+    "cells_passed": 4,
+    "stop_reason": "NONE",
+    "usage_completeness": "COMPLETE",
+    "total_tokens": 157356,
+    "total_cost_usd": 0.063391,
+    "ledger": [
+      {
+        "cell_id": "f.f-p1-connector-migration.A0.r1",
+        "verdict": "PASS",
+        "cost_usd": 0.017017,
+        "stops": []
+      },
+      {
+        "cell_id": "f.f-p1-connector-migration.A1.r1",
+        "verdict": "PASS",
+        "cost_usd": 0.034079,
+        "stops": []
+      },
+      {
+        "cell_id": "f.f-p1-connector-migration.A2.r1",
+        "verdict": "PASS",
+        "cost_usd": 0.048286,
+        "stops": []
+      },
+      {
+        "cell_id": "f.f-p1-connector-migration.A3.r1",
+        "verdict": "PASS",
+        "cost_usd": 0.063391,
+        "stops": []
+      }
+    ]
+  },
+  "arms": [
+    {
+      "arm_id": "A0",
+      "cell_id": "f.f-p1-connector-migration.A0.r1",
+      "task_id": "f-p1-connector-migration",
+      "execution_mode": "native",
+      "execution_entry": "experiments.stage_f.runners.native_cell_runner -> experiments.evaluation.closure1b.native_baseline.run_native_sample (AnyCode native loop, NeutralEngine, six sandbox tools)",
+      "effective_config": {
+        "max_turns": 40,
+        "worker_max_turns": 20,
+        "integration_max_turns": null,
+        "token_budget": 1000000,
+        "delegation": {
+          "enabled": false,
+          "tools_visible": false,
+          "limits": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          }
+        },
+        "worker_profiles": [],
+        "worker_exposure": "native",
+        "provider": "scripted (deterministic, no model call)",
+        "budget_mode": "guarded"
+      },
+      "provider": {
+        "model": "scripted-stage-f",
+        "scripts": {
+          "main": 11
+        },
+        "markers": {
+          "main": "You are the only worker on this task"
+        },
+        "requests": [
+          {
+            "index": 0,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 1888,
+            "prompt_tokens": 472,
+            "completion_tokens": 476,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.044
+          },
+          {
+            "index": 1,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 3791,
+            "prompt_tokens": 948,
+            "completion_tokens": 882,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.116
+          },
+          {
+            "index": 2,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 7321,
+            "prompt_tokens": 1831,
+            "completion_tokens": 568,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.111
+          },
+          {
+            "index": 3,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 9593,
+            "prompt_tokens": 2399,
+            "completion_tokens": 645,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.142
+          },
+          {
+            "index": 4,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 12172,
+            "prompt_tokens": 3043,
+            "completion_tokens": 643,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.124
+          },
+          {
+            "index": 5,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 14745,
+            "prompt_tokens": 3687,
+            "completion_tokens": 227,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.158
+          },
+          {
+            "index": 6,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 15653,
+            "prompt_tokens": 3914,
+            "completion_tokens": 486,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.152
+          },
+          {
+            "index": 7,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 17596,
+            "prompt_tokens": 4399,
+            "completion_tokens": 189,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.225
+          },
+          {
+            "index": 8,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 18352,
+            "prompt_tokens": 4588,
+            "completion_tokens": 154,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.239
+          },
+          {
+            "index": 9,
+            "script": "main",
+            "tool": "list_files",
+            "prompt_chars": 18969,
+            "prompt_tokens": 4743,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.236
+          },
+          {
+            "index": 10,
+            "script": "main",
+            "tool": "bash",
+            "prompt_chars": 18984,
+            "prompt_tokens": 4746,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.248
+          },
+          {
+            "index": 11,
+            "script": "main",
+            "tool": null,
+            "prompt_chars": 19046,
+            "prompt_tokens": 4762,
+            "completion_tokens": 9,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.249
+          }
+        ],
+        "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+        "cache_split": "structural zero: this provider has no prompt cache"
+      },
+      "container": {
+        "agent": {
+          "provider": "opensandbox",
+          "sandbox_id": "d74dd41f-9988-41a3-8efb-2eb9723c8273",
+          "image": "atlas-uat-python:3.12",
+          "network": "none",
+          "workspace_root": "/workspace/project",
+          "source_commit": "35560629697d4cc6f54cd1f9fbba0e4fe60fcec9",
+          "source_digest": "sha256:b7d87006fbf1c750eca660a4bd9ed6efaeb42fb76830a0504f1c68164c4ac636",
+          "provision_commands": 4,
+          "provision_uploads": 1,
+          "timings_ms": {
+            "provision_ms": 4374.118,
+            "isolation_ms": 4294.032
+          },
+          "isolation": {
+            "workspace_preparation_mode": "public_fixture_clone",
+            "staging_bundle": "/tmp/project.bundle",
+            "staging_bundle_present_before": true,
+            "staging_bundle_removed": true,
+            "private_name_hits": [],
+            "probe_commands": [
+              "test -e /tmp/project.bundle",
+              "rm -f /tmp/project.bundle",
+              "test -e /tmp/project.bundle (post-removal)",
+              "find / -maxdepth 4 (private name patterns)"
+            ],
+            "isolation_checks_passed": true,
+            "failures": []
+          }
+        },
+        "oracle": {
+          "sandbox_id": "0ed52537-9739-48ea-99a9-212a79124548",
+          "mode": "sandbox",
+          "cleanup_failure": null
+        },
+        "created_and_destroyed": {
+          "sandbox_id": "d74dd41f-9988-41a3-8efb-2eb9723c8273",
+          "created": true,
+          "destroyed": true,
+          "provider": "opensandbox",
+          "network": "none",
+          "image": "atlas-uat-python:3.12"
+        }
+      },
+      "raw_result": {
+        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d\\result.json",
+        "basename": "result.json",
+        "found": true,
+        "bytes": 39091,
+        "digest": "sha256:sha256:4e1f6593b360830146d321e6211483725c4af47b39c0e4b3a7243222fe42286e"
+      },
+      "workspace_export": {
+        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d\\workspace",
+        "patch_digest": "sha256:58ba415bb1877562d1baa432bf65f0d92e6adb68d20cad0e63db111642edcb87",
+        "analysis_export": {
+          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d\\workspace",
+          "patch_digest": "sha256:58ba415bb1877562d1baa432bf65f0d92e6adb68d20cad0e63db111642edcb87",
+          "sandbox_created": true,
+          "sandbox_destroyed": true,
+          "directory_digest": "sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd",
+          "directory_files": 17,
+          "directory_digest_source": "host, computed from the extracted export directory"
+        }
+      },
+      "oracle": {
+        "status": "PASS",
+        "passed": true,
+        "record": {
+          "passed": true,
+          "checks": {
+            "host_fixture_unchanged": true,
+            "forbidden_paths_unchanged": true,
+            "only_allowed_paths_changed": true,
+            "required_artifacts_present": true,
+            "hidden_tests_passed": true
+          },
+          "details": {
+            "workspace_digest": "",
+            "workspace_file_count": 17,
+            "changed_files": [
+              "ingest/batching.py",
+              "ingest/checkpoint.py",
+              "ingest/columns.py",
+              "ingest/csv_connector.py",
+              "ingest/jsonl_connector.py",
+              "ingest/paths.py",
+              "ingest/pipeline.py",
+              "ingest/registry.py",
+              "ingest/report.py"
+            ],
+            "added_files": [],
+            "removed_files": [],
+            "forbidden_changes": [],
+            "unauthorized_changes": [],
+            "allowed_paths": [
+              "ingest/"
+            ],
+            "required_artifacts": [
+              "ingest/batching.py",
+              "ingest/checkpoint.py",
+              "ingest/columns.py",
+              "ingest/csv_connector.py",
+              "ingest/jsonl_connector.py",
+              "ingest/paths.py",
+              "ingest/pipeline.py",
+              "ingest/registry.py",
+              "ingest/report.py"
+            ],
+            "tool_expectations": {},
+            "worker_contract": {},
+            "hidden_tests": {
+              "returncode": 0,
+              "stdout_tail": "........................................                                 [100%]\n40 passed in 0.08s",
+              "stderr_tail": "",
+              "failure_kind": "HIDDEN_TESTS_PASSED",
+              "sandbox_id": "0ed52537-9739-48ea-99a9-212a79124548"
+            },
+            "digests": {
+              "oracle_contract_digest": "7cff8202c6d6d5f39aa64f22f3a012273e9cdec1774ec78974608e97e4a0547b",
+              "oracle_fixture_digest": "28026afb68dbb02121d454d8f9cb4d216001e065af426dc39845b6d1df5cc69b",
+              "oracle_execution_digest": "0dfbcd1294b30cadcfb96406d8f795eba1d4f0350b336da76ce33837fe5df0cc",
+              "oracle_workspace_digest": "6be159df419c3329c87490faf71c63ccb08dfd7a8fd45403d2afe9d9241d3398"
+            },
+            "oracle_execution": "sandbox"
+          },
+          "failure_reasons": [],
+          "execution_mode": "sandbox",
+          "failure_kind": "HIDDEN_TESTS_PASSED",
+          "environment_failure": false,
+          "cleanup_failure": null,
+          "digests": {
+            "oracle_contract_digest": "7cff8202c6d6d5f39aa64f22f3a012273e9cdec1774ec78974608e97e4a0547b",
+            "oracle_fixture_digest": "28026afb68dbb02121d454d8f9cb4d216001e065af426dc39845b6d1df5cc69b",
+            "oracle_execution_digest": "0dfbcd1294b30cadcfb96406d8f795eba1d4f0350b336da76ce33837fe5df0cc",
+            "oracle_workspace_digest": "6be159df419c3329c87490faf71c63ccb08dfd7a8fd45403d2afe9d9241d3398"
+          },
+          "timings_ms": {
+            "creation_ms": 2344.441,
+            "upload_ms": 922.185,
+            "execution_ms": 1355.593,
+            "cleanup_ms": 769.045,
+            "total_ms": 5394.92
+          },
+          "status": "PASS"
+        },
+        "sandbox_id": "0ed52537-9739-48ea-99a9-212a79124548"
+      },
+      "normalized": {
+        "usage": {
+          "main": "NOT_APPLICABLE",
+          "children": "NOT_APPLICABLE",
+          "primary_agent": {
+            "prompt_tokens": 39532,
+            "completion_tokens": 4298,
+            "cache_hit_tokens": null,
+            "cache_miss_tokens": null
+          },
+          "system_total_tokens": 43830,
+          "requests": {
+            "main": 12,
+            "children": "NOT_APPLICABLE",
+            "total": 12
+          },
+          "requested_model": "deepseek-chat",
+          "returned_model": "deepseek-chat",
+          "accounting": "provider-reported (InferenceObservation.usage)",
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 43830,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "context": {
+          "primary_agent_peak_context": 4762,
+          "primary_agent_cumulative_input": 39532,
+          "main_peak_context": "NOT_APPLICABLE",
+          "main_cumulative_input": "NOT_APPLICABLE",
+          "integration_node_context": "NOT_APPLICABLE",
+          "system_max_agent_context": 4762,
+          "per_request_input_tokens": [
+            472,
+            948,
+            1831,
+            2399,
+            3043,
+            3687,
+            3914,
+            4399,
+            4588,
+            4743,
+            4746,
+            4762
+          ],
+          "per_agent_peak_context_tokens": {
+            "primary_agent": 4762
+          },
+          "agent_context_census": {
+            "peaks": {
+              "primary_agent": 4762
+            },
+            "complete": true,
+            "missing_agents": [],
+            "system_max_agent_context": 4762,
+            "basis": "per-request provider-observed prompt size for every agent that ran"
+          }
+        },
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "TASK_SUCCESS",
+          "static_acceptance": "NOT_APPLICABLE",
+          "public_test": "NOT_APPLICABLE",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "PASS",
+          "delivered_success": true,
+          "failure_kind": "TASK_SUCCESS"
+        },
+        "delegation": "NOT_APPLICABLE",
+        "handoff": "NOT_APPLICABLE",
+        "workers": null,
+        "adapter_problems": []
+      },
+      "audit": {
+        "verdict": "PASS",
+        "checks": [
+          {
+            "check": "evidence_schema",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "check": "execution_integrity",
+            "ok": true,
+            "detail": "verdict='PASS' failed=[] unknown=[]"
+          },
+          {
+            "check": "identity_matches_plan",
+            "ok": true,
+            "detail": "cell='f.f-p1-connector-migration.A0.r1' plan='stage-f-p1-compat-smoke'"
+          },
+          {
+            "check": "attribution_matches_arm",
+            "ok": true,
+            "detail": "attribution='single_agent'"
+          },
+          {
+            "check": "oracle_ran",
+            "ok": true,
+            "detail": "oracle='PASS'"
+          },
+          {
+            "check": "oracle_environment",
+            "ok": true,
+            "detail": "oracle status='PASS'"
+          },
+          {
+            "check": "artifact_exported",
+            "ok": true,
+            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-8d4ca547bc8d\\\\workspace'"
+          },
+          {
+            "check": "usage_complete",
+            "ok": true,
+            "detail": "complete"
+          }
+        ],
+        "stops": [],
+        "agent_success": true,
+        "public_test_status": "NOT_APPLICABLE",
+        "public_test_runs": null,
+        "execution_integrity": "PASS",
+        "delivered_success": true,
+        "oracle_status": "PASS"
+      },
+      "settlement": {
+        "usage_fields": {
+          "main_cumulative_input_tokens": 39532,
+          "main_completion_tokens": 4298,
+          "child_total_prompt_tokens": 0,
+          "child_completion_tokens": 0,
+          "system_total_tokens": 43830
+        },
+        "delta_cost_usd": 0.0170172,
+        "cumulative_cost_usd": 0.017017,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+      },
+      "duration_s": 31.42200000002049,
+      "checks": [
+        {
+          "check": "cell_passed_audit",
+          "ok": true,
+          "detail": "verdict=PASS"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "workspace_exported",
+          "ok": true,
+          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-8d4ca547bc8d\\\\workspace'"
+        },
+        {
+          "check": "usage_complete",
+          "ok": true,
+          "detail": "blocks=1 system_total=43830"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=12"
+        },
+        {
+          "check": "native_turn_cap_is_40",
+          "ok": true,
+          "detail": "applied={'primary_agent': 40}"
+        },
+        {
+          "check": "primary_agent_context_recorded",
+          "ok": true,
+          "detail": "peak=4762"
+        },
+        {
+          "check": "main_is_not_applicable",
+          "ok": true,
+          "detail": "main_peak='NOT_APPLICABLE'"
+        },
+        {
+          "check": "guarded_budget_ran",
+          "ok": true,
+          "detail": "enforcement='pre_admission_guard'"
+        },
+        {
+          "check": "per_request_usage_recorded",
+          "ok": true,
+          "detail": "requests=12"
+        },
+        {
+          "check": "common_integrity_passed",
+          "ok": true,
+          "detail": "verdict='PASS' failed=[] unknown=[]"
+        },
+        {
+          "check": "delivered_success_consistent",
+          "ok": true,
+          "detail": "delivered=True expected=True verdict='PASS'"
+        }
+      ],
+      "integrity": {
+        "verdict": "PASS",
+        "failed": [],
+        "unknown": [],
+        "checks": [
+          {
+            "check": "run_identity",
+            "status": "PASS",
+            "detail": "cell='f.f-p1-connector-migration.A0.r1' plan='stage-f-p1-compat-smoke' run='native-8d4ca547bc8d' expected=None",
+            "affects_verdict": true
+          },
+          {
+            "check": "frozen_fixture",
+            "status": "PASS",
+            "detail": "matches_frozen_seed=True seed_digest='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' recomputed='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+            "affects_verdict": true
+          },
+          {
+            "check": "raw_evidence",
+            "status": "PASS",
+            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d\\result.json",
+            "affects_verdict": true
+          },
+          {
+            "check": "resource_accounting",
+            "status": "PASS",
+            "detail": "complete",
+            "affects_verdict": true
+          },
+          {
+            "check": "final_export",
+            "status": "PASS",
+            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c01\\\\native-runs\\\\sf-a0-01\\\\f-p1-connector-migration\\\\r1-native-8d4ca547bc8d\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+            "affects_verdict": true
+          },
+          {
+            "check": "path_policy",
+            "status": "PASS",
+            "detail": "written=9 outside_allowed=[] forbidden=[]",
+            "affects_verdict": true
+          },
+          {
+            "check": "host_separation",
+            "status": "PASS",
+            "detail": "host fixture digest 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' vs frozen 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+            "affects_verdict": true
+          },
+          {
+            "check": "oracle_binding",
+            "status": "PASS",
+            "detail": "mode='sandbox' sandbox='0ed52537-9739-48ea-99a9-212a79124548' scored the exported directory; export_files=17",
+            "affects_verdict": true
+          },
+          {
+            "check": "oracle_isolation",
+            "status": "PASS",
+            "detail": "oracle='0ed52537-9739-48ea-99a9-212a79124548' agent='d74dd41f-9988-41a3-8efb-2eb9723c8273' agent_destroyed=True (two recorded sandbox ids)",
+            "affects_verdict": true
+          },
+          {
+            "check": "cleanup",
+            "status": "PASS",
+            "detail": "oracle_cleanup=None agent_destroyed=True",
+            "affects_verdict": true
+          },
+          {
+            "check": "failure_measurable",
+            "status": "PASS",
+            "detail": "agent_success=True kind='TASK_SUCCESS'",
+            "affects_verdict": true
+          },
+          {
+            "check": "atlas_ownership_enforcement",
+            "status": "NOT_APPLICABLE",
+            "detail": "this arm runs no Atlas ownership mechanism; the static DAG's concurrent write sets are checked by the plan, which is a planning property",
+            "affects_verdict": false
+          },
+          {
+            "check": "atlas_delegation_plane",
+            "status": "NOT_APPLICABLE",
+            "detail": "no delegation plane exists on this arm",
+            "affects_verdict": false
+          }
+        ],
+        "workspace_changes": {
+          "changed": [
+            "ingest/batching.py",
+            "ingest/checkpoint.py",
+            "ingest/columns.py",
+            "ingest/csv_connector.py",
+            "ingest/jsonl_connector.py",
+            "ingest/paths.py",
+            "ingest/pipeline.py",
+            "ingest/registry.py",
+            "ingest/report.py"
+          ],
+          "added": [],
+          "removed": []
+        },
+        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c01\\native-runs\\sf-a0-01\\f-p1-connector-migration\\r1-native-8d4ca547bc8d",
+        "basis": "the eleven common checks; architecture-specific rows never cancel one"
+      },
+      "requests": {
+        "count": 12,
+        "per_agent": [
+          "unattributed"
+        ]
+      }
+    },
+    {
+      "arm_id": "A1",
+      "cell_id": "f.f-p1-connector-migration.A1.r1",
+      "task_id": "f-p1-connector-migration",
+      "execution_mode": "atlas_direct",
+      "execution_entry": "experiments.stage_f.runners.main_driven_cell_runner -> atlasos.app.main_driven.run_goal (delegation compiled out of the tool surface)",
+      "effective_config": {
+        "max_turns": 40,
+        "worker_max_turns": 20,
+        "integration_max_turns": null,
+        "token_budget": 1000000,
+        "delegation": {
+          "enabled": false,
+          "tools_visible": false,
+          "limits": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          }
+        },
+        "worker_profiles": [
+          "coding_worker"
+        ],
+        "worker_exposure": "card",
+        "provider": "scripted (deterministic, no model call)",
+        "budget_mode": "guarded"
+      },
+      "provider": {
+        "model": "scripted-stage-f",
+        "scripts": {
+          "main": 12
+        },
+        "markers": {
+          "main": "The ingest layer is moving to the frozen v2 connector contra"
+        },
+        "requests": [
+          {
+            "index": 0,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 440,
+            "prompt_tokens": 110,
+            "completion_tokens": 476,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.099,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 1,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 2343,
+            "prompt_tokens": 586,
+            "completion_tokens": 882,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.091,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 2,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 5873,
+            "prompt_tokens": 1469,
+            "completion_tokens": 568,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.104,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 3,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 8145,
+            "prompt_tokens": 2037,
+            "completion_tokens": 645,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.109,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 4,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 10724,
+            "prompt_tokens": 2681,
+            "completion_tokens": 643,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.136,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 5,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 13297,
+            "prompt_tokens": 3325,
+            "completion_tokens": 227,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.247,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 6,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 14205,
+            "prompt_tokens": 3552,
+            "completion_tokens": 486,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.147,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 7,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 16148,
+            "prompt_tokens": 4037,
+            "completion_tokens": 189,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.221,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 8,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 16904,
+            "prompt_tokens": 4226,
+            "completion_tokens": 154,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.173,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 9,
+            "script": "main",
+            "tool": "list_files",
+            "prompt_chars": 17521,
+            "prompt_tokens": 4381,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.166,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 10,
+            "script": "main",
+            "tool": "bash",
+            "prompt_chars": 17536,
+            "prompt_tokens": 4384,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.191,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 11,
+            "script": "main",
+            "tool": "run_public_tests",
+            "prompt_chars": 17598,
+            "prompt_tokens": 4400,
+            "completion_tokens": 17,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.165,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          },
+          {
+            "index": 12,
+            "script": "main",
+            "tool": null,
+            "prompt_chars": 17667,
+            "prompt_tokens": 4417,
+            "completion_tokens": 11,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.239,
+            "trusted_task_id": "bplus-c02-main",
+            "trusted_worker_id": "bplus-c02-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c02"
+          }
+        ],
+        "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+        "cache_split": "structural zero: this provider has no prompt cache"
+      },
+      "container": {
+        "agent": {
+          "provider": "opensandbox",
+          "provider_is_real": true,
+          "capabilities": {
+            "provider": "opensandbox",
+            "contract_version": "1.0",
+            "isolation": "container",
+            "networking": "allowlist",
+            "persistent_filesystem": true,
+            "snapshots": false,
+            "command_streaming": false,
+            "cancellation": true,
+            "file_transfer": true,
+            "evidence": true,
+            "limitations": [
+              "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+              "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+              "Point-in-time snapshots are not exposed through this adapter.",
+              "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+            ]
+          },
+          "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+          "binding_id": "b4abca95bcfad35fbbe7b2cf542522a47aea49055612801042c9183425c7656c",
+          "sandbox_id": "d1bdcfd5-0116-4859-9b45-a992d96adea7",
+          "binding_state": "READY",
+          "workspace_root": "/workspace/project",
+          "network_probe": "PASS",
+          "host_separation": {
+            "host_only_visible": false,
+            "sandbox_only_visible_on_host": false,
+            "sandbox_only_read_back": true
+          },
+          "provision_commands": 4,
+          "provision_uploads": 1,
+          "created": true,
+          "destroyed": true,
+          "retained": false,
+          "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
+          "patch_changed_files": 9,
+          "export_digest": "sha256:9e01b71e68f292dde6cabd8818d7004131d954c4c638bcaead2d4b2c54ae139e",
+          "export_files": 17,
+          "export_size_bytes": 71680,
+          "check_runs": 1,
+          "tool_error_mode": "corrected",
+          "error": null
+        },
+        "oracle": {
+          "sandbox_id": "1c7c161b-bc7b-42b4-b44a-7127d86f8914",
+          "mode": "sandbox",
+          "cleanup_failure": null
+        },
+        "created_and_destroyed": {
+          "sandbox_id": "d1bdcfd5-0116-4859-9b45-a992d96adea7",
+          "created": true,
+          "destroyed": true,
+          "provider": "opensandbox",
+          "network": null,
+          "image": null
+        }
+      },
+      "raw_result": {
+        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\session.json",
+        "basename": "session.json",
+        "found": true,
+        "bytes": 17949,
+        "digest": "sha256:sha256:6dc8a0dd60e214506907ca8d74c1a2ca742c161a8661940ee67c09682f773f2a"
+      },
+      "workspace_export": {
+        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace",
+        "patch_digest": null,
+        "analysis_export": {
+          "patch_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace.patch",
+          "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
+          "patch_changed_files": 9,
+          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\workspace",
+          "workspace_digest": "sha256:9e01b71e68f292dde6cabd8818d7004131d954c4c638bcaead2d4b2c54ae139e",
+          "workspace_files": 17,
+          "workspace_size_bytes": 71680,
+          "directory_digest": "sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd",
+          "directory_files": 17,
+          "directory_digest_source": "host, computed from the extracted export directory",
+          "archive_digest_verifiable": false,
+          "archive_digest_source": "producer (GoalSandbox export.archive_digest, sha256 of the transferred archive); the archive bytes are not retained, so this value is recorded, not re-derived"
+        }
+      },
+      "oracle": {
+        "status": "PASS",
+        "passed": true,
+        "record": {
+          "status": "PASS",
+          "kind": "HIDDEN_TESTS_PASSED",
+          "passed": true,
+          "environment_failure": false,
+          "cleanup_failure": null,
+          "execution_mode": "sandbox",
+          "sandbox_id": "1c7c161b-bc7b-42b4-b44a-7127d86f8914",
+          "returncode": 0,
+          "timings_ms": {
+            "creation_ms": 2369.917,
+            "upload_ms": 905.809,
+            "execution_ms": 1366.905,
+            "cleanup_ms": 726.136,
+            "total_ms": 5372.163
+          },
+          "image": "atlas-uat-python:3.12",
+          "workspace_files": 17,
+          "hidden_files_in_workspace": [],
+          "stderr_excerpt": "",
+          "source": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
+          "fixture_after_run": "9f21c5bf890a0d1a8d0297db283e6910887f928a532df8ceb0985bccd505cfd4"
+        },
+        "sandbox_id": "1c7c161b-bc7b-42b4-b44a-7127d86f8914"
+      },
+      "normalized": {
+        "usage": {
+          "main": {
+            "prompt_tokens": 39605,
+            "completion_tokens": 4317,
+            "cache_hit_tokens": 0,
+            "cache_miss_tokens": 39605
+          },
+          "children": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "cache_hit_tokens": null,
+            "cache_miss_tokens": null
+          },
+          "system_total_tokens": 43922,
+          "requests": {
+            "main": 13,
+            "children": "NOT_APPLICABLE",
+            "total": 13
+          },
+          "requested_model": "deepseek-chat",
+          "returned_model": "UNKNOWN",
+          "accounting": "provider-reported per request (Atlas UsageAttributionHook)",
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 43922,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "context": {
+          "primary_agent_peak_context": 4417,
+          "primary_agent_cumulative_input": 39605,
+          "main_peak_context": 4417,
+          "main_cumulative_input": 39605,
+          "integration_node_context": "NOT_APPLICABLE",
+          "system_max_agent_context": 4417,
+          "per_request_input_tokens": [
+            110,
+            586,
+            1469,
+            2037,
+            2681,
+            3325,
+            3552,
+            4037,
+            4226,
+            4381,
+            4384,
+            4400,
+            4417
+          ],
+          "per_agent_peak_context_tokens": {
+            "bplus-c02-main": 4417
+          },
+          "agent_context_census": {
+            "peaks": {
+              "bplus-c02-main": 4417
+            },
+            "complete": true,
+            "missing_agents": [],
+            "system_max_agent_context": 4417,
+            "basis": "per-request provider-observed prompt size for every agent that ran"
+          }
+        },
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "success",
+          "static_acceptance": "PASS",
+          "public_test": "PASS",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "PASS",
+          "delivered_success": true,
+          "failure_kind": null,
+          "atlas_execution_records": "PASS"
+        },
+        "delegation": {
+          "natural_proposal": false,
+          "proposal_count": 0,
+          "proposals": [],
+          "rounds": 0,
+          "batches": []
+        },
+        "handoff": {
+          "preview_delivered": [],
+          "full_reference_read": 0,
+          "read_metrics": null
+        },
+        "workers": null,
+        "adapter_problems": []
+      },
+      "audit": {
+        "verdict": "PASS",
+        "checks": [
+          {
+            "check": "evidence_schema",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "check": "execution_integrity",
+            "ok": true,
+            "detail": "verdict='PASS' failed=[] unknown=[]"
+          },
+          {
+            "check": "identity_matches_plan",
+            "ok": true,
+            "detail": "cell='f.f-p1-connector-migration.A1.r1' plan='stage-f-p1-compat-smoke'"
+          },
+          {
+            "check": "attribution_matches_arm",
+            "ok": true,
+            "detail": "attribution='main_child'"
+          },
+          {
+            "check": "oracle_ran",
+            "ok": true,
+            "detail": "oracle='PASS'"
+          },
+          {
+            "check": "oracle_environment",
+            "ok": true,
+            "detail": "oracle status='PASS'"
+          },
+          {
+            "check": "artifact_exported",
+            "ok": true,
+            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace'"
+          },
+          {
+            "check": "usage_complete",
+            "ok": true,
+            "detail": "complete"
+          }
+        ],
+        "stops": [],
+        "agent_success": true,
+        "public_test_status": "PASS",
+        "public_test_runs": 1,
+        "execution_integrity": "PASS",
+        "delivered_success": true,
+        "oracle_status": "PASS"
+      },
+      "settlement": {
+        "usage_fields": {
+          "main_cumulative_input_tokens": 79137,
+          "main_completion_tokens": 8615,
+          "child_total_prompt_tokens": 0,
+          "child_completion_tokens": 0,
+          "system_total_tokens": 87752
+        },
+        "delta_cost_usd": 0.0170619,
+        "cumulative_cost_usd": 0.034079,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+      },
+      "duration_s": 36.625,
+      "checks": [
+        {
+          "check": "cell_passed_audit",
+          "ok": true,
+          "detail": "verdict=PASS"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "workspace_exported",
+          "ok": true,
+          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace'"
+        },
+        {
+          "check": "usage_complete",
+          "ok": true,
+          "detail": "blocks=2 system_total=43922"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=13"
+        },
+        {
+          "check": "main_turn_cap_is_40",
+          "ok": true,
+          "detail": "max_turns=40"
+        },
+        {
+          "check": "shared_budget_is_one_million",
+          "ok": true,
+          "detail": "token_budget=1000000"
+        },
+        {
+          "check": "delegation_switch_is_the_arms",
+          "ok": true,
+          "detail": "enabled=False"
+        },
+        {
+          "check": "external_oracle_contract",
+          "ok": true,
+          "detail": "oracle_mode='EXTERNAL_SANDBOX_ORACLE'"
+        },
+        {
+          "check": "delegation_tools_absent",
+          "ok": true,
+          "detail": "neither delegate_tasks nor delegate.read appears in the recorded tool surface"
+        },
+        {
+          "check": "public_test_ran",
+          "ok": true,
+          "detail": "runs=1"
+        },
+        {
+          "check": "execution_integrity_recorded",
+          "ok": true,
+          "detail": "integrity='PASS'"
+        },
+        {
+          "check": "common_integrity_passed",
+          "ok": true,
+          "detail": "verdict='PASS' failed=[] unknown=[]"
+        },
+        {
+          "check": "delivered_success_consistent",
+          "ok": true,
+          "detail": "delivered=True expected=True verdict='PASS'"
+        }
+      ],
+      "integrity": {
+        "verdict": "PASS",
+        "failed": [],
+        "unknown": [],
+        "checks": [
+          {
+            "check": "run_identity",
+            "status": "PASS",
+            "detail": "cell='f.f-p1-connector-migration.A1.r1' plan='stage-f-p1-compat-smoke' run='bplus-c02' expected='bplus-c02'",
+            "affects_verdict": true
+          },
+          {
+            "check": "frozen_fixture",
+            "status": "PASS",
+            "detail": "matches_frozen_seed=True seed_digest='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' recomputed='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+            "affects_verdict": true
+          },
+          {
+            "check": "raw_evidence",
+            "status": "PASS",
+            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02\\session.json",
+            "affects_verdict": true
+          },
+          {
+            "check": "resource_accounting",
+            "status": "PASS",
+            "detail": "complete",
+            "affects_verdict": true
+          },
+          {
+            "check": "final_export",
+            "status": "PASS",
+            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c02\\\\agent\\\\bplus-c02\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+            "affects_verdict": true
+          },
+          {
+            "check": "path_policy",
+            "status": "PASS",
+            "detail": "written=9 outside_allowed=[] forbidden=[]",
+            "affects_verdict": true
+          },
+          {
+            "check": "host_separation",
+            "status": "PASS",
+            "detail": "host fixture digest 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' vs frozen 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+            "affects_verdict": true
+          },
+          {
+            "check": "oracle_binding",
+            "status": "PASS",
+            "detail": "mode='sandbox' sandbox='1c7c161b-bc7b-42b4-b44a-7127d86f8914' scored_files=17 export_files=17",
+            "affects_verdict": true
+          },
+          {
+            "check": "oracle_isolation",
+            "status": "PASS",
+            "detail": "oracle='1c7c161b-bc7b-42b4-b44a-7127d86f8914' agent='d1bdcfd5-0116-4859-9b45-a992d96adea7' agent_destroyed=True (two recorded sandbox ids)",
+            "affects_verdict": true
+          },
+          {
+            "check": "cleanup",
+            "status": "PASS",
+            "detail": "oracle_cleanup=None agent_destroyed=True",
+            "affects_verdict": true
+          },
+          {
+            "check": "failure_measurable",
+            "status": "PASS",
+            "detail": "agent_success=True kind=None",
+            "affects_verdict": true
+          },
+          {
+            "check": "atlas_ownership_enforcement",
+            "status": "UNKNOWN",
+            "detail": "reported by the goal runtime's session, not by the common gate",
+            "affects_verdict": false
+          },
+          {
+            "check": "atlas_delegation_plane",
+            "status": "UNKNOWN",
+            "detail": "reported under delegation evidence",
+            "affects_verdict": false
+          }
+        ],
+        "workspace_changes": {
+          "changed": [
+            "ingest/batching.py",
+            "ingest/checkpoint.py",
+            "ingest/columns.py",
+            "ingest/csv_connector.py",
+            "ingest/jsonl_connector.py",
+            "ingest/paths.py",
+            "ingest/pipeline.py",
+            "ingest/registry.py",
+            "ingest/report.py"
+          ],
+          "added": [],
+          "removed": []
+        },
+        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c02\\agent\\bplus-c02",
+        "basis": "the eleven common checks; architecture-specific rows never cancel one"
+      },
+      "requests": {
+        "count": 13,
+        "per_agent": [
+          "bplus-c02-main"
+        ]
+      }
+    },
+    {
+      "arm_id": "A2",
+      "cell_id": "f.f-p1-connector-migration.A2.r1",
+      "task_id": "f-p1-connector-migration",
+      "execution_mode": "atlas_static_dag",
+      "execution_entry": "experiments.stage_f.runners.static_dag_cell_runner -> experiments.evaluation.runner.run_sample (AnyCode DAG scheduler, Atlas context plane)",
+      "effective_config": {
+        "max_turns": 40,
+        "worker_max_turns": 20,
+        "integration_max_turns": 40,
+        "token_budget": 1000000,
+        "delegation": {
+          "enabled": false,
+          "tools_visible": false,
+          "limits": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          }
+        },
+        "worker_profiles": [
+          "coding_worker"
+        ],
+        "worker_exposure": "card",
+        "provider": "scripted (deterministic, no model call)",
+        "budget_mode": "guarded"
+      },
+      "provider": {
+        "model": "scripted-stage-f",
+        "scripts": {
+          "csv": 4,
+          "integrate": 7,
+          "jsonl": 4
+        },
+        "markers": {
+          "csv": "[YOUR ASSIGNMENT — worker csv]",
+          "integrate": "[YOUR ASSIGNMENT — worker integrate]",
+          "jsonl": "[YOUR ASSIGNMENT — worker jsonl]"
+        },
+        "requests": [
+          {
+            "index": 0,
+            "script": "csv",
+            "tool": "file_write",
+            "prompt_chars": 2282,
+            "prompt_tokens": 571,
+            "completion_tokens": 568,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.052,
+            "trusted_task_id": "eval-e18b73b76db7-csv",
+            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 1,
+            "script": "jsonl",
+            "tool": "file_write",
+            "prompt_chars": 2231,
+            "prompt_tokens": 558,
+            "completion_tokens": 227,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.084,
+            "trusted_task_id": "eval-e18b73b76db7-jsonl",
+            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 2,
+            "script": "csv",
+            "tool": "file_write",
+            "prompt_chars": 4554,
+            "prompt_tokens": 1139,
+            "completion_tokens": 645,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.103,
+            "trusted_task_id": "eval-e18b73b76db7-csv",
+            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 3,
+            "script": "jsonl",
+            "tool": "file_write",
+            "prompt_chars": 3139,
+            "prompt_tokens": 785,
+            "completion_tokens": 643,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.065,
+            "trusted_task_id": "eval-e18b73b76db7-jsonl",
+            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 4,
+            "script": "csv",
+            "tool": "list_files",
+            "prompt_chars": 7133,
+            "prompt_tokens": 1784,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.084,
+            "trusted_task_id": "eval-e18b73b76db7-csv",
+            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 5,
+            "script": "jsonl",
+            "tool": "list_files",
+            "prompt_chars": 5712,
+            "prompt_tokens": 1428,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.079,
+            "trusted_task_id": "eval-e18b73b76db7-jsonl",
+            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 6,
+            "script": "csv",
+            "tool": "bash",
+            "prompt_chars": 7148,
+            "prompt_tokens": 1787,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.11,
+            "trusted_task_id": "eval-e18b73b76db7-csv",
+            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 7,
+            "script": "jsonl",
+            "tool": "bash",
+            "prompt_chars": 5727,
+            "prompt_tokens": 1432,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.117,
+            "trusted_task_id": "eval-e18b73b76db7-jsonl",
+            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 8,
+            "script": "csv",
+            "tool": null,
+            "prompt_chars": 7210,
+            "prompt_tokens": 1803,
+            "completion_tokens": 8,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.102,
+            "trusted_task_id": "eval-e18b73b76db7-csv",
+            "trusted_worker_id": "eval-e18b73b76db7-csv",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 9,
+            "script": "jsonl",
+            "tool": null,
+            "prompt_chars": 5789,
+            "prompt_tokens": 1448,
+            "completion_tokens": 8,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.134,
+            "trusted_task_id": "eval-e18b73b76db7-jsonl",
+            "trusted_worker_id": "eval-e18b73b76db7-jsonl",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 10,
+            "script": "integrate",
+            "tool": "file_write",
+            "prompt_chars": 2608,
+            "prompt_tokens": 652,
+            "completion_tokens": 476,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.043,
+            "trusted_task_id": "eval-e18b73b76db7-integrate",
+            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 11,
+            "script": "integrate",
+            "tool": "file_write",
+            "prompt_chars": 4511,
+            "prompt_tokens": 1128,
+            "completion_tokens": 882,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.067,
+            "trusted_task_id": "eval-e18b73b76db7-integrate",
+            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 12,
+            "script": "integrate",
+            "tool": "file_write",
+            "prompt_chars": 8041,
+            "prompt_tokens": 2011,
+            "completion_tokens": 189,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.087,
+            "trusted_task_id": "eval-e18b73b76db7-integrate",
+            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 13,
+            "script": "integrate",
+            "tool": "file_write",
+            "prompt_chars": 8797,
+            "prompt_tokens": 2200,
+            "completion_tokens": 486,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.152,
+            "trusted_task_id": "eval-e18b73b76db7-integrate",
+            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 14,
+            "script": "integrate",
+            "tool": "file_write",
+            "prompt_chars": 10740,
+            "prompt_tokens": 2685,
+            "completion_tokens": 154,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.109,
+            "trusted_task_id": "eval-e18b73b76db7-integrate",
+            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 15,
+            "script": "integrate",
+            "tool": "list_files",
+            "prompt_chars": 11357,
+            "prompt_tokens": 2840,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.126,
+            "trusted_task_id": "eval-e18b73b76db7-integrate",
+            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 16,
+            "script": "integrate",
+            "tool": "bash",
+            "prompt_chars": 11372,
+            "prompt_tokens": 2843,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.112,
+            "trusted_task_id": "eval-e18b73b76db7-integrate",
+            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          },
+          {
+            "index": 17,
+            "script": "integrate",
+            "tool": null,
+            "prompt_chars": 11434,
+            "prompt_tokens": 2859,
+            "completion_tokens": 8,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.108,
+            "trusted_task_id": "eval-e18b73b76db7-integrate",
+            "trusted_worker_id": "eval-e18b73b76db7-integrate",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "eval-e18b73b76db7"
+          }
+        ],
+        "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+        "cache_split": "structural zero: this provider has no prompt cache"
+      },
+      "container": {
+        "agent": null,
+        "oracle": {
+          "sandbox_id": "c8ef91fc-3a3b-4c9d-b8e6-2655f3945278",
+          "mode": "sandbox",
+          "cleanup_failure": null
+        },
+        "created_and_destroyed": {
+          "sandbox_id": null,
+          "created": true,
+          "destroyed": true,
+          "provider": null,
+          "network": null,
+          "image": "atlas-uat-python:3.12"
+        }
+      },
+      "raw_result": {
+        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7\\result.json",
+        "basename": "result.json",
+        "found": true,
+        "bytes": 75385,
+        "digest": "sha256:sha256:d7665582a00f7a390bd6aeb93e44ae3d30f9bd57bbda03c942bfeaac2af37b9c"
+      },
+      "workspace_export": {
+        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7\\workspace",
+        "patch_digest": "sha256:1e0b76ecc939a7cf2cda364937b106c6ce1e76044a3cb8be6bb33aca713b8cc6",
+        "analysis_export": {
+          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7\\workspace",
+          "patch_digest": "sha256:1e0b76ecc939a7cf2cda364937b106c6ce1e76044a3cb8be6bb33aca713b8cc6",
+          "sandbox_created": true,
+          "sandbox_destroyed": true,
+          "directory_digest": "sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd",
+          "directory_files": 17,
+          "directory_digest_source": "host, computed from the extracted export directory"
+        }
+      },
+      "oracle": {
+        "status": "PASS",
+        "passed": true,
+        "record": {
+          "passed": true,
+          "checks": {
+            "host_fixture_unchanged": true,
+            "forbidden_paths_unchanged": true,
+            "only_allowed_paths_changed": true,
+            "required_artifacts_present": true,
+            "distinct_workers_executed": true,
+            "all_workers_produced_output": true,
+            "hidden_tests_passed": true
+          },
+          "details": {
+            "workspace_digest": "",
+            "workspace_file_count": 17,
+            "changed_files": [
+              "ingest/batching.py",
+              "ingest/checkpoint.py",
+              "ingest/columns.py",
+              "ingest/csv_connector.py",
+              "ingest/jsonl_connector.py",
+              "ingest/paths.py",
+              "ingest/pipeline.py",
+              "ingest/registry.py",
+              "ingest/report.py"
+            ],
+            "added_files": [],
+            "removed_files": [],
+            "forbidden_changes": [],
+            "unauthorized_changes": [],
+            "allowed_paths": [
+              "ingest/"
+            ],
+            "required_artifacts": [
+              "ingest/batching.py",
+              "ingest/checkpoint.py",
+              "ingest/columns.py",
+              "ingest/csv_connector.py",
+              "ingest/jsonl_connector.py",
+              "ingest/paths.py",
+              "ingest/pipeline.py",
+              "ingest/registry.py",
+              "ingest/report.py"
+            ],
+            "tool_expectations": {},
+            "worker_contract": {
+              "expected_workers": 3,
+              "successful_workers": [
+                "coding_worker:eval-e18b73b76db7-csv",
+                "coding_worker:eval-e18b73b76db7-jsonl",
+                "coding_worker:eval-e18b73b76db7-integrate"
+              ],
+              "worker_output_chars": {
+                "coding_worker:eval-e18b73b76db7-csv": 29,
+                "coding_worker:eval-e18b73b76db7-jsonl": 29,
+                "coding_worker:eval-e18b73b76db7-integrate": 29
+              }
+            },
+            "hidden_tests": {
+              "returncode": 0,
+              "stdout_tail": "........................................                                 [100%]\n40 passed in 0.08s",
+              "stderr_tail": "",
+              "failure_kind": "HIDDEN_TESTS_PASSED",
+              "sandbox_id": "c8ef91fc-3a3b-4c9d-b8e6-2655f3945278"
+            },
+            "digests": {
+              "oracle_contract_digest": "7cff8202c6d6d5f39aa64f22f3a012273e9cdec1774ec78974608e97e4a0547b",
+              "oracle_fixture_digest": "9415f5dbdb36acff18929debf161997c451da0627ffc41e3333059c271529e60",
+              "oracle_execution_digest": "0dfbcd1294b30cadcfb96406d8f795eba1d4f0350b336da76ce33837fe5df0cc",
+              "oracle_workspace_digest": "6be159df419c3329c87490faf71c63ccb08dfd7a8fd45403d2afe9d9241d3398"
+            },
+            "oracle_execution": "sandbox"
+          },
+          "failure_reasons": [],
+          "execution_mode": "sandbox",
+          "failure_kind": "HIDDEN_TESTS_PASSED",
+          "environment_failure": false,
+          "cleanup_failure": null,
+          "digests": {
+            "oracle_contract_digest": "7cff8202c6d6d5f39aa64f22f3a012273e9cdec1774ec78974608e97e4a0547b",
+            "oracle_fixture_digest": "9415f5dbdb36acff18929debf161997c451da0627ffc41e3333059c271529e60",
+            "oracle_execution_digest": "0dfbcd1294b30cadcfb96406d8f795eba1d4f0350b336da76ce33837fe5df0cc",
+            "oracle_workspace_digest": "6be159df419c3329c87490faf71c63ccb08dfd7a8fd45403d2afe9d9241d3398"
+          },
+          "timings_ms": {
+            "creation_ms": 2380.857,
+            "upload_ms": 943.499,
+            "execution_ms": 1372.981,
+            "cleanup_ms": 841.805,
+            "total_ms": 5542.337
+          },
+          "status": "PASS"
+        },
+        "sandbox_id": "c8ef91fc-3a3b-4c9d-b8e6-2655f3945278"
+      },
+      "normalized": {
+        "usage": {
+          "main": "NOT_APPLICABLE",
+          "children": {
+            "prompt_tokens": 29953,
+            "completion_tokens": 4351,
+            "cache_hit_tokens": null,
+            "cache_miss_tokens": null
+          },
+          "system_total_tokens": 34304,
+          "requests": {
+            "main": null,
+            "children": 18,
+            "total": null
+          },
+          "requested_model": "deepseek-chat",
+          "returned_model": "deepseek-chat",
+          "accounting": "provider-reported per request (request_evidence.records)",
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 34304,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "context": {
+          "primary_agent_peak_context": "NOT_APPLICABLE",
+          "primary_agent_cumulative_input": "NOT_APPLICABLE",
+          "main_peak_context": "NOT_APPLICABLE",
+          "main_cumulative_input": "NOT_APPLICABLE",
+          "integration_node_context": 2859,
+          "system_max_agent_context": 2859,
+          "per_request_input_tokens": [
+            571,
+            558,
+            1139,
+            785,
+            1784,
+            1428,
+            1787,
+            1432,
+            1803,
+            1448,
+            652,
+            1128,
+            2011,
+            2200,
+            2685,
+            2840,
+            2843,
+            2859
+          ],
+          "per_agent_peak_context_tokens": {
+            "csv": 1803,
+            "jsonl": 1448,
+            "integrate": 2859
+          },
+          "agent_context_census": {
+            "peaks": {
+              "csv": 1803,
+              "jsonl": 1448,
+              "integrate": 2859
+            },
+            "complete": true,
+            "missing_agents": [],
+            "system_max_agent_context": 2859,
+            "basis": "per-request provider-observed prompt size for every agent that ran"
+          }
+        },
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "NOT_APPLICABLE",
+          "static_acceptance": "NOT_APPLICABLE",
+          "public_test": "NOT_CONFIGURED",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "PASS",
+          "delivered_success": true,
+          "failure_kind": "TASK_SUCCESS",
+          "atlas_execution_records": "UNKNOWN"
+        },
+        "delegation": "NOT_APPLICABLE",
+        "handoff": "NOT_APPLICABLE",
+        "workers": [
+          {
+            "task_id": "csv",
+            "depends_on": [],
+            "agent": "coding_worker:eval-e18b73b76db7-csv",
+            "success": true,
+            "stop_reason": {
+              "code": "success",
+              "message": "Run completed successfully.",
+              "recoverable": false
+            },
+            "tool_calls": 4,
+            "token_usage": {
+              "input_tokens": 7084,
+              "output_tokens": 1240,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            },
+            "peak_context_tokens": 1803,
+            "requests": 5,
+            "is_integration_node": false
+          },
+          {
+            "task_id": "jsonl",
+            "depends_on": [],
+            "agent": "coding_worker:eval-e18b73b76db7-jsonl",
+            "success": true,
+            "stop_reason": {
+              "code": "success",
+              "message": "Run completed successfully.",
+              "recoverable": false
+            },
+            "tool_calls": 4,
+            "token_usage": {
+              "input_tokens": 5651,
+              "output_tokens": 897,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            },
+            "peak_context_tokens": 1448,
+            "requests": 5,
+            "is_integration_node": false
+          },
+          {
+            "task_id": "integrate",
+            "depends_on": [
+              "csv",
+              "jsonl"
+            ],
+            "agent": "coding_worker:eval-e18b73b76db7-integrate",
+            "success": true,
+            "stop_reason": {
+              "code": "success",
+              "message": "Run completed successfully.",
+              "recoverable": false
+            },
+            "tool_calls": 7,
+            "token_usage": {
+              "input_tokens": 17218,
+              "output_tokens": 2214,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            },
+            "peak_context_tokens": 2859,
+            "requests": 8,
+            "is_integration_node": true
+          }
+        ],
+        "adapter_problems": []
+      },
+      "audit": {
+        "verdict": "PASS",
+        "checks": [
+          {
+            "check": "evidence_schema",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "check": "execution_integrity",
+            "ok": true,
+            "detail": "verdict='PASS' failed=[] unknown=[]"
+          },
+          {
+            "check": "identity_matches_plan",
+            "ok": true,
+            "detail": "cell='f.f-p1-connector-migration.A2.r1' plan='stage-f-p1-compat-smoke'"
+          },
+          {
+            "check": "attribution_matches_arm",
+            "ok": true,
+            "detail": "attribution='dag_all_children'"
+          },
+          {
+            "check": "oracle_ran",
+            "ok": true,
+            "detail": "oracle='PASS'"
+          },
+          {
+            "check": "oracle_environment",
+            "ok": true,
+            "detail": "oracle status='PASS'"
+          },
+          {
+            "check": "artifact_exported",
+            "ok": true,
+            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c03\\\\dag-runs\\\\sf-a2-03\\\\f-p1-connector-migration\\\\r1-eval-e18b73b76db7\\\\workspace'"
+          },
+          {
+            "check": "usage_complete",
+            "ok": true,
+            "detail": "complete"
+          }
+        ],
+        "stops": [],
+        "agent_success": true,
+        "public_test_status": "NOT_CONFIGURED",
+        "public_test_runs": null,
+        "execution_integrity": "PASS",
+        "delivered_success": true,
+        "oracle_status": "PASS"
+      },
+      "settlement": {
+        "usage_fields": {
+          "main_cumulative_input_tokens": 79137,
+          "main_completion_tokens": 8615,
+          "child_total_prompt_tokens": 29953,
+          "child_completion_tokens": 4351,
+          "system_total_tokens": 122056
+        },
+        "delta_cost_usd": 0.014207099999999999,
+        "cumulative_cost_usd": 0.048286,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+      },
+      "duration_s": 40.375,
+      "checks": [
+        {
+          "check": "cell_passed_audit",
+          "ok": true,
+          "detail": "verdict=PASS"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "workspace_exported",
+          "ok": true,
+          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c03\\\\dag-runs\\\\sf-a2-03\\\\f-p1-connector-migration\\\\r1-eval-e18b73b76db7\\\\workspace'"
+        },
+        {
+          "check": "usage_complete",
+          "ok": true,
+          "detail": "blocks=1 system_total=34304"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=18"
+        },
+        {
+          "check": "three_dag_nodes",
+          "ok": true,
+          "detail": "nodes=3"
+        },
+        {
+          "check": "two_independent_nodes",
+          "ok": true,
+          "detail": "csv and jsonl declare no dependency"
+        },
+        {
+          "check": "integration_node_after_both",
+          "ok": true,
+          "detail": "the sink node is the one with dependencies"
+        },
+        {
+          "check": "independent_pair_overlapped",
+          "ok": true,
+          "detail": "pairs=[['coding_worker:eval-e18b73b76db7-csv', 'coding_worker:eval-e18b73b76db7-jsonl']]"
+        },
+        {
+          "check": "integration_context_recorded",
+          "ok": true,
+          "detail": "peak=2859"
+        },
+        {
+          "check": "implementation_nodes_20_and_integration_40",
+          "ok": true,
+          "detail": "applied={'csv': 20, 'jsonl': 20, 'integrate': 40}"
+        },
+        {
+          "check": "main_metrics_not_applicable",
+          "ok": true,
+          "detail": "no Main exists in a static DAG"
+        },
+        {
+          "check": "shared_budget_guarded",
+          "ok": true,
+          "detail": "limit=1000000"
+        },
+        {
+          "check": "common_integrity_passed",
+          "ok": true,
+          "detail": "verdict='PASS' failed=[] unknown=[]"
+        },
+        {
+          "check": "delivered_success_consistent",
+          "ok": true,
+          "detail": "delivered=True expected=True verdict='PASS'"
+        }
+      ],
+      "integrity": {
+        "verdict": "PASS",
+        "failed": [],
+        "unknown": [],
+        "checks": [
+          {
+            "check": "run_identity",
+            "status": "PASS",
+            "detail": "cell='f.f-p1-connector-migration.A2.r1' plan='stage-f-p1-compat-smoke' run='eval-e18b73b76db7' expected=None",
+            "affects_verdict": true
+          },
+          {
+            "check": "frozen_fixture",
+            "status": "PASS",
+            "detail": "matches_frozen_seed=True seed_digest='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' recomputed='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+            "affects_verdict": true
+          },
+          {
+            "check": "raw_evidence",
+            "status": "PASS",
+            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7\\result.json",
+            "affects_verdict": true
+          },
+          {
+            "check": "resource_accounting",
+            "status": "PASS",
+            "detail": "complete",
+            "affects_verdict": true
+          },
+          {
+            "check": "final_export",
+            "status": "PASS",
+            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c03\\\\dag-runs\\\\sf-a2-03\\\\f-p1-connector-migration\\\\r1-eval-e18b73b76db7\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+            "affects_verdict": true
+          },
+          {
+            "check": "path_policy",
+            "status": "PASS",
+            "detail": "written=9 outside_allowed=[] forbidden=[]",
+            "affects_verdict": true
+          },
+          {
+            "check": "host_separation",
+            "status": "PASS",
+            "detail": "host fixture digest 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' vs frozen 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+            "affects_verdict": true
+          },
+          {
+            "check": "oracle_binding",
+            "status": "PASS",
+            "detail": "mode='sandbox' sandbox='c8ef91fc-3a3b-4c9d-b8e6-2655f3945278' scored the exported directory; export_files=17",
+            "affects_verdict": true
+          },
+          {
+            "check": "oracle_isolation",
+            "status": "PASS",
+            "detail": "oracle='c8ef91fc-3a3b-4c9d-b8e6-2655f3945278' agent=None agent_destroyed=True (the agent container was destroyed before the oracle's own sandbox existed)",
+            "affects_verdict": true
+          },
+          {
+            "check": "cleanup",
+            "status": "PASS",
+            "detail": "oracle_cleanup=None agent_destroyed=True",
+            "affects_verdict": true
+          },
+          {
+            "check": "failure_measurable",
+            "status": "PASS",
+            "detail": "agent_success=True kind='TASK_SUCCESS'",
+            "affects_verdict": true
+          },
+          {
+            "check": "atlas_ownership_enforcement",
+            "status": "NOT_APPLICABLE",
+            "detail": "this arm runs no Atlas ownership mechanism; the static DAG's concurrent write sets are checked by the plan, which is a planning property",
+            "affects_verdict": false
+          },
+          {
+            "check": "atlas_delegation_plane",
+            "status": "NOT_APPLICABLE",
+            "detail": "no delegation plane exists on this arm",
+            "affects_verdict": false
+          }
+        ],
+        "workspace_changes": {
+          "changed": [
+            "ingest/batching.py",
+            "ingest/checkpoint.py",
+            "ingest/columns.py",
+            "ingest/csv_connector.py",
+            "ingest/jsonl_connector.py",
+            "ingest/paths.py",
+            "ingest/pipeline.py",
+            "ingest/registry.py",
+            "ingest/report.py"
+          ],
+          "added": [],
+          "removed": []
+        },
+        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c03\\dag-runs\\sf-a2-03\\f-p1-connector-migration\\r1-eval-e18b73b76db7",
+        "basis": "the eleven common checks; architecture-specific rows never cancel one"
+      },
+      "requests": {
+        "count": 18,
+        "per_agent": [
+          "eval-e18b73b76db7-csv",
+          "eval-e18b73b76db7-integrate",
+          "eval-e18b73b76db7-jsonl"
+        ]
+      }
+    },
+    {
+      "arm_id": "A3",
+      "cell_id": "f.f-p1-connector-migration.A3.r1",
+      "task_id": "f-p1-connector-migration",
+      "execution_mode": "atlas_dynamic",
+      "execution_entry": "experiments.stage_f.runners.main_driven_cell_runner -> atlasos.app.main_driven.run_goal (delegation enabled, DelegateTasksTool -> DelegationService)",
+      "effective_config": {
+        "max_turns": 40,
+        "worker_max_turns": 20,
+        "integration_max_turns": null,
+        "token_budget": 1000000,
+        "delegation": {
+          "enabled": true,
+          "tools_visible": true,
+          "limits": {
+            "max_parallel_children": 2,
+            "max_children_per_call": 2,
+            "max_delegation_rounds": 3,
+            "child_max_turns": 20,
+            "result_preview_chars": 900
+          }
+        },
+        "worker_profiles": [
+          "research_worker",
+          "coding_worker"
+        ],
+        "worker_exposure": "card",
+        "provider": "scripted (deterministic, no model call)",
+        "budget_mode": "guarded"
+      },
+      "provider": {
+        "model": "scripted-stage-f",
+        "scripts": {
+          "ingest/columns.py": 4,
+          "ingest/paths.py": 4,
+          "main": 9
+        },
+        "markers": {
+          "ingest/columns.py": "[YOUR ASSIGNMENT — worker csv]",
+          "ingest/paths.py": "[YOUR ASSIGNMENT — worker jsonl]",
+          "main": "The ingest layer is moving to the frozen v2 connector contra"
+        },
+        "requests": [
+          {
+            "index": 0,
+            "script": "main",
+            "tool": "delegate_tasks",
+            "prompt_chars": 440,
+            "prompt_tokens": 110,
+            "completion_tokens": 635,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 2.043,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 1,
+            "script": "ingest/columns.py",
+            "tool": "file_write",
+            "prompt_chars": 885,
+            "prompt_tokens": 222,
+            "completion_tokens": 568,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.071,
+            "trusted_task_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 2,
+            "script": "ingest/paths.py",
+            "tool": "file_write",
+            "prompt_chars": 832,
+            "prompt_tokens": 208,
+            "completion_tokens": 227,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.042,
+            "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 3,
+            "script": "ingest/columns.py",
+            "tool": "file_write",
+            "prompt_chars": 3157,
+            "prompt_tokens": 790,
+            "completion_tokens": 645,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.076,
+            "trusted_task_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 4,
+            "script": "ingest/paths.py",
+            "tool": "file_write",
+            "prompt_chars": 1740,
+            "prompt_tokens": 435,
+            "completion_tokens": 643,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.072,
+            "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 5,
+            "script": "ingest/columns.py",
+            "tool": "list_files",
+            "prompt_chars": 5736,
+            "prompt_tokens": 1434,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.083,
+            "trusted_task_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 6,
+            "script": "ingest/paths.py",
+            "tool": "list_files",
+            "prompt_chars": 4313,
+            "prompt_tokens": 1079,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.12,
+            "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 7,
+            "script": "ingest/columns.py",
+            "tool": "bash",
+            "prompt_chars": 5751,
+            "prompt_tokens": 1438,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.101,
+            "trusted_task_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 8,
+            "script": "ingest/columns.py",
+            "tool": null,
+            "prompt_chars": 5813,
+            "prompt_tokens": 1454,
+            "completion_tokens": 13,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.085,
+            "trusted_task_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:csv-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 9,
+            "script": "ingest/paths.py",
+            "tool": "bash",
+            "prompt_chars": 4328,
+            "prompt_tokens": 1082,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.164,
+            "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 10,
+            "script": "ingest/paths.py",
+            "tool": null,
+            "prompt_chars": 4390,
+            "prompt_tokens": 1098,
+            "completion_tokens": 13,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.075,
+            "trusted_task_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_worker_id": "bplus-c04-main:r1:jsonl-unit",
+            "trusted_profile_id": "coding_worker",
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 11,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 2981,
+            "prompt_tokens": 746,
+            "completion_tokens": 476,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.097,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 12,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 4884,
+            "prompt_tokens": 1221,
+            "completion_tokens": 882,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.111,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 13,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 8414,
+            "prompt_tokens": 2104,
+            "completion_tokens": 189,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.135,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 14,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 9170,
+            "prompt_tokens": 2293,
+            "completion_tokens": 486,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.14,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 15,
+            "script": "main",
+            "tool": "file_write",
+            "prompt_chars": 11113,
+            "prompt_tokens": 2779,
+            "completion_tokens": 154,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.178,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 16,
+            "script": "main",
+            "tool": "list_files",
+            "prompt_chars": 11730,
+            "prompt_tokens": 2933,
+            "completion_tokens": 4,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.139,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 17,
+            "script": "main",
+            "tool": "bash",
+            "prompt_chars": 11745,
+            "prompt_tokens": 2937,
+            "completion_tokens": 15,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.158,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 18,
+            "script": "main",
+            "tool": "run_public_tests",
+            "prompt_chars": 11807,
+            "prompt_tokens": 2952,
+            "completion_tokens": 16,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.163,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          },
+          {
+            "index": 19,
+            "script": "main",
+            "tool": null,
+            "prompt_chars": 11872,
+            "prompt_tokens": 2968,
+            "completion_tokens": 13,
+            "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+            "latency_ms": 0.142,
+            "trusted_task_id": "bplus-c04-main",
+            "trusted_worker_id": "bplus-c04-main-worker",
+            "trusted_profile_id": null,
+            "trusted_run_id": "bplus-c04"
+          }
+        ],
+        "token_estimate": "chars/4 (scripted provider estimate, not a billed count)",
+        "cache_split": "structural zero: this provider has no prompt cache"
+      },
+      "container": {
+        "agent": {
+          "provider": "opensandbox",
+          "provider_is_real": true,
+          "capabilities": {
+            "provider": "opensandbox",
+            "contract_version": "1.0",
+            "isolation": "container",
+            "networking": "allowlist",
+            "persistent_filesystem": true,
+            "snapshots": false,
+            "command_streaming": false,
+            "cancellation": true,
+            "file_transfer": true,
+            "evidence": true,
+            "limitations": [
+              "Docker container isolation; actual strength depends on the local OpenSandbox and Docker runtime configuration.",
+              "Network-none enforcement depends on the OpenSandbox egress sidecar; Atlas verifies it with an empirical egress probe.",
+              "Point-in-time snapshots are not exposed through this adapter.",
+              "Verified provider-instance reattachment is explicit; automatic cross-process recovery and ownership locking are not implemented."
+            ]
+          },
+          "capabilities_digest": "sha256:960f33a3888ca1d5690d2aed2f9c2dd0f1065203d1bcaf37a197ef405dfc8a7b",
+          "binding_id": "8a97b7d238e4726b58527f3da2c63fa4b16c2f84df097e8071f2710b78fa6bce",
+          "sandbox_id": "9fdcf209-13b4-435f-adce-f4e6a368e047",
+          "binding_state": "READY",
+          "workspace_root": "/workspace/project",
+          "network_probe": "PASS",
+          "host_separation": {
+            "host_only_visible": false,
+            "sandbox_only_visible_on_host": false,
+            "sandbox_only_read_back": true
+          },
+          "provision_commands": 4,
+          "provision_uploads": 1,
+          "created": true,
+          "destroyed": true,
+          "retained": false,
+          "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
+          "patch_changed_files": 9,
+          "export_digest": "sha256:767c983ed3bff1ec729189e60be390423350a61a9222a5fb20d3e543ed6d2439",
+          "export_files": 17,
+          "export_size_bytes": 71680,
+          "check_runs": 1,
+          "tool_error_mode": "corrected",
+          "error": null
+        },
+        "oracle": {
+          "sandbox_id": "b2038b5e-0526-467e-b6fa-3ff46fa1014b",
+          "mode": "sandbox",
+          "cleanup_failure": null
+        },
+        "created_and_destroyed": {
+          "sandbox_id": "9fdcf209-13b4-435f-adce-f4e6a368e047",
+          "created": true,
+          "destroyed": true,
+          "provider": "opensandbox",
+          "network": null,
+          "image": null
+        }
+      },
+      "raw_result": {
+        "file": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\session.json",
+        "basename": "session.json",
+        "found": true,
+        "bytes": 30676,
+        "digest": "sha256:sha256:db0b2d82fdb319d228e7c090f1f5d3fef3b1da6beb12e2557e293ca8a580e138"
+      },
+      "workspace_export": {
+        "path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
+        "patch_digest": null,
+        "analysis_export": {
+          "patch_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace.patch",
+          "patch_digest": "sha256:10cd7d5c046e94c217f98851d8a51af489aa9ebbcf76856d50185d6df49ed9d3",
+          "patch_changed_files": 9,
+          "workspace_path": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\workspace",
+          "workspace_digest": "sha256:767c983ed3bff1ec729189e60be390423350a61a9222a5fb20d3e543ed6d2439",
+          "workspace_files": 17,
+          "workspace_size_bytes": 71680,
+          "directory_digest": "sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd",
+          "directory_files": 17,
+          "directory_digest_source": "host, computed from the extracted export directory",
+          "archive_digest_verifiable": false,
+          "archive_digest_source": "producer (GoalSandbox export.archive_digest, sha256 of the transferred archive); the archive bytes are not retained, so this value is recorded, not re-derived"
+        }
+      },
+      "oracle": {
+        "status": "PASS",
+        "passed": true,
+        "record": {
+          "status": "PASS",
+          "kind": "HIDDEN_TESTS_PASSED",
+          "passed": true,
+          "environment_failure": false,
+          "cleanup_failure": null,
+          "execution_mode": "sandbox",
+          "sandbox_id": "b2038b5e-0526-467e-b6fa-3ff46fa1014b",
+          "returncode": 0,
+          "timings_ms": {
+            "creation_ms": 2380.556,
+            "upload_ms": 951.196,
+            "execution_ms": 1473.973,
+            "cleanup_ms": 716.153,
+            "total_ms": 5525.511
+          },
+          "image": "atlas-uat-python:3.12",
+          "workspace_files": 17,
+          "hidden_files_in_workspace": [],
+          "stderr_excerpt": "",
+          "source": "experiments.evaluation.sandboxed_oracle::run_hidden_tests_in_sandbox",
+          "fixture_after_run": "9f21c5bf890a0d1a8d0297db283e6910887f928a532df8ceb0985bccd505cfd4"
+        },
+        "sandbox_id": "b2038b5e-0526-467e-b6fa-3ff46fa1014b"
+      },
+      "normalized": {
+        "usage": {
+          "main": {
+            "prompt_tokens": 21043,
+            "completion_tokens": 2870,
+            "cache_hit_tokens": 0,
+            "cache_miss_tokens": 21043
+          },
+          "children": {
+            "prompt_tokens": 9240,
+            "completion_tokens": 2147,
+            "cache_hit_tokens": 0,
+            "cache_miss_tokens": 9240
+          },
+          "system_total_tokens": 35300,
+          "requests": {
+            "main": 10,
+            "children": "UNKNOWN",
+            "total": null
+          },
+          "requested_model": "deepseek-chat",
+          "returned_model": "UNKNOWN",
+          "accounting": "provider-reported per request (Atlas UsageAttributionHook)",
+          "budget": {
+            "limit_tokens": 1000000,
+            "used_tokens": 35300,
+            "stop_reason": null,
+            "admission_rejections": 0,
+            "enforcement": "pre_admission_guard"
+          }
+        },
+        "context": {
+          "primary_agent_peak_context": 2968,
+          "primary_agent_cumulative_input": 21043,
+          "main_peak_context": 2968,
+          "main_cumulative_input": 21043,
+          "integration_node_context": "NOT_APPLICABLE",
+          "system_max_agent_context": 2968,
+          "per_request_input_tokens": [
+            110,
+            222,
+            208,
+            790,
+            435,
+            1434,
+            1079,
+            1438,
+            1454,
+            1082,
+            1098,
+            746,
+            1221,
+            2104,
+            2293,
+            2779,
+            2933,
+            2937,
+            2952,
+            2968
+          ],
+          "per_agent_peak_context_tokens": {
+            "bplus-c04-main": 2968,
+            "bplus-c04-main:r1:csv-unit": 1454,
+            "bplus-c04-main:r1:jsonl-unit": 1098
+          },
+          "agent_context_census": {
+            "peaks": {
+              "bplus-c04-main": 2968,
+              "bplus-c04-main:r1:csv-unit": 1454,
+              "bplus-c04-main:r1:jsonl-unit": 1098
+            },
+            "complete": true,
+            "missing_agents": [],
+            "system_max_agent_context": 2968,
+            "basis": "per-request provider-observed prompt size for every agent that ran"
+          }
+        },
+        "correctness": {
+          "agent_success": true,
+          "primary_agent_completion": "success",
+          "static_acceptance": "PASS",
+          "public_test": "PASS",
+          "independent_oracle": {
+            "status": "PASS",
+            "passed": true
+          },
+          "execution_integrity": "PASS",
+          "delivered_success": true,
+          "failure_kind": null,
+          "atlas_execution_records": "PASS"
+        },
+        "delegation": {
+          "natural_proposal": true,
+          "proposal_count": 1,
+          "proposals": [
+            {
+              "task_id": "bplus-c04-main",
+              "input": {
+                "reason": "two independent connectors with disjoint write scopes; the shared batching, checkpoint, registry, pipeline and report surface stays in the Main",
+                "tasks": [
+                  {
+                    "background": "The project is at /workspace/project and `docs/INTERFACE.md` is frozen. Edit only `ingest/columns.py`, `ingest/csv_connector.py`; the public suite is `test_public.py`.",
+                    "key": "csv-unit",
+                    "objective": "[YOUR ASSIGNMENT — worker csv]\nYou own the CSV half of the v2 connector migration: `ingest/csv_connector.py` and `ingest/columns.py`.\n\nOBJECTIVE: implement header projection (trimmed, lower-cased, duplicate/unknown/missing cells rejected), quoted cells with `\"\"` escapes and unbalanced-quote rejection, per-row cell-count validation, required/optional field rules, strict conversion through the frozen `ingest.values.convert`, the data-row cursor and the blank-line skip count. The exact rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: `ingest/columns.py` and `ingest/csv_connector.py`. The JSONL connector and the shared pipeline belong to the other workers; read them, do not edit them. `ingest/values.py` is frozen.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the CSV checks, no module is left half-migrated, and you report what you ran and what it printed.",
+                    "profile_id": "coding_worker",
+                    "write_paths": [
+                      "ingest/columns.py",
+                      "ingest/csv_connector.py"
+                    ]
+                  },
+                  {
+                    "background": "The project is at /workspace/project and `docs/INTERFACE.md` is frozen. Edit only `ingest/paths.py`, `ingest/jsonl_connector.py`; the public suite is `test_public.py`.",
+                    "key": "jsonl-unit",
+                    "objective": "[YOUR ASSIGNMENT — worker jsonl]\nYou own the JSONL half of the v2 connector migration: `ingest/jsonl_connector.py` and `ingest/paths.py`.\n\nOBJECTIVE: implement one-object-per-line parsing, blank-line skipping, the dotted `mapping` resolution (with a non-object intermediate rejected), required/optional field rules, strict conversion through the frozen `ingest.values.convert`, mapping validation (a mapping may only name schema fields) and the line cursor. The exact rules are in `docs/INTERFACE.md`.\n\nOWNED FILES: `ingest/paths.py` and `ingest/jsonl_connector.py`. The CSV connector and the shared pipeline belong to the other workers; read them, do not edit them. `ingest/values.py` is frozen.\n\nDEFINITION OF DONE: `python -m pytest -q test_public.py` passes for the JSONL checks, and you report what you ran and what it printed.",
+                    "profile_id": "coding_worker",
+                    "write_paths": [
+                      "ingest/paths.py",
+                      "ingest/jsonl_connector.py"
+                    ]
+                  }
+                ]
+              },
+              "block_type": "tool_use",
+              "source": "tool_conversations.json"
+            }
+          ],
+          "rounds": 1,
+          "batches": [
+            {
+              "round": 1,
+              "route": "delegate_parallel",
+              "reason_codes": [
+                "DELEGATION_ADMITTED"
+              ],
+              "blocked_gates": [],
+              "children": [
+                {
+                  "key": "csv-unit",
+                  "worker_id": "bplus-c04-main:r1:csv-unit",
+                  "status": "completed",
+                  "success": true,
+                  "stop_reason": "success",
+                  "turns": 5,
+                  "tool_calls": 4,
+                  "prompt_tokens": 5338,
+                  "completion_tokens": 1245
+                },
+                {
+                  "key": "jsonl-unit",
+                  "worker_id": "bplus-c04-main:r1:jsonl-unit",
+                  "status": "completed",
+                  "success": true,
+                  "stop_reason": "success",
+                  "turns": 5,
+                  "tool_calls": 4,
+                  "prompt_tokens": 3902,
+                  "completion_tokens": 902
+                }
+              ],
+              "max_observed_concurrency": 2
+            }
+          ]
+        },
+        "handoff": {
+          "preview_delivered": [
+            {
+              "round": 1,
+              "result_chars": [
+                49,
+                49
+              ]
+            }
+          ],
+          "full_reference_read": 3,
+          "read_metrics": {
+            "read_calls": 0,
+            "read_success": 0,
+            "read_denied": 0
+          }
+        },
+        "workers": null,
+        "adapter_problems": []
+      },
+      "audit": {
+        "verdict": "PASS",
+        "checks": [
+          {
+            "check": "evidence_schema",
+            "ok": true,
+            "detail": ""
+          },
+          {
+            "check": "execution_integrity",
+            "ok": true,
+            "detail": "verdict='PASS' failed=[] unknown=[]"
+          },
+          {
+            "check": "identity_matches_plan",
+            "ok": true,
+            "detail": "cell='f.f-p1-connector-migration.A3.r1' plan='stage-f-p1-compat-smoke'"
+          },
+          {
+            "check": "attribution_matches_arm",
+            "ok": true,
+            "detail": "attribution='main_child'"
+          },
+          {
+            "check": "oracle_ran",
+            "ok": true,
+            "detail": "oracle='PASS'"
+          },
+          {
+            "check": "oracle_environment",
+            "ok": true,
+            "detail": "oracle status='PASS'"
+          },
+          {
+            "check": "artifact_exported",
+            "ok": true,
+            "detail": "workspace_path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
+          },
+          {
+            "check": "usage_complete",
+            "ok": true,
+            "detail": "complete"
+          }
+        ],
+        "stops": [],
+        "agent_success": true,
+        "public_test_status": "PASS",
+        "public_test_runs": 1,
+        "execution_integrity": "PASS",
+        "delivered_success": true,
+        "oracle_status": "PASS"
+      },
+      "settlement": {
+        "usage_fields": {
+          "main_cumulative_input_tokens": 100180,
+          "main_completion_tokens": 11485,
+          "child_total_prompt_tokens": 39193,
+          "child_completion_tokens": 6498,
+          "system_total_tokens": 157356
+        },
+        "delta_cost_usd": 0.015105299999999999,
+        "cumulative_cost_usd": 0.063391,
+        "basis": "frozen DeepSeek Flash rates applied to the scripted provider's own counters"
+      },
+      "duration_s": 39.25,
+      "checks": [
+        {
+          "check": "cell_passed_audit",
+          "ok": true,
+          "detail": "verdict=PASS"
+        },
+        {
+          "check": "independent_oracle_passed",
+          "ok": true,
+          "detail": "oracle='PASS'"
+        },
+        {
+          "check": "workspace_exported",
+          "ok": true,
+          "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace'"
+        },
+        {
+          "check": "usage_complete",
+          "ok": true,
+          "detail": "blocks=2 system_total=35300"
+        },
+        {
+          "check": "provider_answered",
+          "ok": true,
+          "detail": "requests=20"
+        },
+        {
+          "check": "main_turn_cap_is_40",
+          "ok": true,
+          "detail": "max_turns=40"
+        },
+        {
+          "check": "shared_budget_is_one_million",
+          "ok": true,
+          "detail": "token_budget=1000000"
+        },
+        {
+          "check": "delegation_switch_is_the_arms",
+          "ok": true,
+          "detail": "enabled=True"
+        },
+        {
+          "check": "external_oracle_contract",
+          "ok": true,
+          "detail": "oracle_mode='EXTERNAL_SANDBOX_ORACLE'"
+        },
+        {
+          "check": "proposal_recorded",
+          "ok": true,
+          "detail": "proposals=1"
+        },
+        {
+          "check": "two_children_admitted",
+          "ok": true,
+          "detail": "children=['csv-unit', 'jsonl-unit']"
+        },
+        {
+          "check": "children_overlapped",
+          "ok": true,
+          "detail": "max_concurrency=[2]"
+        },
+        {
+          "check": "system_max_context_from_all_agents",
+          "ok": true,
+          "detail": "agents=['bplus-c04-main', 'bplus-c04-main:r1:csv-unit', 'bplus-c04-main:r1:jsonl-unit']"
+        },
+        {
+          "check": "child_usage_attributed",
+          "ok": true,
+          "detail": "child_prompt=9240"
+        },
+        {
+          "check": "common_integrity_passed",
+          "ok": true,
+          "detail": "verdict='PASS' failed=[] unknown=[]"
+        },
+        {
+          "check": "delivered_success_consistent",
+          "ok": true,
+          "detail": "delivered=True expected=True verdict='PASS'"
+        }
+      ],
+      "integrity": {
+        "verdict": "PASS",
+        "failed": [],
+        "unknown": [],
+        "checks": [
+          {
+            "check": "run_identity",
+            "status": "PASS",
+            "detail": "cell='f.f-p1-connector-migration.A3.r1' plan='stage-f-p1-compat-smoke' run='bplus-c04' expected='bplus-c04'",
+            "affects_verdict": true
+          },
+          {
+            "check": "frozen_fixture",
+            "status": "PASS",
+            "detail": "matches_frozen_seed=True seed_digest='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' recomputed='dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+            "affects_verdict": true
+          },
+          {
+            "check": "raw_evidence",
+            "status": "PASS",
+            "detail": "result=D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04\\session.json",
+            "affects_verdict": true
+          },
+          {
+            "check": "resource_accounting",
+            "status": "PASS",
+            "detail": "complete",
+            "affects_verdict": true
+          },
+          {
+            "check": "final_export",
+            "status": "PASS",
+            "detail": "path='D:\\\\Work\\\\AtlasOS\\\\.f2c-scratch\\\\smoke-6\\\\evidence\\\\cells\\\\c04\\\\agent\\\\bplus-c04\\\\workspace' recorded='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd' recomputed='sha256:992fc5efc6e7bd7f900d79b397dc8977cbbedcebc4d7dd23ddaaad702d65aefd'",
+            "affects_verdict": true
+          },
+          {
+            "check": "path_policy",
+            "status": "PASS",
+            "detail": "written=9 outside_allowed=[] forbidden=[]",
+            "affects_verdict": true
+          },
+          {
+            "check": "host_separation",
+            "status": "PASS",
+            "detail": "host fixture digest 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc' vs frozen 'dc5ec2ffc2f25b79f2fcf4e0ddff00e6afe22f2476f5ae694e4b4d976e098fbc'",
+            "affects_verdict": true
+          },
+          {
+            "check": "oracle_binding",
+            "status": "PASS",
+            "detail": "mode='sandbox' sandbox='b2038b5e-0526-467e-b6fa-3ff46fa1014b' scored_files=17 export_files=17",
+            "affects_verdict": true
+          },
+          {
+            "check": "oracle_isolation",
+            "status": "PASS",
+            "detail": "oracle='b2038b5e-0526-467e-b6fa-3ff46fa1014b' agent='9fdcf209-13b4-435f-adce-f4e6a368e047' agent_destroyed=True (two recorded sandbox ids)",
+            "affects_verdict": true
+          },
+          {
+            "check": "cleanup",
+            "status": "PASS",
+            "detail": "oracle_cleanup=None agent_destroyed=True",
+            "affects_verdict": true
+          },
+          {
+            "check": "failure_measurable",
+            "status": "PASS",
+            "detail": "agent_success=True kind=None",
+            "affects_verdict": true
+          },
+          {
+            "check": "atlas_ownership_enforcement",
+            "status": "UNKNOWN",
+            "detail": "reported by the goal runtime's session, not by the common gate",
+            "affects_verdict": false
+          },
+          {
+            "check": "atlas_delegation_plane",
+            "status": "UNKNOWN",
+            "detail": "reported under delegation evidence",
+            "affects_verdict": false
+          }
+        ],
+        "workspace_changes": {
+          "changed": [
+            "ingest/batching.py",
+            "ingest/checkpoint.py",
+            "ingest/columns.py",
+            "ingest/csv_connector.py",
+            "ingest/jsonl_connector.py",
+            "ingest/paths.py",
+            "ingest/pipeline.py",
+            "ingest/registry.py",
+            "ingest/report.py"
+          ],
+          "added": [],
+          "removed": []
+        },
+        "run_dir": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6\\evidence\\cells\\c04\\agent\\bplus-c04",
+        "basis": "the eleven common checks; architecture-specific rows never cancel one"
+      },
+      "requests": {
+        "count": 20,
+        "per_agent": [
+          "bplus-c04-main",
+          "bplus-c04-main:r1:csv-unit",
+          "bplus-c04-main:r1:jsonl-unit"
+        ]
+      }
+    }
+  ],
+  "counts": {
+    "scripted_requests": 63,
+    "external_model_requests": 0,
+    "production_claims_consumed": 0
+  },
+  "problems": [],
+  "ok": true,
+  "status": "STAGE_F_P1_FOUR_ARM_SMOKE_PASS",
+  "duration_s": 148.156,
+  "scratch_root": "D:\\Work\\AtlasOS\\.f2c-scratch\\smoke-6",
+  "skill": "compatibility confirmation only; no cell here enters the 96-cell matrix"
+}
