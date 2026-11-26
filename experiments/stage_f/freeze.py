@@ -12,11 +12,12 @@ execution stays false, and the cost fields stay unapproved. Only the Owner can c
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from experiments.stage_b_plus import authority, contract, executor
-from experiments.stage_f import plan, tasks
+from experiments.stage_f import plan, preflight, tasks
 
 REPO = Path(__file__).resolve().parents[2]
 EVIDENCE_DIR = Path(__file__).resolve().parent
@@ -24,6 +25,57 @@ EVIDENCE_DIR = Path(__file__).resolve().parent
 
 def authorization_path(batch: int) -> Path:
     return EVIDENCE_DIR / f"authorization-b{batch}.json"
+
+
+def _previous_manifest() -> Mapping[str, Any] | None:
+    """The freeze this one replaces, read before it is overwritten."""
+
+    try:
+        payload = json.loads((EVIDENCE_DIR / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, Mapping) else None
+
+
+def _supersedes(
+    previous: Mapping[str, Any] | None, identity: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """What the new identity replaces, and whether the execution path actually moved.
+
+    A refreeze that changes only the admission and preparation gates leaves every file that a cell
+    imports byte-identical. Recording the per-file delta lets the gate checks recompute that claim
+    from checked-in bytes, instead of a reader having to trust a note.
+    """
+
+    if not isinstance(previous, Mapping):
+        return None
+    files = previous.get("executor_files")
+    if not isinstance(files, Mapping) or not files:
+        return None
+    if previous.get("executor_digest") == identity["executor_digest"]:
+        return None
+    current = dict(identity["files"])
+    changed = sorted(
+        path
+        for path in set(dict(files)) | set(current)
+        if dict(files).get(path) != current.get(path)
+    )
+    outside = [path for path in changed if path not in preflight.GATE_FILES]
+    return {
+        "executor_version": previous.get("executor_version"),
+        "executor_digest": previous.get("executor_digest"),
+        "manifest_digest": authority.digest_of(dict(previous)),
+        "files": dict(files),
+        "changed_files": changed,
+        "execution_path_changed": outside,
+        "execution_path_unchanged": not outside,
+        "gate_files": list(preflight.GATE_FILES),
+        "applies_to": (
+            "a record produced by the superseded executor stays evidence for the execution path "
+            "only, and only while every changed file is a gate file; the superseded identity never "
+            "authorizes a dispatch"
+        ),
+    }
 
 
 def build() -> dict[str, Any]:
@@ -71,6 +123,7 @@ def build() -> dict[str, Any]:
 
 
 def write(*, output: Path | None = None) -> dict[str, Any]:
+    previous = _previous_manifest()
     built = build()
     if built["problems"]:
         raise SystemExit(
@@ -89,6 +142,7 @@ def write(*, output: Path | None = None) -> dict[str, Any]:
         "repo_head": executor.git_head(REPO),
         "executor_version": built["identity"]["executor_version"],
         "executor_digest": built["identity"]["executor_digest"],
+        "supersedes": _supersedes(previous, built["identity"]),
         "adapter": manifest_record["adapter"],
         "budget_digest": manifest_record["budget_digest"],
         "pricing": manifest_record["pricing"],

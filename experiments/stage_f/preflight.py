@@ -24,6 +24,17 @@ STATUS_READY = "STAGE_F_UNIFIED_96_CELL_EVALUATION_READY_FOR_LIVE_AUTHORIZATION"
 STATUS_PREPARATION_BLOCKED = "STAGE_F_UNIFIED_96_CELL_EVALUATION_PREPARATION_BLOCKED"
 STATUS_BLOCKED = "STAGE_F_UNIFIED_96_CELL_EVALUATION_BLOCKED"
 
+#: Files inside the signed executor identity that a cell never imports: the live admission gate and
+#: this preparation gate. They decide *whether* a cell may start, not *what* it executes, so a
+#: change confined to them cannot change what an already-recorded cell did. That is the only reason
+#: a historical execution record may stay valid across an executor identity change, and the delta
+#: is recomputed from the freeze record rather than assumed. A live dispatch still binds the whole
+#: identity, so a signature never survives an admission change.
+GATE_FILES: tuple[str, ...] = (
+    "src/atlasos/app/live_preflight.py",
+    "experiments/stage_f/preflight.py",
+)
+
 
 def _check(check_id: str, ok: bool, detail: str, **evidence: Any) -> dict[str, Any]:
     return {"check_id": check_id, "ok": bool(ok), "detail": detail, **evidence}
@@ -918,25 +929,85 @@ def _record(name: str) -> dict[str, Any] | None:
     return payload if isinstance(payload, Mapping) else None
 
 
+def _superseded_identity() -> Mapping[str, Any] | None:
+    """The executor identity the checked-in freeze supersedes, if it declares one.
+
+    ``freeze.py`` writes this block when a refreeze changes the executor digest, and it carries the
+    previous per-file digests. The delta between the two identities is therefore recomputed from
+    checked-in bytes here instead of being asserted by whoever wrote the record.
+    """
+
+    try:
+        payload = json.loads((EVIDENCE_DIR / "freeze.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    superseded = payload.get("supersedes") if isinstance(payload, Mapping) else None
+    if isinstance(superseded, Mapping) and superseded.get("files"):
+        return superseded
+    return None
+
+
+def _identity_scope(record: Mapping[str, Any] | None, *, name: str) -> dict[str, Any]:
+    """Which executor identity produced a record, and whether that record still applies.
+
+    A record is valid when it names this tree's executor. It is also valid — for the execution path
+    only — when it names the identity the freeze supersedes *and* every changed file is a
+    ``executor.GATE_FILES`` member: those files decide whether a cell may start, so a change
+    confined to them cannot alter what the recorded cell executed. Any other change is a refusal.
+    The scope travels with the record instead of being assumed by its reader.
+    """
+
+    identity = executor.executor_identity(REPO)
+    expected = identity["executor_digest"]
+    scope: dict[str, Any] = {
+        "record": name,
+        "executor_digest": None if record is None else record.get("executor_digest"),
+        "current_executor_digest": expected,
+        "scope": "ABSENT" if record is None else "UNKNOWN",
+        "changed_files": [],
+        "problems": [],
+    }
+    if record is None:
+        scope["problems"] = [f"{name}: no record"]
+        return scope
+    actual = record.get("executor_digest")
+    if actual == expected:
+        scope["scope"] = "CURRENT"
+        return scope
+    superseded = _superseded_identity()
+    if superseded is None or actual != superseded.get("executor_digest"):
+        scope["problems"] = [f"{name}: produced by executor {actual!r}, this tree is {expected!r}"]
+        return scope
+    previous = dict(superseded.get("files") or {})
+    current = identity["files"]
+    changed = sorted(
+        path for path in set(previous) | set(current) if previous.get(path) != current.get(path)
+    )
+    scope["changed_files"] = changed
+    outside = [path for path in changed if path not in GATE_FILES]
+    if outside:
+        scope["scope"] = "SUPERSEDED_OUTSIDE_GATES"
+        scope["problems"] = [
+            f"{name}: produced by the superseded executor {actual!r}, and the execution path moved "
+            f"at {outside}"
+        ]
+        return scope
+    scope["scope"] = "SUPERSEDED_EXECUTION_PATH_UNCHANGED"
+    return scope
+
+
 def _record_identity_problems(record: Mapping[str, Any] | None, *, name: str) -> list[str]:
     """A record produced by different code does not certify this code."""
 
-    if record is None:
-        return [f"{name}: no record"]
-    expected = executor.executor_identity(REPO)["executor_digest"]
-    if record.get("executor_digest") != expected:
-        return [
-            f"{name}: produced by executor {record.get('executor_digest')!r}, "
-            f"this tree is {expected!r}"
-        ]
-    return []
+    return list(_identity_scope(record, name=name)["problems"])
 
 
 def check_settlement_record() -> dict[str, Any]:
     """The ten cross-batch scenarios, from the record the real dispatcher wrote."""
 
     record = _record("settlement")
-    problems = _record_identity_problems(record, name="settlement")
+    scope = _identity_scope(record, name="settlement")
+    problems = list(scope["problems"])
     scenarios = list((record or {}).get("scenarios") or [])
     if len(scenarios) != 10:
         problems.append(f"the settlement record holds {len(scenarios)} scenarios, not ten")
@@ -957,12 +1028,14 @@ def check_settlement_record() -> dict[str, Any]:
         ),
         scenarios=[item.get("scenario") for item in scenarios],
         record=RECORD_FILES["settlement"],
+        evidence_identity=scope,
     )
 
 
 def check_environment_record() -> dict[str, Any]:
     record = _record("environment")
-    problems = _record_identity_problems(record, name="environment")
+    scope = _identity_scope(record, name="environment")
+    problems = list(scope["problems"])
     rows = list((record or {}).get("tasks") or [])
     if len(rows) != 8:
         problems.append(f"the environment record holds {len(rows)} tasks, not eight")
@@ -990,12 +1063,14 @@ def check_environment_record() -> dict[str, Any]:
             for row in rows
         },
         record=RECORD_FILES["environment"],
+        evidence_identity=scope,
     )
 
 
 def check_smoke_record() -> dict[str, Any]:
     record = _record("p1_smoke")
-    problems = _record_identity_problems(record, name="p1_smoke")
+    scope = _identity_scope(record, name="p1_smoke")
+    problems = list(scope["problems"])
     if (record or {}).get("ok") is not True:
         problems.append(f"the smoke status is {(record or {}).get('status')!r}")
     dispatch = (record or {}).get("dispatch") or {}
@@ -1059,6 +1134,7 @@ def check_smoke_record() -> dict[str, Any]:
             for row in arms_rows
         ],
         record=RECORD_FILES["p1_smoke"],
+        evidence_identity=scope,
     )
 
 
@@ -1072,7 +1148,8 @@ def check_default_routing() -> dict[str, Any]:
     """
 
     record = _record("default_routing")
-    problems = _record_identity_problems(record, name="default_routing")
+    scope = _identity_scope(record, name="default_routing")
+    problems = list(scope["problems"])
     if (record or {}).get("ok") is not True:
         problems.append(f"the routing smoke status is {(record or {}).get('status')!r}")
     routing_block = (record or {}).get("routing") or {}
@@ -1129,6 +1206,7 @@ def check_default_routing() -> dict[str, Any]:
             for row in rows
         ],
         record=RECORD_FILES["default_routing"],
+        evidence_identity=scope,
     )
 
 
@@ -1231,7 +1309,8 @@ def check_production_measurement() -> dict[str, Any]:
     """Every arm's record carries a provider-observed accounting and a common integrity verdict."""
 
     record = _record("p1_smoke")
-    problems = _record_identity_problems(record, name="p1_smoke")
+    scope = _identity_scope(record, name="p1_smoke")
+    problems = list(scope["problems"])
     rows = list((record or {}).get("arms") or [])
     if not rows:
         problems.append("the smoke holds no arm record")
@@ -1264,6 +1343,138 @@ def check_production_measurement() -> dict[str, Any]:
             "a stated system maximum, request accounting and a common integrity verdict"
         ),
         arms=len(rows),
+        evidence_identity=scope,
+    )
+
+
+# -- gate 19: the real pre-claim admission of all 96 cells ---------------------------------------
+
+
+def check_actual_production_admission() -> dict[str, Any]:
+    """Run the real pre-claim admission for every cell of the three frozen batches.
+
+    Deliberately not a read of a saved ``admission.json``: ``executor.run_admission_preflight`` is
+    the function a live dispatch calls before the claim exists, and it is called here on the record
+    each batch plan id actually resolves to. It creates no sandbox, calls no model and consumes no
+    claim; what it does do is materialise all 96 fixtures and apply the production admission checks
+    to each cell's own configuration.
+
+    A missing credential is reported apart from the contract failures, exactly as the production
+    function reports it, so an environment fact can never be presented as a contract pass.
+    """
+
+    identity = executor.executor_identity(REPO)
+    manifest_digest = authority.digest_of(plan.manifest())
+    problems: list[str] = []
+    plans: list[dict[str, Any]] = []
+    per_arm: dict[str, dict[str, int]] = {
+        arm_id: {"ready": 0, "blocked": 0} for arm_id in arms.ARM_ORDER
+    }
+    cell_ids: list[str] = []
+    plan_digests: dict[str, str] = {}
+    ready_total = 0
+    blocking_failures: list[str] = []
+    contract_failures: list[str] = []
+    credentials: set[bool] = set()
+
+    for batch in (1, 2, 3):
+        plan_id = plan.BATCH_PLAN_IDS[batch]
+        batch_plan = contract.scope_plan(plan_id)
+        plan_digests[plan_id] = str(batch_plan["digest"])
+        cell_ids.extend(str(cell["cell_id"]) for cell in batch_plan["cells"])
+        report = executor.run_admission_preflight(batch_plan, repo_root=REPO)
+        credentials.add(bool(report.get("credential_present")))
+        batch_blocking = [str(item) for item in report.get("blocking_failures") or []]
+        batch_contract = [str(item) for item in report.get("contract_blocking_failures") or []]
+        blocking_failures.extend(batch_blocking)
+        contract_failures.extend(batch_contract)
+        cells = list(report.get("cells") or [])
+        ready = sum(1 for cell in cells if cell.get("status") == "READY")
+        ready_total += ready
+        for cell in cells:
+            bucket = per_arm.setdefault(str(cell.get("arm_id")), {"ready": 0, "blocked": 0})
+            if cell.get("status") == "READY":
+                bucket["ready"] += 1
+            else:
+                bucket["blocked"] += 1
+        if len(cells) != int(batch_plan["cells_count"]):
+            problems.append(
+                f"{plan_id}: admission covers {len(cells)} cells, not {batch_plan['cells_count']}"
+            )
+        if ready != int(batch_plan["cells_count"]) or report.get("status") != "READY":
+            problems.append(f"{plan_id}: {ready}/{batch_plan['cells_count']} cells READY")
+        plans.append(
+            {
+                "plan_id": plan_id,
+                "plan_digest": batch_plan["digest"],
+                "status": report.get("status"),
+                "cells": len(cells),
+                "ready": ready,
+                "blocked": len(cells) - ready,
+                "credential_present": bool(report.get("credential_present")),
+                "blocking_failures": batch_blocking,
+                "contract_blocking_failures": batch_contract,
+                "cells_detail": [
+                    {
+                        "cell_id": cell.get("cell_id"),
+                        "arm_id": cell.get("arm_id"),
+                        "task_id": str(cell.get("cell_id") or "").split(".")[1]
+                        if "." in str(cell.get("cell_id") or "")
+                        else None,
+                        "execution_mode": cell.get("execution_mode"),
+                        "status": cell.get("status"),
+                        "checks": cell.get("checks"),
+                        "blocking_failures": list(cell.get("blocking_failures") or []),
+                        "fixture_matches_frozen_seed": cell.get("fixture_matches_frozen_seed"),
+                        "worker_profile": cell.get("worker_profile"),
+                        "worker_max_turns": cell.get("worker_max_turns"),
+                        "main_max_turns": cell.get("main_max_turns"),
+                        "token_budget": cell.get("token_budget"),
+                        "provider_factory_injected": cell.get("provider_factory_injected"),
+                    }
+                    for cell in cells
+                ],
+            }
+        )
+
+    if len(cell_ids) != 96 or len(set(cell_ids)) != 96:
+        problems.append(f"the three plans hold {len(cell_ids)} cells ({len(set(cell_ids))} unique)")
+    for arm_id, counts in per_arm.items():
+        if counts["ready"] != 24:
+            problems.append(f"{arm_id}: {counts['ready']}/24 cells READY")
+    if ready_total != 96:
+        problems.append(f"{ready_total}/96 cells READY")
+    if contract_failures:
+        problems.append(
+            f"{len(contract_failures)} contract blocking failure(s): {contract_failures[:6]}"
+        )
+    if blocking_failures:
+        problems.append(f"{len(blocking_failures)} blocking failure(s): {blocking_failures[:6]}")
+    credential_observed = credentials == {True}
+    if not credential_observed:
+        problems.append(
+            "the credential was not observed on every batch; an environment block is reported "
+            "apart from the contract failures and is not a production READY"
+        )
+    return _check(
+        "F19_actual_production_admission",
+        not problems,
+        "; ".join(problems)
+        or (
+            "the real pre-claim admission ran on the three frozen batches through their resolved "
+            "plan ids: 96/96 cells READY, 24 per arm, no blocking and no contract failure"
+        ),
+        plans=plans,
+        cells_total=len(cell_ids),
+        cells_ready=ready_total,
+        per_arm={arm_id: dict(counts) for arm_id, counts in per_arm.items()},
+        plan_digests=plan_digests,
+        executor_digest=identity["executor_digest"],
+        manifest_digest=manifest_digest,
+        cell_ids=cell_ids,
+        blocking_failures=blocking_failures,
+        contract_blocking_failures=contract_failures,
+        credential_present=credential_observed,
     )
 
 
@@ -1476,6 +1687,7 @@ def run(*, scratch: Path | None = None, include_qualification: bool = True) -> d
         check_production_measurement(),
         check_default_routing(),
         check_cache_aware_pricing(),
+        check_actual_production_admission(),
     ]
     manifest_record = plan.manifest()
     problems = plan.validate(manifest_record)

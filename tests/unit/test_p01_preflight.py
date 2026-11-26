@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -73,6 +74,75 @@ def test_a_missing_public_suite_blocks(tmp_path: Path, monkeypatch: Any) -> None
 
     assert report["status"] == BLOCKED
     assert "public_tests_configured" in _failing(report)
+
+
+def test_a_direct_only_run_is_admitted(tmp_path: Path, monkeypatch: Any) -> None:
+    """Stage F arm A1 is a legitimate Direct-only run: delegation is switched off, not broken.
+
+    The gate used to require ``delegation.enabled``, so every A1 cell was refused before its claim.
+    """
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-not-used")
+    report = run_live_preflight(
+        _options(
+            tmp_path,
+            delegation=DelegationConfig(
+                enabled=False, max_parallel_children=2, max_children_per_call=1
+            ),
+        )
+    )
+
+    checks = {item["check_id"]: item for item in report["checks"]}
+    assert checks["delegation_bounds"]["ok"] is True
+    assert "Direct-only" in checks["delegation_bounds"]["detail"]
+    assert report["status"] == READY, report["blocking_failures"]
+
+
+def test_an_enabled_delegation_run_keeps_its_bound(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-not-used")
+    report = run_live_preflight(
+        _options(
+            tmp_path,
+            delegation=DelegationConfig(
+                enabled=True, max_parallel_children=3, max_children_per_call=2
+            ),
+        )
+    )
+
+    checks = {item["check_id"]: item for item in report["checks"]}
+    assert checks["delegation_bounds"]["ok"] is True
+    assert "max_parallel_children=3" in checks["delegation_bounds"]["detail"]
+    assert report["status"] == READY, report["blocking_failures"]
+
+
+def test_an_enabled_run_with_unusable_bounds_blocks(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-not-used")
+    report = run_live_preflight(
+        _options(tmp_path, delegation=SimpleNamespace(enabled=True, max_parallel_children=0))
+    )
+
+    assert report["status"] == BLOCKED
+    assert "delegation_bounds" in _failing(report)
+
+
+def test_a_missing_delegation_configuration_blocks(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-not-used")
+    report = run_live_preflight(_options(tmp_path, delegation=None))
+
+    assert report["status"] == BLOCKED
+    assert "delegation_bounds" in _failing(report)
+    detail = next(item for item in report["checks"] if item["check_id"] == "delegation_bounds")
+    assert "no delegation configuration" in detail["detail"]
+
+
+def test_a_switch_that_is_not_a_boolean_blocks(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-not-used")
+    report = run_live_preflight(
+        _options(tmp_path, delegation=SimpleNamespace(enabled="yes", max_parallel_children=2))
+    )
+
+    assert report["status"] == BLOCKED
+    assert "delegation_bounds" in _failing(report)
 
 
 def test_the_fake_provider_cannot_pass_as_isolation(tmp_path: Path, monkeypatch: Any) -> None:

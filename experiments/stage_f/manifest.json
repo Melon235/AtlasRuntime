@@ -1049,7 +1049,7 @@
     }
   },
   "executor_version": "bplus-executor-1.9",
-  "executor_digest": "sha256:a8ae6eac7cdbf68f97974a1dcb1615439f1e603c66db3e7dea6312ef304fa376",
+  "executor_digest": "sha256:2f68d5f078b102e780033786347ad88989f7bcef51e54e33bed3c9b52c561eea",
   "executor_files": {
     "experiments/stage_b_plus/executor.py": "sha256:59a7eda47757d4f7b23f9b3e245dff3fd67673b52862de6f51c839b1401567e6",
     "experiments/stage_b_plus/authority.py": "sha256:76bbe86c77654593e10aa62017e6ab2661618e0211bedbf3ddd0bcd52c03cd34",
@@ -1066,12 +1066,12 @@
     "experiments/stage_f/normalize.py": "sha256:5a5a8ab84c7746c07c12075ac86220231fb7b319f18eb33c8aec66420f6434a5",
     "experiments/stage_f/runners.py": "sha256:fda6a120ba731fe68accd11fe5e6984b0be9cd76704dc71cd0176be0023075d1",
     "experiments/stage_f/cumulative.py": "sha256:e49e1aa372ee10c66da80c06d59aa3831aea28a7ebfa8207549a922cbd89d3fb",
-    "experiments/stage_f/preflight.py": "sha256:e8420a4b8413dede064b03f1dc94d731c5a1134dc0a6a649aa9fba3fdc12a0e5",
+    "experiments/stage_f/preflight.py": "sha256:218346dae435e03f763599072c8e3a8ea578be1198ddc49b134852b9076e9ff6",
     "experiments/evaluation/closure2/catalog.py": "sha256:b4a86fec85a4ff32ad3e50be9c2cbe86e59423001f80e966ee534470cdad19b5",
     "experiments/evaluation/fixtures.py": "sha256:24a82d539435fa57b337badce48a57eae442e9922338f0c08cb679bb6f45518b",
     "src/atlasos/workers/catalog.py": "sha256:f5ffb8958b7000cdcd0dd5db5950e49da94b3fa387f6b6d5fe6d7bb93966df6c",
     "src/atlasos/app/main_driven.py": "sha256:b183f7aa4d987aa9f1128f3e115c571a41f515008201418e78da6af36a5809cb",
-    "src/atlasos/app/live_preflight.py": "sha256:861518f226e29f1baee50721daf5dbf24b1db7f1deb16e357c27a922353d46d0",
+    "src/atlasos/app/live_preflight.py": "sha256:014dbb484832f8ae91d089ffa2f5d829668bc4f97fdccbee31936468ba455e1f",
     "src/atlasos/app/goal_verification.py": "sha256:7ee0a0bf03e9c5d49618ab117e4af5d5d25f4f5665aa5a6438048497ba1072be"
   },
   "pricing": {

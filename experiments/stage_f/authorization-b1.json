@@ -10,7 +10,7 @@
   "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
   "reviewed_head": null,
   "execution_head": null,
-  "executor_digest": "sha256:a8ae6eac7cdbf68f97974a1dcb1615439f1e603c66db3e7dea6312ef304fa376",
+  "executor_digest": "sha256:2f68d5f078b102e780033786347ad88989f7bcef51e54e33bed3c9b52c561eea",
   "executor_version": "bplus-executor-1.9",
   "cells_count": 32,
   "cell_ids": [

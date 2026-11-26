@@ -339,14 +339,34 @@ def run_live_preflight(options: Any) -> dict[str, Any]:
     )
 
     delegation = getattr(options, "delegation", None)
-    enabled = bool(getattr(delegation, "enabled", False))
-    checks.append(
-        _check(
-            "delegation_bounds",
-            enabled and int(getattr(delegation, "max_parallel_children", 0)) >= 1,
-            "delegation must be enabled with max_parallel_children >= 1",
+    # A live run has to state its delegation mode; it does not have to enable delegation.
+    # ``enabled=False`` is a legitimate Direct-only configuration (Stage F arm A1): main-driven
+    # builds no delegation tool at all in that case, so there is no bound to check. Everything else
+    # stays blocking — a missing configuration, a switch that is not an explicit bool, or enabled
+    # with an unusable concurrency limit.
+    enabled = getattr(delegation, "enabled", None) if delegation is not None else None
+    if delegation is None:
+        delegation_ok = False
+        delegation_detail = (
+            "no delegation configuration: a live run must declare whether delegation is available"
         )
-    )
+    elif not isinstance(enabled, bool):
+        delegation_ok = False
+        delegation_detail = f"delegation.enabled is {enabled!r}; it must be an explicit bool"
+    elif not enabled:
+        delegation_ok = True
+        delegation_detail = (
+            "delegation explicitly disabled: a Direct-only run, and no delegation tool is built"
+        )
+    else:
+        parallel = getattr(delegation, "max_parallel_children", None)
+        delegation_ok = (
+            isinstance(parallel, int) and not isinstance(parallel, bool) and parallel >= 1
+        )
+        delegation_detail = (
+            f"delegation enabled with max_parallel_children={parallel} (must be >= 1)"
+        )
+    checks.append(_check("delegation_bounds", delegation_ok, delegation_detail))
 
     checks.append(
         _check(

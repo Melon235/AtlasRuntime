@@ -60,6 +60,44 @@ def test_a0_admission_is_arm_specific() -> None:
     }
 
 
+def test_the_production_builder_keeps_a1_direct_only_and_a3_delegating(tmp_path: Path) -> None:
+    """A1's live refusal came from this switch, and only from this switch.
+
+    ``production_goal_options`` is the one place a live ``GoalRunOptions`` is built, for both the
+    pre-claim admission and the runner, so the arm's delegation mode is checked there and not in the
+    arm registry it was copied from.
+    """
+
+    options = {
+        arm_id: executor.production_goal_options(
+            _cell(arm_id),
+            evidence_root=tmp_path / arm_id,
+            fixture_dir=tmp_path / f"{arm_id}-fixture",
+            config=executor.RunnerConfig(),
+            run_id=f"seam-{arm_id}",
+        )
+        for arm_id in ("A1", "A3")
+    }
+
+    assert options["A1"].delegation.enabled is False
+    assert options["A1"].worker_profiles == ("coding_worker",)
+    assert options["A3"].delegation.enabled is True
+    assert options["A3"].worker_profiles == ("research_worker", "coding_worker")
+    assert options["A3"].delegation.max_parallel_children >= 1
+
+
+def test_the_preparation_gate_runs_the_real_admission() -> None:
+    """The gate must call the production function, not read a saved admission report."""
+
+    from experiments.stage_f import preflight
+
+    source = Path(preflight.__file__).read_text(encoding="utf-8")
+    assert "executor.run_admission_preflight(" in source
+    assert "check_actual_production_admission" in preflight.run.__code__.co_names
+    admission = preflight.check_actual_production_admission
+    assert admission.__name__ == "check_actual_production_admission"
+
+
 def test_the_result_adapter_uses_as_dict_and_refuses_a_guess() -> None:
     """A0 returned {} when ``to_dict`` was missing, and A2 ran ``dict(result)``."""
 
