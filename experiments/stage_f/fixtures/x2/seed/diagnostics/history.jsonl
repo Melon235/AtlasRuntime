@@ -1,0 +1,3 @@
+{"deploy": "2026-11-12T09:14:00Z", "capacity": 3, "published": 5, "handled": 3, "missing": ["e-4", "e-5"], "handler_failure": false}
+{"deploy": "2026-11-18T22:41:00Z", "capacity": 5, "published": 8, "handled": 7, "missing": ["e-3"], "handler_failure": true, "restarts": 1}
+{"deploy": "2026-11-19T07:05:00Z", "capacity": 3, "published": 5, "handled": 3, "missing": ["e-1", "e-2"], "handler_failure": false, "restarts": 0}

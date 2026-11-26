@@ -1,0 +1,1646 @@
+{
+  "stage": "F2-B",
+  "status": "STAGE_F_TASK_QUALIFICATION_PASS",
+  "tasks": [
+    "closure2-pipeline-migration",
+    "closure2-state-machine-refactor",
+    "f-p1-connector-migration",
+    "f-p2-protocol-adapter",
+    "f-x1-api-compat-audit",
+    "f-x2-distributed-diagnosis",
+    "f-c1-config-lifecycle",
+    "f-c2-scheduler-retry"
+  ],
+  "checks": {
+    "eight_tasks": true,
+    "all_tasks_qualified": true,
+    "mutation_count": 20,
+    "mutation_minimum_met": true,
+    "all_mutations_valid": true,
+    "all_static_dags_valid": true,
+    "all_leak_checks_valid": true
+  },
+  "qualification": [
+    {
+      "task_id": "closure2-pipeline-migration",
+      "family": "S",
+      "seed_public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "8 failed, 1 passed in 0.12s",
+        "tail": "lise_all_drops_empty_values - AssertionError...\nFAILED test_public.py::test_aggregate_sums_and_sorts - AssertionError: assert...\nFAILED test_public.py::test_store_keeps_the_last_record_per_name - AssertionE...\nFAILED test_public.py::test_build_report_runs_the_whole_path - AssertionError...\nFAILED test_public.py::test_render_is_sorted_and_has_no_trailing_newline - As...\n8 failed, 1 passed in 0.12s\n"
+      },
+      "seed_oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "9 failed, 2 passed in 0.14s",
+        "tail": "se_all_drops_a_whitespace_only_value\nFAILED test_hidden_pipeline.py::test_aggregate_is_order_independent - Asserti...\nFAILED test_hidden_pipeline.py::test_store_returns_one_record_per_name_in_name_order\nFAILED test_hidden_pipeline.py::test_build_report_propagates_a_parse_error - ...\nFAILED test_hidden_pipeline.py::test_the_public_api_still_accepts_a_plain_list_of_lines\n9 failed, 2 passed in 0.14s\n"
+      },
+      "reference_public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "9 passed in 0.03s",
+        "tail": ".........                                                                [100%]\n9 passed in 0.03s\n"
+      },
+      "reference_oracle": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "11 passed in 0.03s",
+        "tail": "...........                                                              [100%]\n11 passed in 0.03s\n"
+      },
+      "seed_failure": "BUSINESS_FAILURE",
+      "expected_seed_collection_reason": null,
+      "qualified": true,
+      "problems": []
+    },
+    {
+      "task_id": "closure2-state-machine-refactor",
+      "family": "S",
+      "seed_public": {
+        "rc": 2,
+        "category": "COLLECTION_ERROR",
+        "summary": "1 error in 0.14s",
+        "tail": "lifecycle.approval import approve, reject\nE   ImportError: cannot import name 'reject' from 'lifecycle.approval' (C:\\Users\\86180\\AppData\\Local\\Temp\\f2b-q-closure2-s-8ktncccj\\seed\\lifecycle\\approval.py)\n=========================== short test summary info ===========================\nERROR test_public.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.14s\n"
+      },
+      "seed_oracle": {
+        "rc": 2,
+        "category": "COLLECTION_ERROR",
+        "summary": "1 error in 0.16s",
+        "tail": "l import approve, reject\nE   ImportError: cannot import name 'reject' from 'lifecycle.approval' (C:\\Users\\86180\\AppData\\Local\\Temp\\f2b-q-closure2-s-8ktncccj\\oracle-seed\\lifecycle\\approval.py)\n=========================== short test summary info ===========================\nERROR test_hidden_lifecycle.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.16s\n"
+      },
+      "reference_public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "7 passed in 0.03s",
+        "tail": ".......                                                                  [100%]\n7 passed in 0.03s\n"
+      },
+      "reference_oracle": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "7 passed in 0.04s",
+        "tail": ".......                                                                  [100%]\n7 passed in 0.04s\n"
+      },
+      "seed_failure": "EXPECTED_SEED_COLLECTION_FAILURE",
+      "expected_seed_collection_reason": "the public suite imports the v2 reject/cancel callers, which the v1 seed does not define",
+      "qualified": true,
+      "problems": []
+    },
+    {
+      "task_id": "f-p1-connector-migration",
+      "family": "P",
+      "seed_public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "10 failed, 1 passed in 0.58s",
+        "tail": "_checkpoint_is_persisted_and_monotonic - Assertion...\nFAILED test_public.py::test_registry_knows_both_sources_and_rejects_duplicates\nFAILED test_public.py::test_pipeline_resumes_from_the_checkpoint_and_totals\nFAILED test_public.py::test_report_is_ordered_without_a_trailing_newline - Va...\nFAILED test_public.py::test_csv_requires_a_required_field - Failed: DID NOT R...\n10 failed, 1 passed in 0.58s\n"
+      },
+      "seed_oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "29 failed in 0.77s",
+        "tail": "t_pipeline_explicit_start_beats_the_checkpoint\nFAILED test_hidden_p1.py::test_pipeline_does_not_advance_the_checkpoint_on_failure\nFAILED test_hidden_p1.py::test_pipeline_totals_are_numeric_and_sorted - Attri...\nFAILED test_hidden_p1.py::test_pipeline_resumes_from_the_store_without_an_explicit_start\nFAILED test_hidden_p1.py::test_report_renders_an_empty_run - AttributeError: ...\n29 failed in 0.77s\n"
+      },
+      "reference_public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "11 passed in 0.48s",
+        "tail": "...........                                                              [100%]\n11 passed in 0.48s\n"
+      },
+      "reference_oracle": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "29 passed in 0.51s",
+        "tail": ".............................                                            [100%]\n29 passed in 0.51s\n"
+      },
+      "seed_failure": "BUSINESS_FAILURE",
+      "expected_seed_collection_reason": null,
+      "qualified": true,
+      "problems": []
+    },
+    {
+      "task_id": "f-p2-protocol-adapter",
+      "family": "P",
+      "seed_public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "12 failed, 6 passed in 0.16s",
+        "tail": "ch_routes_both_decoded_types - Failed: DID ...\nFAILED test_public.py::test_duplicate_json_object_keys_are_rejected - Failed:...\nFAILED test_public.py::test_binary_v1_frames_still_decode - struct.error: unp...\nFAILED test_public.py::test_selector_detects_both_protocols_across_a_split_magic\nFAILED test_public.py::test_the_gateway_validates_before_dispatch - KeyError:...\n12 failed, 6 passed in 0.16s\n"
+      },
+      "seed_oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "27 failed, 3 passed in 0.32s",
+        "tail": "_from_payload_and_validates_registration\nFAILED test_hidden_p2.py::test_payload_validation_rules - Failed: DID NOT RAI...\nFAILED test_hidden_p2.py::test_the_gateway_handles_both_protocols_and_a_partial_stream\nFAILED test_hidden_p2.py::test_the_gateway_can_be_bound_to_one_codec - Attrib...\nFAILED test_hidden_p2.py::test_service_handles_binary_and_a_split_stream - Ke...\n27 failed, 3 passed in 0.32s\n"
+      },
+      "reference_public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "18 passed in 0.05s",
+        "tail": "..................                                                       [100%]\n18 passed in 0.05s\n"
+      },
+      "reference_oracle": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "30 passed in 0.08s",
+        "tail": "..............................                                           [100%]\n30 passed in 0.08s\n"
+      },
+      "seed_failure": "BUSINESS_FAILURE",
+      "expected_seed_collection_reason": null,
+      "qualified": true,
+      "problems": []
+    },
+    {
+      "task_id": "f-x1-api-compat-audit",
+      "family": "X",
+      "seed_public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "13 failed, 2 passed in 0.18s",
+        "tail": "_uses_the_frozen_policy_fee - TypeError: re...\nFAILED test_public.py::test_reservation_counts_units_and_updates_stock - Type...\nFAILED test_public.py::test_statement_applies_the_standard_discount - TypeErr...\nFAILED test_public.py::test_the_return_workflow_is_audited - TypeError: recor...\nFAILED test_public.py::test_a_transfer_moves_stock_and_is_audited - TypeError...\n13 failed, 2 passed in 0.18s\n"
+      },
+      "seed_oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "15 failed, 3 passed in 0.22s",
+        "tail": "are_in_minor_units\nFAILED test_hidden_x1.py::test_reservation_is_all_or_nothing_and_sums_units_per_sku\nFAILED test_hidden_x1.py::test_statement_handles_an_empty_run_and_the_discount_floor\nFAILED test_hidden_x1.py::test_the_return_workflow_rejects_illegal_steps_and_records_history\nFAILED test_hidden_x1.py::test_a_transfer_validates_both_sides_and_keeps_stock_on_failure\n15 failed, 3 passed in 0.22s\n"
+      },
+      "reference_public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "15 passed in 0.06s",
+        "tail": "...............                                                          [100%]\n15 passed in 0.06s\n"
+      },
+      "reference_oracle": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "18 passed in 0.08s",
+        "tail": "..................                                                       [100%]\n18 passed in 0.08s\n"
+      },
+      "seed_failure": "BUSINESS_FAILURE",
+      "expected_seed_collection_reason": null,
+      "qualified": true,
+      "problems": []
+    },
+    {
+      "task_id": "f-x2-distributed-diagnosis",
+      "family": "X",
+      "seed_public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "10 failed, 1 passed in 0.58s",
+        "tail": "the_journal_reconstructs_a_taken_delivery - Asser...\nFAILED test_public.py::test_recovery_requeues_a_delivery_that_was_never_closed\nFAILED test_public.py::test_retry_policy_is_validated_and_capped - Failed: DI...\nFAILED test_public.py::test_the_pipeline_audits_each_run_and_reports_metrics\nFAILED test_public.py::test_store_and_journal_reject_malformed_documents - Fa...\n10 failed, 1 passed in 0.58s\n"
+      },
+      "seed_oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "15 failed, 5 passed in 0.67s",
+        "tail": "rnal_rejects_malformed_lines - Failed: DID ...\nFAILED test_hidden_x2.py::test_recovery_skips_processed_dead_and_acked_ids - ...\nFAILED test_hidden_x2.py::test_recovery_requeues_multiple_deliveries_in_journal_order\nFAILED test_hidden_x2.py::test_the_audit_log_is_persisted_and_validated - Ass...\nFAILED test_hidden_x2.py::test_metrics_cover_empty_success_and_dead_letters\n15 failed, 5 passed in 0.67s\n"
+      },
+      "reference_public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "11 passed in 0.57s",
+        "tail": "...........                                                              [100%]\n11 passed in 0.57s\n"
+      },
+      "reference_oracle": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "20 passed in 0.53s",
+        "tail": "....................                                                     [100%]\n20 passed in 0.53s\n"
+      },
+      "seed_failure": "BUSINESS_FAILURE",
+      "expected_seed_collection_reason": null,
+      "qualified": true,
+      "problems": []
+    },
+    {
+      "task_id": "f-c1-config-lifecycle",
+      "family": "C",
+      "seed_public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "12 failed in 0.14s",
+        "tail": "test_the_version_metadata_is_validated - Failed: DID N...\nFAILED test_public.py::test_a_profile_sits_between_the_file_and_the_environment\nFAILED test_public.py::test_the_cache_flag_and_the_feature_list_must_agree - ...\nFAILED test_public.py::test_the_explanation_renders_and_round_trips - TypeErr...\nFAILED test_public.py::test_explicit_nested_tables_are_flattened - assert 3 == 6\n12 failed in 0.14s\n"
+      },
+      "seed_oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "15 failed in 0.19s",
+        "tail": "_hidden_c1.py::test_runtime_view_is_complete_sorted_and_explainable\nFAILED test_hidden_c1.py::test_profiles_are_a_layer_with_their_own_precedence\nFAILED test_hidden_c1.py::test_new_fields_are_validated_like_the_rest - Faile...\nFAILED test_hidden_c1.py::test_explanation_output_is_stable_and_round_trips\nFAILED test_hidden_c1.py::test_the_defaults_table_is_the_one_the_runtime_uses\n15 failed in 0.19s\n"
+      },
+      "reference_public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "12 passed in 0.05s",
+        "tail": "............                                                             [100%]\n12 passed in 0.05s\n"
+      },
+      "reference_oracle": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "15 passed in 0.07s",
+        "tail": "...............                                                          [100%]\n15 passed in 0.07s\n"
+      },
+      "seed_failure": "BUSINESS_FAILURE",
+      "expected_seed_collection_reason": null,
+      "qualified": true,
+      "problems": []
+    },
+    {
+      "task_id": "f-c2-scheduler-retry",
+      "family": "C",
+      "seed_public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "11 failed, 2 passed in 0.60s",
+        "tail": "ning_records_are_recovered_with_their_attempts\nFAILED test_public.py::test_submit_validates_the_job_payload_spec - Failed: D...\nFAILED test_public.py::test_the_event_log_records_the_lifecycle - AssertionEr...\nFAILED test_public.py::test_the_summary_counts_states_and_attempts - KeyError...\nFAILED test_public.py::test_the_executor_replays_from_the_cache - AssertionEr...\n11 failed, 2 passed in 0.60s\n"
+      },
+      "seed_oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "13 failed, 6 passed in 0.71s",
+        "tail": "og_is_persisted_and_validated - Ass...\nFAILED test_hidden_c2.py::test_recovery_writes_a_recovered_event - assert 0 == 1\nFAILED test_hidden_c2.py::test_metrics_summarize_states_attempts_and_success_rate\nFAILED test_hidden_c2.py::test_cache_replay_through_the_scheduler - Assertion...\nFAILED test_hidden_c2.py::test_recovery_handles_multiple_records_and_preserves_attempts\n13 failed, 6 passed in 0.71s\n"
+      },
+      "reference_public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "13 passed in 0.58s",
+        "tail": ".............                                                            [100%]\n13 passed in 0.58s\n"
+      },
+      "reference_oracle": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "19 passed in 0.61s",
+        "tail": "...................                                                      [100%]\n19 passed in 0.61s\n"
+      },
+      "seed_failure": "BUSINESS_FAILURE",
+      "expected_seed_collection_reason": null,
+      "qualified": true,
+      "problems": []
+    }
+  ],
+  "mutations": [
+    {
+      "mutation_id": "S1-M1-empty-values",
+      "task_id": "closure2-pipeline-migration",
+      "rule": "`normalise_all` drops records whose value is empty after trimming",
+      "semantics": "keeps an empty-valued record, so the v2 record stream contains a row the contract drops",
+      "files": [
+        "pipeline/normalise.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 8 passed in 0.08s",
+        "tail": " in normalise_all(records)] == [\"a\"]\nE       AssertionError: assert ['a', 'b'] == ['a']\nE         \nE         Left contains one more item: 'b'\nE         Use -v to get more diff\n\ntest_public.py:35: AssertionError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_normalise_all_drops_empty_values - AssertionError...\n1 failed, 8 passed in 0.08s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 10 passed in 0.08s",
+        "tail": "ertionError: assert ['a', 'b'] == ['b']\nE         \nE         At index 0 diff: 'a' != 'b'\nE         Left contains one more item: 'b'\nE         Use -v to get more diff\n\ntest_hidden_pipeline.py:33: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_pipeline.py::test_normalise_all_drops_a_whitespace_only_value\n1 failed, 10 passed in 0.08s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "S2-M1-missing-reject",
+      "task_id": "closure2-state-machine-refactor",
+      "rule": "`draft --reject--> rejected` is part of the frozen table",
+      "semantics": "removes the reject transition, so the documented caller path no longer works",
+      "files": [
+        "lifecycle/state.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 6 passed in 0.08s",
+        "tail": "     if event not in STATES[state]:\n>           raise ValueError(f\"illegal event {event!r} in state {state!r}\")\nE           ValueError: illegal event 'reject' in state 'draft'\n\nlifecycle\\state.py:16: ValueError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_reject_and_cancel_are_wired - ValueError: illegal...\n1 failed, 6 passed in 0.08s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "2 failed, 5 passed in 0.10s",
+        "tail": "t!r} in state {state!r}\")\nE           ValueError: illegal event 'reject' in state 'draft'\n\nlifecycle\\state.py:16: ValueError\n=========================== short test summary info ===========================\nFAILED test_hidden_lifecycle.py::test_every_callable_caller_event_exists_in_the_table\nFAILED test_hidden_lifecycle.py::test_audit_is_a_faithful_trace - ValueError:...\n2 failed, 5 passed in 0.10s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "P1-M1-unknown-header",
+      "task_id": "f-p1-connector-migration",
+      "rule": "an unknown CSV header cell is a SchemaError",
+      "semantics": "silently accepts unknown header cells, so a schema mismatch is ingested as if it were valid",
+      "files": [
+        "ingest/columns.py"
+      ],
+      "public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "11 passed in 0.56s",
+        "tail": "...........                                                              [100%]\n11 passed in 0.56s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 28 passed in 0.66s",
+        "tail": "\"order_id,amount,amount,placed_on,note\\n\", ORDER_SCHEMA)\n>       with pytest.raises(SchemaError):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE SchemaError\n\ntest_hidden_p1.py:37: Failed\n=========================== short test summary info ===========================\nFAILED test_hidden_p1.py::test_csv_header_problems_are_schema_errors - Failed...\n1 failed, 28 passed in 0.66s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": false,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "P1-M2-backwards-cursor",
+      "task_id": "f-p1-connector-migration",
+      "rule": "checkpoint saves are monotonic per source",
+      "semantics": "accepts a cursor that moves backwards, so a resumed run silently reprocesses already-consumed rows",
+      "files": [
+        "ingest/checkpoint.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 10 passed in 0.57s",
+        "tail": "  assert CheckpointStore(path).load(\"csv\") == 3\n>       with pytest.raises(CheckpointError):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE CheckpointError\n\ntest_public.py:98: Failed\n=========================== short test summary info ===========================\nFAILED test_public.py::test_checkpoint_is_persisted_and_monotonic - Failed: D...\n1 failed, 10 passed in 0.57s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 28 passed in 0.58s",
+        "tail": "\", 4)\n        assert store.load(\"csv\") == 4\n>       with pytest.raises(CheckpointError):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE CheckpointError\n\ntest_hidden_p1.py:230: Failed\n=========================== short test summary info ===========================\nFAILED test_hidden_p1.py::test_checkpoint_monotonicity_and_equal_save - Faile...\n1 failed, 28 passed in 0.58s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "P1-M3-unbounded-batch",
+      "task_id": "f-p1-connector-migration",
+      "rule": "a batch is flushed before it would exceed `max_bytes`",
+      "semantics": "ignores the byte ceiling, so batches exceed the transport limit whenever record counts stay under `max_records`",
+      "files": [
+        "ingest/batching.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 10 passed in 0.54s",
+        "tail": "ch in batches] == [1, 1]\nE       assert [2] == [1, 1]\nE         \nE         At index 0 diff: 2 != 1\nE         Right contains one more item: 1\nE         Use -v to get more diff\n\ntest_public.py:89: AssertionError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_batches_respect_the_byte_ceiling - assert [2] == ...\n1 failed, 10 passed in 0.54s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 28 passed in 0.61s",
+        "tail": "atches] == [1, 1]\nE       assert [2] == [1, 1]\nE         \nE         At index 0 diff: 2 != 1\nE         Right contains one more item: 1\nE         Use -v to get more diff\n\ntest_hidden_p1.py:182: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_p1.py::test_a_batch_is_flushed_before_exceeding_the_byte_ceiling\n1 failed, 28 passed in 0.61s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "P2-M1-crc-not-verified",
+      "task_id": "f-p2-protocol-adapter",
+      "rule": "a v2 JSON message whose declared CRC differs is a ChecksumError",
+      "semantics": "accepts a corrupt body instead of rejecting it",
+      "files": [
+        "wire/json_message.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 17 passed in 0.10s",
+        "tail": " \"type\": \"k\", \"id\": \"i\", \"body\": {\"a\": 1}, \"crc\": 0}'\n>       with pytest.raises(ChecksumError):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE ChecksumError\n\ntest_public.py:50: Failed\n=========================== short test summary info ===========================\nFAILED test_public.py::test_json_version_and_checksum_are_enforced - Failed: ...\n1 failed, 17 passed in 0.10s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 29 passed in 0.12s",
+        "tail": "ormat(crc=checksum).encode()).checksum == checksum\n>       with pytest.raises(ChecksumError):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE ChecksumError\n\ntest_hidden_p2.py:52: Failed\n=========================== short test summary info ===========================\nFAILED test_hidden_p2.py::test_json_v2_crc_must_be_a_uint32 - Failed: DID NOT...\n1 failed, 29 passed in 0.12s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "P2-M2-limit-ignored",
+      "task_id": "f-p2-protocol-adapter",
+      "rule": "a declared binary payload above the decoder limit is a ProtocolError",
+      "semantics": "ignores the decoder limit, so a hostile declared length is buffered until the stream ends",
+      "files": [
+        "wire/frame.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 17 passed in 0.11s",
+        "tail": ", b\"12345\")\n        decoder = frame.Decoder(limit=4)\n>       with pytest.raises(ProtocolError):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE ProtocolError\n\ntest_public.py:107: Failed\n=========================== short test summary info ===========================\nFAILED test_public.py::test_binary_decoder_enforces_its_payload_limit - Faile...\n1 failed, 17 passed in 0.11s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 29 passed in 0.12s",
+        "tail": "45\")\n        binary = codecs.decoder(\"binary\", 2)\n>       with pytest.raises(ProtocolError):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE ProtocolError\n\ntest_hidden_p2.py:295: Failed\n=========================== short test summary info ===========================\nFAILED test_hidden_p2.py::test_codec_decoder_forwards_the_limit - Failed: DID...\n1 failed, 29 passed in 0.12s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "P2-M3-selector-no-whitespace",
+      "task_id": "f-p2-protocol-adapter",
+      "rule": "the selector skips leading ASCII whitespace while detecting the protocol",
+      "semantics": "refuses a JSON stream with a leading blank line instead of detecting it",
+      "files": [
+        "wire/selector.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 17 passed in 0.11s",
+        "tail": "ped\n        else:\n>           raise ProtocolError(\"stream is neither json nor a known frame\")\nE           wire.errors.ProtocolError: stream is neither json nor a known frame\n\nwire\\selector.py:48: ProtocolError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_selector_detects_both_protocols_across_a_split_magic\n1 failed, 17 passed in 0.11s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "2 failed, 28 passed in 0.19s",
+        "tail": "e\")\nE           wire.errors.ProtocolError: stream is neither json nor a known frame\n\nwire\\selector.py:48: ProtocolError\n=========================== short test summary info ===========================\nFAILED test_hidden_p2.py::test_selector_finish_reports_an_undetected_partial_stream\nFAILED test_hidden_p2.py::test_the_gateway_handles_both_protocols_and_a_partial_stream\n2 failed, 28 passed in 0.19s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "X1-M1-refund-tax-sign",
+      "task_id": "f-x1-api-compat-audit",
+      "rule": "the refund tax mirrors the charge sign",
+      "semantics": "reports a positive refund tax, so the refund event no longer mirrors the charge",
+      "files": [
+        "billing/refund.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 14 passed in 0.12s",
+        "tail": "), actor=\"alice\")\n        assert receipt.kind == \"refund\"\n        assert receipt.data[\"amount\"] == -2500\n>       assert receipt.data[\"tax\"] == -500\nE       assert 500 == -500\n\ntest_public.py:49: AssertionError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_refund_is_the_negative_of_the_charge - assert 500...\n1 failed, 14 passed in 0.12s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 17 passed in 0.14s",
+        "tail": "750}\nE         \nE         Omitting 3 identical items, use -vv to show\nE         Differing items:\nE         {'tax': 750} != {'tax': -750}\nE         Use -v to get more diff\n\ntest_hidden_x1.py:108: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_x1.py::test_charge_and_refund_amounts_and_tax - AssertionE...\n1 failed, 17 passed in 0.14s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "X1-M2-reservation-not-atomic",
+      "task_id": "f-x1-api-compat-audit",
+      "rule": "a failed reservation leaves the stock ledger unchanged",
+      "semantics": "reserves line by line without a pre-check, so a later shortage leaves earlier lines decremented",
+      "files": [
+        "inventory/reservations.py"
+      ],
+      "public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "15 passed in 0.07s",
+        "tail": "...............                                                          [100%]\n15 passed in 0.07s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 17 passed in 0.14s",
+        "tail": "       \nE         Omitting 1 identical items, use -vv to show\nE         Differing items:\nE         {'notebook': 3} != {'notebook': 5}\nE         Use -v to get more diff\n\ntest_hidden_x1.py:234: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_x1.py::test_reservation_is_all_or_nothing_and_sums_units_per_sku\n1 failed, 17 passed in 0.14s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": false,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "X1-M3-statement-no-credits",
+      "task_id": "f-x1-api-compat-audit",
+      "rule": "`statement` sums the WELCOME10 credit per order",
+      "semantics": "always reports zero credits, so the net amount is overstated",
+      "files": [
+        "billing/statements.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 14 passed in 0.12s",
+        "tail": "cal items, use -vv to show\nE         Differing items:\nE         {'net': 3750} != {'net': 3375}\nE         {'credits': 0} != {'credits': 375}\nE         Use -v to get more diff\n\ntest_public.py:138: AssertionError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_statement_applies_the_standard_discount - Asserti...\n1 failed, 14 passed in 0.12s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 17 passed in 0.15s",
+        "tail": "ms, use -vv to show\nE         Differing items:\nE         {'credits': 0} != {'credits': 375}\nE         {'net': 3750} != {'net': 3375}\nE         Use -v to get more diff\n\ntest_hidden_x1.py:247: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_x1.py::test_statement_handles_an_empty_run_and_the_discount_floor\n1 failed, 17 passed in 0.15s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "X2-M1-mark-before-handler",
+      "task_id": "f-x2-distributed-diagnosis",
+      "rule": "a message is marked processed only after the handler succeeded",
+      "semantics": "marks it before the handler, so a transient failure can never be retried and is acked as a duplicate",
+      "files": [
+        "eventsys/consumer.py",
+        "eventsys/consumer.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "2 failed, 9 passed in 0.62s",
+        "tail": "n\": 1})\n        counts = pipeline.run_once()\n>       assert counts[\"dead\"] == 1\nE       assert 0 == 1\n\ntest_public.py:88: AssertionError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_a_transient_failure_is_retried_with_capped_backoff\nFAILED test_public.py::test_a_permanent_failure_ends_in_the_dead_letter_set\n2 failed, 9 passed in 0.62s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "2 failed, 18 passed in 0.74s",
+        "tail": "  assert snapshot[\"dead\"] == 2\n>       assert snapshot[\"processed\"] == 0\nE       assert 2 == 0\n\ntest_hidden_x2.py:368: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_x2.py::test_retry_schedule_uses_the_injected_clock - Asser...\nFAILED test_hidden_x2.py::test_metrics_cover_empty_success_and_dead_letters\n2 failed, 18 passed in 0.74s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "X2-M2-broker-drops",
+      "task_id": "f-x2-distributed-diagnosis",
+      "rule": "a full broker raises QueueFull and never drops",
+      "semantics": "evicts the oldest queued message on overflow, exactly the incident behaviour",
+      "files": [
+        "eventsys/broker.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 10 passed in 0.60s",
+        "tail": "broker.publish(event(\"e-1\"))\n        broker.publish(event(\"e-2\"))\n>       with pytest.raises(QueueFull):\n             ^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE QueueFull\n\ntest_public.py:35: Failed\n=========================== short test summary info ===========================\nFAILED test_public.py::test_a_full_broker_rejects_instead_of_dropping - Faile...\n1 failed, 10 passed in 0.60s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 19 passed in 0.60s",
+        "tail": "ange(1, 4):\n            broker.publish(event(f\"e-{index}\"))\n>       with pytest.raises(QueueFull):\n             ^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE QueueFull\n\ntest_hidden_x2.py:53: Failed\n=========================== short test summary info ===========================\nFAILED test_hidden_x2.py::test_broker_rejects_overflow_without_reordering_the_queue\n1 failed, 19 passed in 0.60s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "X2-M3-journal-ignores-acks",
+      "task_id": "f-x2-distributed-diagnosis",
+      "rule": "`pending_deliveries` excludes every later ack/dead record",
+      "semantics": "reports acknowledged deliveries as pending, so recovery redelivers them",
+      "files": [
+        "eventsys/journal.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 10 passed in 0.58s",
+        "tail": "        \nE         Left contains one more item: Envelope(event=Event(id='e-1', kind='order', payload={'n': 1}, created_at=0.0), attempts=0)\nE         Use -v to get more diff\n\ntest_public.py:103: AssertionError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_the_journal_reconstructs_a_taken_delivery - Asser...\n1 failed, 10 passed in 0.58s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "2 failed, 18 passed in 0.64s",
+        "tail": "a/Local/Temp/pytest-of-86180/pytest-1347/test_recovery_skips_processed_0/journal.jsonl'))\n\ntest_hidden_x2.py:254: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_x2.py::test_journal_reconstructs_order_and_attempts - Asse...\nFAILED test_hidden_x2.py::test_recovery_skips_processed_dead_and_acked_ids - ...\n2 failed, 18 passed in 0.64s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "C1-M1-precedence-swapped",
+      "task_id": "f-c1-config-lifecycle",
+      "rule": "precedence is explicit > environment > file > default",
+      "semantics": "lets the file override the environment",
+      "files": [
+        "configkit/merge.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "2 failed, 10 passed in 0.10s",
+        "tail": "     AssertionError: assert 'error' == 'debug'\nE         \nE         - debug\nE         + error\n\ntest_public.py:122: AssertionError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_precedence_is_explicit_env_file_default - Asserti...\nFAILED test_public.py::test_a_profile_sits_between_the_file_and_the_environment\n2 failed, 10 passed in 0.10s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "2 failed, 13 passed in 0.12s",
+        "tail": "AssertionError: assert 'error' == 'warning'\nE         \nE         - warning\nE         + error\n\ntest_hidden_c1.py:196: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_c1.py::test_the_file_never_beats_the_environment - Asserti...\nFAILED test_hidden_c1.py::test_profiles_are_a_layer_with_their_own_precedence\n2 failed, 13 passed in 0.12s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "C1-M2-unknown-keys-ignored",
+      "task_id": "f-c1-config-lifecycle",
+      "rule": "an unknown configuration path is an UnknownKey",
+      "semantics": "silently accepts unknown keys, so a typo never fails a deployment",
+      "files": [
+        "configkit/validate.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 11 passed in 0.10s",
+        "tail": "ytest.raises(TypeMismatch):\n            check({\"port\": \"12x\"})\n>       with pytest.raises(UnknownKey):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE UnknownKey\n\ntest_public.py:88: Failed\n=========================== short test summary info ===========================\nFAILED test_public.py::test_validation_is_strict_and_applies_defaults - Faile...\n1 failed, 11 passed in 0.10s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "2 failed, 13 passed in 0.13s",
+        "tail": "raises(UnknownKey):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE UnknownKey\n\ntest_hidden_c1.py:176: Failed\n=========================== short test summary info ===========================\nFAILED test_hidden_c1.py::test_errors_carry_a_code_and_a_path - Failed: DID N...\nFAILED test_hidden_c1.py::test_runtime_view_is_complete_sorted_and_explainable\n2 failed, 13 passed in 0.13s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "C1-M3-legacy-keys-kept",
+      "task_id": "f-c1-config-lifecycle",
+      "rule": "migration drops every `legacy_*` key",
+      "semantics": "keeps a legacy key, which then reaches validation as an unknown path",
+      "files": [
+        "configkit/migrate.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 11 passed in 0.10s",
+        "tail": ", ...}\nE         \nE         Omitting 5 identical items, use -vv to show\nE         Left contains 1 more item:\nE         {'legacy_flag': True}\nE         Use -v to get more diff\n\ntest_public.py:72: AssertionError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_migration_renames_and_drops_legacy_keys - Asserti...\n1 failed, 11 passed in 0.10s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 14 passed in 0.12s",
+        "tail": "h'}\nE         \nE         Omitting 2 identical items, use -vv to show\nE         Left contains 1 more item:\nE         {'legacy_flag': True}\nE         Use -v to get more diff\n\ntest_hidden_c1.py:66: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_c1.py::test_migration_is_idempotent_and_version_aware - As...\n1 failed, 14 passed in 0.12s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "C2-M1-cancel-from-failed",
+      "task_id": "f-c2-scheduler-retry",
+      "rule": "a failed record can be cancelled",
+      "semantics": "removes the cancel edge from `failed`, so a retryable failure cannot be stopped",
+      "files": [
+        "schedkit/machine.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 12 passed in 0.66s",
+        "tail": "]:\n>           raise InvalidTransition(f\"{event!r} is not allowed from {state!r}\")\nE           schedkit.errors.InvalidTransition: 'cancel' is not allowed from 'failed'\n\nschedkit\\machine.py:27: InvalidTransition\n=========================== short test summary info ===========================\nFAILED test_public.py::test_machine_covers_cancel_exhaust_recover_and_terminals\n1 failed, 12 passed in 0.66s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "2 failed, 17 passed in 0.69s",
+        "tail": "chedkit.errors.InvalidTransition: 'cancel' is not allowed from 'failed'\n\nschedkit\\machine.py:27: InvalidTransition\n=========================== short test summary info ===========================\nFAILED test_hidden_c2.py::test_the_transition_table_is_complete_and_terminal_states_are_closed\nFAILED test_hidden_c2.py::test_cancel_works_from_failed_and_running - schedki...\n2 failed, 17 passed in 0.69s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "C2-M2-running-not-persisted",
+      "task_id": "f-c2-scheduler-retry",
+      "rule": "the record is persisted as `running` before the handler runs",
+      "semantics": "runs the handler without persisting the running state, so a crash leaves no recoverable record",
+      "files": [
+        "schedkit/scheduler.py"
+      ],
+      "public": {
+        "rc": 0,
+        "category": "PASS",
+        "summary": "13 passed in 0.60s",
+        "tail": ".............                                                            [100%]\n13 passed in 0.60s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 18 passed in 0.61s",
+        "tail": "   scheduler.tick()\n>       assert holder[\"state\"] == \"running\"\nE       AssertionError: assert 'queued' == 'running'\nE         \nE         - running\nE         + queued\n\ntest_hidden_c2.py:309: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_c2.py::test_the_record_is_persisted_as_running_before_the_handler\n1 failed, 18 passed in 0.61s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": false,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    },
+    {
+      "mutation_id": "C2-M3-uncapped-delay",
+      "task_id": "f-c2-scheduler-retry",
+      "rule": "the retry delay is capped by `max_delay`",
+      "semantics": "lets the delay grow without a ceiling",
+      "files": [
+        "schedkit/retry.py"
+      ],
+      "public": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 12 passed in 0.57s",
+        "tail": "attempt in (1, 2, 3)] == [2.0, 5.0, 5.0]\nE       assert [2.0, 6.0, 18.0] == [2.0, 5.0, 5.0]\nE         \nE         At index 1 diff: 6.0 != 5.0\nE         Use -v to get more diff\n\ntest_public.py:77: AssertionError\n=========================== short test summary info ===========================\nFAILED test_public.py::test_policy_is_validated_and_the_delay_is_capped - ass...\n1 failed, 12 passed in 0.57s\n"
+      },
+      "oracle": {
+        "rc": 1,
+        "category": "BUSINESS_FAILURE",
+        "summary": "1 failed, 18 passed in 0.69s",
+        "tail": "elay=1.0, max_delay=8.0, multiplier=2.0))\nE        +    where Policy(max_attempts=3, base_delay=1.0, max_delay=8.0, multiplier=2.0) = Policy(base_delay=1.0, max_delay=8.0)\n\ntest_hidden_c2.py:96: AssertionError\n=========================== short test summary info ===========================\nFAILED test_hidden_c2.py::test_policy_and_should_retry_edges - assert 512.0 =...\n1 failed, 18 passed in 0.69s\n"
+      },
+      "program_loads": true,
+      "detected_by_public": true,
+      "detected_by_oracle": true,
+      "valid": true,
+      "problems": []
+    }
+  ],
+  "complexity": [
+    {
+      "task_id": "closure2-pipeline-migration",
+      "business_source_loc": 72,
+      "seed_business_source_loc": 54,
+      "documentation_loc": 46,
+      "public_test_loc": 60,
+      "oracle_loc": 64,
+      "diagnostic_data_lines": 0,
+      "diagnostic_data_bytes": 0,
+      "reference_changed_files": 6,
+      "reference_added_lines": 37,
+      "reference_deleted_lines": 19,
+      "reference_changed_lines": 56,
+      "per_file_diff": {
+        "pipeline/parsing.py": {
+          "added": 12,
+          "deleted": 4
+        },
+        "pipeline/normalise.py": {
+          "added": 11,
+          "deleted": 3
+        },
+        "pipeline/aggregate.py": {
+          "added": 4,
+          "deleted": 4
+        },
+        "pipeline/store.py": {
+          "added": 5,
+          "deleted": 4
+        },
+        "pipeline/api.py": {
+          "added": 3,
+          "deleted": 2
+        },
+        "pipeline/report.py": {
+          "added": 2,
+          "deleted": 2
+        }
+      },
+      "modules": 7,
+      "local_packages": 1,
+      "seeded_files": 10,
+      "external_dependencies": []
+    },
+    {
+      "task_id": "closure2-state-machine-refactor",
+      "business_source_loc": 51,
+      "seed_business_source_loc": 34,
+      "documentation_loc": 22,
+      "public_test_loc": 49,
+      "oracle_loc": 55,
+      "diagnostic_data_lines": 0,
+      "diagnostic_data_bytes": 0,
+      "reference_changed_files": 4,
+      "reference_added_lines": 24,
+      "reference_deleted_lines": 7,
+      "reference_changed_lines": 31,
+      "per_file_diff": {
+        "lifecycle/state.py": {
+          "added": 9,
+          "deleted": 3
+        },
+        "lifecycle/approval.py": {
+          "added": 5,
+          "deleted": 1
+        },
+        "lifecycle/shipping.py": {
+          "added": 5,
+          "deleted": 1
+        },
+        "lifecycle/audit.py": {
+          "added": 5,
+          "deleted": 2
+        }
+      },
+      "modules": 5,
+      "local_packages": 1,
+      "seeded_files": 8,
+      "external_dependencies": []
+    },
+    {
+      "task_id": "f-p1-connector-migration",
+      "business_source_loc": 720,
+      "seed_business_source_loc": 485,
+      "documentation_loc": 140,
+      "public_test_loc": 141,
+      "oracle_loc": 299,
+      "diagnostic_data_lines": 0,
+      "diagnostic_data_bytes": 0,
+      "reference_changed_files": 9,
+      "reference_added_lines": 326,
+      "reference_deleted_lines": 91,
+      "reference_changed_lines": 417,
+      "per_file_diff": {
+        "ingest/batching.py": {
+          "added": 36,
+          "deleted": 11
+        },
+        "ingest/checkpoint.py": {
+          "added": 67,
+          "deleted": 9
+        },
+        "ingest/columns.py": {
+          "added": 58,
+          "deleted": 5
+        },
+        "ingest/csv_connector.py": {
+          "added": 53,
+          "deleted": 23
+        },
+        "ingest/jsonl_connector.py": {
+          "added": 56,
+          "deleted": 10
+        },
+        "ingest/paths.py": {
+          "added": 21,
+          "deleted": 7
+        },
+        "ingest/pipeline.py": {
+          "added": 22,
+          "deleted": 15
+        },
+        "ingest/registry.py": {
+          "added": 8,
+          "deleted": 6
+        },
+        "ingest/report.py": {
+          "added": 5,
+          "deleted": 5
+        }
+      },
+      "modules": 14,
+      "local_packages": 1,
+      "seeded_files": 16,
+      "external_dependencies": []
+    },
+    {
+      "task_id": "f-p2-protocol-adapter",
+      "business_source_loc": 693,
+      "seed_business_source_loc": 354,
+      "documentation_loc": 145,
+      "public_test_loc": 193,
+      "oracle_loc": 376,
+      "diagnostic_data_lines": 0,
+      "diagnostic_data_bytes": 0,
+      "reference_changed_files": 9,
+      "reference_added_lines": 421,
+      "reference_deleted_lines": 82,
+      "reference_changed_lines": 503,
+      "per_file_diff": {
+        "wire/codecs.py": {
+          "added": 44,
+          "deleted": 12
+        },
+        "wire/dispatch.py": {
+          "added": 30,
+          "deleted": 7
+        },
+        "wire/frame.py": {
+          "added": 125,
+          "deleted": 18
+        },
+        "wire/gateway.py": {
+          "added": 10,
+          "deleted": 2
+        },
+        "wire/json_fields.py": {
+          "added": 27,
+          "deleted": 10
+        },
+        "wire/json_message.py": {
+          "added": 99,
+          "deleted": 16
+        },
+        "wire/selector.py": {
+          "added": 48,
+          "deleted": 11
+        },
+        "wire/service.py": {
+          "added": 2,
+          "deleted": 2
+        },
+        "wire/validation.py": {
+          "added": 36,
+          "deleted": 4
+        }
+      },
+      "modules": 13,
+      "local_packages": 1,
+      "seeded_files": 14,
+      "external_dependencies": []
+    },
+    {
+      "task_id": "f-x1-api-compat-audit",
+      "business_source_loc": 881,
+      "seed_business_source_loc": 805,
+      "documentation_loc": 105,
+      "public_test_loc": 177,
+      "oracle_loc": 314,
+      "diagnostic_data_lines": 0,
+      "diagnostic_data_bytes": 0,
+      "reference_changed_files": 15,
+      "reference_added_lines": 184,
+      "reference_deleted_lines": 108,
+      "reference_changed_lines": 292,
+      "per_file_diff": {
+        "billing/charge.py": {
+          "added": 10,
+          "deleted": 10
+        },
+        "billing/ledger.py": {
+          "added": 10,
+          "deleted": 8
+        },
+        "billing/reconciliation.py": {
+          "added": 8,
+          "deleted": 10
+        },
+        "billing/refund.py": {
+          "added": 11,
+          "deleted": 8
+        },
+        "billing/settlement.py": {
+          "added": 13,
+          "deleted": 4
+        },
+        "billing/statements.py": {
+          "added": 16,
+          "deleted": 6
+        },
+        "events/subscribers.py": {
+          "added": 9,
+          "deleted": 4
+        },
+        "inventory/reservations.py": {
+          "added": 27,
+          "deleted": 8
+        },
+        "inventory/transfers.py": {
+          "added": 8,
+          "deleted": 4
+        },
+        "notifications/service.py": {
+          "added": 8,
+          "deleted": 7
+        },
+        "reporting/daily.py": {
+          "added": 10,
+          "deleted": 5
+        },
+        "reporting/export.py": {
+          "added": 10,
+          "deleted": 6
+        },
+        "reporting/monthly.py": {
+          "added": 15,
+          "deleted": 5
+        },
+        "returns/service.py": {
+          "added": 11,
+          "deleted": 8
+        },
+        "returns/workflow.py": {
+          "added": 18,
+          "deleted": 15
+        }
+      },
+      "modules": 39,
+      "local_packages": 10,
+      "seeded_files": 41,
+      "external_dependencies": []
+    },
+    {
+      "task_id": "f-x2-distributed-diagnosis",
+      "business_source_loc": 636,
+      "seed_business_source_loc": 401,
+      "documentation_loc": 168,
+      "public_test_loc": 174,
+      "oracle_loc": 390,
+      "diagnostic_data_lines": 48,
+      "diagnostic_data_bytes": 2254,
+      "reference_changed_files": 9,
+      "reference_added_lines": 296,
+      "reference_deleted_lines": 61,
+      "reference_changed_lines": 357,
+      "per_file_diff": {
+        "eventsys/audit.py": {
+          "added": 48,
+          "deleted": 5
+        },
+        "eventsys/broker.py": {
+          "added": 54,
+          "deleted": 18
+        },
+        "eventsys/consumer.py": {
+          "added": 12,
+          "deleted": 7
+        },
+        "eventsys/journal.py": {
+          "added": 63,
+          "deleted": 8
+        },
+        "eventsys/metrics.py": {
+          "added": 20,
+          "deleted": 2
+        },
+        "eventsys/pipeline.py": {
+          "added": 14,
+          "deleted": 4
+        },
+        "eventsys/recovery.py": {
+          "added": 16,
+          "deleted": 2
+        },
+        "eventsys/retry.py": {
+          "added": 15,
+          "deleted": 3
+        },
+        "eventsys/store.py": {
+          "added": 54,
+          "deleted": 12
+        }
+      },
+      "modules": 14,
+      "local_packages": 1,
+      "seeded_files": 20,
+      "external_dependencies": []
+    },
+    {
+      "task_id": "f-c1-config-lifecycle",
+      "business_source_loc": 532,
+      "seed_business_source_loc": 232,
+      "documentation_loc": 115,
+      "public_test_loc": 163,
+      "oracle_loc": 238,
+      "diagnostic_data_lines": 0,
+      "diagnostic_data_bytes": 0,
+      "reference_changed_files": 8,
+      "reference_added_lines": 356,
+      "reference_deleted_lines": 56,
+      "reference_changed_lines": 412,
+      "per_file_diff": {
+        "configkit/document.py": {
+          "added": 20,
+          "deleted": 7
+        },
+        "configkit/explain.py": {
+          "added": 40,
+          "deleted": 7
+        },
+        "configkit/loader.py": {
+          "added": 19,
+          "deleted": 2
+        },
+        "configkit/merge.py": {
+          "added": 34,
+          "deleted": 7
+        },
+        "configkit/migrate.py": {
+          "added": 26,
+          "deleted": 2
+        },
+        "configkit/profile.py": {
+          "added": 45,
+          "deleted": 5
+        },
+        "configkit/runtime.py": {
+          "added": 57,
+          "deleted": 12
+        },
+        "configkit/validate.py": {
+          "added": 115,
+          "deleted": 14
+        }
+      },
+      "modules": 11,
+      "local_packages": 1,
+      "seeded_files": 13,
+      "external_dependencies": []
+    },
+    {
+      "task_id": "f-c2-scheduler-retry",
+      "business_source_loc": 638,
+      "seed_business_source_loc": 402,
+      "documentation_loc": 133,
+      "public_test_loc": 240,
+      "oracle_loc": 375,
+      "diagnostic_data_lines": 0,
+      "diagnostic_data_bytes": 0,
+      "reference_changed_files": 9,
+      "reference_added_lines": 296,
+      "reference_deleted_lines": 60,
+      "reference_changed_lines": 356,
+      "per_file_diff": {
+        "schedkit/events.py": {
+          "added": 54,
+          "deleted": 13
+        },
+        "schedkit/executor.py": {
+          "added": 13,
+          "deleted": 2
+        },
+        "schedkit/jobspec.py": {
+          "added": 10,
+          "deleted": 3
+        },
+        "schedkit/machine.py": {
+          "added": 16,
+          "deleted": 9
+        },
+        "schedkit/metrics.py": {
+          "added": 29,
+          "deleted": 5
+        },
+        "schedkit/recovery.py": {
+          "added": 20,
+          "deleted": 2
+        },
+        "schedkit/retry.py": {
+          "added": 15,
+          "deleted": 3
+        },
+        "schedkit/scheduler.py": {
+          "added": 84,
+          "deleted": 19
+        },
+        "schedkit/store.py": {
+          "added": 55,
+          "deleted": 4
+        }
+      },
+      "modules": 13,
+      "local_packages": 1,
+      "seeded_files": 15,
+      "external_dependencies": []
+    }
+  ],
+  "static_dag": [
+    {
+      "task_id": "closure2-pipeline-migration",
+      "nodes": [
+        {
+          "task_id": "parse",
+          "depends_on": [],
+          "owned_paths": [
+            "pipeline/parsing.py",
+            "pipeline/normalise.py"
+          ],
+          "max_turns": 12
+        },
+        {
+          "task_id": "aggregate",
+          "depends_on": [],
+          "owned_paths": [
+            "pipeline/aggregate.py",
+            "pipeline/store.py"
+          ],
+          "max_turns": 12
+        },
+        {
+          "task_id": "integrate",
+          "depends_on": [
+            "parse",
+            "aggregate"
+          ],
+          "owned_paths": [
+            "pipeline/api.py",
+            "pipeline/report.py"
+          ],
+          "max_turns": 12
+        }
+      ],
+      "edges": 2,
+      "parallel_width": 2,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "closure2-state-machine-refactor",
+      "nodes": [
+        {
+          "task_id": "machine",
+          "depends_on": [],
+          "owned_paths": [
+            "lifecycle/state.py"
+          ],
+          "max_turns": 12
+        },
+        {
+          "task_id": "callers",
+          "depends_on": [
+            "machine"
+          ],
+          "owned_paths": [
+            "lifecycle/approval.py",
+            "lifecycle/audit.py",
+            "lifecycle/shipping.py",
+            "lifecycle/state.py"
+          ],
+          "max_turns": 12
+        }
+      ],
+      "edges": 1,
+      "parallel_width": 1,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-p1-connector-migration",
+      "nodes": [
+        {
+          "task_id": "csv",
+          "depends_on": [],
+          "owned_paths": [
+            "ingest/columns.py",
+            "ingest/csv_connector.py"
+          ],
+          "max_turns": 14
+        },
+        {
+          "task_id": "jsonl",
+          "depends_on": [],
+          "owned_paths": [
+            "ingest/paths.py",
+            "ingest/jsonl_connector.py"
+          ],
+          "max_turns": 14
+        },
+        {
+          "task_id": "integrate",
+          "depends_on": [
+            "csv",
+            "jsonl"
+          ],
+          "owned_paths": [
+            "ingest/batching.py",
+            "ingest/checkpoint.py",
+            "ingest/registry.py",
+            "ingest/pipeline.py",
+            "ingest/report.py"
+          ],
+          "max_turns": 18
+        }
+      ],
+      "edges": 2,
+      "parallel_width": 2,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-p2-protocol-adapter",
+      "nodes": [
+        {
+          "task_id": "json",
+          "depends_on": [],
+          "owned_paths": [
+            "wire/json_fields.py",
+            "wire/json_message.py"
+          ],
+          "max_turns": 16
+        },
+        {
+          "task_id": "binary",
+          "depends_on": [],
+          "owned_paths": [
+            "wire/frame.py"
+          ],
+          "max_turns": 16
+        },
+        {
+          "task_id": "integrate",
+          "depends_on": [
+            "json",
+            "binary"
+          ],
+          "owned_paths": [
+            "wire/codecs.py",
+            "wire/dispatch.py",
+            "wire/gateway.py",
+            "wire/selector.py",
+            "wire/service.py",
+            "wire/validation.py"
+          ],
+          "max_turns": 16
+        }
+      ],
+      "edges": 2,
+      "parallel_width": 2,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-x1-api-compat-audit",
+      "nodes": [
+        {
+          "task_id": "billing",
+          "depends_on": [],
+          "owned_paths": [
+            "billing/charge.py",
+            "billing/ledger.py",
+            "billing/reconciliation.py",
+            "billing/refund.py",
+            "billing/settlement.py"
+          ],
+          "max_turns": 18
+        },
+        {
+          "task_id": "reports",
+          "depends_on": [],
+          "owned_paths": [
+            "reporting/daily.py",
+            "reporting/export.py",
+            "reporting/monthly.py"
+          ],
+          "max_turns": 16
+        },
+        {
+          "task_id": "surfaces",
+          "depends_on": [
+            "billing",
+            "reports"
+          ],
+          "owned_paths": [
+            "billing/statements.py",
+            "events/subscribers.py",
+            "inventory/reservations.py",
+            "inventory/transfers.py",
+            "notifications/service.py",
+            "returns/service.py",
+            "returns/workflow.py"
+          ],
+          "max_turns": 20
+        }
+      ],
+      "edges": 2,
+      "parallel_width": 2,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-x2-distributed-diagnosis",
+      "nodes": [
+        {
+          "task_id": "queue",
+          "depends_on": [],
+          "owned_paths": [
+            "eventsys/broker.py",
+            "eventsys/retry.py"
+          ],
+          "max_turns": 16
+        },
+        {
+          "task_id": "storage",
+          "depends_on": [],
+          "owned_paths": [
+            "eventsys/audit.py",
+            "eventsys/journal.py",
+            "eventsys/store.py"
+          ],
+          "max_turns": 16
+        },
+        {
+          "task_id": "consumer",
+          "depends_on": [
+            "queue",
+            "recovery",
+            "storage"
+          ],
+          "owned_paths": [
+            "eventsys/consumer.py",
+            "eventsys/metrics.py",
+            "eventsys/pipeline.py"
+          ],
+          "max_turns": 18
+        },
+        {
+          "task_id": "recovery",
+          "depends_on": [
+            "storage"
+          ],
+          "owned_paths": [
+            "eventsys/recovery.py"
+          ],
+          "max_turns": 14
+        }
+      ],
+      "edges": 4,
+      "parallel_width": 2,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-c1-config-lifecycle",
+      "nodes": [
+        {
+          "task_id": "sources",
+          "depends_on": [],
+          "owned_paths": [
+            "configkit/document.py",
+            "configkit/loader.py",
+            "configkit/migrate.py"
+          ],
+          "max_turns": 16
+        },
+        {
+          "task_id": "resolved",
+          "depends_on": [
+            "sources"
+          ],
+          "owned_paths": [
+            "configkit/explain.py",
+            "configkit/merge.py",
+            "configkit/profile.py",
+            "configkit/runtime.py",
+            "configkit/validate.py"
+          ],
+          "max_turns": 18
+        }
+      ],
+      "edges": 1,
+      "parallel_width": 1,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-c2-scheduler-retry",
+      "nodes": [
+        {
+          "task_id": "queue",
+          "depends_on": [],
+          "owned_paths": [
+            "schedkit/jobspec.py",
+            "schedkit/machine.py",
+            "schedkit/retry.py"
+          ],
+          "max_turns": 14
+        },
+        {
+          "task_id": "storage",
+          "depends_on": [],
+          "owned_paths": [
+            "schedkit/store.py"
+          ],
+          "max_turns": 14
+        },
+        {
+          "task_id": "executor",
+          "depends_on": [
+            "queue",
+            "storage"
+          ],
+          "owned_paths": [
+            "schedkit/executor.py"
+          ],
+          "max_turns": 14
+        },
+        {
+          "task_id": "recovery",
+          "depends_on": [
+            "storage"
+          ],
+          "owned_paths": [
+            "schedkit/recovery.py"
+          ],
+          "max_turns": 12
+        },
+        {
+          "task_id": "scheduler",
+          "depends_on": [
+            "executor",
+            "recovery"
+          ],
+          "owned_paths": [
+            "schedkit/events.py",
+            "schedkit/metrics.py",
+            "schedkit/scheduler.py"
+          ],
+          "max_turns": 18
+        }
+      ],
+      "edges": 5,
+      "parallel_width": 2,
+      "problems": [],
+      "valid": true
+    }
+  ],
+  "leak_checks": [
+    {
+      "task_id": "closure2-pipeline-migration",
+      "files_checked": 10,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "closure2-state-machine-refactor",
+      "files_checked": 8,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-p1-connector-migration",
+      "files_checked": 16,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-p2-protocol-adapter",
+      "files_checked": 14,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-x1-api-compat-audit",
+      "files_checked": 41,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-x2-distributed-diagnosis",
+      "files_checked": 20,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-c1-config-lifecycle",
+      "files_checked": 13,
+      "problems": [],
+      "valid": true
+    },
+    {
+      "task_id": "f-c2-scheduler-retry",
+      "files_checked": 15,
+      "problems": [],
+      "valid": true
+    }
+  ],
+  "notes": [
+    "no model request and no sandbox container was used",
+    "the reference is used only to prove oracle satisfiability and to build mutations",
+    "the historical master manifest and batch plans are not refrozen in this stage"
+  ]
+}

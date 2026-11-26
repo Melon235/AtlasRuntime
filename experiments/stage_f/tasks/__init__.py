@@ -1,8 +1,12 @@
 """Stage F task catalog: eight tasks, four families, one frozen ``Task`` dataclass.
 
-S1 and S2 are the Closure-2 fixtures, reused byte for byte. P1 adapts the pipeline skeleton to a
-multi-source connector migration. P2, X1, X2, C1 and C2 are new fixtures with their own identity,
-business requirement, public suite and independent oracle.
+S1 and S2 are the Closure-2 fixtures, reused byte for byte. P1, P2, X1, X2, C1 and C2 are the F2-B
+formal fixtures: real multi-module business code authored under ``experiments/stage_f/fixtures`` and
+loaded into the frozen dataclass, so the fixture writer, the digests and the sandboxed oracle keep
+working unchanged.
+
+The six formal tasks carry a public contract, a visible public suite, an independent hidden oracle,
+a reference implementation used only to prove satisfiability, and a human-authored decomposition.
 """
 
 from __future__ import annotations

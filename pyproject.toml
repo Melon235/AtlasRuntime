@@ -66,6 +66,9 @@ package = true
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+# The Stage F fixtures are materialised data: their bytes are written into a workspace and hashed,
+# so they are not formatted or linted as project source. The qualification harness still reads them.
+extend-exclude = ["experiments/stage_f/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]

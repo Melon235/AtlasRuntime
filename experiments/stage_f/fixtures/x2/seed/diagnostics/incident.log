@@ -1,0 +1,19 @@
+== burst ==
+publish e-1 ok
+publish e-2 ok
+publish e-3 ok
+publish e-4 ok
+publish e-5 ok
+handled e-3
+handled e-4
+handled e-5
+missing e-1,e-2
+counts {'processed': 3, 'duplicate': 0, 'retried': 0, 'dead': 0}
+stats {'pending': 0, 'in_flight': 0, 'acked': 3, 'dead': 0, 'processed': 3, 'dead_letters': 0}
+rejected 0
+== replay ==
+replay handled []
+replay counts {'processed': 0, 'duplicate': 0, 'retried': 0, 'dead': 1}
+replay acked []
+replay dead ['e-1']
+replay clock 0.0
