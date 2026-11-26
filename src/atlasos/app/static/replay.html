@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AtlasRuntime · Replay Workbench</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230d1117'/%3E%3Cpath d='M3 12 8 3l5 9z' fill='%2358a6ff'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0f14; --panel: #12181f; --panel2: #18202a; --line: #243040;
+      --text: #e6edf3; --muted: #8b97a8; --dim: #5d6b7d;
+      --accent: #58a6ff; --ok: #3fb950; --warn: #d29922; --bad: #f85149; --violet: #a371f7;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden;
+      font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header { display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+      border-bottom: 1px solid var(--line); background: #070a0e; }
+    .brand { font-weight: 700; letter-spacing: .3px; white-space: nowrap; }
+    .brand span { color: var(--accent); }
+    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 99px;
+      font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+      border: 1px solid var(--line); color: var(--muted); }
+    .chip.ro { border-color: #2d4a2f; color: var(--ok); background: #0f1a12; }
+    .chip.mode { border-color: #23374d; color: var(--accent); background: #0d1622; }
+    header .spacer { margin-left: auto; }
+    header a { color: var(--muted); text-decoration: none; font-size: 12px; }
+    header a:hover { color: var(--text); }
+    .shell { display: grid; grid-template-columns: 320px 1fr; height: calc(100% - 49px); }
+    .explorer { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0;
+      background: #0a0e13; }
+    .explorer .filters { padding: 10px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+    .explorer .filters .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    input, select { width: 100%; background: #070a0e; color: var(--text); border: 1px solid var(--line);
+      border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 12px; }
+    input::placeholder { color: var(--dim); }
+    .runs { overflow: auto; flex: 1; min-height: 0; }
+    .run { padding: 9px 10px; border-bottom: 1px solid #161d26; cursor: pointer; }
+    .run:hover { background: #101720; }
+    .run.active { background: #13202f; box-shadow: inset 3px 0 0 var(--accent); }
+    .run .line1 { display: flex; align-items: center; gap: 6px; }
+    .run .key { font-family: var(--mono); font-size: 11px; color: var(--text); overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .run .meta { color: var(--muted); font-size: 11px; margin-top: 2px; display: flex; gap: 6px;
+      flex-wrap: wrap; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: var(--dim); }
+    .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); }
+    .dot.warn { background: var(--warn); } .dot.info { background: var(--accent); }
+    .detail { min-width: 0; display: flex; flex-direction: column; }
+    .runbar { padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel);
+      display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+    .runbar .title { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+    .runbar .kv { color: var(--muted); font-size: 11px; }
+    .runbar .kv b { color: var(--text); font-weight: 600; }
+    .tabs { display: flex; gap: 2px; padding: 0 12px; background: #0a0e13;
+      border-bottom: 1px solid var(--line); overflow-x: auto; }
+    .tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
+      padding: 9px 10px; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+    .tabs button:hover { color: var(--text); }
+    .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+    .view { overflow: auto; padding: 16px; flex: 1; min-height: 0; }
+    h1 { font-size: 16px; margin: 0 0 10px; }
+    h2 { font-size: 13px; margin: 0 0 8px; color: var(--text); text-transform: uppercase;
+      letter-spacing: .6px; }
+    h2 .sub { text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 400;
+      margin-left: 6px; }
+    .grid { display: grid; gap: 12px; }
+    .g2 { grid-template-columns: 1fr 1fr; }
+    .g3 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+    @media (max-width: 1100px) { .shell { grid-template-columns: 260px 1fr; } .g2 { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    .panel.tight { padding: 10px; }
+    .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+    .kpi .label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .6px; }
+    .kpi .value { font-family: var(--mono); font-size: 16px; margin-top: 3px; word-break: break-all; }
+    .kpi .note { color: var(--dim); font-size: 10px; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1b242f; vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase;
+      letter-spacing: .4px; position: sticky; top: 0; background: var(--panel); }
+    tr:hover td { background: #101720; }
+    .mono { font-family: var(--mono); font-size: 11px; }
+    .muted { color: var(--muted); }
+    .dim { color: var(--dim); }
+    .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+    .violet { color: var(--violet); }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px;
+      font-weight: 700; letter-spacing: .4px; border: 1px solid var(--line); color: var(--muted); }
+    .badge.pass, .badge.present, .badge.complete, .badge.delivered_and_verified { color: var(--ok); border-color: #234a2c; background: #0f1a12; }
+    .badge.fail, .badge.not_delivered, .badge.missing { color: var(--bad); border-color: #4a2326; background: #1a0f11; }
+    .badge.partial, .badge.mixed, .badge.unknown, .badge.not_observed { color: var(--warn); border-color: #4a3a16; background: #1a1509; }
+    .badge.not_run, .badge.not_applicable, .badge.not_configured, .badge.unavailable, .badge.incomplete { color: var(--muted); }
+    .badge.deny { color: var(--bad); border-color: #4a2326; }
+    .badge.allow { color: var(--ok); border-color: #234a2c; }
+    .notice { border-left: 3px solid var(--warn); background: #1a1509; padding: 9px 11px; border-radius: 5px;
+      font-size: 12px; }
+    .notice.bad { border-left-color: var(--bad); background: #1a0f11; }
+    .notice.info { border-left-color: var(--accent); background: #0d1622; }
+    .notice.ok { border-left-color: var(--ok); background: #0f1a12; }
+    .empty { color: var(--dim); font-size: 12px; padding: 10px 0; }
+    .error { border-left: 3px solid var(--bad); background: #1a0f11; padding: 10px 12px;
+      border-radius: 5px; white-space: pre-wrap; font-size: 12px; }
+    .kv { display: grid; grid-template-columns: 168px 1fr; gap: 3px 10px; font-size: 12px; }
+    .kv div:nth-child(odd) { color: var(--muted); }
+    .kv div { overflow-wrap: anywhere; }
+    .lanes { display: grid; gap: 6px; }
+    .lane { display: grid; grid-template-columns: 190px 1fr; gap: 8px; align-items: center; }
+    .lane .who { font-family: var(--mono); font-size: 10px; color: var(--muted); overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .strip { position: relative; height: 22px; background: #0a0e13; border: 1px solid var(--line);
+      border-radius: 4px; overflow: hidden; }
+    .mark { position: absolute; top: 3px; width: 3px; height: 14px; border-radius: 1px;
+      background: var(--accent); opacity: .85; }
+    .mark.bad { background: var(--bad); } .mark.warn { background: var(--warn); }
+    .mark.ok { background: var(--ok); } .mark.dim { background: var(--dim); }
+    .axis { display: flex; justify-content: space-between; color: var(--dim); font-size: 10px;
+      font-family: var(--mono); margin-left: 198px; }
+    .bar { height: 8px; background: #0a0e13; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+    .bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--violet)); }
+    .split { display: grid; grid-template-columns: 1fr 350px; gap: 12px; }
+    @media (max-width: 1200px) { .split { grid-template-columns: 1fr; } }
+    .scroll { max-height: 480px; overflow: auto; }
+    .pill { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: 3px;
+      background: #0a0e13; border: 1px solid var(--line); color: var(--muted); }
+    .nowrap { white-space: nowrap; }
+    .fade { color: var(--dim); font-size: 11px; }
+    .goal { background: #0a0e13; border: 1px solid var(--line); border-radius: 6px; padding: 10px;
+      font-size: 12px; white-space: pre-wrap; max-height: 220px; overflow: auto; }
+    .tooltip { position: fixed; pointer-events: none; background: #05080b; border: 1px solid var(--line);
+      border-radius: 5px; padding: 4px 7px; font-size: 11px; max-width: 520px; z-index: 20;
+      display: none; }
+    .legend { display: flex; gap: 12px; color: var(--dim); font-size: 10px; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="brand">Atlas<span>Runtime</span> · Replay</div>
+  <span class="chip mode">Historical replay</span>
+  <span class="chip ro" id="ro-chip">read-only</span>
+  <span class="muted" id="roots-note" style="font-size:11px"></span>
+  <span class="spacer"></span>
+  <a href="/">live console ↗</a>
+</header>
+<div class="shell">
+  <aside class="explorer">
+    <div class="filters">
+      <input id="q" placeholder="search run id, task, plan, failure…" />
+      <div class="row2">
+        <select id="f-stage"><option value="">all stages</option></select>
+        <select id="f-source"><option value="">all sources</option></select>
+        <select id="f-mode"><option value="">all modes</option></select>
+        <select id="f-status"><option value="">all statuses</option></select>
+        <select id="f-provider"><option value="">all providers</option></select>
+        <select id="f-completeness"><option value="">all evidence</option></select>
+      </div>
+    </div>
+    <div class="runs" id="runs"><div class="empty" style="padding:12px">loading evidence…</div></div>
+  </aside>
+  <section class="detail">
+    <div class="runbar" id="runbar">
+      <span class="muted">Select a run from the evidence explorer.</span>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+    <div class="view" id="view">
+      <div class="panel">
+        <h1>Read-only historical replay</h1>
+        <p class="muted">This workbench projects execution evidence that already exists on disk.
+        It has no router, budget, ownership, approval, recovery or claim authority, and it never
+        starts a model request.</p>
+        <div class="kv" id="sources-kv"></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="tooltip" id="tip"></div>
+<script>
+(() => {
+  "use strict";
+  const state = { runs: [], facets: {}, key: null, tab: "overview", cache: {}, detail: null };
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+  const fmt = (v) => (v === null || v === undefined || v === "" ? '<span class="dim">—</span>' : esc(v));
+  const num = (v) => (typeof v === "number" ? v.toLocaleString("en-US") : fmt(v));
+  const cls = (v) => String(v ?? "unknown").toLowerCase().replace(/[^a-z0-9_]+/g, "_");
+  const badge = (v, extra = "") => `<span class="badge ${cls(v)} ${extra}">${esc(v)}</span>`;
+  const okBadge = (v) => {
+    if (v === true || v === "PASS" || v === "COMPLETED" || v === "present") return badge("PASS");
+    if (v === false || v === "FAIL" || v === "FAILED") return badge("FAIL");
+    if (v === "PARTIAL") return badge("PARTIAL");
+    return badge(v ?? "UNKNOWN");
+  };
+  const tip = $("tip");
+  function showTip(event, text) {
+    tip.textContent = text;
+    tip.style.display = "block";
+    tip.style.left = Math.min(event.clientX + 12, window.innerWidth - 540) + "px";
+    tip.style.top = Math.min(event.clientY + 14, window.innerHeight - 60) + "px";
+  }
+  const hideTip = () => { tip.style.display = "none"; };
+
+  async function api(path) {
+    const response = await fetch(path, { headers: { Accept: "application/json" } });
+    const text = await response.text();
+    let body = null;
+    try { body = text ? JSON.parse(text) : null; } catch { body = { raw: text.slice(0, 400) }; }
+    if (!response.ok) {
+      const error = new Error((body && (body.error || body.detail)) || `HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    return body;
+  }
+
+  function filters() {
+    const params = new URLSearchParams();
+    const map = { q: "q", "f-stage": "stage", "f-source": "source", "f-mode": "mode",
+      "f-status": "status", "f-provider": "provider", "f-completeness": "completeness" };
+    Object.entries(map).forEach(([id, name]) => {
+      const value = ($(id) || {}).value;
+      if (value) params.set(name, value);
+    });
+    params.set("limit", "300");
+    return params;
+  }
+
+  function fillSelect(id, values, label) {
+    const node = $(id);
+    const current = node.value;
+    node.innerHTML = `<option value="">${esc(label)}</option>` +
+      values.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    if (values.includes(current)) node.value = current;
+  }
+
+  async function loadRuns() {
+    try {
+      const data = await api(`/api/replay/runs?${filters().toString()}`);
+      state.runs = data.runs || [];
+      state.facets = data.facets || {};
+      fillSelect("f-stage", state.facets.stages || [], "all stages");
+      fillSelect("f-source", state.facets.source_kinds || [], "all sources");
+      fillSelect("f-mode", state.facets.modes || [], "all modes");
+      fillSelect("f-status", state.facets.statuses || [], "all statuses");
+      fillSelect("f-provider", state.facets.provider_kinds || [], "all providers");
+      fillSelect("f-completeness", state.facets.completeness || [], "all evidence");
+      renderRuns(data);
+    } catch (error) {
+      $("runs").innerHTML = `<div class="error" style="margin:10px">${esc(error.message)}</div>`;
+    }
+  }
+
+  function renderRuns(data) {
+    const holder = $("runs");
+    if (!state.runs.length) {
+      holder.innerHTML = `<div class="empty" style="padding:12px">No runs match the current filters.
+        Configured roots: ${esc((data && data.total === 0) ? "see /api/replay/sources" : "")}</div>`;
+      return;
+    }
+    holder.innerHTML = state.runs.map((run) => {
+      const status = run.status.headline === "NOT_DELIVERED" ? "bad"
+        : run.status.headline === "DELIVERED_AND_VERIFIED" ? "ok"
+        : run.completeness.level === "COMPLETE" ? "info" : "warn";
+      const provider = run.model.provider_kind === "SCRIPTED" ? "SCRIPTED" : "";
+      return `<div class="run ${run.run_key === state.key ? "active" : ""}" data-key="${esc(run.run_key)}">
+        <div class="line1"><span class="dot ${status}"></span>
+          <span class="key" title="${esc(run.run_key)}">${esc(run.cell_id || run.run_key)}</span></div>
+        <div class="meta">
+          <span>${esc(run.source_kind)}</span><span>·</span>
+          <span>${esc(run.execution.mode)}</span><span>·</span>
+          <span>${esc(run.status.recorded)}</span>
+          ${provider ? `<span class="badge">${esc(provider)}</span>` : ""}
+        </div>
+        <div class="meta"><span>${esc(run.experiment.stage)}</span><span>·</span>
+          <span>${run.completeness.level}/${run.completeness.total}</span><span>·</span>
+          <span>${esc((run.timing.started_at || "").slice(0, 19) || "no timestamp")}</span></div>
+      </div>`;
+    }).join("");
+    holder.querySelectorAll("[data-key]").forEach((node) => node.addEventListener("click", () => select(node.dataset.key)));
+  }
+
+  const TABS = [
+    ["overview", "Overview"], ["timeline", "Timeline"], ["agents", "Agents"],
+    ["delegation", "Delegation"], ["context", "Context & Resources"], ["tools", "Tools"],
+    ["artifacts", "Artifacts"], ["verification", "Verification"], ["requests", "Requests"],
+  ];
+
+  function renderTabs() {
+    $("tabs").innerHTML = TABS.map(([id, label]) =>
+      `<button data-tab="${id}" class="${id === state.tab ? "active" : ""}">${esc(label)}</button>`).join("");
+    $("tabs").querySelectorAll("[data-tab]").forEach((node) =>
+      node.addEventListener("click", () => { state.tab = node.dataset.tab; renderTabs(); loadTab(); }));
+  }
+
+  const endpoints = {
+    overview: "", timeline: "/timeline?limit=800", agents: "/agents", delegation: "/delegation",
+    context: "/context", tools: "/tools", artifacts: "/artifacts", verification: "/verification",
+    requests: "/requests",
+  };
+
+  async function select(key, { push = true } = {}) {
+    state.key = key;
+    state.cache = {};
+    state.tab = state.tab || "overview";
+    if (push) {
+      const url = new URL(location.href);
+      url.searchParams.set("run", key);
+      history.pushState({}, "", url);
+    }
+    renderRuns({ total: state.runs.length });
+    renderTabs();
+    $("runbar").innerHTML = `<span class="muted">loading ${esc(key)}…</span>`;
+    $("view").innerHTML = `<div class="empty">loading…</div>`;
+    try {
+      const overview = await api(`/api/replay/runs/${encodeURIComponent(key)}`);
+      state.detail = overview;
+      renderRunBar(overview);
+      await loadTab();
+    } catch (error) {
+      $("runbar").innerHTML = `<span class="bad">failed to load run</span>`;
+      $("view").innerHTML = `<div class="error">${esc(error.message)}</div>`;
+    }
+  }
+
+  function renderRunBar(run) {
+    $("runbar").innerHTML = `
+      <span class="title">${esc(run.cell_id || run.run_key)}</span>
+      ${badge(run.status.recorded)}
+      ${badge(run.status.headline)}
+      <span class="kv">source <b>${esc(run.source_kind)}</b></span>
+      <span class="kv">mode <b>${esc(run.execution.mode)}</b></span>
+      <span class="kv">model <b>${esc(run.model.requested)}</b></span>
+      <span class="kv">returned <b>${esc(run.model.returned)}</b></span>
+      <span class="kv">agents <b>${esc(run.counts.agents)}</b></span>
+      <span class="kv">evidence <b>${esc(run.completeness.level)} ${run.completeness.present}/${run.completeness.total}</b></span>`;
+  }
+
+  async function loadTab() {
+    if (!state.key) return;
+    const tab = state.tab;
+    const path = endpoints[tab] ?? "";
+    const url = `/api/replay/runs/${encodeURIComponent(state.key)}${path}`;
+    const view = $("view");
+    if (state.cache[tab]) { view.innerHTML = state.cache[tab]; return; }
+    view.innerHTML = `<div class="empty">loading ${esc(tab)}…</div>`;
+    try {
+      const data = await api(url);
+      const html = RENDER[tab] ? RENDER[tab](data) : `<div class="error">no renderer</div>`;
+      state.cache[tab] = html;
+      view.innerHTML = html;
+      if (tab === "timeline") wireLanes(data);
+    } catch (error) {
+      view.innerHTML = `<div class="error">${esc(error.message)}</div>`;
+    }
+  }
+
+  function panel(title, body, sub = "") {
+    return `<section class="panel"><h2>${esc(title)}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</h2>${body}</section>`;
+  }
+  function kpi(label, value, note = "") {
+    return `<div class="kpi"><div class="label">${esc(label)}</div>
+      <div class="value">${num(value)}</div>${note ? `<div class="note">${esc(note)}</div>` : ""}</div>`;
+  }
+  function kv(pairs) {
+    return `<div class="kv">${pairs.map(([k, v]) => `<div>${esc(k)}</div><div>${v}</div>`).join("")}</div>`;
+  }
+  function table(headers, rows, empty = "no rows recorded") {
+    if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
+    return `<div class="scroll"><table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.join("")}</tbody></table></div>`;
+  }
+
+  const RENDER = {
+    overview(d) {
+      const facets = Object.entries(d.completeness.facets).map(([name, value]) =>
+        `<div>${esc(name)}</div><div>${badge(value)}</div>`).join("");
+      const sources = d.sources.map((s) =>
+        `<tr><td class="mono">${esc(s.role)}</td><td class="mono">${esc(s.root)}/${esc(s.path)}</td></tr>`).join("");
+      return `<div class="grid g3">
+          ${kpi("execution mode", d.execution.mode, d.execution.mode_source)}
+          ${kpi("arm / profile", d.execution.arm_id, d.execution.profile_id)}
+          ${kpi("agents", d.counts.agents, `${d.counts.children_started} children started`)}
+          ${kpi("duration", d.timing.duration_s === null ? "UNKNOWN" : `${d.timing.duration_s}s`, d.timing.basis)}
+          ${kpi("system tokens", d.usage.system_total_tokens, d.usage.basis)}
+          ${kpi("estimated cost", d.cost.estimated_usd === "UNKNOWN" ? "UNKNOWN" : `$${d.cost.estimated_usd}`)}
+        </div>
+        <div class="split" style="margin-top:12px">
+          <div class="grid" style="gap:12px">
+            ${panel("task goal", `<div class="goal">${esc(d.goal)}</div>`)}
+            ${panel("run identity", kv([
+              ["run key", `<span class="mono">${esc(d.run_key)}</span>`],
+              ["cell id", `<span class="mono">${fmt(d.cell_id)}</span>`],
+              ["evidence root", `<span class="mono">${esc(d.evidence_root)}</span>`],
+              ["run directory", `<span class="mono">${esc(d.run_dir)}</span>`],
+              ["plan", `<span class="mono">${fmt(d.experiment.plan_id)}</span>`],
+              ["scope", fmt(d.experiment.scope)],
+              ["batch", fmt(d.experiment.batch_id)],
+              ["task", fmt(d.task.task_id)],
+              ["requested → returned model", `${fmt(d.model.requested)} → ${fmt(d.model.returned)}`],
+              ["provider", `${fmt(d.model.provider)} (${badge(d.model.provider_kind)})`],
+              ["started", fmt(d.timing.started_at)],
+              ["finished", fmt(d.timing.finished_at)],
+            ]))}
+            ${panel("execution topology", `<div class="grid g3">
+              ${kpi("main agents", d.topology.mains)}
+              ${kpi("workers", d.topology.workers)}
+              ${kpi("native agents", d.topology.native_agents)}
+              ${kpi("dag nodes", d.topology.dag_nodes)}
+            </div><div class="fade" style="margin-top:8px">${esc(d.topology.note)}</div>`)}
+            ${panel("sources read", table(["role", "path"], d.sources.map((s) =>
+              `<tr><td class="mono">${esc(s.role)}</td><td class="mono">${esc(s.root)}/${esc(s.path)}</td></tr>`),
+              "no source file was classified"))}
+          </div>
+          <aside class="grid" style="gap:12px">
+            ${panel("verification summary", kv(Object.entries(d.verification_summary.axes).map(([k, v]) =>
+              [k, okBadge(v)])) + `<div class="fade" style="margin-top:8px">headline: ${badge(d.verification_summary.headline)}</div>`)}
+            ${panel("evidence completeness", `<div style="margin-bottom:8px">${badge(d.completeness.level)}
+              <span class="muted">${d.completeness.present}/${d.completeness.total} facets</span></div>
+              <div class="kv">${facets}</div>
+              ${d.completeness.missing.length ? `<div class="fade" style="margin-top:8px">missing: ${esc(d.completeness.missing.join(", "))}</div>` : ""}`)}
+            ${d.warnings.length ? panel("warnings", `<div class="notice">${d.warnings.map(esc).join("<br>")}</div>`) : ""}
+            ${panel("counts", kv([
+              ["model requests", num(d.counts.model_requests)],
+              ["tool calls", num(d.counts.tool_calls)],
+              ["delegation rounds", num(d.counts.delegation_rounds)],
+              ["max observed concurrency", num(d.counts.max_observed_child_concurrency)],
+              ["main peak context", num(d.context.main_peak_context)],
+            ]))}
+          </aside>
+        </div>`;
+    },
+
+    timeline(d) {
+      const lanes = {};
+      d.events.filter((e) => e.timestamp).forEach((e) => {
+        const who = e.agent_id || "(no agent recorded)";
+        (lanes[who] = lanes[who] || []).push(e);
+      });
+      const names = Object.keys(lanes);
+      const laneHtml = names.map((name) =>
+        `<div class="lane"><div class="who" title="${esc(name)}">${esc(name)}</div>
+          <div class="strip" data-lane="${esc(name)}"></div></div>`).join("");
+      const observed = d.events.filter((e) => e.timestamp);
+      const ordered = d.events.filter((e) => !e.timestamp);
+      const eventRow = (e) => `<tr>
+        <td class="mono nowrap">${e.timestamp ? esc(e.timestamp) : '<span class="dim">ORDER_ONLY</span>'}</td>
+        <td>${esc(e.agent_id || "—")}</td>
+        <td><span class="pill">${esc(e.event_type)}</span></td>
+        <td>${esc(e.summary)}</td>
+        <td class="mono dim">${esc(e.source)}</td></tr>`;
+      return `
+        <div class="grid" style="gap:12px">
+          ${panel("parallel lanes", names.length ? `<div class="lanes">${laneHtml}</div>
+            <div class="axis"><span>${esc((observed[0] || {}).timestamp || "")}</span>
+            <span>${esc((observed[observed.length - 1] || {}).timestamp || "")}</span></div>` : `<div class="empty">no observed timestamp in this evidence</div>`,
+            "real timestamps only")}
+          ${ordered.length ? panel("order-only evidence",
+            `<div class="notice">${ordered.length} events carry no timestamp. They are listed in recorded order and
+             are never placed on the time axis.</div>
+             ${table(["order", "agent", "type", "summary", "source"],
+               ordered.map((e) => `<tr><td class="mono">${e.sequence}</td><td>${esc(e.agent_id || "—")}</td>
+                 <td><span class="pill">${esc(e.event_type)}</span></td><td>${esc(e.summary)}</td>
+                 <td class="mono dim">${esc(e.source)}</td></tr>`))}`) : ""}
+          ${panel(`observed events (${observed.length} of ${d.total})`,
+            table(["timestamp", "agent", "type", "summary", "source"], observed.map(eventRow)))}
+          <div class="fade">${d.notes.map(esc).join(" · ")}</div>
+        </div>`;
+    },
+
+    agents(d) {
+      const rows = d.agents.map((a) => `<tr>
+        <td class="mono">${esc(a.agent_id)}<div class="dim">${esc(a.task_id || "")}</div></td>
+        <td>${badge(a.role)}</td>
+        <td>${fmt(a.profile_id)}</td>
+        <td class="mono dim">${fmt(a.parent)}</td>
+        <td>${fmt(a.stop_reason)}</td>
+        <td>${okBadge(a.raw_success)}</td>
+        <td>${okBadge(a.effective_success)}</td>
+        <td class="mono nowrap">${num(a.usage.prompt_tokens)} / ${num(a.usage.completion_tokens)}</td>
+        <td class="mono nowrap">${fmt(a.turns)} / ${fmt(a.tool_calls)}</td>
+        <td class="mono dim nowrap">${esc((a.started_at || "").slice(11, 19))}–${esc((a.finished_at || "").slice(11, 19))}</td>
+      </tr>`).join("");
+      const objectives = d.agents.filter((a) => a.objective).map((a) =>
+        `<div style="margin-bottom:8px"><span class="mono">${esc(a.agent_id)}</span>
+          <div class="fade" style="white-space:pre-wrap">${esc(a.objective)}</div></div>`).join("");
+      const paths = d.agents.filter((a) => (a.owned_paths || []).length).map((a) =>
+        `<tr><td class="mono">${esc(a.agent_id)}</td><td class="mono">${esc(a.owned_paths.join(", "))}</td></tr>`).join("");
+      return `<div class="grid" style="gap:12px">
+        ${panel("agents and execution roles", table(
+          ["agent", "role", "profile", "parent", "stop reason", "raw success", "effective", "tokens in/out", "turns/calls", "window"],
+          d.agents.length ? [rows] : [], "no agent evidence"))}
+        <div class="split">
+          ${panel("task objectives", objectives || `<div class="empty">no objective recorded</div>`)}
+          ${panel("topology", kv([
+            ["agents", num(d.topology.agents)],
+            ["planned", badge(d.topology.planned_state)],
+            ["executed", badge(d.topology.executed_state)],
+            ["edge source", fmt(d.topology.edge_source)],
+          ]) + `<div class="fade" style="margin-top:8px">${esc(d.topology.note)}</div>`)}
+        </div>
+        ${panel("ownership grants", table(["agent", "owned paths"], paths ? [paths] : [],
+          "no ownership manifest recorded for this run"))}
+      </div>`;
+    },
+
+    delegation(d) {
+      if (d.state === "NOT_APPLICABLE") {
+        return `${panel("delegation plane", `<div class="notice info">${esc(d.reason)}</div>`)}`;
+      }
+      const gates = ((d.proposals[0] || {}).gates || []).map((g) => `<tr>
+        <td class="mono">${esc(g.gate)}</td><td>${badge(String(g.status || "").toUpperCase())}</td>
+        <td class="mono dim">${esc((g.reason_codes || []).join(", "))}</td></tr>`).join("");
+      const children = d.children.map((c) => `<tr>
+        <td class="mono">${esc(c.task)}<div class="dim">${esc(c.worker_id || "")}</div></td>
+        <td>${esc(c.profile_id)}</td><td>${fmt(c.status)}</td>
+        <td>${okBadge(c.success)}</td>
+        <td class="mono">${num(c.prompt_tokens)} / ${num(c.completion_tokens)}</td>
+        <td class="mono">${fmt(c.turns)}</td>
+        <td class="mono nowrap">${fmt(c.started_offset_ms)} → ${fmt(c.finished_offset_ms)} ms</td>
+        <td class="mono dim">${fmt(c.handoff_ref)}</td></tr>`).join("");
+      const overlaps = d.concurrency.overlapping_pairs.map((p) =>
+        `<tr><td class="mono">${esc(p.left)}</td><td class="mono">${esc(p.right)}</td>
+          <td class="mono">${num(p.overlap_ms)} ms</td></tr>`).join("");
+      const refusals = d.refusals.map((r) => `<tr><td class="mono">${esc(r.task)}</td>
+        <td>${esc(r.profile_id)}</td><td class="mono dim">${esc((r.reason_codes || []).join(", "))}</td></tr>`).join("");
+      const handoffs = d.handoffs.map((h) => `<tr><td class="mono">${esc(h.ref_id)}</td>
+        <td class="mono">${esc(h.task)}</td><td class="mono dim">${esc(h.worker_id || "")}</td>
+        <td class="mono">${fmt(h.length)} chars</td><td class="mono dim">${fmt(h.created_at)}</td></tr>`).join("");
+      return `<div class="grid" style="gap:12px">
+        <div class="notice ${d.state === "DELEGATION_OBSERVED" ? "ok" : ""}">
+          <b>${esc(d.state)}</b> · ${esc(d.reason)}<br>
+          <span class="muted">delegation enabled: ${esc(d.delegation_enabled)} ·
+          delegate_tasks called: ${esc(d.delegate_tasks_called)}</span>
+        </div>
+        <div class="grid g3">
+          ${kpi("router decision", d.router.decision_observed ? d.router.route : "NOT_OBSERVED", "state " + d.router.state)}
+          ${kpi("reason codes", (d.router.reason_codes || []).join(", ") || "—")}
+          ${kpi("max observed concurrency", d.concurrency.max_observed, d.concurrency.basis)}
+          ${kpi("policy", d.policy.version, (d.policy.digest || "").slice(0, 26))}
+        </div>
+        <div class="split">
+          ${panel("admission gates", table(["gate", "status", "reason codes"], gates ? [gates] : [], "no gate record"))}
+          ${panel("limits", kv(Object.entries(d.limits).map(([k, v]) => [k, fmt(v)])), "recorded session limits")}
+        </div>
+        ${panel("child workers", table(["task / worker", "profile", "status", "success", "tokens", "turns", "start → finish", "handoff"],
+          children ? [children] : [], "no child worker executed"))}
+        <div class="split">
+          ${panel("observed overlap", table(["left", "right", "overlap"], overlaps ? [overlaps] : [],
+            "no overlap can be computed from the recorded offsets"))}
+          ${panel("refusals", table(["task", "profile", "reason"], refusals ? [refusals] : [],
+            "the router admitted every candidate it was given"))}
+        </div>
+        ${panel("handoffs", table(["ref", "task", "worker", "size", "created"], handoffs ? [handoffs] : [],
+          "no handoff was produced"))}
+      </div>`;
+    },
+
+    context(d) {
+      const t = d.tokens, peak = t.peak_context || {};
+      const series = (d.request_series.points || []);
+      const max = series.reduce((acc, p) => Math.max(acc, Number(p.input_tokens) || 0), 0) || 1;
+      const spark = series.map((p, index) => {
+        const x = series.length > 1 ? (index / (series.length - 1)) * 280 : 0;
+        const y = 60 - ((Number(p.input_tokens) || 0) / max) * 54;
+        return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+      const budget = d.budget || {};
+      const used = Number(budget.used_tokens), limit = Number(budget.limit_tokens);
+      const pct = Number.isFinite(used) && Number.isFinite(limit) && limit > 0
+        ? Math.min(100, (used / limit) * 100) : null;
+      return `<div class="grid g3">
+          ${kpi("main prompt", t.main_prompt_tokens, t.basis)}
+          ${kpi("child prompt", t.child_prompt_tokens)}
+          ${kpi("system total", t.system_total_tokens, "never a substituted value")}
+          ${kpi("known consumption floor", d.attribution.known_floor, "sum of reported components only")}
+          ${kpi("peak context", peak.main, `attribution: ${t.attribution || "UNKNOWN"}`)}
+          ${kpi("system max agent context", peak.system_max_agent, `census complete: ${peak.census_complete}`)}
+        </div>
+        <div class="split" style="margin-top:12px">
+          <div class="grid" style="gap:12px">
+            ${panel("per-request context series", series.length ? `
+              <svg viewBox="0 0 280 64" width="100%" height="64" preserveAspectRatio="none">
+                <path d="${spark}" fill="none" stroke="#58a6ff" stroke-width="1.5" />
+              </svg>
+              <div class="fade">source: ${esc(d.request_series.source)} · peak ${num(d.request_series.peak)} ·
+                cumulative ${num(d.request_series.cumulative)}</div>` :
+              `<div class="empty">no per-request series recorded</div>`, "ATLAS_MAIN only, never a system series")}
+            ${panel("cache and cost", kv([
+              ["cache hit", num(t.cache_hit_tokens)],
+              ["cache miss", num(t.cache_miss_tokens)],
+              ["hit rate", d.cache.hit_rate === "UNKNOWN" ? "UNKNOWN" : `${d.cache.hit_rate}%`],
+              ["estimated cost", d.cost.estimated_usd === "UNKNOWN" ? "UNKNOWN" : `$${d.cost.estimated_usd}`],
+              ["cost basis", esc(d.cost.basis)],
+            ]) + `<div class="fade" style="margin-top:8px">${esc(d.cache.note)}</div>`)}
+          </div>
+          <aside class="grid" style="gap:12px">
+            ${panel("shared budget", kv([
+              ["mode", fmt(budget.mode)],
+              ["limit", num(budget.limit_tokens)],
+              ["used", num(budget.used_tokens)],
+              ["remaining", num(budget.remaining_tokens)],
+              ["requests started / completed", `${fmt(budget.requests_started)} / ${fmt(budget.requests_completed)}`],
+              ["admission rejections", fmt(budget.admission_rejections)],
+              ["stop reason", fmt(budget.stop_reason)],
+            ]) + (pct === null ? "" : `<div class="bar" style="margin-top:8px"><i style="width:${pct}%"></i></div>`)
+              + `<div class="fade" style="margin-top:8px">counters copied from the run's budget record; an
+                 unknown token shape is not rendered as zero consumption</div>`)}
+            ${panel("attribution", kv([
+              ["main", num(d.attribution.main)],
+              ["children", num(d.attribution.children)],
+              ["system total", num(d.attribution.system_total)],
+              ["known floor", num(d.attribution.known_floor)],
+            ]) + `<div class="fade" style="margin-top:8px">${esc(d.attribution.note)}</div>`)}
+          </aside>
+        </div>`;
+    },
+
+    tools(d) {
+      const rows = d.rows.map((r) => `<tr>
+        <td class="mono dim">${esc((r.timestamp || "").slice(11, 19) || "—")}</td>
+        <td class="mono">${esc(r.tool)}<div class="dim">${esc(r.call_id || "")}</div></td>
+        <td class="mono dim">${esc(r.agent_id || "—")}</td>
+        <td>${r.decision === "DENY" ? badge("DENY") : r.decision === "ALLOW" ? badge("ALLOW") : badge(r.decision)}</td>
+        <td class="mono dim">${esc((r.reason_codes || []).join(", "))}</td>
+        <td>${fmt(r.outcome)}${r.is_error === true ? ' <span class="bad">error</span>' : ""}</td>
+        <td class="mono">${fmt(r.result_size)}</td>
+        <td class="fade">${esc(r.input_excerpt || (r.input_withheld ? "payload withheld" : "—"))}</td>
+        <td class="mono dim">${esc(r.source)}</td></tr>`).join("");
+      return `${panel(`tool operations (${d.total})`, table(
+        ["time", "tool / call", "agent", "decision", "reason", "outcome", "out bytes", "input / refusal note", "source"],
+        d.rows.length ? [rows] : [], "no tool operation recorded"), d.state)}
+        <div class="grid g3" style="margin-top:12px">
+          ${kpi("declared tool surface", Array.isArray(d.declared_surface) ? d.declared_surface.length : "UNKNOWN",
+            Array.isArray(d.declared_surface) ? d.declared_surface.join(", ") : String(d.declared_surface))}
+          ${kpi("denied calls", d.rows.filter((r) => r.decision === "DENY").length)}
+          ${kpi("public test calls", (d.public_tests || []).length)}
+        </div>
+        <div class="fade" style="margin-top:10px">${d.notes.map(esc).join(" · ")}</div>`;
+    },
+
+    artifacts(d) {
+      const files = d.patch.changed_files.map((f) =>
+        `<tr><td class="mono">${esc(f.path)}</td><td class="dim">${esc(f.source)}</td></tr>`).join("");
+      const handoffs = d.handoffs.map((h) => `<tr><td class="mono">${esc(h.ref_id)}</td>
+        <td class="mono">${esc(h.task)}</td><td class="mono">${fmt(h.length)}</td>
+        <td class="mono dim">${esc((h.content_digest || "").slice(0, 26))}</td></tr>`).join("");
+      return `<div class="grid g3">
+          ${kpi("changed files", d.patch.changed_count, d.patch.digest ? String(d.patch.digest).slice(0, 30) : "no patch digest")}
+          ${kpi("patch recorded", d.patch.available ? "YES" : "NO", d.patch.path || "")}
+          ${kpi("handoffs", d.handoffs.length)}
+        </div>
+        <div class="split" style="margin-top:12px">
+          ${panel("workspace patch — changed files", table(["path", "source"], files ? [files] : [],
+            "no workspace patch in this evidence"))}
+          <aside class="grid" style="gap:12px">
+            ${panel("export", kv([
+              ["export path", esc(d.workspace.export_path)],
+              ["files", num(d.workspace.files)],
+              ["workspace digest", esc(d.workspace.digest)],
+              ["directory digest", esc(d.workspace.directory_digest)],
+              ["oracle mode", fmt(d.deliverable.oracle_mode)],
+            ]) + `<div class="fade" style="margin-top:8px">${esc(d.workspace.note)}</div>`)}
+            ${panel("worker handoffs", table(["ref", "task", "chars", "digest"], handoffs ? [handoffs] : [],
+              "no handoff recorded"))}
+          </aside>
+        </div>
+        <div class="fade" style="margin-top:10px">${d.notes.map(esc).join(" · ")}</div>`;
+    },
+
+    verification(d) {
+      const a = d.axes;
+      const axisRow = (label, value, note = "") => `<tr><td>${esc(label)}</td>
+        <td>${okBadge(value)}</td><td class="dim">${esc(note)}</td></tr>`;
+      const checks = (d.detail.integrity_checks || []).map((c) => `<tr>
+        <td class="mono">${esc(c.check)}</td><td>${okBadge(String(c.status || "").toUpperCase())}</td>
+        <td>${esc(c.detail || "")}</td><td class="dim">${esc(c.affects_verdict)}</td></tr>`).join("");
+      const executor = (d.detail.executor_checks || []).map((c) => `<tr>
+        <td class="mono">${esc(c.check)}</td><td>${c.ok ? badge("PASS") : badge("FAIL")}</td>
+        <td>${esc(c.detail || "")}</td></tr>`).join("");
+      const publicTests = (d.detail.public_tests || []).map((p) => `<tr>
+        <td class="mono">${fmt(p.call_index)}</td><td>${okBadge(p.status)}</td>
+        <td class="mono">${fmt(p.exit_code)}</td><td class="mono">${fmt(p.duration_ms)}</td>
+        <td>${esc(p.reason || "")}</td></tr>`).join("");
+      const oracle = d.detail.oracle || {};
+      return `<div class="notice ${d.headline === "DELIVERED_AND_VERIFIED" ? "ok" : "bad"}">
+          headline: <b>${esc(d.headline)}</b> — ${esc(d.note)}</div>
+        <div class="split" style="margin-top:12px">
+          ${panel("verification axes", table(["axis", "value", "note"], [
+            axisRow("raw agent success", a.raw_agent_success, d.detail.agent_success_source || ""),
+            axisRow("effective agent completion", a.effective_agent_completion, d.detail.effective_completion || ""),
+            axisRow("public test", a.public_test),
+            axisRow("static acceptance", a.static_acceptance),
+            axisRow("independent oracle", a.independent_oracle),
+            axisRow("execution integrity", a.execution_integrity),
+            axisRow("delivered success", a.delivered_success),
+          ]))}
+          <aside class="grid" style="gap:12px">
+            ${panel("independent oracle", kv([
+              ["status", okBadge(oracle.status || "UNKNOWN")],
+              ["kind", fmt(oracle.kind)],
+              ["execution mode", fmt(oracle.execution_mode)],
+              ["environment failure", fmt(oracle.environment_failure)],
+              ["return code", fmt(oracle.returncode)],
+              ["image", fmt(oracle.image)],
+              ["evidence", fmt(oracle.evidence)],
+            ]) + (oracle.diagnostic ? `<div class="fade" style="margin-top:8px">${esc(oracle.diagnostic)}</div>` : ""))}
+            ${panel("public test calls", table(["#", "status", "exit", "ms", "reason"],
+              publicTests ? [publicTests] : [], "the public suite did not run in this evidence"))}
+          </aside>
+        </div>
+        <div class="split" style="margin-top:12px">
+        <div class="grid g2" style="margin-top:12px">
+          ${panel("cell integrity checks", table(["check", "status", "detail", "affects verdict"],
+            checks ? [checks] : [], "no integrity check table recorded"))}
+          ${panel("executor checks", table(["check", "ok", "detail"], executor ? [executor] : [],
+            "no executor check table recorded"))}
+        </div>`;
+    },
+
+    requests(d) {
+      if (d.state !== "AVAILABLE") {
+        return `${panel("provider requests", `<div class="notice bad"><b>${esc(d.state)}</b><br>${esc(d.reason)}</div>
+          <div class="fade" style="margin-top:10px">${esc(d.note)}</div>
+          <div class="kv" style="margin-top:10px">
+            <div>journal source</div><div class="mono">${esc(d.journal.source)}</div>
+            <div>journal available</div><div>${badge("UNAVAILABLE")}</div>
+          </div>`)}`;
+      }
+      const rows = d.entries.map((e) => `<tr>
+        <td class="mono">${fmt(e.request_id)}</td><td class="mono dim">${fmt(e.agent_id)}</td>
+        <td>${esc(e.phase)}</td><td>${badge(e.state)}</td>
+        <td class="mono">${esc(e.requested_model)} → ${esc(e.returned_model)}</td>
+        <td class="mono">${fmt(e.http_status)}</td><td class="mono dim">${fmt(e.error_type)}</td>
+        <td class="fade">${esc(e.error_message || "")}</td>
+        <td>${badge(e.usage_status)}</td></tr>`).join("");
+      return `<div class="grid g3">
+          ${kpi("requests", d.counts.total)}
+          ${kpi("completed", d.counts.completed)}
+          ${kpi("failed", d.counts.failed)}
+          ${kpi("unknown terminal", d.counts.unknown_terminal)}
+        </div>
+        <div style="margin-top:12px">${panel("request journal", table(
+          ["id", "agent", "phase", "state", "model", "http", "error type", "message", "usage"],
+          d.entries.length ? [rows] : [], "no request entries"))}</div>
+        <div class="fade" style="margin-top:10px">${esc(d.note)}</div>`;
+    },
+  };
+
+  function wireLanes(data) {
+    const observed = data.events.filter((e) => e.timestamp);
+    if (!observed.length) return;
+    const times = observed.map((e) => Date.parse(e.timestamp)).filter((v) => !Number.isNaN(v));
+    if (!times.length) return;
+    const min = Math.min(...times), max = Math.max(...times);
+    const span = max - min || 1;
+    const byAgent = {};
+    observed.forEach((e) => {
+      const who = e.agent_id || "(no agent recorded)";
+      (byAgent[who] = byAgent[who] || []).push(e);
+    });
+    document.querySelectorAll(".view .lane").forEach((lane) => {
+      const who = lane.querySelector(".who").textContent;
+      const strip = lane.querySelector(".strip");
+      if (!strip || !byAgent[who]) return;
+      strip.innerHTML = byAgent[who].map((event) => {
+        const at = Date.parse(event.timestamp);
+        const pct = Number.isNaN(at) ? 0 : ((at - min) / span) * 100;
+        return `<span class="mark ${esc(event.severity === "deny" || event.severity === "error" ? "bad" : event.severity)}"
+          style="left:${pct.toFixed(2)}%"
+          data-tip="${esc(`${event.timestamp} · ${event.event_type} · ${event.summary}`)}"></span>`;
+      }).join("");
+    });
+    document.querySelectorAll(".view .mark").forEach((node) => {
+      node.addEventListener("mousemove", (event) => showTip(event, node.dataset.tip || ""));
+      node.addEventListener("mouseleave", hideTip);
+    });
+  }
+
+  async function loadSources() {
+    try {
+      const data = await api("/api/replay/sources");
+      $("roots-note").textContent = data.configured
+        ? `${data.roots.length} evidence root(s) · ${data.stats.runs} runs · ${data.stats.files} files`
+        : "no evidence root configured";
+      if (!data.configured) {
+        $("view").innerHTML = `<div class="panel"><h1>No evidence root configured</h1>
+          <p class="muted">Start the workbench with one or more read-only evidence roots:</p>
+          <pre class="mono" style="background:#070a0e;border:1px solid var(--line);padding:10px;border-radius:6px;overflow:auto">atlas web --replay-roots D:\\Work\\AtlasRuntime-runs --replay-roots D:\\Work\\AtlasRuntime-archive</pre>
+          <p class="muted">Or set <span class="mono">ATLASOS_REPLAY_ROOTS</span> to a list of paths.
+          Nothing on this page writes to disk.</p></div>`;
+        return;
+      }
+      $("sources-kv").innerHTML = [
+        ["evidence roots", data.roots.map((r) => `<span class="mono">${esc(r.label)}</span> → ${esc(r.path)}`).join("<br>")],
+        ["runs discovered", `${data.stats.runs}`],
+        ["source kinds", Object.entries(data.kinds).map(([k, v]) => `${esc(k)}: ${v}`).join(", ")],
+        ["matrix reports", `${data.stats.matrices} (${data.stats.matrix_rows_matched}/${data.stats.matrix_rows} rows matched to cell evidence)`],
+        ["files walked", `${data.stats.files}`],
+      ].map(([k, v]) => `<div>${esc(k)}</div><div>${v}</div>`).join("");
+      if (data.problems.length) {
+        const shown = data.problems.slice(0, 8);
+        const rest = data.problems.length - shown.length;
+        $("sources-kv").innerHTML += `<div>problems (${data.stats.problem_count})</div><div class="mono dim">${shown.map((p) =>
+          `${esc(p.reason)}${p.path ? " " + esc(p.path) : ""}${p.detail ? " — " + esc(p.detail) : ""}`).join("<br>")}${rest > 0 ? `<br>… and ${rest} more in /api/replay/sources` : ""}</div>`;
+      }
+    } catch (error) {
+      $("roots-note").textContent = "replay sources unavailable";
+      $("view").innerHTML = `<div class="error">${esc(error.message)}</div>`;
+    }
+  }
+
+  function restoreFromUrl() {
+    const key = new URL(location.href).searchParams.get("run");
+    return key;
+  }
+
+  ["q", "f-stage", "f-source", "f-mode", "f-status", "f-provider", "f-completeness"].forEach((id) => {
+    const node = $(id);
+    const event = id === "q" ? "input" : "change";
+    let timer = null;
+    node.addEventListener(event, () => {
+      clearTimeout(timer);
+      timer = setTimeout(loadRuns, 180);
+    });
+  });
+  window.addEventListener("popstate", () => {
+    const key = restoreFromUrl();
+    if (key) select(key, { push: false });
+  });
+
+  (async () => {
+    renderTabs();
+    await loadSources();
+    await loadRuns();
+    const key = restoreFromUrl();
+    if (key) await select(key, { push: false });
+  })();
+})();
+</script>
+</body>
+</html>

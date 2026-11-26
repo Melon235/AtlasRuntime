@@ -10,15 +10,25 @@ from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from atlasos.app.replay import (
+    ReplayError,
+    ReplayNotConfigured,
+    ReplayRunNotFound,
+    ReplayService,
+    create_replay_router,
+)
+from atlasos.app.replay.sources import EvidenceRoot
 from atlasos.app.service import (
     ApplicationError,
     ApprovalAuthorityUnavailable,
     AtlasApplicationService,
+    ReadOnlyMode,
     RecoveryAuthorityUnavailable,
 )
 
 STATIC = Path(__file__).resolve().parent / "static"
 INDEX = STATIC / "index.html"
+REPLAY_INDEX = STATIC / "replay.html"
 
 
 class RunRequest(BaseModel):
@@ -28,9 +38,22 @@ class RunRequest(BaseModel):
     max_turns: int = Field(default=12, ge=1, le=30)
 
 
-def create_app(*, runs_root: str | Path) -> FastAPI:
+def create_app(
+    *,
+    runs_root: str | Path,
+    replay_roots: list[EvidenceRoot] | None = None,
+    read_only: bool = False,
+) -> FastAPI:
     service = AtlasApplicationService(runs_root=runs_root)
+    replay_service = ReplayService(list(replay_roots or []))
     app = FastAPI(title="AtlasOS", version="0.0.1")
+
+    def refuse_write() -> None:
+        if read_only:
+            raise ReadOnlyMode(
+                "this server runs in read-only replay mode; live submission, approval and "
+                "recovery routes are disabled"
+            )
 
     @app.exception_handler(ApplicationError)
     async def application_error(_request: Request, error: ApplicationError) -> JSONResponse:
@@ -57,12 +80,38 @@ def create_app(*, runs_root: str | Path) -> FastAPI:
             content={"error": str(error), "kind": "RecoveryAuthorityUnavailable"},
         )
 
+    @app.exception_handler(ReplayNotConfigured)
+    async def replay_not_configured(_request: Request, error: ReplayNotConfigured) -> JSONResponse:
+        return JSONResponse(
+            status_code=409, content={"error": str(error), "kind": "ReplayNotConfigured"}
+        )
+
+    @app.exception_handler(ReplayRunNotFound)
+    async def replay_not_found(_request: Request, error: ReplayRunNotFound) -> JSONResponse:
+        return JSONResponse(
+            status_code=404, content={"error": str(error), "kind": "ReplayRunNotFound"}
+        )
+
+    @app.exception_handler(ReplayError)
+    async def replay_error(_request: Request, error: ReplayError) -> JSONResponse:
+        return JSONResponse(
+            status_code=400, content={"error": str(error), "kind": type(error).__name__}
+        )
+
+    app.include_router(create_replay_router(replay_service))
+
     @app.get("/api/health")
     def health() -> dict[str, Any]:
-        return {"ok": True, "service": "atlasos-app", "loopback_only_by_default": True}
+        return {
+            "ok": True,
+            "service": "atlasos-app",
+            "loopback_only_by_default": True,
+            "replay_roots": len(replay_service.roots),
+        }
 
     @app.post("/api/runs")
     def submit(body: RunRequest) -> dict[str, Any]:
+        refuse_write()
         return service.submit(
             body.task, mode=body.mode, workspace=body.workspace, max_turns=body.max_turns
         )
@@ -112,10 +161,12 @@ def create_app(*, runs_root: str | Path) -> FastAPI:
 
     @app.post("/api/approvals/{approval_id}/approve")
     def approve(approval_id: str) -> dict[str, Any]:
+        refuse_write()
         return service.approve(approval_id)
 
     @app.post("/api/approvals/{approval_id}/reject")
     def reject(approval_id: str) -> dict[str, Any]:
+        refuse_write()
         return service.reject(approval_id)
 
     @app.get("/api/runs/{run_id}/recovery")
@@ -124,6 +175,7 @@ def create_app(*, runs_root: str | Path) -> FastAPI:
 
     @app.post("/api/runs/{run_id}/resume")
     def resume(run_id: str) -> dict[str, Any]:
+        refuse_write()
         return service.resume(run_id)
 
     @app.get("/")
@@ -142,5 +194,9 @@ def create_app(*, runs_root: str | Path) -> FastAPI:
     @app.get("/history")
     def history_page() -> FileResponse:
         return FileResponse(INDEX)
+
+    @app.get("/replay")
+    def replay_page() -> FileResponse:
+        return FileResponse(REPLAY_INDEX)
 
     return app

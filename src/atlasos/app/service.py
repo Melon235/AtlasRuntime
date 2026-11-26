@@ -56,6 +56,12 @@ class RecoveryAuthorityUnavailable(ApplicationError):
     status_code = 409
 
 
+class ReadOnlyMode(ApplicationError):
+    """The server was started as a read-only workbench; mutating routes are refused."""
+
+    status_code = 403
+
+
 @dataclass
 class RunRecord:
     run_id: str

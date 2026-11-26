@@ -236,8 +236,25 @@ docker build -t atlas-uat-python:3.12 experiments/fixtures/uat_image
 
 `atlas run --mode coding` requires a **UAT-shaped workspace** under `experiments/fixtures` containing
 `csv_parser.py` (default: `experiments/fixtures/uat_repo`) and a reachable real sandbox provider;
-there is no fake fallback. `--mode workflow` needs the provider key but no sandbox. One benchmark
-sample through the full runtime:
+there is no fake fallback. `--mode workflow` needs the provider key but no sandbox.
+
+The local web console serves the live application and a **read-only historical replay workbench**.
+Replay reads execution evidence that already exists on disk, starts no model request and holds no
+runtime authority:
+
+```powershell
+.\.venv\Scripts\atlas.exe web --port 8791 --read-only `
+  --replay-roots runs=D:\Work\AtlasRuntime-runs `
+  --replay-roots archive=D:\Work\AtlasRuntime-archive
+Start-Process http://127.0.0.1:8791/replay
+```
+
+Roots can also be set once through `ATLASOS_REPLAY_ROOTS`. `--read-only` refuses the live
+submission, approval and recovery routes. See
+[`docs/stage-h1-readonly-workbench.md`](docs/stage-h1-readonly-workbench.md) for the projection
+contract, the API and the boundaries.
+
+One benchmark sample through the full runtime:
 
 ```powershell
 .\.venv\Scripts\python.exe -m experiments.evaluation.cli run --sample bugfix-001-slugify --repetitions 1

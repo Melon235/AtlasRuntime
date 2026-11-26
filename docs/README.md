@@ -18,6 +18,7 @@ Read these before changing code. They describe what exists today in this branch.
 | [`final-closure-roadmap.md`](final-closure-roadmap.md) | **The only forward plan from now on**: the closure stage, the frozen core scope, the paused Placement Slot route, the four closure stages and the module metric principle |
 | [`final-roadmap.md`](final-roadmap.md) | The earlier Track A/B/C plan. Historical from the closure stage onwards; superseded by the closure roadmap |
 | [`evaluation/`](evaluation/) | The evaluation protocol (Final-2): module matrix, Track B/C specs, integration contract, metrics contract, holdout design, environment protocol |
+| [`stage-h1-readonly-workbench.md`](stage-h1-readonly-workbench.md) | **Stage H1** — the local read-only historical replay workbench: application audit, recognised evidence kinds, the projection contract, the seven views, the verified historical cases, the `/api/replay` contract, launch and security boundaries |
 | [`decisions/`](decisions/) | ADRs 0001–0004 (AnyCode base, ContextPilot backend, cache metrics, no LangGraph) |
 
 The `evaluation/` bundle is normative for any measurement. Read

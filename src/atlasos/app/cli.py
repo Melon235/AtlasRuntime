@@ -322,13 +322,55 @@ def web(
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(8000, "--port"),
     runs_root: Path | None = typer.Option(None, "--runs-root"),
+    replay_roots: list[str] | None = typer.Option(
+        None,
+        "--replay-roots",
+        help=(
+            "read-only evidence root for the replay workbench; repeat the flag or use "
+            "'alias=path'. Defaults to ATLASOS_REPLAY_ROOTS."
+        ),
+    ),
+    read_only: bool = typer.Option(
+        False,
+        "--read-only",
+        help="refuse live submission, approval and recovery routes; replay stays available",
+    ),
 ) -> None:
-    """Start the loopback-only FastAPI Web UI."""
+    """Start the loopback-only FastAPI Web UI, including the read-only replay workbench."""
     import uvicorn
 
+    from atlasos.app.replay import EVIDENCE_ROOT_ENV
+    from atlasos.app.replay.sources import ReplayConfigError, parse_root_specs
     from atlasos.app.web import create_app
 
-    app_instance = create_app(runs_root=runs_root or DEFAULT_RUNS_ROOT)
+    try:
+        roots = parse_root_specs(
+            replay_roots or [],
+            env_value=os.environ.get(EVIDENCE_ROOT_ENV),
+            base=REPO_ROOT,
+        )
+    except ReplayConfigError as error:
+        return _error(error)
+
+    if roots:
+        table = Table(title="replay evidence roots (read-only)")
+        table.add_column("alias")
+        table.add_column("path")
+        for root in roots:
+            table.add_row(root.label, str(root.path))
+        console.print(table)
+    else:
+        console.print(
+            "[yellow]no replay evidence root configured[/yellow] — the workbench will start "
+            "empty; pass --replay-roots or set ATLASOS_REPLAY_ROOTS"
+        )
+
+    app_instance = create_app(
+        runs_root=runs_root or DEFAULT_RUNS_ROOT,
+        replay_roots=roots,
+        read_only=read_only,
+    )
+    console.print(f"workbench: http://{host}:{port}/replay   (read-only replay)")
     uvicorn.run(app_instance, host=host, port=port, log_level="info")
 
 
