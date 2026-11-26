@@ -95,7 +95,7 @@ def test_an_exception_stays_unclassified() -> None:
 def test_an_unrecognised_stop_stays_unclassified() -> None:
     record = classify_failure(
         failure_text=None,
-        main_result=Result("provider_error"),
+        main_result=Result("some_unrecorded_stop"),
         acceptance_verdict="NOT_CONFIGURED",
         budget_state=None,
         succeeded=False,
@@ -103,7 +103,35 @@ def test_an_unrecognised_stop_stays_unclassified() -> None:
 
     assert record is not None
     assert record["kind"] is None
-    assert record["main_stop_reason"] == "provider_error"
+    assert record["main_stop_reason"] == "some_unrecorded_stop"
+
+
+def test_a_provider_stop_is_named_provider_error() -> None:
+    """Upstream's exhausted-retry stop and a journaled adapter failure are the same event class."""
+
+    for code in ("provider_unavailable", "provider_error"):
+        record = classify_failure(
+            failure_text=None,
+            main_result=Result(code),
+            acceptance_verdict="NOT_CONFIGURED",
+            budget_state=None,
+            succeeded=False,
+        )
+        assert record is not None
+        assert record["kind"] == "provider_error"
+        assert record["classified_from"] == "recorded_stop_evidence"
+
+    journaled = classify_failure(
+        failure_text=None,
+        main_result=Result(None, success=True),
+        acceptance_verdict="NOT_CONFIGURED",
+        budget_state=None,
+        succeeded=False,
+        provider_error={"exception_type": "ProviderError", "message": "upstream refused"},
+    )
+    assert journaled is not None
+    assert journaled["kind"] == "provider_error"
+    assert "upstream refused" in journaled["message"]
 
 
 def test_a_successful_run_has_no_failure_record() -> None:
@@ -119,9 +147,10 @@ def test_a_successful_run_has_no_failure_record() -> None:
     )
 
 
-def test_the_classifier_only_names_the_three_recorded_kinds() -> None:
+def test_the_classifier_only_names_the_four_recorded_kinds() -> None:
     assert set(CLASSIFIED_FAILURE_KINDS) == {
         "budget_exhaustion",
         "main_max_turns",
         "acceptance_failed",
+        "provider_error",
     }

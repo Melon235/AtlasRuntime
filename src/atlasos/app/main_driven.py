@@ -102,6 +102,7 @@ from atlasos.handoff import HandoffStore
 from atlasos.integrations.anycode_engine import AtlasContextEngine
 from atlasos.integrations.deepseek import DeepSeekAdapter
 from atlasos.ledger import SQLiteActionLedgerStore
+from atlasos.metrics.requests import JournaledAdapter, RequestJournal
 from atlasos.sandbox.tools import TOOL_ERROR_MODE_CORRECTED, TOOL_ERROR_MODES
 from atlasos.tools import AtlasToolRuntime
 from atlasos.tools.conversation import reset_current_task_id, set_current_task_id
@@ -408,10 +409,14 @@ def _usage_evidence(usage: Any | None) -> dict[str, int]:
 
 #: Kinds this producer is allowed to name. They are exactly the ones the runtime recorded a
 #: structured stop for; anything else stays unclassified so the consuming audit fails closed.
+#: ``provider_error`` joined the list when the adapter journal (``atlasos.metrics.requests``) began
+#: preserving the exception the runner used to drop: the request was admitted and the call failed,
+#: which is a structured stop of its own and is *not* a measured failure.
 CLASSIFIED_FAILURE_KINDS: tuple[str, ...] = (
     "budget_exhaustion",
     "main_max_turns",
     "acceptance_failed",
+    "provider_error",
 )
 
 
@@ -422,6 +427,7 @@ def classify_failure(
     acceptance_verdict: str,
     budget_state: RunBudgetState | None,
     succeeded: bool,
+    provider_error: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Turn the recorded stop evidence into the structured failure the audit classifies.
 
@@ -439,19 +445,36 @@ def classify_failure(
     stop_message = getattr(stop, "message", None)
     budget = budget_state.as_dict() if budget_state is not None else {}
     kind: str | None = None
-    if failure_text is None:
-        if stop_code == "budget_exceeded":
-            kind = "budget_exhaustion"
-        elif stop_code == "max_turns":
-            kind = "main_max_turns"
-        elif acceptance_verdict == "FAIL":
-            kind = "acceptance_failed"
+    # A named stop code wins: it is the runtime's own statement about why the loop ended.
+    if stop_code == "budget_exceeded":
+        kind = "budget_exhaustion"
+    elif stop_code == "max_turns":
+        kind = "main_max_turns"
+    elif stop_code in {"provider_unavailable", "provider_error"}:
+        # Upstream turns an exhausted retry budget into this structured stop; the journal holds
+        # the underlying request failure. Both are the same class of event: infrastructure, not a
+        # result.
+        kind = "provider_error"
+    elif failure_text is None and acceptance_verdict == "FAIL":
+        kind = "acceptance_failed"
+    if kind is None and provider_error is not None:
+        # The most specific evidence the run has: the request was admitted and the provider call
+        # failed (typically the empty-result shape). ``executor`` maps the kind to its existing
+        # STOP_PROVIDER_FAILURE, so the matrix still stops — with a name instead of "unknown".
+        kind = "provider_error"
     # For a budget rejection the budget's own message is the evidence, not the stop code's label.
     evidence_message = budget.get("stop_reason") if kind == "budget_exhaustion" else None
+    provider_message = None
+    if provider_error is not None and kind == "provider_error":
+        provider_message = (
+            f"{provider_error.get('exception_type') or 'Exception'}: "
+            f"{provider_error.get('message') or 'no message'}"
+        )
     return {
         "kind": kind,
         "classified_from": "recorded_stop_evidence" if kind else "unclassified",
         "message": failure_text
+        or provider_message
         or (str(evidence_message) if evidence_message else None)
         or (str(stop_message) if stop_message else None)
         or (
@@ -461,6 +484,7 @@ def classify_failure(
         "main_stop_message": stop_message,
         "budget_stop_reason": budget.get("stop_reason"),
         "acceptance_verdict": acceptance_verdict,
+        "provider_error": dict(provider_error) if provider_error is not None else None,
     }
 
 
@@ -595,16 +619,25 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     # id instead of being reused across runs.
     suffix = hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:10]
     provider_name = f"{options.provider}-m{suffix}"
+    # The adapter boundary is the last place that sees a provider exception: ``AgentRunner.run``
+    # turns one into an ``error`` event and returns an empty result, so nothing downstream can
+    # recover the cause. Every adapter call is journaled here (no retry, no control-flow change).
+    request_journal = RequestJournal(
+        run_id=run_id, provider=options.provider, requested_model=options.model
+    )
     if options.provider_factory is None:
         if not os.environ.get("DEEPSEEK_API_KEY"):
             raise SystemExit(
                 "DEEPSEEK_API_KEY is not configured; the goal path never falls back to a fake "
                 "provider"
             )
-        _register_provider(provider_name, lambda: DeepSeekAdapter.from_env())
+        _register_provider(
+            provider_name,
+            lambda: JournaledAdapter(DeepSeekAdapter.from_env(), request_journal),
+        )
     else:
         factory = options.provider_factory
-        _register_provider(provider_name, factory)
+        _register_provider(provider_name, lambda: JournaledAdapter(factory(), request_journal))
 
     tool_security = ToolSecurityPolicy(workspace_root=tool_workspace)
     enforcer, ownership = build_delegation_ownership(run_id=run_id, workspace_root=tool_workspace)
@@ -856,6 +889,16 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         except Exception:  # noqa: BLE001
             pass
 
+    # Close the journal before the session is assembled: a request that never reached a terminal
+    # state is reported as exactly that, and its usage stays unknown.
+    request_journal.settle_open()
+    provider_requests = request_journal.snapshot()
+    provider_error = request_journal.last_failure()
+    with contextlib.suppress(OSError):
+        (run_dir / "provider_requests.json").write_text(
+            json.dumps(provider_requests, indent=2), encoding="utf-8"
+        )
+
     main_output = (main_result.output if main_result is not None else "") or ""
     main_tokens = (
         main_usage.as_evidence()
@@ -884,18 +927,38 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         and not main_output
     )
     if main_silent_failure:
-        failure = failure or "main_no_result: the model loop ended without completing a turn"
+        fallback = "main_no_result: the model loop ended without completing a turn"
+        if provider_error is not None:
+            # The concrete cause is kept and the fallback is only a suffix: a journaled failure must
+            # never be overwritten by the generic "no result" wording.
+            failure = failure or (
+                f"{fallback}; provider request failed: "
+                f"{provider_error.get('exception_type') or 'Exception'}: "
+                f"{provider_error.get('message') or 'no message'}"
+            )
+        else:
+            failure = failure or fallback
     execution_succeeded = failure is None and main_result is not None and bool(main_result.success)
     acceptance_verdict = (
         acceptance_result["verdict"] if acceptance_result is not None else "NOT_CONFIGURED"
     )
     succeeded = execution_succeeded and acceptance_verdict in ("PASS", "NOT_CONFIGURED")
+    run_stop_code = getattr(getattr(main_result, "stop_reason", None), "code", None)
+    # The journal is consulted only for the shapes where the loop itself produced no result: the
+    # empty run, no result at all, and upstream's exhausted-retry stop. Any other failure keeps its
+    # own classification, so a transient failure on an earlier turn cannot relabel a later one.
+    provider_evidence = (
+        provider_error
+        if (main_silent_failure or main_result is None or run_stop_code == "provider_unavailable")
+        else None
+    )
     failure_record = classify_failure(
         failure_text=failure,
         main_result=main_result,
         acceptance_verdict=acceptance_verdict,
         budget_state=budget_state,
         succeeded=succeeded,
+        provider_error=provider_evidence,
     )
     session: dict[str, Any] = {
         "run_id": run_id,
@@ -948,6 +1011,9 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         },
         "delegation": delegation_evidence.as_dict() if delegation_evidence else None,
         "delegation_enabled": delegation_config.enabled,
+        # Every adapter call with its terminal state. A failed request carries no numbers here: the
+        # journal records that usage was not reported, and nothing converts a reservation into it.
+        "model_requests": provider_requests,
         "delegation_controls": _delegation_controls_evidence(
             options, worker_catalog, worker_cards, delegate_description
         ),

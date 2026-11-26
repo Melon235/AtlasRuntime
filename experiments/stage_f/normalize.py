@@ -437,11 +437,20 @@ def from_main_child_session(
     if public_verdict is None:
         public_verdict = executor.public_test_verdict(session.get("public_tests")).get("state")
 
+    # Completion means the run *effectively* succeeded, not that AnyCode handed back an empty
+    # result whose ``success`` is True. A run that never completed a turn is a failure even when
+    # the raw AgentResult says otherwise; the raw value is kept beside it so the two are never
+    # conflated.
+    effective_success = session.get("execution_succeeded")
+    agent_success = (
+        effective_success if isinstance(effective_success, bool) else main.get("success")
+    )
+
     evidence = blank_evidence(cell)
     evidence.update(
         {
             "correctness": _correctness(
-                agent_success=main.get("success"),
+                agent_success=agent_success,
                 primary_completion=main.get("stop_reason"),
                 static_acceptance=(session.get("verification") or {}).get(
                     "verdict", NOT_APPLICABLE
@@ -569,6 +578,7 @@ def from_main_child_session(
     evidence["correctness"]["atlas_execution_records"] = _integrity_verdict(
         session.get("execution_integrity")
     )
+    evidence["correctness"]["raw_agent_success"] = main.get("success")
     return evidence
 
 

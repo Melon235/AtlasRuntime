@@ -154,6 +154,11 @@ NORMAL_FAILURE_KINDS: tuple[str, ...] = (
     "child_failed",
 )
 
+#: The one non-measurable failure kind the runtime names for itself: a model request was admitted
+#: and the provider call failed. It stops the matrix like any other infrastructure failure; the
+#: constant exists so the stop reason is ``PROVIDER_FAILURE`` rather than ``UNKNOWN_FAILURE_KIND``.
+PROVIDER_FAILURE_KIND = "provider_error"
+
 REQUIRED_USAGE_FIELDS: tuple[str, ...] = (
     "main_cumulative_input_tokens",
     "main_completion_tokens",
@@ -1048,11 +1053,15 @@ def audit_cell(
     if status not in {"succeeded", "failed"}:
         check("runtime_status_known", False, f"status is {status!r}", STOP_UNKNOWN_FAILURE)
     elif status == "failed":
+        # ``provider_error`` is the one non-measurable kind the runtime can now name for itself:
+        # the request was admitted and the provider call failed (see ``atlasos.metrics.requests``).
+        # It still stops the matrix — a provider failure is infrastructure, not a result — but the
+        # stop says so instead of falling through to UNKNOWN_FAILURE_KIND.
         check(
             "failure_is_measurable",
             kind in NORMAL_FAILURE_KINDS,
             f"kind={kind or 'MISSING'}",
-            STOP_UNKNOWN_FAILURE,
+            STOP_PROVIDER_FAILURE if kind == PROVIDER_FAILURE_KIND else STOP_UNKNOWN_FAILURE,
         )
     else:
         check("runtime_status_known", True, "succeeded")
@@ -2540,6 +2549,7 @@ __all__ = [
     "MODE_OFFLINE_PROOF",
     "MODES",
     "NORMAL_FAILURE_KINDS",
+    "PROVIDER_FAILURE_KIND",
     "RunnerConfig",
     "SandboxPlan",
     "admission_gate",
