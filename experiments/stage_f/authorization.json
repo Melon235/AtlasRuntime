@@ -10,7 +10,7 @@
   "protocol_digest": "sha256:65e0b993796191bf0b34ceb1c258ff9cbcd8bdbde98c4733fc39302cc9b05460",
   "reviewed_head": null,
   "execution_head": null,
-  "executor_digest": "sha256:8aabf977c4d801bcdf74571ba1fb823ce50d1ad457d41b5c5777e264817fee93",
+  "executor_digest": "sha256:538658dc13c35e69ec1fdcb3d2f8148b9885465f5759d4a689f30b1629349c85",
   "executor_version": "bplus-executor-1.8",
   "cells_count": 32,
   "cell_ids": [
@@ -110,7 +110,7 @@
   "approval_provenance": null,
   "reuses_s06_or_s08_balance": false,
   "notes": "This record authorizes nothing. A live dispatch requires every null field filled, both cost fields to be finite and positive, and the provenance to name an external artefact whose bytes still hash to the values recorded here.",
-  "master_manifest_digest": "sha256:20a8de5acb2a337f2862a80eaaaa4738c1039d7038a4629f245afeff342bfdd1",
+  "master_manifest_digest": "sha256:c3e0ae9a54ce92d5cf0a25bf0a5bdfe415bcb09dc00380adfe3678e14e8c83fa",
   "batches": {
     "stage-f-96-b1": "sha256:555af83bb6f295324c727437e99430532fa540ae735b5c36509af554f28adfc2",
     "stage-f-96-b2": "sha256:7ba96594423bacd23148509a5ec67047165161a8380b7313132a959368544fb9",

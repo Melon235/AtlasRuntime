@@ -60,11 +60,62 @@ def _oracle_record(payload: Mapping[str, Any]) -> dict[str, Any]:
     return dict(oracle, status=_oracle_status(oracle))
 
 
+def _export_evidence(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """The exported workspace, as evidence rather than as a path.
+
+    ``EvalRunResult.workspace_export`` is a *path string*. Passing it to a mapping consumer is how a
+    real path becomes a fictional field, so the path is kept under its own key and the integrity
+    facts are read from where the result actually records them.
+    """
+
+    raw = payload.get("workspace_export")
+    metrics = payload.get("metrics") if isinstance(payload.get("metrics"), Mapping) else {}
+    evidence: dict[str, Any] = {}
+    if isinstance(raw, Mapping):
+        evidence.update(raw)
+    elif isinstance(raw, str):
+        evidence["workspace_path"] = raw
+    else:
+        return {}
+    for key in ("patch_digest", "patch_changed_files", "workspace_files", "workspace_digest"):
+        if payload.get(key) is not None:
+            evidence.setdefault(key, payload[key])
+    if metrics.get("sandbox_created") is not None:
+        evidence.setdefault("sandbox_created", metrics.get("sandbox_created"))
+    if metrics.get("sandbox_destroyed") is not None:
+        evidence.setdefault("sandbox_destroyed", metrics.get("sandbox_destroyed"))
+    return evidence
+
+
 def _benchmark_task(cell: Mapping[str, Any], *, multi: bool) -> Any:
+    """The evaluation task for this cell, with the cell's own turn caps on every step.
+
+    ``closure2.build_task`` freezes 12 turns per worker for its own pilots. A Stage F cell declares
+    20 for implementation nodes and 40 for the integration node, so those caps are written onto the
+    steps here rather than inherited from another stage's protocol.
+    """
+
     from experiments.evaluation.closure2 import catalog as closure2
 
     task = TASKS_BY_ID[str(cell["task_id"])]
-    return closure2.build_task(task, topology="multi" if multi else "single")
+    if not multi:
+        return closure2.build_task(task, topology="single")
+    # A strongly coupled task has one honest node; a one-node DAG is a degenerate DAG, and the
+    # benchmark contract refuses to call it multi-worker, so it is built as a single-step task.
+    if len(task.workers) < 2:
+        return closure2.build_task(task, topology="single")
+    benchmark = closure2.build_task(task, topology="multi")
+    implementation = int(cell.get("worker_max_turns") or 20)
+    integration = int(cell.get("integration_max_turns") or 40)
+    sinks = {node["task_id"] for node in task.workers if not node["downstream"]}
+    steps = tuple(
+        dataclasses.replace(
+            step,
+            max_turns=integration if step.task_id in sinks else implementation,
+        )
+        for step in benchmark.workers
+    )
+    return dataclasses.replace(benchmark, workers=steps, mode="multi_worker")
 
 
 def _settings(cell: Mapping[str, Any], *, runs_root: Path, multi: bool) -> Any:
@@ -76,11 +127,19 @@ def _settings(cell: Mapping[str, Any], *, runs_root: Path, multi: bool) -> Any:
         extra["oracle_mode"] = "sandbox"
         extra["ownership_mode"] = "off"
         extra["execution_integrity_mode"] = "record"
+    # The single agent is the primary agent: it carries the Main cap, not the worker cap. A static
+    # DAG's *implementation* nodes carry the worker cap and its integration node the integration cap,
+    # which is applied per step in ``_benchmark_task``.
+    turns = (
+        int(cell.get("max_turns") or 40)
+        if not multi
+        else int(cell.get("worker_max_turns") or 20)
+    )
     return RunnerSettings(
         benchmark_id=f"{cell['plan_id']}/{cell['cell_id']}",
         runs_root=runs_root,
         config_path=Path(REPO_ROOT) / "experiments" / "configs" / "eval-benchmark.yaml",
-        max_turns=int(cell.get("worker_max_turns") or 20),
+        max_turns=turns,
         max_tokens=int(cell.get("max_output_tokens") or 4096),
         token_budget=int(cell["token_budget"]),
         budget_mode="guarded",
@@ -120,7 +179,7 @@ def native_cell_runner() -> executor.CellRunner:
         )
         payload = _result_dict(result)
         oracle = _oracle_record(payload)
-        export = payload.get("workspace_export") or payload.get("export") or {}
+        export = _export_evidence(payload)
         evidence = normalize.from_native_result(cell, payload, oracle=oracle, export=export)
         evidence["adapter_problems"] = normalize.validate_evidence(evidence)
         _write_json(root / "evidence.json", evidence)
@@ -158,7 +217,7 @@ def static_dag_cell_runner() -> executor.CellRunner:
         )
         payload = _result_dict(result)
         oracle = _oracle_record(payload)
-        export = payload.get("workspace_export") or payload.get("export") or {}
+        export = _export_evidence(payload)
         evidence = normalize.from_dag_result(cell, payload, oracle=oracle, export=export)
         evidence["adapter_problems"] = normalize.validate_evidence(evidence)
         _write_json(root / "evidence.json", evidence)
@@ -275,13 +334,45 @@ def _usage_of(evidence: Mapping[str, Any]) -> dict[str, Any]:
     main = usage.get("main") if isinstance(usage.get("main"), Mapping) else {}
     children = usage.get("children") if isinstance(usage.get("children"), Mapping) else {}
     primary = usage.get("primary_agent") if isinstance(usage.get("primary_agent"), Mapping) else {}
+    attribution = evidence.get("usage_attribution")
+
+    def _count(block: Mapping[str, Any], field: str) -> Any:
+        """A counter, or ``None`` when this run did not record it.
+
+        ``None`` means not measurable and flows into a stop. A *structural* zero (an arm with no
+        children) is a measured zero and is reported as one; the reporting layer still says
+        NOT_APPLICABLE for a role the arm does not have, because accounting and reporting are two
+        different questions.
+        """
+
+        source = (block or {}).get(field)
+        return int(source) if isinstance(source, int) and not isinstance(source, bool) else None
+
+    children_block = children if isinstance(children, Mapping) else {}
     system = usage.get("system_total_tokens")
+    system_total = system if isinstance(system, int) and not isinstance(system, bool) else None
+    if attribution == "single_agent":
+        return {
+            "main_cumulative_input_tokens": _count(primary, "prompt_tokens"),
+            "main_completion_tokens": _count(primary, "completion_tokens"),
+            "child_total_prompt_tokens": 0,
+            "child_completion_tokens": 0,
+            "system_total_tokens": system_total,
+        }
+    if attribution == "dag_all_children":
+        return {
+            "main_cumulative_input_tokens": 0,
+            "main_completion_tokens": 0,
+            "child_total_prompt_tokens": _count(children_block, "prompt_tokens"),
+            "child_completion_tokens": _count(children_block, "completion_tokens"),
+            "system_total_tokens": system_total,
+        }
     return {
-        "main_cumulative_input_tokens": int((main or primary).get("prompt_tokens") or 0),
-        "main_completion_tokens": int((main or primary).get("completion_tokens") or 0),
-        "child_total_prompt_tokens": int((children or {}).get("prompt_tokens") or 0),
-        "child_completion_tokens": int((children or {}).get("completion_tokens") or 0),
-        "system_total_tokens": int(system) if isinstance(system, int) else 0,
+        "main_cumulative_input_tokens": _count(main, "prompt_tokens"),
+        "main_completion_tokens": _count(main, "completion_tokens"),
+        "child_total_prompt_tokens": _count(children_block, "prompt_tokens"),
+        "child_completion_tokens": _count(children_block, "completion_tokens"),
+        "system_total_tokens": system_total,
     }
 
 
@@ -322,8 +413,11 @@ def audit_stage_f_cell(
         },
         {
             "check": "usage_complete",
-            "ok": executor.validate_usage(metrics)["ok"],
-            "detail": "; ".join(executor.validate_usage(metrics)["problems"])[:300],
+            "ok": all(value is not None for value in metrics.values()),
+            "detail": "unknown: "
+            + ",".join(key for key, value in metrics.items() if value is None)
+            if any(value is None for value in metrics.values())
+            else "complete",
         },
     ]
     if run.error:
