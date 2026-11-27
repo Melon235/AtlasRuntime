@@ -7,7 +7,7 @@
 From the clean execution checkout, use a fresh, short evidence root outside the repository. The path length matters for nested Windows fixtures.
 
 ```powershell
-& ./.venv/Scripts/python.exe -m experiments.stage_f.release_candidate prepare --out D:/Work/fr2
+& ./.venv/Scripts/python.exe -m experiments.stage_f.release_candidate prepare --out D:/Work/fr2f
 ```
 
 Preparation writes the manifest, tracked executor file digests, three plans, pending authorization records, default-runner admission and read-only settlement preflight. The production dispatcher re-derives the same manifest and plans from the actual checkout and compares them to the external frozen records. Admission checks credential presence, the official DeepSeek endpoint and OpenSandbox health. It materializes fixture files and performs no model request or claim.
@@ -19,7 +19,7 @@ The manifest binds the execution HEAD, the executor digest, task bytes, public t
 After the Owner approves all three batches, run the following from the frozen checkout:
 
 ```powershell
-& ./.venv/Scripts/python.exe -m experiments.stage_f.release_candidate launch --out D:/Work/fr2
+& ./.venv/Scripts/python.exe -m experiments.stage_f.release_candidate launch --out D:/Work/fr2f
 ```
 
 Launch checks the three authorizations up front and rechecks each inside the production dispatcher. It runs batches in order and exits with status 2 when authorization is absent or a batch stops. Missing identity files and altered contracts also refuse execution. A measured Oracle failure can leave the matrix running when integrity and resource evidence are complete. An infrastructure, provider, unknown-usage, evidence, budget or claim stop ends the sequence. The next batch needs complete prior v2 reports and consumed prior claims under the same executor, pricing and settlement identity. Neither the CLI nor dispatcher retries a cell or reuses a consumed claim.

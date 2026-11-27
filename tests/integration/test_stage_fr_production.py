@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from anycode.types import LLMChatOptions
+from anycode.types import LLMChatOptions, LLMStreamOptions
 from experiments.evaluation.runner import load_runner_config
 from experiments.stage_b_plus import authority, contract, executor
 from experiments.stage_f import cumulative, plan, runners
@@ -81,6 +81,29 @@ async def test_missing_usage_is_a_failed_request_not_zero():
     assert record["usage"] is None
 
 
+async def test_terminal_stream_error_is_recorded_before_the_iterator_closes():
+    calls = []
+
+    async def create(**_):
+        calls.append(1)
+        raise ValueError("non-retryable request rejection")
+
+    adapter = DeepSeekAdapter(
+        client=SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))),
+        require_reported_usage=True,
+    )
+    journal = RequestJournal(run_id="test", provider="deepseek", requested_model=fr.REQUESTED_MODEL)
+    options = LLMStreamOptions(model=fr.REQUESTED_MODEL)
+    stream = JournaledAdapter(adapter, journal).stream([], options)
+    event = await anext(stream)
+    assert event.type == "error"
+    await stream.aclose()
+    record, = journal.snapshot()["records"]
+    assert record["exception_type"] == "ValueError"
+    assert record["status"] == "FAILED"
+    assert calls == [1]
+
+
 def test_historic_model_and_task_order_remain_bound():
     old = plan.batch_plan(1)
     new = contract.scope_plan(fr.BATCH_IDS[1])
@@ -94,6 +117,8 @@ def test_historic_model_and_task_order_remain_bound():
         fr.requested_model(altered)
     with pytest.raises((KeyError, ValueError)):
         contract.scope_plan("stage-fr-final-96-v1-b1")
+    same_order = [contract.scope_plan(plan_id)["cells"][0] for plan_id in fr.BATCH_IDS.values()]
+    assert len({fr.goal_run_id(cell, "c01") for cell in same_order}) == 3
 
 
 def test_cumulative_reads_new_reports_and_enforces_frozen_headroom(tmp_path: Path):

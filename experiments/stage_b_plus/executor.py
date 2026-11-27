@@ -2500,6 +2500,8 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
     active = config or RunnerConfig()
 
     async def run(cell: dict[str, Any], context: Mapping[str, Any]) -> CellRun:
+        from experiments.stage_f.release_candidate import goal_run_id
+
         from atlasos.app.main_driven import run_goal
 
         task = task_for_cell(cell)
@@ -2508,7 +2510,7 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
         key = f"c{int(cell['order']):02d}"
         evidence = Path(context["evidence_root"]) / "cells" / key
         fixture_dir = Path(context["runs_root"]) / "fixtures" / cell["cell_id"]
-        run_id = f"bplus-{key}"
+        run_id = goal_run_id(cell, key)
         # The cell's own resource contract wins over the process default: a Stage F cell declares
         # 40 Main turns, and the historical default of 20 must not silently override it.
         cell_config = cell_runner_config(cell, active)

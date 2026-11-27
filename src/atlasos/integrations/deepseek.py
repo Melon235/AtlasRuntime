@@ -282,7 +282,15 @@ class DeepSeekAdapter:
         """Non-incremental fallback: one text event followed by the final response."""
 
         async def _generate() -> AsyncIterator[StreamEvent]:
-            response = await self.chat(messages, options)
+            try:
+                response = await self.chat(messages, options)
+            except Exception as error:  # noqa: BLE001 - terminal event prevents a second request
+                if not self._require_reported_usage:
+                    raise
+                # AnyCode may fall back to chat after a raised startup exception. A terminal
+                # provider error event instead settles this one attempt without issuing another.
+                yield StreamEvent(type="error", data=error)
+                return
             for block in response.content:
                 if isinstance(block, TextBlock) and block.text:
                     yield StreamEvent(type="text", data=block.text)

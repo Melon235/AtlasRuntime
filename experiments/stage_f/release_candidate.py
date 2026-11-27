@@ -61,6 +61,13 @@ def pricing_config() -> Any:
     return Pricing.model_validate({key: PRICING[key] for key in Pricing.model_fields})
 
 
+def goal_run_id(cell: Mapping[str, Any], key: str) -> str:
+    if not cell.get("release_experiment"):
+        return f"bplus-{key}"
+    requested_model(cell)
+    return f"fr2-{cell['plan_id'].rsplit('-', 1)[1]}-{key}"
+
+
 def verify_authority(
     record: Mapping[str, Any] | None,
     *,

@@ -331,7 +331,6 @@ class JournaledAdapter:
                 phase="stream", agent=self._agent, requested_model=getattr(options, "model", None)
             )
             done = False
-            terminal_error: BaseException | None = None
             partial = False
             try:
                 async for event in self._inner.stream(messages, options):
@@ -339,13 +338,15 @@ class JournaledAdapter:
                     data = getattr(event, "data", None)
                     if event_type == "text":
                         partial = True
-                    elif event_type == "error":
-                        terminal_error = (
+                    elif event_type == "error" and record.status == STARTED:
+                        error = (
                             data
                             if isinstance(data, BaseException)
                             else RuntimeError(str(data) or "provider error event")
                         )
-                    elif event_type == "done":
+                        # The upstream resilient iterator may close the stream at this event.
+                        self._journal.fail(record, error, partial=partial)
+                    elif event_type == "done" and record.status == STARTED:
                         done = True
                         self._journal.complete(
                             record,
@@ -354,14 +355,14 @@ class JournaledAdapter:
                         )
                     yield event
             except asyncio.CancelledError:
-                self._journal.cancel(record, partial=partial)
+                if record.status == STARTED:
+                    self._journal.cancel(record, partial=partial)
                 raise
             except BaseException as error:  # noqa: BLE001 - recorded, then re-raised unchanged
-                self._journal.fail(record, error, partial=partial)
+                if record.status == STARTED:
+                    self._journal.fail(record, error, partial=partial)
                 raise
-            if terminal_error is not None and record.status == STARTED:
-                self._journal.fail(record, terminal_error, partial=partial)
-            elif not done and record.status == STARTED:
+            if not done and record.status == STARTED:
                 self._journal.settle_one(record, partial=partial)
 
         return _generate()
