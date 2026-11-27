@@ -276,6 +276,54 @@ def _child_usage_from_session(session: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _product_absence(session: dict[str, Any]) -> Any:
+    """A product run has no static acceptance contract; that is ``NOT_CONFIGURED``, not UNKNOWN."""
+
+    return NOT_CONFIGURED if session and "acceptance" in session else None
+
+
+def _public_test_absence(session: dict[str, Any]) -> Any:
+    """A run with no host-fixed suite says so; ``status`` is the field the goal path writes."""
+
+    block = _nested(session, "public_tests")
+    if not isinstance(block, dict):
+        return None
+    status = block.get("status")
+    if isinstance(status, str) and status:
+        return status
+    if block.get("configured") is False:
+        return NOT_CONFIGURED
+    return None
+
+
+def _integrity_axis(session: dict[str, Any]) -> Any:
+    """What the session says about execution integrity, using its own vocabulary.
+
+    The goal path records a corpus (``mode: record``); that is evidence capture, not a PASS verdict,
+    so it is reported as ``RECORDED`` and never as a deliverable result.
+    """
+
+    block = _nested(session, "execution_integrity")
+    if not isinstance(block, dict) or not block:
+        return None
+    status = block.get("status")
+    if isinstance(status, str) and status:
+        return status
+    mode = block.get("mode")
+    if isinstance(mode, str) and mode:
+        return "RECORDED" if mode.startswith("record") else mode.upper()
+    return None
+
+
+def _pick(*candidates: tuple[Any, str]) -> tuple[Any, str]:
+    """First recorded value with the name of the field it came from."""
+
+    for value, source in candidates:
+        if known(value):
+            return value, source
+    return UNKNOWN, UNAVAILABLE
+
+
 def _verification_axes(model: RunModel) -> dict[str, Any]:
     analysis = model.analysis
     evidence = model.evidence
@@ -286,20 +334,35 @@ def _verification_axes(model: RunModel) -> dict[str, Any]:
     last_public = public_runs[-1] if public_runs else None
     verification = _nested(session, "verification") or {}
 
-    raw_success = _first_known(
-        correctness.get("agent_success"),
-        outcome.get("agent_success"),
-        _nested(session, "main", "success"),
-        _nested(model.native, "agent_success"),
-        _nested(model.app, "status") == "COMPLETED" if model.app else None,
-    )
-    return {
-        "raw_agent_success": raw_success,
-        # Effective completion is its own recorded value. It is never substituted by the
-        # delivered-success flag, which answers a different question.
-        "effective_agent_completion": _recorded_or(
-            correctness.get("primary_agent_completion"), UNAVAILABLE
+    # The raw loop outcome. ``raw_agent_success`` is the newer name of the same fact;
+    # ``agent_success`` is kept as the fallback so evidence written before the split still reads.
+    raw_success, raw_source = _pick(
+        (correctness.get("raw_agent_success"), "evidence.correctness.raw_agent_success"),
+        (correctness.get("agent_success"), "evidence.correctness.agent_success"),
+        (outcome.get("raw_agent_success"), "analysis.outcome.raw_agent_success"),
+        (outcome.get("agent_success"), "analysis.outcome.agent_success"),
+        (_nested(session, "main", "success"), "session.main.success"),
+        (_nested(model.native, "agent_success"), "native result agent_success"),
+        (
+            _nested(model.app, "status") == "COMPLETED" if model.app else None,
+            "app run.json status",
         ),
+    )
+    # Effective completion answers "did the execution finish the work it claimed", and it is its
+    # own recorded value: the evidence's ``primary_agent_completion`` when the cell recorded one,
+    # otherwise the session's own ``execution_succeeded``. It is never derived from the stop
+    # reason (a stop reason is not a boolean) and never from delivered success.
+    effective, effective_source = _pick(
+        (
+            correctness.get("primary_agent_completion"),
+            "evidence.correctness.primary_agent_completion",
+        ),
+        (_nested(session, "execution_succeeded"), "session.execution_succeeded"),
+        (outcome.get("execution_succeeded"), "analysis.outcome.execution_succeeded"),
+    )
+    axes: dict[str, Any] = {
+        "raw_agent_success": raw_success,
+        "effective_agent_completion": _recorded_or(effective, UNAVAILABLE),
         "public_test": _first_known(
             correctness.get("public_test"),
             outcome.get("public_test_status"),
@@ -322,10 +385,35 @@ def _verification_axes(model: RunModel) -> dict[str, Any]:
         ),
         "delivered_success": _first_known(
             correctness.get("delivered_success"),
+            outcome.get("delivered_success"),
             outcome.get("goal_correctness"),
             model.native.get("success"),
         ),
     }
+    # A product run states these on its session, and "not configured" is a real answer rather
+    # than an unknown: no independent oracle existed, so nothing was verified either way.
+    _settle(axes, "independent_oracle", _nested(session, "acceptance"))
+    _settle(axes, "public_test", _public_test_absence(session))
+    _settle(axes, "static_acceptance", _product_absence(session))
+    _settle(axes, "execution_integrity", _integrity_axis(session))
+    axes["axis_sources"] = {
+        "raw_agent_success": raw_source
+        if raw_success is not UNKNOWN
+        else "no raw success field recorded",
+        "effective_agent_completion": effective_source
+        if known(effective)
+        else "no completion field recorded",
+    }
+    return axes
+
+
+def _settle(axes: dict[str, Any], name: str, fallback: Any) -> None:
+    """Fill an axis from a fallback that may itself be a status token such as NOT_CONFIGURED."""
+
+    if known(axes.get(name)):
+        return
+    if isinstance(fallback, str) and fallback.strip():
+        axes[name] = fallback
 
 
 def _first_known(*values: Any) -> Any:
@@ -355,6 +443,14 @@ def _headline(axes: dict[str, Any], *, executed: bool) -> str:
     oracle = axes.get("independent_oracle")
     integrity = axes.get("execution_integrity")
     delivered = axes.get("delivered_success")
+    if oracle == NOT_CONFIGURED:
+        # Nothing verified this run. Saying "delivered" would be an unsupported claim, and saying
+        # "not delivered" would be a verdict nobody issued.
+        if axes.get("effective_agent_completion") is True:
+            return "COMPLETED_UNVERIFIED"
+        if axes.get("effective_agent_completion") is False:
+            return "NOT_COMPLETED"
+        return "INCOMPLETE"
     if oracle == "FAIL" or integrity == "FAIL" or delivered is False:
         return "NOT_DELIVERED"
     if oracle == "PASS" and integrity in {"PASS"} and delivered in {True, "PASS"}:
@@ -552,20 +648,21 @@ def _execution_mode(model: RunModel) -> tuple[str, str]:
     declared = evidence.get("execution_mode")
     if isinstance(declared, str) and declared:
         return declared, "declared"
+    app = model.app
+    if app and app.get("mode"):
+        # A product run declares its mode on the application record: ``main_direct`` and
+        # ``main_dynamic`` are two different executions of the same runtime and must stay distinct.
+        return str(app["mode"]), "declared: app run record"
     session = model.session
     if session:
-        enabled = session.get("delegation_enabled")
-        if enabled is True and session.get("mode"):
+        if session.get("mode"):
             return str(session["mode"]), "declared"
-        if enabled is False:
+        if session.get("delegation_enabled") is False:
             return "single_agent", "derived: delegation disabled in session"
-        return str(session.get("mode") or "main_driven"), "derived: main-driven session"
+        return "main_driven", "derived: main-driven session"
     native = model.native
     if native:
         return str(native.get("mode") or "native"), "declared: native runner result"
-    app = model.app
-    if app:
-        return str(app.get("mode") or UNKNOWN), "declared: app run record"
     atlas = model.atlas
     if atlas:
         return "static_dag", "derived: AtlasRuntime workflow result"
@@ -2125,7 +2222,6 @@ def verification(model: RunModel) -> dict[str, Any]:
     session = model.session
     evidence = model.evidence
     analysis = model.analysis
-    native = model.native
     public_runs = _nested(session, "public_tests", "runs") or []
     checks = _nested(evidence, "verification", "checks") or []
     return {
@@ -2133,17 +2229,9 @@ def verification(model: RunModel) -> dict[str, Any]:
         "headline": _headline(axes, executed=_has_execution_evidence(model)),
         "axes": axes,
         "detail": {
-            "agent_success_source": _first_known(
-                _nested(evidence, "correctness") and "cell evidence correctness.agent_success",
-                _nested(analysis, "outcome") and "cell analysis outcome.agent_success",
-                _nested(session, "main") and "session.json main.success",
-                _nested(native, "agent_success") is not None and "native result agent_success",
-            ),
-            "effective_completion": _first_known(
-                _nested(evidence, "correctness", "primary_agent_completion"),
-                UNAVAILABLE,
-                "not recorded for this source",
-            ),
+            "agent_success_source": axes["axis_sources"]["raw_agent_success"],
+            "effective_completion": axes["effective_agent_completion"],
+            "effective_completion_source": axes["axis_sources"]["effective_agent_completion"],
             "public_tests": [
                 {
                     "call_index": run.get("call_index"),

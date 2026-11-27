@@ -413,8 +413,10 @@
               "no source file was classified"))}
           </div>
           <aside class="grid" style="gap:12px">
-            ${panel("verification summary", kv(Object.entries(d.verification_summary.axes).map(([k, v]) =>
-              [k, okBadge(v)])) + `<div class="fade" style="margin-top:8px">headline: ${badge(d.verification_summary.headline)}</div>`)}
+            ${panel("verification summary", kv(Object.entries(d.verification_summary.axes)
+              .filter(([, v]) => v === null || typeof v !== "object")
+              .map(([k, v]) => [k, okBadge(v)]))
+              + `<div class="fade" style="margin-top:8px">headline: ${badge(d.verification_summary.headline)}</div>`)}
             ${panel("evidence completeness", `<div style="margin-bottom:8px">${badge(d.completeness.level)}
               <span class="muted">${d.completeness.present}/${d.completeness.total} facets</span></div>
               <div class="kv">${facets}</div>
@@ -687,8 +689,8 @@
           headline: <b>${esc(d.headline)}</b> — ${esc(d.note)}</div>
         <div class="split" style="margin-top:12px">
           ${panel("verification axes", table(["axis", "value", "note"], [
-            axisRow("raw agent success", a.raw_agent_success, d.detail.agent_success_source || ""),
-            axisRow("effective agent completion", a.effective_agent_completion, d.detail.effective_completion || ""),
+            axisRow("raw agent success", a.raw_agent_success, (a.axis_sources || {}).raw_agent_success || ""),
+            axisRow("effective agent completion", a.effective_agent_completion, (a.axis_sources || {}).effective_agent_completion || ""),
             axisRow("public test", a.public_test),
             axisRow("static acceptance", a.static_acceptance),
             axisRow("independent oracle", a.independent_oracle),
@@ -709,7 +711,6 @@
               publicTests ? [publicTests] : [], "the public suite did not run in this evidence"))}
           </aside>
         </div>
-        <div class="split" style="margin-top:12px">
         <div class="grid g2" style="margin-top:12px">
           ${panel("cell integrity checks", table(["check", "status", "detail", "affects verdict"],
             checks ? [checks] : [], "no integrity check table recorded"))}

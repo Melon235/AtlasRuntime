@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -27,6 +27,29 @@ from atlasos.app.goal_verification import (
 
 READY = "READY"
 BLOCKED = "BLOCKED"
+
+#: Admission profiles. ``benchmark`` is the evaluation contract every Stage F cell was judged
+#: against: an independent oracle and a host-fixed public suite are part of what makes a measured
+#: cell interpretable. ``product`` is an ordinary task: it still has to prove isolation, a clean
+#: source, a bounded budget and a real provider, but it has no hidden oracle and must not be
+#: blocked for lacking one. The difference is a *blocking decision*, never a removed check.
+PROFILE_BENCHMARK = "benchmark"
+PROFILE_PRODUCT = "product"
+PROFILES = (PROFILE_BENCHMARK, PROFILE_PRODUCT)
+
+#: Checks that exist because a benchmark cell must be measurable. In the product profile they are
+#: still evaluated and reported, but they do not stop the run.
+EVALUATION_CONTRACT_CHECKS = frozenset(
+    {
+        "public_tests_configured",
+        "public_tests_separate_from_oracle",
+        "acceptance_configured",
+        "acceptance_digest_declared",
+        "external_oracle_task_binding",
+        "external_oracle_artifact_root",
+        "external_oracle_independent_sandbox",
+    }
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_RESULTS = (REPO_ROOT / "experiments" / "results", REPO_ROOT / "experiments" / "runs")
@@ -256,9 +279,11 @@ def run_live_preflight(options: Any) -> dict[str, Any]:
         )
         checks.append(_check("public_tests_separate_from_oracle", separate, detail))
 
-        declaration = list(external.problems()) if external is not None else [
-            "the acceptance contract declares an external oracle but carries none"
-        ]
+        declaration = (
+            list(external.problems())
+            if external is not None
+            else ["the acceptance contract declares an external oracle but carries none"]
+        )
         checks.append(
             _check(
                 "acceptance_configured",
@@ -420,9 +445,34 @@ def run_live_preflight(options: Any) -> dict[str, Any]:
         )
     )
 
+    profile = str(getattr(options, "preflight_profile", PROFILE_BENCHMARK) or PROFILE_BENCHMARK)
+    if profile not in PROFILES:
+        checks.append(
+            _check(
+                "preflight_profile_known",
+                False,
+                f"preflight_profile={profile!r}; expected one of {list(PROFILES)}",
+            )
+        )
+        profile = PROFILE_BENCHMARK
+    if profile == PROFILE_PRODUCT:
+        # The evaluation-contract checks keep their result; they stop blocking. The detail says
+        # which contract they belong to, so a reader of the report is never told they passed.
+        checks = [
+            replace(
+                item,
+                blocking=False,
+                detail=(f"product profile: not required for an ordinary task; {item.detail}"),
+            )
+            if item.check_id in EVALUATION_CONTRACT_CHECKS
+            else item
+            for item in checks
+        ]
+
     blocking_failures = [item.check_id for item in checks if item.blocking and not item.ok]
     return {
         "status": READY if not blocking_failures else BLOCKED,
+        "profile": profile,
         "generated_at": datetime.now(UTC).isoformat(),
         "checks": [item.as_dict() for item in checks],
         "blocking_failures": blocking_failures,
@@ -433,6 +483,11 @@ def run_live_preflight(options: Any) -> dict[str, Any]:
             "are UNAVAILABLE rather than estimated",
             "oracle": "the harness runs the acceptance contract after the Main stops; a public "
             "PASS is never used as the oracle verdict",
+            "profile": (
+                "benchmark: every check blocks, because a measured cell needs a hidden oracle and "
+                "a separate public suite; product: only safety and identity checks block, and the "
+                "evaluation-contract checks are reported as not required"
+            ),
         },
     }
 

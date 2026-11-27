@@ -447,6 +447,10 @@ class RunArtifacts:
     files: dict[str, list[str]] = field(default_factory=dict)
     matrix_row: dict[str, Any] | None = None
     matrix_ref: dict[str, Any] | None = None
+    #: What actually executed here: provider, model, declared mode, an execution id when one was
+    #: recorded, and a digest of the record itself. Two directories are copies only when this
+    #: agrees; a scripted proof and a live run of the same planned cell never do.
+    execution: dict[str, Any] = field(default_factory=dict)
 
     def first(self, role: str) -> str | None:
         values = self.files.get(role) or []
@@ -534,6 +538,165 @@ def _evidence_weight(roles: Mapping[str, Sequence[Any]]) -> int:
     )
 
 
+#: Provider or model names that mean no external model answered. A record carrying one of these is
+#: a scripted/deterministic proof: it may be replayed, but it must never be merged with a live run.
+SCRIPTED_MARKERS = (
+    "scripted",
+    "fake",
+    "stub",
+    "deterministic",
+    "offline",
+    "rehearsal",
+)
+
+#: Ordered by how specific the answer is. The first entry that is recorded names the execution.
+_PRIMARY_ROLES = ("evidence", "session", "native_result", "app_record", "atlas_result", "analysis")
+
+
+def provider_band(*values: Any) -> str:
+    """``SCRIPTED``, ``LIVE_MODEL`` or ``UNKNOWN`` for a set of provider/model labels."""
+
+    texts = [str(value).strip().lower() for value in values if value not in (None, "")]
+    if not texts:
+        return "UNKNOWN"
+    if any(marker in text for marker in SCRIPTED_MARKERS for text in texts):
+        return "SCRIPTED"
+    return "LIVE_MODEL"
+
+
+def _content_digest(payload: Any) -> str | None:
+    """A digest of the record's own content: a copy keeps it, any real difference does not."""
+
+    if not isinstance(payload, (dict, list)):
+        return None
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _execution_record(payloads: Mapping[str, dict[str, Any]]) -> dict[str, Any]:
+    """Derive the observable execution identity of one evidence directory.
+
+    Only recorded values are used. ``provider``/``model`` come from whichever artifact states
+    them; ``execution_id`` is an identity the runtime itself wrote (a session run id, a native
+    identity, an app run id); ``source_digest`` is the digest the evidence records of the artifact
+    it was built from. Nothing here is inferred from a directory name or a plan.
+    """
+
+    evidence = payloads.get("evidence") or {}
+    analysis = payloads.get("analysis") or {}
+    session = payloads.get("session") or {}
+    native = payloads.get("native_result") or {}
+    app = payloads.get("app_record") or {}
+    atlas = payloads.get("atlas_result") or {}
+    provenance = evidence.get("provenance")
+    provenance = provenance if isinstance(provenance, dict) else {}
+    sandbox_plan = analysis.get("sandbox_plan")
+    sandbox_plan = sandbox_plan if isinstance(sandbox_plan, dict) else {}
+    native_identity = native.get("identity")
+    native_identity = native_identity if isinstance(native_identity, dict) else {}
+
+    provider = _first_text(
+        provenance.get("provider"),
+        session.get("provider"),
+        sandbox_plan.get("provider_name"),
+        native_identity.get("provider"),
+        atlas.get("provider"),
+    )
+    model = _first_text(
+        provenance.get("model"),
+        session.get("model"),
+        native_identity.get("model"),
+        atlas.get("model"),
+    )
+    experiment_mode = _first_text(
+        evidence.get("execution_mode"),
+        (analysis.get("outcome") or {}).get("execution_mode")
+        if isinstance(analysis.get("outcome"), dict)
+        else None,
+    )
+    execution_id = _first_text(
+        session.get("run_id"),
+        native_identity.get("run_id"),
+        app.get("run_id"),
+        atlas.get("run_id"),
+    )
+    primary = next((role for role in _PRIMARY_ROLES if role in payloads), None)
+    # Only a record with no execution evidence at all may be collapsed by the verdict it claims.
+    rehearsal = primary == "analysis"
+    # A rehearsal's own bytes carry timings and costs, so they never prove two copies are the same
+    # result; its verdict digest does.
+    content_digest: str | None = None
+    if not rehearsal and primary:
+        content_digest = _content_digest(payloads.get(primary))
+    return {
+        "provider": provider,
+        "model": model,
+        "band": provider_band(provider, model, provenance.get("provider")),
+        "experiment_mode": experiment_mode,
+        "execution_id": execution_id,
+        "source_digest": _first_text(provenance.get("source_digest")),
+        "content_digest": content_digest,
+        "verdict_digest": _verdict_digest(payloads) if rehearsal else None,
+        "primary_role": primary,
+    }
+
+
+def _first_text(*values: Any) -> str | None:
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+#: Fields that state what a rehearsal *concluded*. Timing, cost and note text are excluded on
+#: purpose: they differ between two runs of the same rehearsal and say nothing about the result.
+_VERDICT_FIELDS = (
+    "status",
+    "verdict",
+    "executor_verdict",
+    "oracle_status",
+    "oracle_passed",
+    "execution_integrity",
+    "goal_correctness",
+    "delivered_success",
+    "failure_kind",
+    "agent_success",
+    "static_acceptance",
+    "public_test_status",
+)
+
+
+def _verdict_digest(payloads: Mapping[str, dict[str, Any]]) -> str | None:
+    analysis = payloads.get("analysis") or {}
+    outcome = analysis.get("outcome")
+    if not isinstance(outcome, dict):
+        return None
+    oracle = analysis.get("oracle")
+    claimed = {name: outcome.get(name) for name in _VERDICT_FIELDS}
+    claimed["oracle_kind"] = oracle.get("kind") if isinstance(oracle, dict) else None
+    canonical = json.dumps(claimed, sort_keys=True, separators=(",", ":"), default=str)
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def execution_token(execution: Mapping[str, Any]) -> str:
+    """The part of the identity that separates two executions of the same planned cell.
+
+    An execution id the runtime wrote is the strongest evidence; the digest of the artifact the
+    evidence was built from is next; the digest of the record itself is last. A rehearsal that
+    carries no execution evidence at all falls back to the verdict it claims, so two copies of one
+    rehearsal collapse while a rehearsal with a different conclusion stays its own row.
+
+    An empty answer means nothing distinguishes the two directories, and they are then kept apart
+    rather than merged.
+    """
+
+    for key in ("execution_id", "source_digest", "content_digest", "verdict_digest"):
+        value = execution.get(key)
+        if isinstance(value, str) and value:
+            return f"{key}:{value}"
+    return ""
+
+
 def _kind_for(roles: Mapping[str, Sequence[Any]]) -> str:
     if roles.get("analysis") or roles.get("evidence"):
         # An analysis without a session, a native result or cell evidence is a rehearsal record,
@@ -553,6 +716,7 @@ def scan(roots: list[EvidenceRoot], *, max_runs: int = MAX_RUNS) -> ScanResult:
     problems: list[dict[str, Any]] = []
     grouped: dict[tuple[str, str], dict[str, list[Found]]] = {}
     declared_cell_ids: dict[tuple[str, str], dict[str, str]] = {}
+    execution_payloads: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
     matrices: list[MatrixReport] = []
     totals = {"files": 0, "candidates": 0, "truncated_roots": 0, "roots_scanned": 0}
     maximum_depth = 0
@@ -622,6 +786,9 @@ def scan(roots: list[EvidenceRoot], *, max_runs: int = MAX_RUNS) -> ScanResult:
             key = (root.label, run_dir)
             bucket = grouped.setdefault(key, {})
             bucket.setdefault(artifact_role, []).append(Found(artifact_role, relative, size))
+            if isinstance(payload, dict):
+                payloads = execution_payloads.setdefault(key, {})
+                payloads.setdefault(artifact_role, payload)
             if artifact_role in {"analysis", "evidence"} and isinstance(payload, dict):
                 declared = declared_cell_ids.setdefault(key, {})
                 for field_name in ("cell_id", "plan_id", "batch_id"):
@@ -651,8 +818,11 @@ def scan(roots: list[EvidenceRoot], *, max_runs: int = MAX_RUNS) -> ScanResult:
         weights[(root_label, run_dir)] = _evidence_weight(roles)
         declared = declared_cell_ids.get((root_label, run_dir)) or {}
         cell_id = declared.get("cell_id")
-        # A planned cell has exactly one attempt (attempt_limit=1), so the plan plus the cell is
-        # its identity. The batch id stays descriptive: it is absent from analysis-only copies.
+        execution = _execution_record(execution_payloads.get((root_label, run_dir), {}))
+        # A planned cell is one logical unit, but the plan is not the execution: the same
+        # (cell_id, plan_id) can be a scripted proof, an offline rehearsal and several live runs.
+        # The pair therefore names the *logical* cell only; the execution token below decides
+        # whether two directories are the same piece of evidence.
         identity = (cell_id, declared.get("plan_id", "")) if cell_id else None
         runs.append(
             RunArtifacts(
@@ -665,6 +835,7 @@ def scan(roots: list[EvidenceRoot], *, max_runs: int = MAX_RUNS) -> ScanResult:
                 files={
                     role: [item.relative for item in entries] for role, entries in roles.items()
                 },
+                execution=execution,
             )
         )
 
@@ -692,7 +863,7 @@ def scan(roots: list[EvidenceRoot], *, max_runs: int = MAX_RUNS) -> ScanResult:
     # the same cell identity are copies, not two runs. The richest copy is projected and every
     # other location is published under /api/replay/sources, so nothing is silently dropped.
     duplicates: list[dict[str, Any]] = []
-    canonical: dict[tuple[str, str], RunArtifacts] = {}
+    canonical: dict[tuple[str, ...], RunArtifacts] = {}
     kept: list[RunArtifacts] = []
     for run in sorted(
         runs,
@@ -707,9 +878,16 @@ def scan(roots: list[EvidenceRoot], *, max_runs: int = MAX_RUNS) -> ScanResult:
         if identity is None:
             kept.append(run)
             continue
-        first = canonical.get(identity)
+        token = execution_token(run.execution)
+        if not token:
+            # Nothing distinguishes this directory from any other copy of the cell. Two records
+            # that cannot be proven to be the same execution stay separate.
+            kept.append(run)
+            continue
+        key = (identity[0], identity[1], str(run.execution.get("band") or "UNKNOWN"), token)
+        first = canonical.get(key)
         if first is None:
-            canonical[identity] = run
+            canonical[key] = run
             kept.append(run)
             continue
         duplicates.append(
@@ -717,6 +895,8 @@ def scan(roots: list[EvidenceRoot], *, max_runs: int = MAX_RUNS) -> ScanResult:
                 "cell_id": run.cell_id,
                 "canonical": f"{first.root_label}/{first.run_dir}",
                 "copy": f"{run.root_label}/{run.run_dir}",
+                "proof": token.split(":", 1)[0],
+                "provider": run.execution.get("provider"),
             }
         )
     runs = kept

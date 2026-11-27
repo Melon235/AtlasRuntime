@@ -238,7 +238,18 @@ docker build -t atlas-uat-python:3.12 experiments/fixtures/uat_image
 `csv_parser.py` (default: `experiments/fixtures/uat_repo`) and a reachable real sandbox provider;
 there is no fake fallback. `--mode workflow` needs the provider key but no sandbox.
 
-The local web console serves the live application and a **read-only historical replay workbench**.
+`atlas run --mode main_direct|main_dynamic` runs the **Main-driven runtime** — the same
+`run_goal` the research stages used — through the application service the Web UI calls. Direct
+builds no delegation tool; Dynamic offers `delegate_tasks` and the runtime router decides admission.
+The workspace is a *name* inside a configured root, never a path:
+
+```powershell
+.\.venv\Scripts\atlas.exe workspaces
+.\.venv\Scripts\atlas.exe run "Write the deliverable." `
+  --mode main_dynamic --workspace main_driven_demo --budget 200000
+```
+
+The local web console serves that same path plus a **read-only historical replay workbench**.
 Replay reads execution evidence that already exists on disk, starts no model request and holds no
 runtime authority:
 

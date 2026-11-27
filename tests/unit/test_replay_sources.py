@@ -600,3 +600,93 @@ def test_environment_root_list_is_used_when_no_flag_is_given(tmp_path: Path) -> 
     root.mkdir()
     roots = parse_root_specs([], env_value=f"{root}{os.pathsep}{root}")
     assert [item.path for item in roots] == [root.resolve()], "duplicates collapse to one root"
+
+
+# ------------------------------------------------------------------ execution identity (H2 A1)
+
+
+def _seed_cell_evidence(cell: Path, *, cell_id: str, provider: str, digest: str, plan: str) -> None:
+    """A cell evidence record with the provenance the Stage F adapter writes."""
+
+    _write(
+        cell / "evidence.json",
+        {
+            "schema_version": "stage-f-cell-evidence/1.2",
+            "cell_id": cell_id,
+            "plan_id": plan,
+            "execution_mode": "atlas_direct",
+            "is_benchmark_sample": False,
+            "provenance": {
+                "source": "main-driven session.json",
+                "source_digest": digest,
+                "provider": provider,
+                "model": provider,
+            },
+            "correctness": {"agent_success": True, "delivered_success": False},
+        },
+    )
+
+
+def test_scripted_and_live_records_of_the_same_cell_stay_separate(tmp_path: Path) -> None:
+    """Same plan and cell, different executions: a scripted proof is not a live run."""
+
+    cell_id = "f.f-p1-connector-migration.A1.r1"
+    plan = "stage-f-p1-compat-smoke"
+    live = _seed_cell(tmp_path / "live", cell_id=cell_id, plan=plan)
+    _seed_cell_evidence(live, cell_id=cell_id, plan=plan, provider="deepseek", digest="sha256:live")
+    scripted = _seed_cell(tmp_path / "archive", cell_id=cell_id, plan=plan)
+    _seed_cell_evidence(
+        scripted, cell_id=cell_id, plan=plan, provider="scripted", digest="sha256:scripted"
+    )
+    session = json.loads((scripted / "agent" / "bplus-c01" / "session.json").read_text("utf-8"))
+    session["run_id"] = "scripted-c01"
+    session["provider"] = "scripted"
+    _write(scripted / "agent" / "bplus-c01" / "session.json", session)
+
+    result = scan([EvidenceRoot(label="runs", path=tmp_path)])
+
+    assert len(result.runs) == 2, "a scripted proof must not be merged into a live run"
+    bands = sorted(run.execution["band"] for run in result.runs)
+    assert bands == ["LIVE_MODEL", "SCRIPTED"]
+    assert result.stats["duplicate_cells"] == 0
+
+
+def test_two_executions_of_one_cell_are_not_collapsed(tmp_path: Path) -> None:
+    """Equal plan and cell but different sessions: two runs, not one."""
+
+    cell_id = "f.f-c1-config-lifecycle.A1.r1"
+    first = _seed_cell(tmp_path / "b1", cell_id=cell_id, plan="plan")
+    second = _seed_cell(tmp_path / "b2", cell_id=cell_id, plan="plan")
+    for cell, run_id in ((first, "bplus-b1"), (second, "bplus-b2")):
+        session = json.loads((cell / "agent" / "bplus-c01" / "session.json").read_text("utf-8"))
+        session["run_id"] = run_id
+        _write(cell / "agent" / "bplus-c01" / "session.json", session)
+
+    result = scan([EvidenceRoot(label="runs", path=tmp_path)])
+
+    assert len(result.runs) == 2
+    assert sorted(run.execution["execution_id"] for run in result.runs) == ["bplus-b1", "bplus-b2"]
+
+
+def test_rehearsal_copies_collapse_only_when_they_claim_the_same_verdict(
+    tmp_path: Path,
+) -> None:
+    """A rehearsal has no execution to identify it; its claimed verdict is what can be compared."""
+
+    cell_id = "f.demo.A0.r1"
+    for index, root in enumerate(("one", "two")):
+        cell = tmp_path / root / "dispatch" / "cells" / "c01"
+        payload = _analysis(cell_id, plan="plan-a")
+        payload["outcome"]["duration_s"] = float(index + 1)
+        payload["outcome"]["cost_usd"] = 0.1 * (index + 1)
+        _write(cell / "analysis.json", payload)
+
+    same = scan([EvidenceRoot(label="runs", path=tmp_path)])
+    assert len(same.runs) == 1, "two copies of one rehearsal are one row"
+    assert same.duplicates and same.duplicates[0]["proof"] == "verdict_digest"
+
+    changed = _analysis(cell_id, plan="plan-a", oracle="PASS")
+    _write(tmp_path / "two" / "dispatch" / "cells" / "c01" / "analysis.json", changed)
+    differing = scan([EvidenceRoot(label="runs", path=tmp_path)])
+    assert len(differing.runs) == 2, "a rehearsal that claims another verdict stays its own row"
+    assert differing.stats["duplicate_cells"] == 0

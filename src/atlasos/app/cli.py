@@ -29,9 +29,29 @@ app = typer.Typer(
 )
 console = Console()
 
+#: Statuses a wait loop stops on. ``INTERRUPTED`` is included because a run whose owning process
+#: disappeared is terminal for the reader: it will not become RUNNING again.
+TERMINAL_STATUS = {
+    "COMPLETED",
+    "FAILED",
+    "CANCELLED",
+    "INTERRUPTED",
+    "SANDBOX_LOST",
+    "CLEANUP_UNRESOLVED",
+}
 
-def _service(runs_root: Path | None = None) -> AtlasApplicationService:
-    return AtlasApplicationService(runs_root=runs_root or DEFAULT_RUNS_ROOT)
+
+def _service(
+    runs_root: Path | None = None,
+    *,
+    provider: str = "deepseek",
+    sandbox_enabled: bool = True,
+) -> AtlasApplicationService:
+    return AtlasApplicationService(
+        runs_root=runs_root or DEFAULT_RUNS_ROOT,
+        provider=provider,
+        sandbox_enabled=sandbox_enabled,
+    )
 
 
 def _print_json(value: Any) -> None:
@@ -47,16 +67,34 @@ def _error(error: Exception) -> None:
 def run_task(
     task: str = typer.Argument(..., help="natural-language task"),
     workspace: str | None = typer.Option(None, "--workspace", "-w"),
-    mode: str = typer.Option("workflow", "--mode", "-m", help="workflow or coding"),
+    mode: str = typer.Option(
+        "workflow",
+        "--mode",
+        "-m",
+        help="workflow | coding | main_direct | main_dynamic",
+    ),
     max_turns: int = typer.Option(12, "--max-turns"),
+    budget: int | None = typer.Option(
+        None, "--budget", help="run-scoped token budget for a Main-driven mode"
+    ),
     runs_root: Path | None = typer.Option(None, "--runs-root"),
+    provider: str = typer.Option(
+        "deepseek",
+        "--provider",
+        help="deepseek (live) or deterministic (scripted; no network call)",
+    ),
+    no_sandbox: bool = typer.Option(
+        False, "--no-sandbox", help="run on the host without isolation (recorded as host mode)"
+    ),
     detach: bool = typer.Option(False, "--detach", help="return without waiting"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Submit a task and, by default, wait for the terminal projection."""
-    service = _service(runs_root)
+    service = _service(runs_root, provider=provider, sandbox_enabled=not no_sandbox)
     try:
-        run = service.submit(task, mode=mode, workspace=workspace, max_turns=max_turns)
+        run = service.submit(
+            task, mode=mode, workspace=workspace, max_turns=max_turns, budget_tokens=budget
+        )
     except ApplicationError as error:
         return _error(error)
     if detach:
@@ -81,7 +119,7 @@ def run_task(
                     f"[dim]{event['timestamp']}[/dim] {event['type']} "
                     f"{json.dumps(event.get('data') or {}, ensure_ascii=False)}"
                 )
-        if detail["status"] in {"COMPLETED", "FAILED", "CANCELLED", "SANDBOX_LOST"}:
+        if detail["status"] in TERMINAL_STATUS:
             break
         time.sleep(0.5)
     if detail is None:
@@ -169,14 +207,44 @@ def logs(
                     f"[dim]{event['timestamp']}[/dim] {event['type']} "
                     f"{json.dumps(event.get('data') or {}, ensure_ascii=False)}"
                 )
-        if not follow or detail["status"] in {
-            "COMPLETED",
-            "FAILED",
-            "CANCELLED",
-            "SANDBOX_LOST",
-        }:
+        if not follow or detail["status"] in TERMINAL_STATUS:
             break
         time.sleep(0.5)
+
+
+@app.command("cancel")
+def cancel(
+    run_id: str,
+    runs_root: Path | None = typer.Option(None, "--runs-root"),
+) -> None:
+    """Report that cancellation is unavailable; this command never fakes a stopped run."""
+    try:
+        _service(runs_root).cancel(run_id)
+    except ApplicationError as error:
+        return _error(error)
+    console.print("unreachable: cancel always refuses while the thread model has no safe stop")
+
+
+@app.command("workspaces")
+def workspaces(
+    runs_root: Path | None = typer.Option(None, "--runs-root"),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """List the workspace roots and names a Main-driven run may use."""
+    value = _service(runs_root).workspaces()
+    if json_output:
+        _print_json(value)
+        return
+    table = Table(title="Workspaces")
+    table.add_column("root")
+    table.add_column("names", overflow="fold")
+    for root in value["roots"]:
+        table.add_row(root["root"], ", ".join(root["workspaces"]) or "(none)")
+    console.print(table)
+    console.print(
+        f"provider={value['provider']} ({value['provider_kind']}) "
+        f"default budget={value['defaults']['budget_tokens']} tokens"
+    )
 
 
 @app.command("workers")
@@ -335,6 +403,16 @@ def web(
         "--read-only",
         help="refuse live submission, approval and recovery routes; replay stays available",
     ),
+    provider: str = typer.Option(
+        "deepseek",
+        "--provider",
+        help="live provider for new runs: deepseek, or deterministic (scripted local runs)",
+    ),
+    no_sandbox: bool = typer.Option(
+        False,
+        "--no-sandbox",
+        help="run tasks on the host without isolation; recorded as host mode in every run",
+    ),
 ) -> None:
     """Start the loopback-only FastAPI Web UI, including the read-only replay workbench."""
     import uvicorn
@@ -369,8 +447,11 @@ def web(
         runs_root=runs_root or DEFAULT_RUNS_ROOT,
         replay_roots=roots,
         read_only=read_only,
+        provider=provider,
+        sandbox_enabled=not no_sandbox,
     )
-    console.print(f"workbench: http://{host}:{port}/replay   (read-only replay)")
+    console.print(f"console:   http://{host}:{port}/          (live runs, provider={provider})")
+    console.print(f"workbench: http://{host}:{port}/replay   (historical + finished live runs)")
     uvicorn.run(app_instance, host=host, port=port, log_level="info")
 
 

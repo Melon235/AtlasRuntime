@@ -606,6 +606,75 @@ def test_raw_success_and_effective_completion_stay_separate(tmp_path: Path) -> N
     assert service.delegation(key)["state"] == "NOT_APPLICABLE"
 
 
+# ---------------------------------------------------------- raw / effective (H2 A2)
+
+
+def test_raw_success_uses_the_split_field_and_effective_uses_the_session(tmp_path: Path) -> None:
+    """Stage F A1 shape: raw success true, execution_succeeded false, no evidence completion."""
+
+    cell = tmp_path / "stage-f" / "cells" / "c02"
+    _write(
+        cell / "evidence.json",
+        {
+            "schema_version": "stage-f-cell-evidence/1.2",
+            "cell_id": "f.demo.A1.r1",
+            "plan_id": "stage-f-demo",
+            "execution_mode": "atlas_direct",
+            "correctness": {
+                # The split field: the raw loop outcome, kept apart from the completion verdict.
+                "raw_agent_success": True,
+                "agent_success": False,
+                "primary_agent_completion": None,
+                "independent_oracle": {"status": "FAIL", "passed": False},
+                "execution_integrity": "FAIL",
+                "delivered_success": False,
+            },
+        },
+    )
+    session = _session()
+    session["run_id"] = "bplus-c02"
+    session["status"] = "failed"
+    session["execution_succeeded"] = False
+    session["delegation_enabled"] = False
+    _write(cell / "agent" / "bplus-c02" / "session.json", session)
+
+    service = _service(tmp_path)
+    key = _only_key(service)
+    verification = service.verification(key)
+
+    assert verification["axes"]["raw_agent_success"] is True
+    assert verification["axes"]["effective_agent_completion"] is False
+    assert verification["axes"]["axis_sources"]["raw_agent_success"] == (
+        "evidence.correctness.raw_agent_success"
+    )
+    assert verification["axes"]["axis_sources"]["effective_agent_completion"] == (
+        "session.execution_succeeded"
+    )
+    assert verification["detail"]["effective_completion"] is False
+    # The two answers are not the same answer, and neither replaces delivered success.
+    assert verification["axes"]["delivered_success"] is False
+
+
+def test_effective_completion_is_never_the_stop_reason(tmp_path: Path) -> None:
+    """A session with a stop reason but no completion field stays UNAVAILABLE."""
+
+    cell = tmp_path / "stage-m" / "evidence" / "cells" / "c01"
+    session = _session()
+    session.pop("execution_succeeded")
+    session["main"]["stop_reason"] = "max_turns"
+    _write(cell / "agent" / "bplus-c01" / "session.json", session)
+
+    service = _service(tmp_path)
+    key = _only_key(service)
+    verification = service.verification(key)
+
+    assert verification["axes"]["raw_agent_success"] is True
+    assert verification["axes"]["effective_agent_completion"] == "UNAVAILABLE"
+    assert verification["axes"]["axis_sources"]["effective_agent_completion"] == (
+        "no completion field recorded"
+    )
+
+
 # ----------------------------------------------------------------------- native
 
 

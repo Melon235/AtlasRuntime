@@ -254,6 +254,11 @@ class GoalRunOptions:
     #: after ``side_effect_unknown`` (stage P1b, DEV-4). The corpus lives under the run directory,
     #: is never copied into a report, and carries no runtime authority.
     tool_payload_recording: bool = True
+    #: Which admission contract this run is judged against. ``benchmark`` (the default) keeps every
+    #: check blocking, because an evaluation run without an independent oracle is not interpretable.
+    #: ``product`` keeps every safety check blocking and records the evaluation-only ones as
+    #: non-blocking, because an ordinary task has no hidden oracle and must still be runnable.
+    preflight_profile: str = "benchmark"
 
 
 def _goal_policy() -> ActionPolicy:
@@ -867,27 +872,6 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
                 failure = failure or sandbox_failure
         with contextlib.suppress(Exception):
             await idempotency.teardown()
-        acceptance_failed = (
-            acceptance_result is not None and acceptance_result.get("verdict") == "FAIL"
-        )
-        recorder_status = (
-            "completed"
-            if failure is None
-            and main_result is not None
-            and main_result.success
-            and not acceptance_failed
-            else "failed"
-        )
-        try:  # noqa: SIM105 - evidence is optional
-            recorder.record_run_terminal(
-                status=recorder_status,
-                task_count=1,
-                final_output_digest=None,
-                final_output_size=len((main_result.output if main_result else "") or ""),
-                occurred_at=datetime.now(UTC),
-            )
-        except Exception:  # noqa: BLE001
-            pass
 
     # Close the journal before the session is assembled: a request that never reached a terminal
     # state is reported as exactly that, and its usage stays unknown.
@@ -938,18 +922,43 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             )
         else:
             failure = failure or fallback
+    # A provider failure that the loop never recovered from ends the run, whether or not an earlier
+    # turn produced output: the journal's last request is the state the run actually ended in. A
+    # failure followed by a completed request is a recovered hiccup and does not relabel the run.
+    journal_records = provider_requests.get("records") or []
+    last_request_status = str(journal_records[-1].get("status") or "") if journal_records else ""
+    provider_unrecovered = provider_error is not None and last_request_status != "COMPLETED"
+    if provider_unrecovered and failure is None and provider_error is not None:
+        failure = (
+            "provider request failed and was never recovered: "
+            f"{provider_error.get('exception_type') or 'Exception'}: "
+            f"{provider_error.get('message') or 'no message'}"
+        )
     execution_succeeded = failure is None and main_result is not None and bool(main_result.success)
     acceptance_verdict = (
         acceptance_result["verdict"] if acceptance_result is not None else "NOT_CONFIGURED"
     )
     succeeded = execution_succeeded and acceptance_verdict in ("PASS", "NOT_CONFIGURED")
+    with contextlib.suppress(Exception):
+        recorder.record_run_terminal(
+            status="completed" if succeeded else "failed",
+            task_count=1,
+            final_output_digest=None,
+            final_output_size=len(main_output),
+            occurred_at=datetime.now(UTC),
+        )
     run_stop_code = getattr(getattr(main_result, "stop_reason", None), "code", None)
     # The journal is consulted only for the shapes where the loop itself produced no result: the
     # empty run, no result at all, and upstream's exhausted-retry stop. Any other failure keeps its
     # own classification, so a transient failure on an earlier turn cannot relabel a later one.
     provider_evidence = (
         provider_error
-        if (main_silent_failure or main_result is None or run_stop_code == "provider_unavailable")
+        if (
+            main_silent_failure
+            or provider_unrecovered
+            or main_result is None
+            or run_stop_code == "provider_unavailable"
+        )
         else None
     )
     failure_record = classify_failure(

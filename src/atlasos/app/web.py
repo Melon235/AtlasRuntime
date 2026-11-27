@@ -30,12 +30,17 @@ STATIC = Path(__file__).resolve().parent / "static"
 INDEX = STATIC / "index.html"
 REPLAY_INDEX = STATIC / "replay.html"
 
+#: The label the application's own run directory gets inside the replay index, so a finished live
+#: run is the *same* run in the workbench and never a second copy of itself.
+LIVE_ROOT_LABEL = "live"
+
 
 class RunRequest(BaseModel):
     task: str = Field(min_length=1, max_length=20_000)
     mode: str = "workflow"
     workspace: str | None = None
-    max_turns: int = Field(default=12, ge=1, le=30)
+    max_turns: int = Field(default=12, ge=1, le=40)
+    budget_tokens: int | None = Field(default=None, ge=1, le=2_000_000)
 
 
 def create_app(
@@ -43,10 +48,27 @@ def create_app(
     runs_root: str | Path,
     replay_roots: list[EvidenceRoot] | None = None,
     read_only: bool = False,
+    provider: str = "deepseek",
+    sandbox_enabled: bool = True,
+    sandbox_image: str | None = None,
 ) -> FastAPI:
-    service = AtlasApplicationService(runs_root=runs_root)
-    replay_service = ReplayService(list(replay_roots or []))
+    runs_root = Path(runs_root).resolve()
+    service = AtlasApplicationService(
+        runs_root=runs_root,
+        provider=provider,
+        sandbox_enabled=sandbox_enabled,
+        sandbox_image=sandbox_image,
+    )
+    pinned = list(replay_roots or [])
+    live_root = None
+    if not any(root.path.resolve() == runs_root for root in pinned):
+        live_root = EvidenceRoot(label=LIVE_ROOT_LABEL, path=runs_root)
+    replay_service = ReplayService(pinned, live_root=live_root)
     app = FastAPI(title="AtlasOS", version="0.0.1")
+    #: Read-only handles for tests and for a future admin view. Neither grants authority.
+    app.state.runs_root = runs_root
+    app.state.service = service
+    app.state.replay = replay_service
 
     def refuse_write() -> None:
         if read_only:
@@ -106,19 +128,51 @@ def create_app(
             "ok": True,
             "service": "atlasos-app",
             "loopback_only_by_default": True,
+            "read_only": read_only,
+            "provider": service.provider,
+            "sandbox_enabled": service.sandbox_enabled,
             "replay_roots": len(replay_service.roots),
         }
+
+    @app.get("/api/workspaces")
+    def workspaces() -> dict[str, Any]:
+        return service.workspaces()
 
     @app.post("/api/runs")
     def submit(body: RunRequest) -> dict[str, Any]:
         refuse_write()
         return service.submit(
-            body.task, mode=body.mode, workspace=body.workspace, max_turns=body.max_turns
+            body.task,
+            mode=body.mode,
+            workspace=body.workspace,
+            max_turns=body.max_turns,
+            budget_tokens=body.budget_tokens,
         )
 
     @app.get("/api/runs")
     def runs(limit: int = Query(50, ge=1, le=200)) -> list[dict[str, Any]]:
         return service.list_runs(limit=limit)
+
+    @app.get("/api/runs/{run_id}/replay")
+    def replay_link(run_id: str) -> dict[str, Any]:
+        """The same run in the replay index, or an explicit "not replayable yet"."""
+
+        run_dir = str(runs_root / run_id)
+        key = replay_service.find_run_key(LIVE_ROOT_LABEL, run_id)
+        return {
+            "run_id": run_id,
+            "run_dir": run_dir,
+            "replay_run_key": key,
+            "available": key is not None,
+            "reason": None
+            if key is not None
+            else "no session or evidence has been written for this run yet",
+        }
+
+    @app.post("/api/runs/{run_id}/cancel")
+    def cancel(run_id: str) -> dict[str, Any]:
+        refuse_write()
+        return service.cancel(run_id)
 
     @app.get("/api/runs/{run_id}")
     def detail(run_id: str) -> dict[str, Any]:

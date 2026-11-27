@@ -17,10 +17,10 @@ def create_replay_router(service: ReplayService) -> APIRouter:
     router = APIRouter(prefix="/api/replay", tags=["replay"])
 
     def _service() -> ReplayService:
-        if not service.roots:
+        if not service.configured:
             raise ReplayNotConfigured(
-                "no evidence root is configured; start the workbench with --replay-roots "
-                "or set ATLASOS_REPLAY_ROOTS"
+                "no evidence root is configured and no run has been recorded yet; start the "
+                "workbench with --replay-roots or set ATLASOS_REPLAY_ROOTS"
             )
         return service
 

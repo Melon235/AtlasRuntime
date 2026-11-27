@@ -32,8 +32,14 @@ class ReplayRunNotFound(ReplayError):
 class ReplayService:
     """Lazy, in-memory index over one or more read-only evidence roots."""
 
-    def __init__(self, roots: list[EvidenceRoot]) -> None:
-        self._roots = tuple(roots)
+    def __init__(self, roots: list[EvidenceRoot], *, live_root: EvidenceRoot | None = None) -> None:
+        #: Roots the operator named. They make the workbench "configured" even when empty.
+        self._pinned = tuple(roots)
+        #: The application's own run directory. It is indexed like any other root, so a finished
+        #: live run is the same run here and never a second copy of itself -- but an empty run
+        #: directory does not make the workbench configured.
+        self._live = live_root
+        self._roots = tuple(roots) + ((live_root,) if live_root is not None else ())
         self._readers: dict[str, EvidenceReader] = {
             root.label: EvidenceReader(root) for root in self._roots
         }
@@ -45,6 +51,14 @@ class ReplayService:
     @property
     def roots(self) -> tuple[EvidenceRoot, ...]:
         return self._roots
+
+    @property
+    def configured(self) -> bool:
+        """True when there is something to replay: a named root, or a run in the live root."""
+
+        if self._pinned:
+            return True
+        return bool(self.scan().runs)
 
     def refresh(self) -> None:
         self._scan = None
@@ -62,6 +76,22 @@ class ReplayService:
             if run.run_key == run_key:
                 return run
         raise ReplayRunNotFound(f"unknown replay run: {run_key}")
+
+    def find_run_key(self, root_label: str, run_dir: str) -> str | None:
+        """The replay key for one directory, so a live run links to its own historical record.
+
+        Returns ``None`` when the directory is not part of the discovered evidence (for example a
+        run that has not written a session yet), so the caller reports "not yet replayable" rather
+        than inventing a key.
+        """
+
+        wanted = run_dir.replace("\\", "/").strip("/")
+        for run in self.scan().runs:
+            if run.root_label != root_label:
+                continue
+            if run.run_dir.replace("\\", "/").strip("/") == wanted:
+                return run.run_key
+        return None
 
     def model(self, run_key: str) -> projection.RunModel:
         cached = self._models.get(run_key)
@@ -185,7 +215,7 @@ class ReplayService:
         result = self.scan()
         return {
             "roots": [root.as_dict() for root in result.roots] or [],
-            "configured": bool(result.roots),
+            "configured": self.configured,
             "mode": "READ_ONLY_HISTORICAL_REPLAY",
             "stats": result.stats,
             "problems": result.problems,

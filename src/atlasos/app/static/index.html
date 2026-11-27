@@ -85,6 +85,8 @@
 (() => {
   const app = document.getElementById("app");
   const esc = (value) => String(value ?? "");
+  const escHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const statusBadge = (status) => `<span class="status ${esc(status)}">${esc(status)}</span>`;
   const fmt = (value) => value == null ? "—" : esc(value);
 
@@ -112,31 +114,53 @@
     document.querySelectorAll("nav a").forEach((el) => el.classList.toggle("active", el.dataset.nav === key));
   }
 
-  function newTaskView() {
+  async function newTaskView() {
+    let config = null;
+    try { config = await api("/api/workspaces"); } catch { /* the form still renders */ }
+    const workspaces = (config && config.roots || []).flatMap((root) => root.workspaces || []);
+    const scripted = config && config.provider_kind === "DETERMINISTIC";
+    const defaults = (config && config.defaults) || {};
     app.innerHTML = `
       <div class="grid">
         <section class="panel">
           <h1>Start a task</h1>
-          <p class="muted">Workflow mode runs a static two-stage AtlasOS DAG through the real DeepSeek model. Coding mode runs the existing real-sandbox UAT path and requires an OpenSandbox-compatible workspace.</p>
+          <p class="muted">Main-driven modes run the real Main agent loop through <code>run_goal</code>:
+          Direct builds no delegation tool at all; Dynamic offers <code>delegate_tasks</code> and the
+          runtime router decides whether a request is admitted. Workflow and Coding keep their
+          existing paths.</p>
+          ${scripted ? `<div class="notice small" style="margin-bottom:12px"><strong>Scripted provider.</strong>
+            This server was started with <code>--provider deterministic</code>: no model is called.
+            Every run record names the provider, and the usage is a chars/4 estimate, not a bill.</div>` : ""}
+          ${config ? "" : `<div class="error small" style="margin-bottom:12px">The server did not return a workspace menu; only the existing workflow and coding modes are usable.</div>`}
           <label for="task">Task</label>
-          <textarea id="task" placeholder="e.g. Fix the CSV parser so quoted commas are preserved."></textarea>
+          <textarea id="task" placeholder="e.g. Write the deliverable for the demo goal."></textarea>
           <div class="row" style="margin-top:12px">
             <div style="flex:1">
               <label for="mode">Mode</label>
               <select id="mode">
-                <option value="workflow">workflow — DeepSeek DAG, no tools</option>
-                <option value="coding">coding — real OpenSandbox UAT</option>
+                <option value="main_direct">main_direct — Main only, no delegation tool</option>
+                <option value="main_dynamic">main_dynamic — Main + selective delegation</option>
+                <option value="coding">coding — real OpenSandbox UAT composition</option>
+                <option value="workflow">workflow — static two-agent DAG, no tools</option>
               </select>
             </div>
             <div style="width:150px">
-              <label for="turns">Max turns</label>
-              <input id="turns" type="number" min="1" max="30" value="12" />
+              <label for="turns">Main max turns</label>
+              <input id="turns" type="number" min="1" max="40" value="${escHtml(defaults.max_turns || 16)}" />
+            </div>
+            <div style="width:200px" id="budget-wrap">
+              <label for="budget">Token budget</label>
+              <input id="budget" type="number" min="1" max="${escHtml(defaults.max_budget_tokens || 2000000)}" value="${escHtml(defaults.budget_tokens || 500000)}" />
             </div>
           </div>
-          <div id="workspace-wrap" class="hidden">
-            <label for="workspace">Workspace (under experiments/fixtures)</label>
-            <input id="workspace" value="uat_repo" />
-            <p class="small muted">Coding mode currently supports UAT-compatible fixtures with csv_parser.py. Arbitrary host paths are rejected.</p>
+          <div id="workspace-wrap" style="margin-top:12px">
+            <label for="workspace">Workspace</label>
+            <select id="workspace">
+              ${workspaces.map((name) => `<option value="${escHtml(name)}">${escHtml(name)}</option>`).join("")}
+            </select>
+            <p class="small muted">Only names inside a configured workspace root are accepted. The
+            source tree is copied into the run directory and committed as a one-commit repository;
+            the fixture itself is never written.</p>
           </div>
           <div class="row" style="margin-top:16px">
             <button id="submit">Submit task</button>
@@ -145,27 +169,37 @@
           <div id="submit-error" class="error hidden" style="margin-top:12px"></div>
         </section>
         <aside class="panel">
-          <h2>Execution boundary</h2>
-          <p class="muted">The UI projects existing runtime state. It does not schedule agents, execute tools, approve actions, or resume sandboxes.</p>
+          <h2>Execution configuration</h2>
           <div class="kv">
-            <div>Workflow</div><div>AtlasRuntime static DAG, real DeepSeek, no tool execution</div>
-            <div>Coding</div><div>Existing UAT composition, real OpenSandbox, one worker</div>
-            <div>Profiles</div><div>workflow: researcher → reviewer; coding: coding_worker</div>
-            <div>Approvals</div><div>Read-only projection; resolution requires a live M6 coordinator</div>
-            <div>Recovery</div><div>Trusted M5/M6 authority only; ordinary failures are not resumable</div>
+            <div>Provider</div><div>${escHtml(config ? config.provider : "deepseek")} (${escHtml(config ? config.provider_kind : "LIVE_MODEL")})</div>
+            <div>Model</div><div>${escHtml(config ? config.model : "deepseek-chat")}</div>
+            <div>Sandbox</div><div>${config && config.sandbox && config.sandbox.enabled ? `OpenSandbox · ${escHtml(config.sandbox.image)}` : "host mode (no isolation)"}</div>
+            <div>Budget</div><div>run-scoped, guarded; ${escHtml(defaults.budget_tokens || 500000)} tokens by default, ${escHtml(defaults.max_budget_tokens || 2000000)} maximum</div>
+            <div>Concurrency</div><div>one Main-driven run at a time</div>
+            <div>Cancel</div><div>CANCEL_UNAVAILABLE in this version</div>
+            <div>Replay</div><div>a finished run is the same run in <a href="/replay">Replay</a></div>
           </div>
+          <h2 style="margin-top:18px">Execution boundary</h2>
+          <p class="muted small">The UI projects runtime state and submits a request through the
+          application service. It does not schedule agents, execute tools, approve actions, resume
+          sandboxes, or decide a delegation.</p>
         </aside>
       </div>`;
     const mode = document.getElementById("mode");
-    mode.addEventListener("change", () => {
-      document.getElementById("workspace-wrap").classList.toggle("hidden", mode.value !== "coding");
-    });
+    const syncMode = () => {
+      const mainMode = mode.value.startsWith("main_");
+      document.getElementById("budget-wrap").classList.toggle("hidden", !mainMode);
+      document.getElementById("workspace-wrap").classList.toggle("hidden", mode.value === "workflow");
+    };
+    mode.addEventListener("change", syncMode);
+    syncMode();
     document.getElementById("submit").addEventListener("click", async () => {
       const button = document.getElementById("submit");
       const error = document.getElementById("submit-error");
       error.classList.add("hidden");
       const task = document.getElementById("task").value.trim();
       if (!task) { error.textContent = "Enter a task."; error.classList.remove("hidden"); return; }
+      const mainMode = mode.value.startsWith("main_");
       button.disabled = true;
       document.getElementById("submit-note").textContent = "submitting…";
       try {
@@ -175,7 +209,8 @@
             task,
             mode: mode.value,
             max_turns: Number(document.getElementById("turns").value || 12),
-            workspace: mode.value === "coding" ? document.getElementById("workspace").value : null,
+            workspace: mode.value === "workflow" ? null : document.getElementById("workspace").value,
+            budget_tokens: mainMode ? Number(document.getElementById("budget").value || 500000) : null,
           }),
         });
         location.href = `/runs/${encodeURIComponent(run.run_id)}`;
@@ -248,6 +283,48 @@
     }
   }
 
+  function mainLivePanel(live, detail) {
+    const budget = live.budget || {};
+    const delegation = live.delegation || null;
+    const batches = (delegation && delegation.batches) || [];
+    const children = batches.flatMap((batch) => batch.children || []);
+    const route = batches.length ? (batches[batches.length - 1].route || "—") : "NO_BATCH_RECORDED";
+    const acceptance = live.acceptance || "NOT_CONFIGURED";
+    const kind = live.provider_kind || "UNKNOWN";
+    return `
+      <section class="panel" style="margin-bottom:14px">
+        ${kind === "DETERMINISTIC" ? `<div class="notice small" style="margin-bottom:10px"><strong>Scripted provider.</strong>
+          This run answered from a deterministic script: no model was called, and the token numbers are
+          chars/4 estimates.</div>` : ""}
+        <div class="row" style="margin-bottom:10px">
+          <span class="status ${esc(live.mode)}">${esc(live.mode)}</span>
+          <span class="muted small">provider ${escHtml(live.provider)} · ${escHtml(kind)} · isolation ${escHtml(live.isolation)}</span>
+          <span class="muted small">execution_succeeded ${escHtml(live.execution_succeeded)}</span>
+          <span class="muted small">acceptance ${escHtml(acceptance)}</span>
+        </div>
+        <div class="kv">
+          <div>Router</div><div>${escHtml(route)}${delegation ? ` · rounds ${escHtml((delegation.batches || []).length)}` : ""}</div>
+          <div>Children</div><div>${children.length ? `${children.length} executed` : "none executed"}</div>
+          <div>Budget</div><div>${escHtml(budget.used_tokens ?? "—")} / ${escHtml(budget.limit_tokens ?? "—")} tokens${budget.note ? ` · ${escHtml(budget.note)}` : ""}</div>
+          <div>Started</div><div>${escHtml(live.started_at || "—")}</div>
+          <div>Finished</div><div>${escHtml(live.finished_at || "—")}</div>
+        </div>
+        ${children.length ? `<table style="margin-top:10px"><thead><tr><th>Child</th><th>Worker</th><th>Status</th><th>Success</th><th>Prompt</th><th>Completion</th><th>Handoff</th></tr></thead><tbody>
+          ${children.map((child) => `<tr>
+            <td class="mono">${escHtml(child.key)}</td>
+            <td class="mono small">${escHtml(child.worker_id)}</td>
+            <td>${escHtml(child.status)}</td>
+            <td>${escHtml(child.success)}</td>
+            <td class="mono">${escHtml(child.total_prompt_tokens ?? "—")}</td>
+            <td class="mono">${escHtml(child.completion_tokens ?? "—")}</td>
+            <td class="mono small">${escHtml(child.ref_id ?? "—")}</td>
+          </tr>`).join("")}</tbody></table>` : ""}
+        ${live.failure ? `<div class="error" style="margin-top:10px">${escHtml(live.failure.kind || "FAILURE")}: ${escHtml(live.failure.message || "")}</div>` : ""}
+        <p class="muted small" style="margin-top:10px">This is the same run the replay workbench will read after
+        it ends: <code>goal-${escHtml(detail.run_id)}/session.json</code>. Nothing here is a second execution.</p>
+      </section>`;
+  }
+
   function runDetailView(runId) {
     app.innerHTML = `<h1 class="mono">${esc(runId)}</h1><div id="detail"><p class="muted">Loading…</p></div>`;
     let source = null;
@@ -271,10 +348,14 @@
       const approvals = detail.approvals || [];
       const recovery = detail.recovery || {};
       const toolCalls = detail.tool_calls || [];
+      const live = detail.live || null;
       document.getElementById("detail").innerHTML = `
         <div class="row" style="margin-bottom:14px">${statusBadge(detail.status)}
           <span class="muted">${esc(detail.mode)} · ${esc(detail.model)} · ${esc(detail.created_at)}</span>
-          <button class="secondary" id="refresh">Refresh</button></div>
+          <button class="secondary" id="refresh">Refresh</button>
+          <button class="secondary" id="replay-link">Open in Replay</button>
+          ${live ? `<button class="danger" id="cancel">Cancel</button>` : ""}</div>
+        ${live ? mainLivePanel(live, detail) : ""}
         <div class="grid">
           <section class="panel">
             <h2>Task</h2><p>${esc(detail.task)}</p>
@@ -326,6 +407,18 @@
           </aside>
         </div>`;
       document.getElementById("refresh").addEventListener("click", refresh);
+      document.getElementById("replay-link").addEventListener("click", async () => {
+        try {
+          const link = await api(`/api/runs/${encodeURIComponent(runId)}/replay`);
+          if (link.available) location.href = `/replay?run=${encodeURIComponent(link.replay_run_key)}`;
+          else alert(`Not replayable yet:\n\n${link.reason}`);
+        } catch (err) { alert(`Replay lookup failed:\n\n${err.message}`); }
+      });
+      const cancelButton = document.getElementById("cancel");
+      if (cancelButton) cancelButton.addEventListener("click", async () => {
+        try { await api(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }); }
+        catch (err) { alert(`Cancellation refused by the backend:\n\n${err.message}`); }
+      });
       document.querySelectorAll("[data-approve]").forEach((el) => el.addEventListener("click", () => decision(el.dataset.approve, "approve")));
       document.querySelectorAll("[data-reject]").forEach((el) => el.addEventListener("click", () => decision(el.dataset.reject, "reject")));
       const resume = document.getElementById("resume");
@@ -351,7 +444,8 @@
       source = new EventSource(`/api/runs/${encodeURIComponent(runId)}/stream?after=${lastEvent}`);
       source.onopen = () => { refresh(); };
       source.onerror = () => { /* EventSource reconnects with Last-Event-ID; do not resubmit. */ };
-      ["run_submitted","runtime_event","coding_started","run_completed","run_failed"].forEach((type) => {
+      ["run_submitted","run_started","workspace_ready","runtime_event","coding_started",
+       "run_completed","run_failed","run_interrupted"].forEach((type) => {
         source.addEventListener(type, (message) => {
           try {
             const event = JSON.parse(message.data);

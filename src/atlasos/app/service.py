@@ -3,6 +3,11 @@
 The service validates inputs, launches existing execution paths, projects their persisted
 results, and serves events. It does not schedule tasks, execute tools, approve actions, or own
 recovery state. The authoritative stores and runtimes remain below this layer.
+
+Four execution modes share it: ``workflow`` (the static two-agent DAG), ``coding`` (the UAT
+composition), and the two Main-driven modes ``main_direct`` and ``main_dynamic``. The last two call
+:func:`atlasos.app.main_driven.run_goal` in-process, so the product entry point and the research
+entry point are one runtime, not two.
 """
 
 from __future__ import annotations
@@ -20,6 +25,16 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from atlasos.app.deterministic import MODEL_NAME as DETERMINISTIC_MODEL
+from atlasos.app.deterministic import PROVIDER_NAME as DETERMINISTIC_PROVIDER
+from atlasos.app.deterministic import delegated_script, direct_script
+from atlasos.app.deterministic import factory as deterministic_factory
+from atlasos.app.workspace import (
+    WorkspaceError,
+    describe_roots,
+    materialise,
+    resolve_seed,
+)
 from atlasos.config import (
     AtlasConfig,
     ContextConfig,
@@ -27,6 +42,7 @@ from atlasos.config import (
     PlacementConfig,
     Pricing,
     ProviderConfig,
+    ToolsConfig,
 )
 from atlasos.context.requirements import ContextRequirement
 from atlasos.runtime import AtlasRuntime
@@ -35,7 +51,29 @@ from atlasos.workflow import AtlasAgentSpec, AtlasTaskSpec, AtlasWorkflow
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_WORKSPACE_ROOT = REPO_ROOT / "experiments" / "fixtures"
 DEFAULT_CODING_WORKSPACE = DEFAULT_WORKSPACE_ROOT / "uat_repo"
-TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "RECOVERY_REQUIRED", "RECOVERY_UNCERTAIN"}
+
+#: The two Main-driven product modes. ``main_direct`` builds no delegation tool at all;
+#: ``main_dynamic`` offers ``delegate_tasks`` and the router decides whether a request is admitted.
+MAIN_DIRECT = "main_direct"
+MAIN_DYNAMIC = "main_dynamic"
+MAIN_MODES = frozenset({MAIN_DIRECT, MAIN_DYNAMIC})
+EXECUTION_MODES = frozenset({"workflow", "coding", *MAIN_MODES})
+
+DEFAULT_BUDGET_TOKENS = 500_000
+MAX_BUDGET_TOKENS = 2_000_000
+MAX_MAIN_TURNS = 40
+DEFAULT_MAIN_TURNS = 16
+DEFAULT_CHILD_MAX_TURNS = 12
+DEFAULT_SANDBOX_IMAGE = "atlas-uat-python:3.12"
+
+TERMINAL = {
+    "COMPLETED",
+    "FAILED",
+    "CANCELLED",
+    "INTERRUPTED",
+    "RECOVERY_REQUIRED",
+    "RECOVERY_UNCERTAIN",
+}
 
 
 class ApplicationError(RuntimeError):
@@ -62,6 +100,24 @@ class ReadOnlyMode(ApplicationError):
     status_code = 403
 
 
+class ConcurrentRunRejected(ApplicationError):
+    """The first version of the product path runs one Main-driven task at a time."""
+
+    status_code = 409
+
+
+class CancelUnavailable(ApplicationError):
+    """Cancellation would be a UI-only state change; the service refuses to fake it."""
+
+    status_code = 409
+
+
+class WorkspaceRejected(ApplicationError):
+    """The requested workspace is outside every allowed root."""
+
+    status_code = 422
+
+
 @dataclass
 class RunRecord:
     run_id: str
@@ -69,7 +125,7 @@ class RunRecord:
     task: str
     workspace: str | None
     created_at: str
-    status: str = "RUNNING"
+    status: str = "SUBMITTED"
     updated_at: str = ""
     events: list[dict[str, Any]] = field(default_factory=list)
     result: dict[str, Any] | None = None
@@ -82,6 +138,12 @@ class RunRecord:
     recovery_uncertain: bool = False
     thread: threading.Thread | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
+    #: What the Host actually ran: goal, mode, provider, model, budget, limits, seed digest.
+    config: dict[str, Any] | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    #: True when the record was read from disk in this process, so no thread of ours owns it.
+    orphaned: bool = False
 
 
 def _now() -> str:
@@ -98,6 +160,165 @@ def _optional_int(value: str | None) -> int | None:
     except ValueError:
         return None
     return parsed if parsed > 0 else None
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _main_metrics(session: dict[str, Any]) -> dict[str, Any]:
+    """The goal session's usage in the same shape the application already projects.
+
+    A component that was not reported stays ``None``: an unknown child count is not a zero.
+    """
+
+    raw = _as_dict(session.get("metrics"))
+    main_block = _as_dict(session.get("main"))
+
+    def _sum(*values: Any) -> int | None:
+        known = [int(value) for value in values if isinstance(value, int)]
+        return sum(known) if known else None
+
+    prompt = _sum(raw.get("main_cumulative_input_tokens"), raw.get("child_total_prompt_tokens"))
+    completion = _sum(raw.get("main_completion_tokens"), raw.get("child_completion_tokens"))
+    return {
+        **raw,
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "cache_hit_tokens": raw.get("main_cache_hit_tokens"),
+        "cache_miss_tokens": raw.get("main_cache_miss_tokens"),
+        "system_total_tokens": raw.get("system_total_tokens"),
+        "main_prompt_tokens": raw.get("main_cumulative_input_tokens"),
+        "child_prompt_tokens": raw.get("child_total_prompt_tokens"),
+        "tool_calls": len(main_block.get("tool_calls") or []),
+        "delegation_rounds": raw.get("delegation_rounds"),
+        "max_observed_child_concurrency": raw.get("max_observed_child_concurrency"),
+    }
+
+
+def _goal_session_path(run_dir: Path, config: Any) -> Path | None:
+    """Where a Main-driven run wrote its session: the recorded id, else the only ``goal*`` dir."""
+
+    recorded = _as_dict(config).get("runtime_run_id")
+    if isinstance(recorded, str) and recorded:
+        return run_dir / recorded / "session.json"
+    matches = sorted(run_dir.glob("goal*/session.json"))
+    return matches[0] if matches else None
+
+
+def _nested_text(payload: Any, *path: str) -> str:
+    value: Any = payload
+    for key in path:
+        if not isinstance(value, dict):
+            return ""
+        value = value.get(key)
+    return str(value or "")
+
+
+def _describe_failure(error: BaseException) -> str:
+    """A message a reader can act on, including ``SystemExit("...")`` raised by ``run_goal``."""
+
+    message = str(error) if not isinstance(error, SystemExit) else str(error.code or "")
+    name = type(error).__name__
+    return f"{name}: {message}" if message else name
+
+
+def _runtime_summary(event_type: str, data: dict[str, Any]) -> str:
+    """One line for a transcript event, using only fields the recorder actually wrote."""
+
+    if event_type == "action_proposed":
+        return f"proposed {data.get('tool_name') or data.get('tool_id') or 'tool'}"
+    if event_type == "action_decision":
+        return f"{data.get('decision')} {data.get('tool_id')}"
+    if event_type == "tool_observation":
+        state = "error" if data.get("is_error") else "ok"
+        return f"tool observation {state}"
+    if event_type == "execution_outcome":
+        return f"execution {data.get('state')} for {data.get('tool_id')}"
+    if event_type == "sandbox_lifecycle":
+        return f"sandbox {data.get('state')}"
+    if event_type == "worker_lifecycle":
+        return f"worker {data.get('mode')} {data.get('worker_id') or ''}".strip()
+    return event_type
+
+
+class _TranscriptTail(threading.Thread):
+    """Project the runtime's own trajectory transcript into application events.
+
+    The recorder appends and flushes one JSON object per line, so this is a real observation seam
+    and not a poll of a summary: every event it emits was written by the runtime while the run was
+    happening. It reads only the run's own directory, keeps a byte offset per file, and never
+    writes anything.
+    """
+
+    def __init__(self, *, run_root: Path, emit: Any, interval: float = 0.4) -> None:
+        super().__init__(name=f"atlas-tail-{run_root.name}", daemon=True)
+        self.run_root = run_root
+        self.emit = emit
+        self.interval = interval
+        self._stop = threading.Event()
+        self._offsets: dict[str, int] = {}
+        self._seen: set[tuple[str, int]] = set()
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def run(self) -> None:  # pragma: no cover - thread body, exercised by the E2E run
+        while True:
+            self._drain()
+            if self._stop.wait(self.interval):
+                self._drain()
+                return
+
+    def _drain(self) -> None:
+        if not self.run_root.is_dir():
+            return
+        # The goal run lives in ``<app>/goal-<app id>/``; the glob keeps this working if the
+        # directory naming ever changes again.
+        paths = sorted(self.run_root.glob("goal*/trajectory/*/transcript.jsonl"))
+        for path in paths:
+            try:
+                with path.open("rb") as handle:
+                    offset = self._offsets.get(str(path), 0)
+                    handle.seek(offset)
+                    chunk = handle.read()
+                    self._offsets[str(path)] = handle.tell()
+            except OSError:
+                continue
+            for raw in chunk.splitlines():
+                if not raw.strip():
+                    continue
+                try:
+                    row = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                payload = row.get("payload")
+                envelope = payload.get("atlas_trajectory") if isinstance(payload, dict) else None
+                if not isinstance(envelope, dict):
+                    continue
+                seq = row.get("seq")
+                key = (str(path), int(seq) if isinstance(seq, int) else 0)
+                if key in self._seen:
+                    continue
+                self._seen.add(key)
+                event_type = str(envelope.get("event_type") or "")
+                if not event_type:
+                    continue
+                correlation = envelope.get("correlation")
+                correlation = correlation if isinstance(correlation, dict) else {}
+                data = envelope.get("data")
+                data = data if isinstance(data, dict) else {}
+                self.emit(
+                    "runtime_event",
+                    {
+                        "event_type": event_type,
+                        "summary": _runtime_summary(event_type, data),
+                        "agent_id": correlation.get("worker_id"),
+                        "task_id": correlation.get("task_id"),
+                        "seq": seq,
+                        "occurred_at": envelope.get("occurred_at") or row.get("ts"),
+                    },
+                )
 
 
 def _pricing() -> Pricing:
@@ -168,12 +389,36 @@ class AtlasApplicationService:
         repo_root: str | Path = REPO_ROOT,
         coding_workspace: str | Path = DEFAULT_CODING_WORKSPACE,
         sandbox_provider: str = "opensandbox",
+        provider: str = "deepseek",
+        sandbox_enabled: bool = True,
+        sandbox_image: str | None = None,
+        workspace_roots: tuple[str | Path, ...] | None = None,
+        failure_after_request: int | None = None,
     ) -> None:
         self.runs_root = Path(runs_root).resolve()
         self.workspace_root = Path(workspace_root).resolve()
         self.repo_root = Path(repo_root).resolve()
         self.coding_workspace = Path(coding_workspace).resolve()
         self.sandbox_provider = sandbox_provider
+        #: ``deepseek`` is the only live provider this stage supports. ``deterministic`` is the
+        #: offline seam: it builds a scripted adapter instead of a network client, and every record
+        #: it produces names that provider. A request body can never choose it.
+        self.provider = provider
+        self.sandbox_enabled = sandbox_enabled
+        self.sandbox_image = (
+            sandbox_image or os.environ.get("ATLASOS_SANDBOX_IMAGE") or DEFAULT_SANDBOX_IMAGE
+        )
+        self._workspace_roots = (
+            tuple(Path(root).expanduser().resolve() for root in workspace_roots)
+            if workspace_roots
+            else None
+        )
+        #: Test/demo seam for the deterministic provider only: make request N raise. A live
+        #: provider never consults it, and the value is recorded in the run configuration.
+        self.failure_after_request = failure_after_request
+        #: Demo pacing for the deterministic provider (seconds per answer). It changes nothing
+        #: about the runtime; without it a scripted run finishes before a human can watch it.
+        self.provider_step_delay = float(os.environ.get("ATLASOS_DETERMINISTIC_DELAY") or 0.0)
         #: Optional run-scoped token budget for coding runs. Unset keeps the historical behaviour;
         #: this is the explicit switch required before the shared budget applies to the app path.
         self.coding_token_budget = _optional_int(os.environ.get("ATLASOS_CODING_TOKEN_BUDGET"))
@@ -189,12 +434,21 @@ class AtlasApplicationService:
         mode: str = "workflow",
         workspace: str | None = None,
         max_turns: int = 12,
+        budget_tokens: int | None = None,
     ) -> dict[str, Any]:
         task = task.strip()
         if not task:
             raise ApplicationError("task must not be empty")
-        if mode not in {"workflow", "coding"}:
-            raise ApplicationError("mode must be 'workflow' or 'coding'")
+        if mode not in EXECUTION_MODES:
+            raise ApplicationError("mode must be one of " + ", ".join(sorted(EXECUTION_MODES)))
+        if mode in MAIN_MODES:
+            return self._submit_main(
+                task,
+                mode=mode,
+                workspace=workspace,
+                max_turns=max_turns,
+                budget_tokens=budget_tokens,
+            )
         if not (1 <= max_turns <= 30):
             raise ApplicationError("max_turns must be between 1 and 30")
         selected: str | None = None
@@ -208,6 +462,7 @@ class AtlasApplicationService:
             workspace=selected,
             created_at=_now(),
             updated_at=_now(),
+            status="RUNNING",
         )
         run_dir = self.runs_root / run_id
         run_dir.mkdir(parents=True, exist_ok=False)
@@ -222,6 +477,106 @@ class AtlasApplicationService:
         record.thread = thread
         thread.start()
         return self.summary(record)
+
+    # ------------------------------------------------------------ Main-driven modes
+    def _submit_main(
+        self,
+        task: str,
+        *,
+        mode: str,
+        workspace: str | None,
+        max_turns: int,
+        budget_tokens: int | None,
+    ) -> dict[str, Any]:
+        if not (1 <= max_turns <= MAX_MAIN_TURNS):
+            raise ApplicationError(f"max_turns must be between 1 and {MAX_MAIN_TURNS}")
+        budget = DEFAULT_BUDGET_TOKENS if budget_tokens is None else int(budget_tokens)
+        if not (1 <= budget <= MAX_BUDGET_TOKENS):
+            raise ApplicationError(
+                f"budget_tokens must be between 1 and {MAX_BUDGET_TOKENS}; "
+                "an unbounded run is not offered"
+            )
+        if not workspace:
+            raise ApplicationError("a Main-driven run requires a workspace name")
+        try:
+            seed = resolve_seed(workspace, roots=self._workspace_roots)
+        except WorkspaceError as error:
+            raise WorkspaceRejected(str(error)) from error
+        active = self.active_main_run()
+        if active is not None:
+            raise ConcurrentRunRejected(
+                f"run {active} is still active; this version runs one Main-driven task at a time"
+            )
+        provider = self.provider
+        deterministic = provider == DETERMINISTIC_PROVIDER
+        config: dict[str, Any] = {
+            "goal": task,
+            "mode": mode,
+            "workspace": seed.as_dict(),
+            "provider": provider,
+            "provider_kind": "DETERMINISTIC" if deterministic else "LIVE_MODEL",
+            "model": DETERMINISTIC_MODEL if deterministic else "deepseek-chat",
+            "budget_tokens": budget,
+            "max_turns": max_turns,
+            "delegation": {
+                "enabled": mode == MAIN_DYNAMIC,
+                "max_parallel_children": 2,
+                "max_children_per_call": 2,
+                "child_max_turns": DEFAULT_CHILD_MAX_TURNS,
+            },
+            "sandbox": (
+                {"enabled": True, "provider": self.sandbox_provider, "image": self.sandbox_image}
+                if self.sandbox_enabled
+                else {"enabled": False, "provider": None, "image": None}
+            ),
+        }
+        run_id = f"app-{uuid.uuid4().hex[:12]}"
+        record = RunRecord(
+            run_id=run_id,
+            mode=mode,
+            task=task,
+            workspace=str(seed.source),
+            created_at=_now(),
+            updated_at=_now(),
+            status="SUBMITTED",
+            config=config,
+        )
+        (self.runs_root / run_id).mkdir(parents=True, exist_ok=False)
+        self._records[run_id] = record
+        self._persist(record)
+        self._event(
+            record,
+            "run_submitted",
+            {
+                "mode": mode,
+                "workspace": seed.name,
+                "budget_tokens": budget,
+                "provider": provider,
+                "provider_kind": config["provider_kind"],
+                "max_turns": max_turns,
+            },
+        )
+        thread = threading.Thread(
+            target=self._execute_main,
+            args=(record,),
+            name=f"atlas-app-{run_id}",
+            daemon=True,
+        )
+        record.thread = thread
+        thread.start()
+        return self.summary(record)
+
+    def active_main_run(self) -> str | None:
+        """The id of the Main-driven run currently holding the single execution slot."""
+
+        for record in list(getattr(self, "_records", {}).values()):
+            if record.mode not in MAIN_MODES:
+                continue
+            if record.status in TERMINAL:
+                continue
+            if record.thread is not None and record.thread.is_alive():
+                return record.run_id
+        return None
 
     def _resolve_workspace(self, workspace: str | None) -> Path:
         if not workspace:
@@ -340,6 +695,170 @@ class AtlasApplicationService:
         )
         self._persist(record)
 
+    # --------------------------------------------------------- Main-driven execution
+    def _execute_main(self, record: RunRecord) -> None:
+        """Run one goal through ``run_goal`` on a worker thread and project what happened."""
+
+        tail = _TranscriptTail(
+            run_root=self.runs_root / record.run_id,
+            emit=lambda event_type, data: self._event(record, event_type, data),
+        )
+        try:
+            record.status = "RUNNING"
+            record.started_at = _now()
+            self._event(record, "run_started", {"mode": record.mode})
+            tail.start()
+            self._run_main(record)
+        except BaseException as error:  # noqa: BLE001 - SystemExit is a real failure here
+            record.error = _describe_failure(error)
+            record.status = "FAILED"
+            record.failure_class = record.failure_class or "APPLICATION_ERROR"
+            self._event(record, "run_failed", {"error": record.error})
+        finally:
+            tail.stop()
+            record.finished_at = _now()
+            record.updated_at = record.finished_at
+            if record.status not in TERMINAL:
+                record.status = "INTERRUPTED"
+                self._event(
+                    record,
+                    "run_failed",
+                    {"error": "the execution thread ended without a terminal status"},
+                )
+            self._persist(record)
+
+    def _run_main(self, record: RunRecord) -> None:
+        import atlasos.app.main_driven as main_driven
+        from atlasos.app.goal_sandbox import GoalSandboxOptions
+        from atlasos.delegation import DelegationConfig
+
+        config = record.config or {}
+        run_id = record.run_id
+        # One runtime run id per application run. ``run_goal`` refuses to create an existing run
+        # directory and derives its process-wide provider name from this id, so reusing a constant
+        # would both mislabel the evidence and break the second run in the same process.
+        runtime_run_id = f"goal-{run_id}"
+        config["runtime_run_id"] = runtime_run_id
+        record.config = config
+        app_root = self.runs_root / run_id
+        seed = resolve_seed(config["workspace"]["name"], roots=self._workspace_roots)
+        if seed.as_dict() != config["workspace"]:
+            raise WorkspaceRejected("the workspace changed after submission")
+        workspace_path = app_root / "workspace"
+        seed_record = materialise(seed, workspace_path)
+        self._event(
+            record,
+            "workspace_ready",
+            {
+                "name": seed_record["name"],
+                "commit": seed_record["commit"],
+                "files": seed_record["files"],
+                "seed_digest": seed_record["seed_digest"],
+            },
+        )
+        sandbox_config = config.get("sandbox") or {}
+        sandboxed = bool(sandbox_config.get("enabled"))
+        deterministic = self.provider == DETERMINISTIC_PROVIDER
+        # Workspace-relative POSIX paths: the tool security policy resolves them against the
+        # workspace root and the ownership policy only understands relative paths. An absolute
+        # host path would be refused (correctly) before the write ever reaches the sandbox.
+        if record.mode == MAIN_DYNAMIC:
+            script = delegated_script(
+                child_paths={
+                    "alpha": "solution/alpha.txt",
+                    "beta": "solution/beta.txt",
+                },
+                main_entry_path="solution/integration.txt",
+            )
+        else:
+            script = direct_script(write_path="solution/answer.txt")
+        if deterministic and self.failure_after_request:
+            script.fail_from_request = int(self.failure_after_request)
+            config["failure_after_request"] = script.fail_from_request
+            record.config = config
+        if deterministic and self.provider_step_delay > 0:
+            script.step_delay_seconds = self.provider_step_delay
+            config["provider_step_delay_seconds"] = self.provider_step_delay
+            record.config = config
+        provider_factory = (
+            deterministic_factory(script, run_id=runtime_run_id) if deterministic else None
+        )
+        delegation_config = config.get("delegation") or {}
+        sandbox_options = (
+            GoalSandboxOptions(
+                provider=str(sandbox_config.get("provider") or self.sandbox_provider),
+                source_repo=workspace_path,
+                image=sandbox_config.get("image") or self.sandbox_image,
+                workspace_root=main_driven.SANDBOX_WORKSPACE_ROOT,
+                require_real=True,
+            )
+            if sandboxed
+            else None
+        )
+        write_scope = tuple(seed.write_scope)
+        options = main_driven.GoalRunOptions(
+            goal=record.task,
+            runs_root=app_root,
+            run_id=runtime_run_id,
+            workspace_root=workspace_path,
+            config=AtlasConfig(
+                provider=ProviderConfig(model=str(config.get("model") or "deepseek-chat")),
+                tools=ToolsConfig(mode="progressive"),
+                context=ContextConfig(policy="upstream_default"),
+                placement=PlacementConfig(policy="bypass"),
+                pricing=_pricing(),
+            ),
+            delegation=DelegationConfig(
+                enabled=bool(delegation_config.get("enabled")),
+                max_parallel_children=int(delegation_config.get("max_parallel_children") or 2),
+                max_children_per_call=int(delegation_config.get("max_children_per_call") or 2),
+                child_max_turns=int(
+                    delegation_config.get("child_max_turns") or DEFAULT_CHILD_MAX_TURNS
+                ),
+            ),
+            provider=str(config.get("provider") or "deepseek"),
+            model=str(config.get("model") or "deepseek-chat"),
+            max_turns=int(config.get("max_turns") or DEFAULT_MAIN_TURNS),
+            token_budget=int(config["budget_tokens"]),
+            main_write_paths=write_scope,
+            child_write_grants={"coding_worker": write_scope}
+            if record.mode == MAIN_DYNAMIC
+            else {},
+            provider_factory=provider_factory,
+            sandbox=sandbox_options,
+            preflight_profile="product",
+        )
+        session = asyncio.run(main_driven.run_goal(options))
+        record.session = session
+        if deterministic:
+            config["provider_evidence"] = script.as_dict()
+            record.config = config
+        failure = _as_dict(session.get("failure"))
+        record.failure_class = str(failure.get("kind") or "") or None
+        record.error = str(failure.get("message") or "") or None
+        succeeded = session.get("status") == "succeeded"
+        record.status = "COMPLETED" if succeeded else "FAILED"
+        record.result = {
+            "run_id": run_id,
+            "runtime_run_id": session.get("run_id"),
+            "status": record.status,
+            "execution_succeeded": session.get("execution_succeeded"),
+            "final_output": _nested_text(session, "main", "output"),
+            "metrics": session.get("metrics") or {},
+            "acceptance": session.get("acceptance"),
+            "isolation": session.get("isolation"),
+        }
+        self._event(
+            record,
+            "run_completed" if succeeded else "run_failed",
+            {
+                "status": record.status,
+                "failure_class": record.failure_class,
+                "execution_succeeded": session.get("execution_succeeded"),
+                "budget": session.get("budget"),
+            },
+        )
+
     # ---------------------------------------------------------------- projections
     def _event(self, record: RunRecord, event_type: str, data: dict[str, Any]) -> None:
         with record.lock:
@@ -373,13 +892,18 @@ class AtlasApplicationService:
             "uat_run_id": record.uat_run_id,
             "cleanup_error": record.cleanup_error,
             "recovery_uncertain": record.recovery_uncertain,
+            "started_at": record.started_at,
+            "finished_at": record.finished_at,
+            "config": record.config,
         }
         path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         if record.result is not None:
             (self.runs_root / record.run_id / "result.json").write_text(
                 json.dumps(record.result, indent=2, sort_keys=True), encoding="utf-8"
             )
-        if record.session is not None:
+        # A Main-driven run keeps its session in ``goal/session.json``: the runtime wrote it inside
+        # its own run directory, and copying it here would create a second source of the same fact.
+        if record.session is not None and record.mode not in MAIN_MODES:
             (self.runs_root / record.run_id / "session.json").write_text(
                 json.dumps(record.session, indent=2, sort_keys=True), encoding="utf-8"
             )
@@ -407,12 +931,19 @@ class AtlasApplicationService:
             uat_run_id=payload.get("uat_run_id"),
             cleanup_error=payload.get("cleanup_error"),
             recovery_uncertain=bool(payload.get("recovery_uncertain")),
+            config=payload.get("config"),
+            started_at=payload.get("started_at"),
+            finished_at=payload.get("finished_at"),
+            # Nothing in this process owns the thread of a record read from disk.
+            orphaned=True,
         )
         result_path = self.runs_root / run_id / "result.json"
         if result_path.is_file():
             record.result = json.loads(result_path.read_text(encoding="utf-8"))
         session_path = self.runs_root / run_id / "session.json"
-        if session_path.is_file():
+        if not session_path.is_file():
+            session_path = _goal_session_path(self.runs_root / run_id, record.config)
+        if session_path is not None and session_path.is_file():
             record.session = json.loads(session_path.read_text(encoding="utf-8"))
         events_path = self.runs_root / run_id / "events.jsonl"
         if events_path.is_file():
@@ -427,6 +958,18 @@ class AtlasApplicationService:
     def _refresh(self, record: RunRecord) -> None:
         if record.thread is not None and record.thread.is_alive():
             record.status = "RUNNING"
+        elif record.orphaned and record.status in {"SUBMITTED", "RUNNING"}:
+            # The process that owned this run is gone and there is no terminal evidence. Saying
+            # "RUNNING" forever would be a lie; resuming it would be an unauthorised re-execution.
+            record.status = "INTERRUPTED"
+            record.error = (
+                record.error
+                or "the process that ran this task exited without writing a terminal status"
+            )
+            record.finished_at = record.finished_at or _now()
+            self._event(record, "run_interrupted", {"detail": "no terminal evidence; not resumed"})
+            self._persist(record)
+            return
         if record.status in {"SANDBOX_LOST", "CLEANUP_UNRESOLVED"}:
             return
         pending = self.list_approvals(record.run_id)
@@ -451,11 +994,29 @@ class AtlasApplicationService:
             "status": record.status,
             "created_at": record.created_at,
             "updated_at": record.updated_at,
+            "started_at": record.started_at,
+            "finished_at": record.finished_at,
             "failure_class": record.failure_class,
             "error": record.error,
             "atlas_run_id": record.atlas_run_id,
             "uat_run_id": record.uat_run_id,
             "cleanup_error": record.cleanup_error,
+            "config": record.config,
+            "cancel": self.cancel_state(record),
+        }
+
+    def cancel_state(self, record: RunRecord) -> dict[str, Any]:
+        """Cancellation is not implemented, and the record says so instead of pretending."""
+
+        if record.status in TERMINAL:
+            return {"available": False, "reason": "the run is already terminal"}
+        return {
+            "available": False,
+            "reason": (
+                "CANCEL_UNAVAILABLE: the execution happens on a worker thread that owns the "
+                "sandbox and the provider stream; this version will not display a cancelled "
+                "state while the work continues"
+            ),
         }
 
     def list_runs(self, limit: int = 50) -> list[dict[str, Any]]:
@@ -477,7 +1038,9 @@ class AtlasApplicationService:
         tasks: list[dict[str, Any]] = []
         tool_calls: list[dict[str, Any]] = []
         final_output = ""
-        model = "deepseek-chat"
+        # The declared model of a Main-driven run is known before it produces anything, so the page
+        # never shows a model the run is not using.
+        model = str(_as_dict(record.config).get("model") or "deepseek-chat")
         artifacts: list[dict[str, Any]] = []
         if record.result is not None:
             metrics = record.result.get("metrics") or {}
@@ -529,6 +1092,50 @@ class AtlasApplicationService:
                         "patch_changed_files": record.session.get("patch_changed_files"),
                     }
                 )
+        if record.mode in MAIN_MODES and record.session is not None:
+            session = record.session
+            final_output = _nested_text(session, "main", "output") or final_output
+            model = str(session.get("model") or model)
+            metrics = _main_metrics(session)
+            main_block = _as_dict(session.get("main"))
+            tool_calls = [
+                {"tool_name": name, "agent": main_block.get("agent") or "atlas-main"}
+                for name in (main_block.get("tool_calls") or [])
+            ]
+            delegation = _as_dict(session.get("delegation"))
+            tasks = []
+            for batch in delegation.get("batches") or []:
+                for child in _as_dict(batch).get("children") or []:
+                    child = _as_dict(child)
+                    started = child.get("started_offset_ms")
+                    finished = child.get("finished_offset_ms")
+                    tasks.append(
+                        {
+                            "task_id": child.get("key"),
+                            "title": child.get("key"),
+                            "assignee": child.get("worker_id"),
+                            "status": child.get("status"),
+                            "output": None,
+                            "prompt_tokens": child.get("total_prompt_tokens"),
+                            "completion_tokens": child.get("completion_tokens"),
+                            "duration_ms": (
+                                float(finished) - float(started)
+                                if started is not None and finished is not None
+                                else None
+                            ),
+                            "depends_on": [],
+                        }
+                    )
+            exported = _as_dict(session.get("artifacts"))
+            if exported:
+                artifacts.append(
+                    {
+                        "kind": "workspace_export",
+                        "path": str(exported.get("workspace_path") or ""),
+                        "patch_changed_files": exported.get("patch_changed_files"),
+                        "workspace_digest": exported.get("workspace_digest"),
+                    }
+                )
         return {
             **summary,
             "model": model,
@@ -549,6 +1156,45 @@ class AtlasApplicationService:
             "events": record.events[-200:],
             "approvals": self.list_approvals(run_id),
             "recovery": self.recovery(run_id),
+            "live": self._live_projection(record),
+        }
+
+    def _live_projection(self, record: RunRecord) -> dict[str, Any] | None:
+        """What a Main-driven run can say about itself right now.
+
+        A run that has not finished has no session yet, so the projection says which fields are
+        unavailable instead of showing empty ones as if they were answers.
+        """
+
+        if record.mode not in MAIN_MODES:
+            return None
+        session = record.session or {}
+        config = record.config or {}
+        delegation = session.get("delegation")
+        provider_evidence = config.get("provider_evidence")
+        return {
+            "mode": record.mode,
+            "isolation": session.get("isolation")
+            or ("sandbox" if (config.get("sandbox") or {}).get("enabled") else "host"),
+            "provider": config.get("provider"),
+            "provider_kind": config.get("provider_kind"),
+            "budget": session.get("budget")
+            or {
+                "mode": "guarded",
+                "limit_tokens": config.get("budget_tokens"),
+                "used_tokens": None,
+                "note": "the budget record is written when the run ends",
+            },
+            "delegation": delegation if isinstance(delegation, dict) else None,
+            "verification": session.get("verification"),
+            "acceptance": session.get("acceptance"),
+            "public_tests": session.get("public_tests"),
+            "execution_succeeded": session.get("execution_succeeded"),
+            "failure": session.get("failure"),
+            "provider_evidence": provider_evidence,
+            "started_at": record.started_at,
+            "finished_at": record.finished_at,
+            "cancel": self.cancel_state(record),
         }
 
     def result(self, run_id: str) -> dict[str, Any]:
@@ -582,6 +1228,43 @@ class AtlasApplicationService:
                     return
                 terminal_sent = True
             time.sleep(0.25)
+
+    # ---------------------------------------------------------------- workspaces/cancel
+    def workspaces(self) -> dict[str, Any]:
+        """The workspace menu: allowed roots and the names a run may use."""
+
+        roots = describe_roots(self._workspace_roots)
+        return {
+            "roots": roots,
+            "default": next(
+                (name for root in roots for name in root["workspaces"]),
+                None,
+            ),
+            "provider": self.provider,
+            "model": (
+                DETERMINISTIC_MODEL if self.provider == DETERMINISTIC_PROVIDER else "deepseek-chat"
+            ),
+            "provider_kind": (
+                "DETERMINISTIC" if self.provider == DETERMINISTIC_PROVIDER else "LIVE_MODEL"
+            ),
+            "sandbox": {"enabled": self.sandbox_enabled, "image": self.sandbox_image},
+            "defaults": {
+                "budget_tokens": DEFAULT_BUDGET_TOKENS,
+                "max_budget_tokens": MAX_BUDGET_TOKENS,
+                "max_turns": DEFAULT_MAIN_TURNS,
+                "max_turns_ceiling": MAX_MAIN_TURNS,
+            },
+            "modes": sorted(EXECUTION_MODES),
+            "main_modes": sorted(MAIN_MODES),
+            "active_run": self.active_main_run(),
+        }
+
+    def cancel(self, run_id: str) -> dict[str, Any]:
+        """Refuse explicitly: there is no safe cancellation for this execution model yet."""
+
+        record = self._load(run_id)
+        state = self.cancel_state(record)
+        raise CancelUnavailable(state["reason"])
 
     # ---------------------------------------------------------------- approvals/recovery
     @property
