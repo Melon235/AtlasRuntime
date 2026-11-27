@@ -210,21 +210,21 @@ def settlement_contract() -> dict[str, Any]:
     return {**contract_block, "digest": authority.digest_of(contract_block)}
 
 
-def visible_files(task_id: str) -> dict[str, str]:
+def visible_files(task_id: str, *, task: tasks.Task | None = None) -> dict[str, str]:
     """The bytes a cell starts from: the seed plus the declared public suite.
 
     ``prepare_fixture`` materialises exactly this set and digests it, so the manifest and the
     per-cell fixture check compare the same object instead of two different ones.
     """
 
-    task = tasks.task_by_id(task_id)
+    task = task if task is not None else tasks.task_by_id(task_id)
     return {**dict(task.seed), **dict(task.public_tests)}
 
 
-def public_interface(task_id: str) -> dict[str, Any]:
+def public_interface(task_id: str, *, task: tasks.Task | None = None) -> dict[str, Any]:
     """The frozen interface the task is written against, as bytes plus its per-node bindings."""
 
-    task = tasks.task_by_id(task_id)
+    task = task if task is not None else tasks.task_by_id(task_id)
     paths = sorted({path for bound in task.frozen_contracts.values() for path in bound})
     # A task may declare one interface document for the whole project instead of binding it per
     # node (S2 does). The bytes are then the interface the seed ships under ``docs/``.
@@ -236,20 +236,22 @@ def public_interface(task_id: str) -> dict[str, Any]:
     }
 
 
-def _task_facts(task_id: str) -> dict[str, Any]:
-    task = tasks.task_by_id(task_id)
-    interface = public_interface(task_id)
+def _task_facts(task_id: str, *, task: tasks.Task | None = None) -> dict[str, Any]:
+    task = task if task is not None else tasks.task_by_id(task_id)
+    interface = public_interface(task_id, task=task)
+    static_dag = arms.static_dag(task_id, task=task)
+    visible = visible_files(task_id, task=task)
     return {
         "family": tasks.family_of(task_id),
         "title": task.title,
         "goal_digest": arms.goal_digest(task_id),
         "grant_digest": arms.grant_digest(task_id),
-        "static_dag_digest": arms.static_dag_digest(task_id),
+        "static_dag_digest": authority.digest_of(static_dag),
         # The decomposition itself, including each node's assignment text and the cap it is given.
-        "static_dag": arms.static_dag(task_id),
+        "static_dag": static_dag,
         # The frozen fixture identity: a fixture edit after the freeze moves this digest.
-        "seed_digest": authority.digest_of(dict(sorted(visible_files(task_id).items()))),
-        "seed_files": len(visible_files(task_id)),
+        "seed_digest": authority.digest_of(visible),
+        "seed_files": len(visible),
         # The four content identities a reader needs to know *what* was frozen. Names alone would
         # let the suite be edited while the manifest still looked current.
         "public_interface_digest": authority.digest_of(interface),

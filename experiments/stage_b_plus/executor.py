@@ -213,6 +213,13 @@ def executor_identity(
 
         if experiment_id != EXPERIMENT:
             raise ValueError(f"unknown executor identity {experiment_id!r}")
+        inputs.update(
+            {
+                "experiments/stage_f/manifest.json",
+                "experiments/stage_f/task-qualification.json",
+                "experiments/stage_f/v3-qualified-revisions.json",
+            }
+        )
         tracked = subprocess.check_output(
             ["git", "ls-files", "-z", "--", "src", "experiments", "pyproject.toml", "uv.lock"],
             cwd=root,
@@ -2152,6 +2159,15 @@ def task_for_cell(cell: Mapping[str, Any]) -> Any:
     """
 
     task_id = str(cell["task_id"])
+    from experiments.stage_f.release_candidate import BATCH_IDS, SCOPE, bound_task
+
+    if (
+        cell.get("release_experiment") is not None
+        or cell.get("scope") == SCOPE
+        or cell.get("plan_id") in BATCH_IDS.values()
+        or "task_revision" in cell
+    ):
+        return bound_task(cell)
     if task_id in contract.TASKS_BY_ID:
         return contract.TASKS_BY_ID[task_id]
     from experiments.stage_f.tasks import TASKS_BY_ID as stage_f_tasks
@@ -2159,6 +2175,13 @@ def task_for_cell(cell: Mapping[str, Any]) -> Any:
     if task_id in stage_f_tasks:
         return stage_f_tasks[task_id]
     raise KeyError(f"unknown task {task_id!r} in any catalog")
+
+
+def prepare_cell_fixture(cell: Mapping[str, Any], destination: Path) -> dict[str, Any]:
+    fixture = prepare_fixture(task_for_cell(cell), destination)
+    if "fixture_seed_digest" in cell and fixture["seed_digest"] != cell["fixture_seed_digest"]:
+        raise ValueError(f"materialized seed digest does not match {cell['cell_id']}")
+    return fixture
 
 
 def _delegation_for_cell(cell: Mapping[str, Any]) -> Any:
@@ -2350,7 +2373,7 @@ def run_admission_preflight(
             evidence = root / key
             fixture_dir = root / "fixtures" / cell["cell_id"]
             try:
-                fixture = prepare_fixture(task_for_cell(cell), fixture_dir)
+                fixture = prepare_cell_fixture(cell, fixture_dir)
             except Exception as error:  # noqa: BLE001 - an unusable fixture is a refusal
                 detail = f"{type(error).__name__}: {error}"[:200]
                 cells.append(
@@ -2394,7 +2417,14 @@ def run_admission_preflight(
 
                 report, detail = stage_f_runners.arm_admission(cell, fixture=fixture, config=active)
             blocked = list(report["blocking_failures"])
+            task_evidence: dict[str, Any] = {}
             if plan.get("scope") == SCOPE:
+                task_evidence = {
+                    "task_revision": cell["task_revision"],
+                    "task_revision_digest": cell["task_revision_digest"],
+                    "fixture_seed_digest": fixture["seed_digest"],
+                    "task_oracle_digest": cell["task_oracle_digest"],
+                }
                 if (
                     plan.get("stop_policy_digest") != authority_module.digest_of(STOP_POLICY)
                     or cell.get("stop_policy_digest") != plan.get("stop_policy_digest")
@@ -2423,6 +2453,7 @@ def run_admission_preflight(
                     "blocking_failures": blocked,
                     "checks": len(report["checks"]),
                     "fixture_matches_frozen_seed": bool(fixture.get("matches_frozen_seed")),
+                    **task_evidence,
                     **detail,
                 }
             )
@@ -2524,7 +2555,7 @@ def live_cell_runner(config: RunnerConfig | None = None) -> CellRunner:
         started = time.monotonic()
 
         try:
-            fixture = await asyncio.to_thread(prepare_fixture, task, fixture_dir)
+            fixture = await asyncio.to_thread(prepare_cell_fixture, cell, fixture_dir)
         except Exception as error:  # noqa: BLE001 - a fixture defect is a stop
             return CellRun(
                 session=None,

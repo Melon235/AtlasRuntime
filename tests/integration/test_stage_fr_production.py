@@ -9,11 +9,15 @@ from types import SimpleNamespace
 
 import pytest
 from anycode.types import LLMChatOptions, LLMStreamOptions
+from experiments.evaluation import runner as eval_runner
+from experiments.evaluation.closure1b import native_baseline
 from experiments.evaluation.runner import load_runner_config
 from experiments.stage_b_plus import authority, contract, executor
 from experiments.stage_f import cumulative, plan, runners
 from experiments.stage_f import release_candidate as fr
+from experiments.stage_f.tasks import revisions
 
+from atlasos.app import main_driven
 from atlasos.budget import RunBudgetExhausted, RunBudgetState
 from atlasos.integrations.deepseek import DeepSeekAdapter, UsageParseError
 from atlasos.metrics.requests import JournaledAdapter, RequestJournal
@@ -122,6 +126,76 @@ def test_historic_model_and_task_order_remain_bound():
         contract.scope_plan("stage-fr-final-96-v2-b1")
     same_order = [contract.scope_plan(plan_id)["cells"][0] for plan_id in fr.BATCH_IDS.values()]
     assert len({fr.goal_run_id(cell, "c01") for cell in same_order}) == 3
+
+
+@pytest.mark.parametrize("task_id", revisions.REVISIONS)
+@pytest.mark.parametrize("arm", ["A0", "A1", "A2", "A3"])
+async def test_runner_uses_the_bound_revision_before_model_execution(
+    arm, task_id, tmp_path, monkeypatch,
+):
+    registered = contract.scope_plan(fr.BATCH_IDS[1])
+    cell = next(
+        row for row in registered["cells"] if row["arm_id"] == arm and row["task_id"] == task_id
+    )
+    revised = revisions.task_at_revision(task_id, 2)
+    historical = revisions.task_at_revision(task_id, 1)
+    expected_contract = revised.seed["docs/INTERFACE.md"]
+    assert expected_contract != historical.seed["docs/INTERFACE.md"]
+    assert revised.oracle_tests != historical.oracle_tests
+    assert cell["task_revision"] == 2
+
+    class ReachedOracleBoundary(Exception):
+        pass
+
+    async def benchmark_boundary(benchmark, **kwargs):
+        assert benchmark.visible_files["docs/INTERFACE.md"] == expected_contract
+        assert benchmark.hidden_files == revised.oracle_tests
+        if arm == "A2":
+            assert benchmark.workers == runners._benchmark_task(cell, multi=True).workers
+            by_id = {worker["task_id"]: worker for worker in revised.workers}
+            assignment = {node["task_id"]: node["assignment"] for node in cell["static_dag"]}
+            for step in benchmark.workers:
+                assert step.prompt == assignment[step.task_id] == by_id[step.task_id]["assignment"]
+        source = tmp_path / "cells" / f"c{cell['order']:02d}" / "fixture"
+        assert (source / "docs/INTERFACE.md").read_text("utf-8") == expected_contract
+        assert all(not (source / name).exists() for name in revised.oracle_tests)
+        raise ReachedOracleBoundary
+
+    async def goal_boundary(options):
+        source = options.sandbox.source_repo
+        assert (source / "docs/INTERFACE.md").read_text("utf-8") == expected_contract
+        assert all(not (source / name).exists() for name in revised.oracle_tests)
+        assert options.public_tests == contract.public_test_spec(revised)
+        return {"artifacts": {"workspace_path": str(source)}}
+
+    def oracle_boundary(workspace, task, **kwargs):
+        assert task.oracle_tests == revised.oracle_tests
+        assert (workspace / "docs/INTERFACE.md").read_text("utf-8") == expected_contract
+        raise ReachedOracleBoundary
+
+    monkeypatch.setattr(native_baseline, "run_native_sample", benchmark_boundary)
+    monkeypatch.setattr(eval_runner, "run_sample", benchmark_boundary)
+    monkeypatch.setattr(main_driven, "run_goal", goal_boundary)
+    monkeypatch.setattr(executor, "judge_export", oracle_boundary)
+    monkeypatch.setattr(executor, "_sandbox_provider", lambda *_: None)
+    runner = executor.cell_runner_for(cell)
+    with pytest.raises(ReachedOracleBoundary):
+        await runner(cell, {"evidence_root": tmp_path, "runs_root": tmp_path / "runs"})
+
+
+def test_v3_task_revision_and_dag_identity_fail_closed():
+    registered = contract.scope_plan(fr.BATCH_IDS[1])
+    cell = next(
+        row for row in registered["cells"]
+        if row["arm_id"] == "A2" and row["task_revision"] == 2
+    )
+    for key, value in (
+        ("task_revision", 1), ("release_experiment", None), ("task_revision_digest", "wrong"),
+        ("task_oracle_digest", "wrong"), ("fixture_seed_digest", "wrong"),
+        ("static_dag_digest", "wrong"), ("static_dag", []),
+    ):
+        with pytest.raises(ValueError):
+            executor.task_for_cell({**cell, key: value})
 
 
 async def test_cell_budget_proves_rejection_without_a_provider_request():

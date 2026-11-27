@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from experiments.stage_b_plus import authority, contract, executor
-from experiments.stage_f import plan
+from experiments.stage_f import arms, plan, tasks
+from experiments.stage_f.tasks import revisions
 
 EXPERIMENT = "stage-fr-final-96-v3"
 SCOPE = "F_R_FINAL_96_V3"
@@ -49,6 +50,40 @@ SETTLEMENT = {
     "missing_cache_split": "price input as cache miss",
     "unknown_usage": "stop with unknown total and preserve known consumption",
 }
+QUALIFICATION_PATH = Path(__file__).with_name("v3-qualified-revisions.json")
+
+
+def _revision_binding(task: tasks.Task) -> dict[str, Any]:
+    revision = revisions.REVISIONS.get(task.task_id, 1)
+    identity = revisions.task_identity(task, revision)
+    seed = plan.visible_files(task.task_id, task=task)
+    return {
+        "task_revision": revision,
+        "task_revision_digest": identity["task_digest"],
+        "fixture_seed_digest": authority.digest_of(seed).removeprefix("sha256:"),
+        "task_oracle_digest": identity["oracle_digest"],
+    }
+
+
+def bound_task(cell: Mapping[str, Any]) -> tasks.Task:
+    """Resolve a production cell and reject any mismatch before a Runner can start."""
+    if cell.get("release_experiment") != EXPERIMENT:
+        raise ValueError("cell has no registered F-R experiment")
+    requested_model(cell)
+    task_id = str(cell["task_id"])
+    task = revisions.task_at_revision(task_id, revisions.REVISIONS.get(task_id, 1))
+    if type(cell.get("task_revision")) is not int or any(
+        cell.get(key) != value for key, value in _revision_binding(task).items()
+    ):
+        raise ValueError(f"task revision identity mismatch for {task_id}")
+    if cell.get("execution_mode") == "atlas_static_dag":
+        dag = arms.static_dag(task_id, task=task)
+        if (
+            cell.get("static_dag") != dag
+            or cell.get("static_dag_digest") != authority.digest_of(dag)
+        ):
+            raise ValueError(f"static DAG revision mismatch for {task_id}")
+    return task
 
 
 def requested_model(cell: Mapping[str, Any]) -> str:
@@ -114,7 +149,13 @@ def batch_plan(plan_id: str) -> dict[str, Any]:
     pricing_digest = authority.digest_of(PRICING)
     settlement_digest = authority.digest_of(SETTLEMENT)
     stop_policy_digest = authority.digest_of(STOP_POLICY)
+    resolved = {
+        task_id: revisions.task_at_revision(task_id, revisions.REVISIONS.get(task_id, 1))
+        for task_id in record["tasks"]
+    }
+    bindings = {task_id: _revision_binding(task) for task_id, task in resolved.items()}
     for cell in record["cells"]:
+        task_id = cell["task_id"]
         cell.update(
             cell_id="fr3." + cell["cell_id"].split(".", 1)[1],
             plan_id=plan_id,
@@ -126,7 +167,11 @@ def batch_plan(plan_id: str) -> dict[str, Any]:
             pricing_digest=pricing_digest,
             settlement_digest=settlement_digest,
             stop_policy_digest=stop_policy_digest,
+            **bindings[task_id],
         )
+        if cell["execution_mode"] == "atlas_static_dag":
+            dag = arms.static_dag(task_id, task=resolved[task_id])
+            cell.update(static_dag=dag, static_dag_digest=authority.digest_of(dag))
     digest = plan.plan_digest(record["cells"])
     record.update(
         stage="F-R",
@@ -153,7 +198,53 @@ def _manifest(head: str, identity: Mapping[str, Any]) -> dict[str, Any]:
     reference = plan.manifest()
     historic = json.loads((plan.REPO_ROOT / "experiments/stage_f/manifest.json").read_text("utf-8"))
     if historic["task_facts"] != reference["task_facts"]:
-        raise ValueError("current task bytes differ from the Stage F qualification manifest")
+        raise ValueError("historical revision bytes differ from the Stage F qualification manifest")
+    receipts = json.loads(QUALIFICATION_PATH.read_text("utf-8"))
+    if set(receipts) != set(revisions.REVISIONS):
+        raise ValueError("F-R qualifications must cover the four approved revisions")
+    historic_qualification = json.loads(
+        QUALIFICATION_PATH.with_name("task-qualification.json").read_text("utf-8")
+    )
+    if historic_qualification["status"] != "STAGE_F_TASK_QUALIFICATION_PASS":
+        raise ValueError("Stage F historical task qualification is incomplete")
+    task_facts = {}
+    for task_id in reference["task_facts"]:
+        revision = revisions.REVISIONS.get(task_id, 1)
+        task = revisions.task_at_revision(task_id, revision)
+        task_identity = revisions.task_identity(task, revision)
+        if revision == 1:
+            qualification = next(
+                row for row in historic_qualification["qualification"] if row["task_id"] == task_id
+            )
+            if not qualification["qualified"]:
+                raise ValueError(f"historical qualification is incomplete for {task_id}")
+            qualification_digest = authority.digest_of(qualification)
+        else:
+            receipt = receipts[task_id]
+            proof = receipt["proof"]
+            qualification = proof["qualification"]
+            if (
+                proof["task"] != task_identity
+                or receipt["qualification_digest"] != authority.digest_of(proof)
+                or qualification != {
+                    "seed_public": "BUSINESS_FAILURE", "seed_oracle": "BUSINESS_FAILURE",
+                    "reference_public": "PASS", "reference_oracle": "PASS",
+                }
+                or not proof["mutations"]
+                or not all(value is True for value in proof["mutations"].values())
+                or not all(
+                    proof[key] is True
+                    for key in ("fixture", "equivalent", "static_dag", "leak_checks")
+                )
+            ):
+                raise ValueError(f"invalid qualification receipt for {task_id}")
+            qualification_digest = receipt["qualification_digest"]
+        task_facts[task_id] = {
+            **plan._task_facts(task_id, task=task),
+            "revision_identity": task_identity,
+            "qualification_digest": qualification_digest,
+        }
+    budget = {**arms.budget(), "model": REQUESTED_MODEL}
     batches = []
     for plan_id in BATCH_IDS.values():
         record = contract.scope_plan(plan_id)
@@ -172,7 +263,15 @@ def _manifest(head: str, identity: Mapping[str, Any]) -> dict[str, Any]:
         "execution_head": head,
         "executor_digest": identity["executor_digest"],
         "executor_version": identity["executor_version"],
-        "task_facts": reference["task_facts"],
+        "task_facts": task_facts,
+        "task_revision_digest": authority.digest_of({
+            task_id: fact["revision_identity"] for task_id, fact in task_facts.items()
+        }),
+        "qualification_digest": authority.digest_of({
+            task_id: fact["qualification_digest"] for task_id, fact in task_facts.items()
+        }),
+        "budget": budget,
+        "budget_digest": authority.digest_of(budget),
         "batches": batches,
         "pricing": PRICING,
         "pricing_digest": authority.digest_of(PRICING),

@@ -32,7 +32,6 @@ from experiments.evaluation.fixtures import (
 )
 from experiments.stage_b_plus import authority, executor
 from experiments.stage_f import normalize
-from experiments.stage_f.tasks import TASKS_BY_ID
 
 
 def _cell_root(context: Mapping[str, Any], cell: Mapping[str, Any]) -> Path:
@@ -272,9 +271,9 @@ def integrity_report(
         ),
     )
 
-    task = TASKS_BY_ID.get(str(cell.get("task_id")))
-    allowed = tuple(str(item) for item in (task.allowed_paths if task else ()))
-    forbidden = tuple(str(item) for item in (task.forbidden_paths if task else ()))
+    task = executor.task_for_cell(cell)
+    allowed = task.allowed_paths
+    forbidden = task.forbidden_paths
     changed = (
         _changed_paths(fixture, workspace)
         if workspace is not None and workspace.is_dir()
@@ -430,7 +429,7 @@ def _benchmark_task(cell: Mapping[str, Any], *, multi: bool) -> Any:
 
     from experiments.evaluation.closure2 import catalog as closure2
 
-    task = TASKS_BY_ID[str(cell["task_id"])]
+    task = executor.task_for_cell(cell)
     if not multi:
         return closure2.build_task(task, topology="single")
     # A strongly coupled task has one honest node; a one-node DAG is a degenerate DAG, and the
@@ -460,7 +459,7 @@ def _settings(cell: Mapping[str, Any], *, runs_root: Path, multi: bool) -> Any:
     from experiments.evaluation.runner import RunnerSettings
     from experiments.stage_f.release_candidate import requested_model
 
-    task = TASKS_BY_ID[str(cell["task_id"])]
+    task = executor.task_for_cell(cell)
     extra: dict[str, Any] = {}
     if multi:
         extra["oracle_mode"] = "sandbox"
@@ -520,7 +519,7 @@ def native_cell_runner(
 
         started = time.monotonic()
         root = _cell_root(context, cell)
-        fixture = executor.prepare_fixture(TASKS_BY_ID[str(cell["task_id"])], root / "fixture")
+        fixture = executor.prepare_cell_fixture(cell, root / "fixture")
         fixture_dir = Path(fixture["path"])
         settings, _task = _settings(cell, runs_root=root / "native-runs", multi=False)
         task_events: list[dict[str, Any]] = []
@@ -613,7 +612,7 @@ def static_dag_cell_runner(
 
         started = time.monotonic()
         root = _cell_root(context, cell)
-        fixture = executor.prepare_fixture(TASKS_BY_ID[str(cell["task_id"])], root / "fixture")
+        fixture = executor.prepare_cell_fixture(cell, root / "fixture")
         fixture_dir = Path(fixture["path"])
         settings, _task = _settings(cell, runs_root=root / "dag-runs", multi=True)
         benchmark = _benchmark_task(cell, multi=True)

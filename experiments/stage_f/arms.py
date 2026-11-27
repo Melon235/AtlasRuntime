@@ -239,7 +239,7 @@ def grant_digest(task_id: str) -> str:
     return authority.digest_of({key: list(value) for key, value in child_grants(task_id).items()})
 
 
-def static_dag(task_id: str) -> list[dict[str, Any]]:
+def static_dag(task_id: str, *, task: catalog.Task | None = None) -> list[dict[str, Any]]:
     """The human decomposition, with everything a plan check and a reader need.
 
     The assignment text is part of the identity, not a comment: A2 executes exactly this
@@ -247,22 +247,21 @@ def static_dag(task_id: str) -> list[dict[str, Any]]:
     the dependencies are unchanged.
     """
 
-    task = catalog.task_by_id(task_id)
-    workers = {str(worker["task_id"]): dict(worker) for worker in task.workers}
+    task = task if task is not None else catalog.task_by_id(task_id)
     depended_on = {str(dep) for worker in task.workers for dep in worker["depends_on"]}
     integration_cap = int(CELL_BUDGET["static_integration_max_turns"])
     implementation_cap = int(CELL_BUDGET["worker_max_turns"])
     nodes: list[dict[str, Any]] = []
-    for node_id, paths, depends_on in catalog.STATIC_DAG[task_id]:
-        worker = workers.get(str(node_id), {})
-        sink = str(node_id) not in depended_on
+    for worker in task.workers:
+        node_id = str(worker["task_id"])
+        sink = node_id not in depended_on
         nodes.append(
             {
                 "task_id": node_id,
                 "objective": worker.get("objective"),
                 "assignment": worker.get("assignment"),
-                "owned_paths": list(paths),
-                "depends_on": list(depends_on),
+                "owned_paths": list(worker["owned_paths"]),
+                "depends_on": list(worker["depends_on"]),
                 # The cap the scheduler is actually given (`_benchmark_task`): the integration sink
                 # carries the integration cap, every implementation node the worker cap.
                 "max_turns": integration_cap if sink else implementation_cap,
