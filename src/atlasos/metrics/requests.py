@@ -173,13 +173,15 @@ class RequestJournal:
 
     # -- recording ------------------------------------------------------------------------------
 
-    def begin(self, *, phase: str, agent: str | None = None) -> RequestRecord:
+    def begin(
+        self, *, phase: str, agent: str | None = None, requested_model: str | None = None
+    ) -> RequestRecord:
         record = RequestRecord(
             request_id=uuid.uuid4().hex[:16],
             sequence=len(self._records) + 1,
             run_id=self._run_id,
             provider=self._provider,
-            requested_model=self._model,
+            requested_model=requested_model or self._model,
             phase=phase,
             agent=agent,
         )
@@ -302,7 +304,9 @@ class JournaledAdapter:
         *,
         response_format: dict[str, Any] | None = None,
     ) -> Any:
-        record = self._journal.begin(phase="chat", agent=self._agent)
+        record = self._journal.begin(
+            phase="chat", agent=self._agent, requested_model=getattr(options, "model", None)
+        )
         kwargs: dict[str, Any] = (
             {} if response_format is None else {"response_format": response_format}
         )
@@ -323,7 +327,9 @@ class JournaledAdapter:
 
     def stream(self, messages: list[Any], options: Any) -> AsyncIterator[Any]:
         async def _generate() -> AsyncIterator[Any]:
-            record = self._journal.begin(phase="stream", agent=self._agent)
+            record = self._journal.begin(
+                phase="stream", agent=self._agent, requested_model=getattr(options, "model", None)
+            )
             done = False
             terminal_error: BaseException | None = None
             partial = False

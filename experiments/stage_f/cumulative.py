@@ -19,6 +19,7 @@ and can be exercised without one.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
@@ -87,6 +88,10 @@ def settlement(
                 f"this dispatch is {executor_digest!r}"
             )
             unknown = True
+        for field in ("execution_head", "pricing_digest", "settlement_digest"):
+            if field in manifest and report.get(field) != manifest[field]:
+                problems.append(f"batch {item['batch']} has a different {field}")
+                unknown = True
         if claim_consumed is not None and not claim_consumed(str(item["plan_digest"])):
             problems.append(f"batch {item['batch']} has no consumed production claim")
             unknown = True
@@ -103,12 +108,16 @@ def settlement(
         usage_complete = str(report.get("usage_completeness")) == COMPLETE
         batch_tokens = report.get("total_tokens")
         batch_cost = report.get("total_cost_usd")
-        if not usage_complete or not isinstance(batch_tokens, int):
+        if not usage_complete or type(batch_tokens) is not int or batch_tokens < 0:
             problems.append(f"batch {item['batch']} usage is not COMPLETE")
             unknown = True
         else:
             tokens += batch_tokens
-        if isinstance(batch_cost, (int, float)) and not isinstance(batch_cost, bool):
+        if (
+            type(batch_cost) in (int, float)
+            and math.isfinite(batch_cost)
+            and batch_cost >= 0
+        ):
             cost += float(batch_cost)
         else:
             problems.append(f"batch {item['batch']} has no cost")
@@ -129,10 +138,18 @@ def settlement(
         )
 
     # The batch's own ceiling and the manifest's remaining headroom both apply.
-    batch_token_stop = int(arms.TOKEN_STOP_PER_BATCH)
-    batch_cost_stop = float(arms.COST_STOP_PER_BATCH)
-    global_token_stop = int(arms.TOKEN_STOP_TOTAL)
-    global_cost_stop = float(arms.COST_STOP_TOTAL)
+    current = next(item for item in batches if item["batch"] == batch)
+    frozen = manifest.get("settlement_contract") if "settlement_digest" in manifest else None
+    if frozen is not None:
+        batch_token_stop = int(current["token_capacity"])
+        batch_cost_stop = float(current["cost_stop_usd"])
+        global_token_stop = int(frozen["token_stop_total"])
+        global_cost_stop = float(frozen["cost_stop_total"])
+    else:
+        batch_token_stop = int(arms.TOKEN_STOP_PER_BATCH)
+        batch_cost_stop = float(arms.COST_STOP_PER_BATCH)
+        global_token_stop = int(arms.TOKEN_STOP_TOTAL)
+        global_cost_stop = float(arms.COST_STOP_TOTAL)
     remaining_tokens = global_token_stop - tokens
     remaining_cost = global_cost_stop - cost
     allowance_tokens = min(batch_token_stop, remaining_tokens)

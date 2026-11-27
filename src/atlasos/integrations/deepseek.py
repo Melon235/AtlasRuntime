@@ -166,10 +166,12 @@ class DeepSeekAdapter:
         client: Any,
         model: str = DEFAULT_MODEL,
         on_call: Callable[[InferenceObservation], None] | None = None,
+        require_reported_usage: bool = False,
     ) -> None:
         self._client = client
         self._model = model
         self._on_call = on_call
+        self._require_reported_usage = require_reported_usage
 
     @property
     def name(self) -> str:
@@ -182,6 +184,8 @@ class DeepSeekAdapter:
         *,
         on_call: Callable[[InferenceObservation], None] | None = None,
         max_retries: int | None = None,
+        model: str | None = None,
+        require_reported_usage: bool = False,
     ) -> DeepSeekAdapter:
         if env is None:
             _load_dotenv()
@@ -204,8 +208,9 @@ class DeepSeekAdapter:
         )
         return cls(
             client=client,
-            model=values.get("DEEPSEEK_MODEL", DEFAULT_MODEL),
+            model=model or values.get("DEEPSEEK_MODEL", DEFAULT_MODEL),
             on_call=on_call,
+            require_reported_usage=require_reported_usage,
         )
 
     async def chat(
@@ -236,7 +241,20 @@ class DeepSeekAdapter:
         latency_ms = (time.perf_counter() - started) * 1000.0
 
         content, stop_reason, fallback = parse_chat_response(completion)
-        usage = self._normalize_usage(getattr(completion, "usage", None), latency_ms, fallback)
+        raw_usage = getattr(completion, "usage", None)
+        if self._require_reported_usage:
+            mapping = _usage_mapping(raw_usage)
+            if mapping is None or mapping.get("completion_tokens") is None:
+                raise UsageParseError("provider did not report complete token usage")
+            usage = parse_usage(mapping, latency_ms=latency_ms)
+            if (
+                usage.cache_hit_tokens is not None
+                and usage.cache_miss_tokens is not None
+                and usage.cache_hit_tokens + usage.cache_miss_tokens != usage.prompt_tokens
+            ):
+                raise UsageParseError("provider cache counters do not reconcile with prompt usage")
+        else:
+            usage = self._normalize_usage(raw_usage, latency_ms, fallback)
         if self._on_call is not None:
             self._on_call(
                 InferenceObservation(

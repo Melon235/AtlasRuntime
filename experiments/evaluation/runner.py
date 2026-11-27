@@ -109,6 +109,7 @@ from atlasos.integrations.anycode_engine import AtlasContextEngine
 from atlasos.integrations.deepseek import DeepSeekAdapter
 from atlasos.ledger import SQLiteActionLedgerStore
 from atlasos.metrics.models import InferenceObservation, InferenceUsage
+from atlasos.metrics.requests import JournaledAdapter, RequestJournal
 from atlasos.ownership import (
     OWNERSHIP_MODE_OFF,
     OWNERSHIP_MODES,
@@ -212,6 +213,7 @@ class RunnerSettings:
     max_tool_calls: int = 40
     progressive_tools: bool = True
     model_override: str | None = None
+    bind_provider_model: bool = False
     retain_sandbox_on_failure: bool = False
     variant: str = "default"
     capture_evidence: bool = False
@@ -713,6 +715,26 @@ def _environment_note(workspace_root: str) -> str:
         f"The repository is at {workspace_root} inside a remote Linux sandbox. "
         "Use Python 3 and portable POSIX shell commands. Do not assume access to the Host."
     )
+
+
+def load_runner_config(settings: RunnerSettings, config_path: Path) -> AtlasConfig:
+    config = load_config(config_path)
+    if settings.bind_provider_model:
+        from experiments.stage_f.release_candidate import pricing_config
+
+        if not settings.model_override:
+            raise ValueError("a bound runner must declare a model")
+        provider = config.provider.model_copy(update={"model": settings.model_override})
+        config = config.model_copy(update={"provider": provider, "pricing": pricing_config()})
+    return config
+
+
+def benchmark_request_journal(settings: RunnerSettings, run_id: str) -> RequestJournal | None:
+    if not settings.bind_provider_model:
+        return None
+    return RequestJournal(run_id=run_id, provider="deepseek", requested_model=str(
+        settings.model_override
+    ))
 
 
 def _build_provider(config: AtlasConfig):
@@ -1533,6 +1555,7 @@ def build_deepseek_adapter(
     on_call: Any,
     *,
     timeout_seconds: float = 45.0,
+    require_reported_usage: bool = False,
 ) -> DeepSeekAdapter:
     """Build the existing AtlasOS adapter with a bounded HTTP timeout.
 
@@ -1552,7 +1575,10 @@ def build_deepseek_adapter(
         timeout=timeout_seconds,
         max_retries=0,
     )
-    return DeepSeekAdapter(client=client, model=model, on_call=on_call)
+    return DeepSeekAdapter(
+        client=client, model=model, on_call=on_call,
+        require_reported_usage=require_reported_usage,
+    )
 
 
 def _estimate_cost(
@@ -1848,7 +1874,7 @@ async def run_sample(
 
     load_dotenv(REPO_ROOT / ".env", override=False)
     config_file = Path(config_path or settings.config_path)
-    config = load_config(config_file)
+    config = load_runner_config(settings, config_file)
     # Fail closed before any I/O: a unit that declares a Context Plane must load a configuration
     # that actually enables it. This is an evaluation-entry constraint, not a runtime default.
     _enforce_context_plane_config(
@@ -1900,6 +1926,7 @@ async def run_sample(
 
     observations: list[InferenceObservation] = []
     resolved_models: list[str] = []
+    journal = benchmark_request_journal(settings, run_id)
     #: Bound to the run's context store once it exists. Observes requests, never edits them.
     request_evidence = _RequestEvidence()
     metrics = RuntimeMetrics()
@@ -2000,9 +2027,11 @@ async def run_sample(
         if provider_factory is None:
 
             async def factory(**_: Any) -> ModelRecordingAdapter:
-                inner = build_deepseek_adapter(model, observations.append)
+                inner = build_deepseek_adapter(
+                    model, observations.append, require_reported_usage=settings.bind_provider_model
+                )
                 return ModelRecordingAdapter(
-                    inner,
+                    JournaledAdapter(inner, journal) if journal is not None else inner,
                     resolved_models,
                     request_evidence if settings.request_evidence else None,
                 )
@@ -2527,7 +2556,12 @@ async def run_sample(
         metrics.extra["inference_latency_ms"] = aggregate["inference_latency_ms"]
         environment["resolved_models"] = sorted(set(resolved_models))
         environment["requested_model"] = model
+        if journal is not None:
+            journal.settle_open()
+            environment["provider_requests"] = journal.snapshot()
         environment["pricing_basis"] = (
+            "F-R frozen DeepSeek peak rates"
+            if settings.bind_provider_model else
             "DeepSeek Flash peak rates snapshot 2026-11-06; deepseek-chat resolves to "
             "deepseek-flash; upper-bound estimate"
         )

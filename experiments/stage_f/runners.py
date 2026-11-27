@@ -458,6 +458,7 @@ def _benchmark_task(cell: Mapping[str, Any], *, multi: bool) -> Any:
 
 def _settings(cell: Mapping[str, Any], *, runs_root: Path, multi: bool) -> Any:
     from experiments.evaluation.runner import RunnerSettings
+    from experiments.stage_f.release_candidate import requested_model
 
     task = TASKS_BY_ID[str(cell["task_id"])]
     extra: dict[str, Any] = {}
@@ -484,7 +485,11 @@ def _settings(cell: Mapping[str, Any], *, runs_root: Path, multi: bool) -> Any:
         token_budget=int(cell["token_budget"]),
         budget_mode="guarded",
         max_tool_calls=int(cell.get("max_tool_calls") or 40),
-        model_override=str((cell.get("budget") or {}).get("model") or "deepseek-chat"),
+        model_override=(
+            requested_model(cell) if cell.get("release_experiment")
+            else str((cell.get("budget") or {}).get("model") or "deepseek-chat")
+        ),
+        bind_provider_model=bool(cell.get("release_experiment")),
         request_evidence=True,
         capture_evidence=True,
         timeout_seconds=int(cell.get("sandbox_timeout_seconds") or 1800),
@@ -544,6 +549,7 @@ def native_cell_runner(
         evidence = normalize.from_native_result(
             cell, payload, oracle=oracle, export=export, requests=requests, latency=latency
         )
+        _attach_release_requests(cell, evidence, environment.get("provider_requests"))
         evidence["resources"]["task_events"] = task_events
         # The cap the runner was actually configured with, not the cap the cell declared.
         evidence["resources"]["applied_turn_caps"] = {"primary_agent": int(settings.max_turns)}
@@ -632,6 +638,7 @@ def static_dag_cell_runner(
         evidence = normalize.from_dag_result(
             cell, payload, oracle=oracle, export=export, requests=requests, latency=latency
         )
+        _attach_release_requests(cell, evidence, environment.get("provider_requests"))
         # The per-node caps the scheduler was actually given, from the benchmark task it ran.
         evidence["resources"]["applied_turn_caps"] = {
             step.task_id: int(step.max_turns or settings.max_turns) for step in benchmark.workers
@@ -761,6 +768,7 @@ def main_driven_cell_runner(
             requests=requests,
             latency=latency,
         )
+        _attach_release_requests(cell, evidence, session.get("model_requests"))
         report = integrity_report(
             cell=cell,
             evidence=evidence,
@@ -852,15 +860,25 @@ def arm_admission(
         str(enforcement) in {"pre_admission", "guarded", "runner:RunBudgetHook", "runner:guarded"},
         f"budget_enforcement={enforcement}",
     )
+    from experiments.evaluation.runner import load_runner_config
+    from experiments.stage_f.release_candidate import requested_model
+
+    settings, _ = _settings(cell, runs_root=REPO_ROOT, multi=mode == "atlas_static_dag")
+    resolved = load_runner_config(settings, settings.config_path)
     check(
         "model",
-        str(frozen.get("model") or "") == "deepseek-chat",
-        f"model={frozen.get('model')}",
+        frozen.get("model") == settings.model_override == requested_model(cell)
+        and (
+            not settings.bind_provider_model or resolved.provider.model == settings.model_override
+        ),
+        f"runner={settings.model_override}; config={resolved.provider.model}",
     )
     check(
         "image_network",
         str(frozen.get("image")) == "atlas-uat-python:3.12"
-        and str(frozen.get("network")) == "none",
+        and str(frozen.get("network")) == "none"
+        and resolved.sandbox.image == frozen.get("image")
+        and resolved.sandbox.network == frozen.get("network"),
         f"image={frozen.get('image')} network={frozen.get('network')}",
     )
     check(
@@ -879,6 +897,9 @@ def arm_admission(
         "checks": checks,
     }
     detail = {
+        "requested_model": settings.model_override,
+        "config_model": resolved.provider.model,
+        "provider_factory_injected": getattr(config, "llm_factory", None) is not None,
         "admission": "ARM_SPECIFIC",
         "execution_mode": mode,
         "worker_profile": None,
@@ -892,6 +913,61 @@ def arm_admission(
 
 
 # -- audit -------------------------------------------------------------------------------------
+
+
+def _attach_release_requests(
+    cell: Mapping[str, Any], evidence: dict[str, Any], journal: Mapping[str, Any] | None
+) -> None:
+    if not cell.get("release_experiment"):
+        return
+    from experiments.stage_f.release_candidate import requested_model
+
+    model = requested_model(cell)
+    records = (journal or {}).get("records") or []
+    returned = sorted({row["returned_model"] for row in records if row.get("returned_model")})
+    observed = {"prompt": 0, "output": 0, "hit": 0, "miss": 0, "records": 0}
+    for row in records:
+        usage = row.get("usage") or {}
+        prompt = usage.get("prompt_tokens")
+        hit = usage.get("cache_hit_tokens", usage.get("cache_read_input_tokens", 0))
+        if prompt is None and isinstance(usage.get("input_tokens"), int):
+            prompt = usage["input_tokens"] + hit
+        output = usage.get("completion_tokens", usage.get("output_tokens"))
+        if not all(type(value) is int and value >= 0 for value in (prompt, output, hit)):
+            continue
+        if hit > prompt:
+            continue
+        observed["prompt"] += prompt
+        observed["output"] += output
+        observed["hit"] += hit
+        observed["miss"] += prompt - hit
+        observed["records"] += 1
+    evidence["provider_observation"] = {
+        "observed_usage": observed,
+        "coverage_complete": bool(journal)
+        and not journal.get("records_truncated")
+        and journal["requests_total"] == observed["records"] == len(records),
+        "provider_failed": any(row.get("status") != "COMPLETED" for row in records),
+        "model_matches": bool(journal)
+        and journal.get("requested_model") == model
+        and all(row.get("requested_model") == model for row in records)
+        and all(
+            row.get("status") != "COMPLETED"
+            or row.get("returned_model") in {model, "DeepSeek-V4.1-Flash-1017"}
+            for row in records
+        ),
+        "returned_models": returned,
+    }
+    evidence["usage"]["requested_model"] = (journal or {}).get("requested_model") or "UNKNOWN"
+    evidence["usage"]["returned_model"] = returned[0] if len(returned) == 1 else "UNKNOWN"
+    observation = evidence["provider_observation"]
+    correctness = evidence["correctness"]
+    observation["raw_agent_success"] = correctness["agent_success"]
+    if observation["provider_failed"]:
+        correctness["agent_success"] = False
+        correctness["failure_kind"] = executor.PROVIDER_FAILURE_KIND
+    if not observation["coverage_complete"] or not observation["model_matches"]:
+        correctness["agent_success"] = False
 
 
 def _usage_of(evidence: Mapping[str, Any]) -> dict[str, Any]:
@@ -995,6 +1071,9 @@ def audit_stage_f_cell(
     oracle = correctness.get("independent_oracle") or {}
     metrics = _usage_of(evidence)
     integrity = evidence.get("integrity") or {}
+    observation = evidence.get("provider_observation") or {}
+    if cell.get("release_experiment") and not observation.get("coverage_complete"):
+        metrics = dict.fromkeys(metrics)
 
     export_path = _export_path(evidence)
     checks = [
@@ -1055,6 +1134,18 @@ def audit_stage_f_cell(
     ]
     if run.error:
         checks.append({"check": "runner_returned", "ok": False, "detail": run.error[:300]})
+    if cell.get("release_experiment"):
+        observed = observation.get("observed_usage") or {}
+        checks.extend((
+            {"check": "provider_completed", "ok": not observation.get("provider_failed"),
+             "detail": "request journal provider failure status"},
+            {"check": "provider_model", "ok": observation.get("model_matches") is True,
+             "detail": f"returned={observation.get('returned_models')}"},
+            {"check": "usage_reconciles",
+             "ok": bool(observed) and metrics["system_total_tokens"] == (
+                 observed["prompt"] + observed["output"]
+             ), "detail": "runner system usage must reconcile with all observed requests"},
+        ))
     failed = [item["check"] for item in checks if not item["ok"]]
     stops: list[str] = []
     for name, stop in (
@@ -1064,12 +1155,22 @@ def audit_stage_f_cell(
         ("artifact_exported", executor.STOP_EXPORT),
         ("usage_complete", executor.STOP_UNKNOWN_USAGE),
         ("runner_returned", executor.STOP_EXECUTION_EXCEPTION),
+        ("provider_completed", executor.STOP_PROVIDER_FAILURE),
+        ("provider_model", executor.STOP_MODE_VIOLATION),
+        ("usage_reconciles", executor.STOP_UNKNOWN_USAGE),
     ):
         if name in failed and stop not in stops:
             stops.append(stop)
 
     usage_report = executor.validate_usage(metrics)
-    delta = executor.cell_cost(metrics, prices)
+    delta = executor.cell_cost(metrics, prices) if "usage_reconciles" not in failed else None
+    observed = observation.get("observed_usage") or {}
+    observed_cost = (
+        (observed["hit"] * prices["cache_hit_input_per_million"]
+         + observed["miss"] * prices["cache_miss_input_per_million"]
+         + observed["output"] * prices["output_per_million"]) / 1_000_000
+        if observed and prices else 0.0
+    )
     before = {
         field: int((usage_before or {}).get(field) or 0) for field in executor.REQUIRED_USAGE_FIELDS
     }
@@ -1127,6 +1228,7 @@ def audit_stage_f_cell(
             "estimate": True,
         },
         "delta_cost_usd": delta,
+        "observed_cost_floor_usd": observed_cost,
         "cost_usd": total_cost,
         "duration_s": run.duration_s,
         "notes": [

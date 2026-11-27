@@ -77,8 +77,10 @@ from experiments.evaluation.runner import (
     _estimate_cost,
     _jsonable,
     _project_config,
+    benchmark_request_journal,
     build_deepseek_adapter,
     evaluation_resilience,
+    load_runner_config,
 )
 from experiments.evaluation.sandboxed_oracle import (
     OracleSandboxConfig,
@@ -87,8 +89,8 @@ from experiments.evaluation.sandboxed_oracle import (
 )
 from experiments.evaluation.stage_g3_4a_integrity import FIXTURE_COMMIT_LABEL
 
-from atlasos.config import load_config
 from atlasos.experiments import git_commit, git_dirty
+from atlasos.metrics.requests import JournaledAdapter
 from atlasos.sandbox import export_patch, export_workspace, is_real_sandbox_provider
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -149,7 +151,7 @@ async def run_native_sample(
     """
 
     load_dotenv(REPO_ROOT / ".env", override=False)
-    config = load_config(config_path or settings.config_path)
+    config = load_runner_config(settings, config_path or settings.config_path)
     project_config = _project_config(config)
     started_at = datetime.now(UTC)
     started = time.perf_counter()
@@ -195,6 +197,7 @@ async def run_native_sample(
 
     observations: list[Any] = []
     resolved_models: list[str] = []
+    journal = benchmark_request_journal(settings, run_id)
     metrics = RuntimeMetrics()
     failure_class: FailureClass | None = None
     failure_reason: str | None = None
@@ -258,8 +261,14 @@ async def run_native_sample(
             if provider_factory is None:
 
                 async def factory(**_: Any) -> ModelRecordingAdapter:
-                    inner = build_deepseek_adapter(model, observations.append)
-                    return ModelRecordingAdapter(inner, resolved_models)
+                    inner = build_deepseek_adapter(
+                        model, observations.append,
+                        require_reported_usage=settings.bind_provider_model,
+                    )
+                    return ModelRecordingAdapter(
+                        JournaledAdapter(inner, journal) if journal is not None else inner,
+                        resolved_models,
+                    )
 
             else:
                 deterministic_factory = provider_factory
@@ -512,6 +521,11 @@ async def run_native_sample(
         metrics.worker_selection = sorted(worker_results)
         metrics.host_isolation_violations = 0 if host_unchanged else 1
         environment["resolved_models"] = sorted(set(resolved_models))
+        if settings.bind_provider_model:
+            environment["requested_model"] = model
+        if journal is not None:
+            journal.settle_open()
+            environment["provider_requests"] = journal.snapshot()
         environment["worker_count"] = len(task.workers)
         environment["tool_calls"] = len(tool_calls)
         environment["budget_check"] = _post_hoc_budget(settings, metrics)

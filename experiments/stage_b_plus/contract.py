@@ -795,6 +795,7 @@ def scope_plan(scope_or_id: str) -> dict[str, Any]:
     from experiments.stage_c1c import plan as c1c_plan
     from experiments.stage_c2 import plan as c2_plan
     from experiments.stage_f import plan as f_plan
+    from experiments.stage_f import release_candidate
 
     if scope_or_id in (c1_plan.SCOPE, c1_plan.PLAN_ID):
         return c1_plan.plan_record()
@@ -806,6 +807,8 @@ def scope_plan(scope_or_id: str) -> dict[str, Any]:
         return c2_plan.plan_record()
     if scope_or_id in (f_plan.SCOPE, f_plan.MASTER_ID, *f_plan.BATCH_PLAN_IDS.values()):
         return f_plan.plan_scope(scope_or_id)
+    if scope_or_id in release_candidate.BATCH_IDS.values():
+        return release_candidate.batch_plan(scope_or_id)
     if scope_or_id in SUPERSEDED_CANARY_PLAN_IDS:
         raise ValueError(
             f"{scope_or_id} was dispatched once and its claim is consumed; it is superseded by "

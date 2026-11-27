@@ -266,6 +266,7 @@ class GoalRunOptions:
     preflight_profile: str = "benchmark"
     #: Interactive runs keep each provider attempt observable and never retry it automatically.
     provider_retries: bool = True
+    require_reported_usage: bool = False
 
 
 def _goal_policy() -> ActionPolicy:
@@ -646,7 +647,11 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         _register_provider(
             provider_name,
             lambda: JournaledAdapter(
-                DeepSeekAdapter.from_env(max_retries=None if options.provider_retries else 0),
+                DeepSeekAdapter.from_env(
+                    max_retries=None if options.provider_retries else 0,
+                    model=options.model,
+                    require_reported_usage=options.require_reported_usage,
+                ),
                 request_journal,
             ),
         )

@@ -203,17 +203,38 @@ def _digest_bytes(payload: bytes) -> str:
 # -- identity ---------------------------------------------------------------------------------
 
 
-def executor_identity(repo_root: Path | None = None) -> dict[str, Any]:
+def executor_identity(
+    repo_root: Path | None = None, *, experiment_id: str | None = None
+) -> dict[str, Any]:
     root = Path(repo_root) if repo_root is not None else contract.REPO_ROOT
+    inputs = set(EXECUTOR_FILES)
+    if experiment_id is not None:
+        from experiments.stage_f.release_candidate import EXPERIMENT
+
+        if experiment_id != EXPERIMENT:
+            raise ValueError(f"unknown executor identity {experiment_id!r}")
+        tracked = subprocess.check_output(
+            ["git", "ls-files", "-z", "--", "src", "experiments", "pyproject.toml", "uv.lock"],
+            cwd=root,
+        ).decode("utf-8").split("\0")
+        inputs.update(
+            name for name in tracked
+            if name.startswith(("src/", "experiments/configs/", "experiments/stage_f/fixtures/"))
+            or name.endswith(".py")
+            or name in {"pyproject.toml", "uv.lock"}
+        )
     files: dict[str, str] = {}
-    for relative in EXECUTOR_FILES:
+    for relative in sorted(inputs):
         path = root / relative
         if not path.is_file():
             raise FileNotFoundError(f"executor identity file is missing: {relative}")
         files[relative] = _digest_bytes(path.read_bytes())
+    digest_inputs = files
+    if experiment_id is not None:
+        digest_inputs = {"files": files, "head": git_head(root), "experiment": experiment_id}
     return {
-        "executor_version": EXECUTOR_VERSION,
-        "executor_digest": authority_module.digest_of(files),
+        "executor_version": experiment_id or EXECUTOR_VERSION,
+        "executor_digest": authority_module.digest_of(digest_inputs),
         "files": files,
     }
 
@@ -355,10 +376,11 @@ def sandbox_plan(*, require_real: bool = True, provider_name: str | None = None)
     )
 
 
-def atlas_config(plan: SandboxPlan) -> Any:
-    from atlasos.config import AtlasConfig, SandboxConfig, ToolsConfig
+def atlas_config(plan: SandboxPlan, *, model: str = "deepseek-chat") -> Any:
+    from atlasos.config import AtlasConfig, ProviderConfig, SandboxConfig, ToolsConfig
 
     return AtlasConfig(
+        provider=ProviderConfig(model=model),
         tools=ToolsConfig(mode="progressive"),
         sandbox=SandboxConfig(
             enabled=True,
@@ -1388,8 +1410,10 @@ class DispatchContext(Mapping[str, Any]):
 def _is_stage_f_batch(plan: Mapping[str, Any]) -> bool:
     """A Stage F batch plan, identified by the frozen master identity and its batch number."""
 
+    from experiments.stage_f.release_candidate import EXPERIMENT
+
     return (
-        str(plan.get("master_id") or "") == "stage-f-96-manifest-v1"
+        plan.get("master_id") in {"stage-f-96-manifest-v1", EXPERIMENT}
         and plan.get("batch") in (1, 2, 3)
         and bool(plan.get("cells"))
     )
@@ -1415,7 +1439,8 @@ def _stage_f_evidence_root(
 
 
 def _stage_f_settlement(
-    plan: Mapping[str, Any], *, stage_root: Path, identity: Mapping[str, Any]
+    plan: Mapping[str, Any], *, stage_root: Path, identity: Mapping[str, Any],
+    manifest: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Settle a Stage F batch against its predecessors and this dispatch's own identity.
 
@@ -1428,7 +1453,7 @@ def _stage_f_settlement(
     from experiments.stage_f import cumulative
     from experiments.stage_f import plan as f_plan
 
-    manifest = f_plan.manifest()
+    manifest = manifest if manifest is not None else f_plan.manifest()
     batch = int(plan["batch"])
     problems: list[str] = []
     frozen = next((item for item in manifest["batches"] if item["batch"] == batch), None)
@@ -1452,7 +1477,7 @@ def _stage_f_settlement(
             "plan_digest": plan.get("digest"),
             "manifest_digest": authority_module.digest_of(manifest),
             "executor_digest": identity["executor_digest"],
-            "authorized_against": "stage-f-96-manifest-v1",
+            "authorized_against": manifest["master_id"],
         }
     )
     if problems:
@@ -1501,17 +1526,31 @@ async def dispatch(
     if plan is not None and not offline:
         raise ValueError("an injected plan record is only accepted in offline-proof mode")
 
+    from experiments.stage_f import release_candidate
+
+    registered_fr = plan_id in release_candidate.BATCH_IDS.values()
+    if registered_fr and plan is not None:
+        raise ValueError("a registered F-R plan cannot be injected")
     plan = dict(plan) if plan is not None else contract.scope_plan(plan_id)
     evidence = _stage_f_evidence_root(plan, Path(evidence_root), stage_f_root)
-    await asyncio.to_thread(evidence.mkdir, parents=True, exist_ok=True)
-    document = contract.protocol_document()
-    identity = executor_identity(repo_root)
     actual_head = head_override if (offline and head_override) else git_head(repo_root)
+    identity = executor_identity(
+        repo_root, experiment_id=release_candidate.EXPERIMENT if registered_fr else None
+    )
+    manifest = (
+        release_candidate.verified_manifest(evidence.parent, head=actual_head, identity=identity)
+        if registered_fr else None
+    )
+    if registered_fr:
+        plan = release_candidate.frozen_batch(plan_id, identity)
+    await asyncio.to_thread(evidence.mkdir, parents=True, exist_ok=True)
     root, claim_is_default = claim_root()
     claim_file = claim_path(plan["digest"])
     record = _read_json(Path(authority_path)) if authority_path else None
 
     violations: list[str] = []
+    if registered_fr and offline and claim_is_default:
+        violations.append("an offline F-R dispatch requires an isolated claim namespace")
     if not offline:
         if head_override:
             violations.append("a live dispatch cannot be given a head; it reads the repository")
@@ -1531,17 +1570,25 @@ async def dispatch(
             violations.append(
                 "a live dispatch uses the production runner configuration, not an injected one"
             )
+        if registered_fr and cell_runner is not None:
+            violations.append("F-R uses the registered production runners")
 
     claim_consumed = claim_file.exists()
-    authority_verdict = authority_module.verify(
-        record,
-        plan=plan,
-        head=actual_head,
-        executor=identity,
-        protocol_digest_value=authority_module.protocol_digest(document),
-        repo_root=repo_root,
-        claim_consumed=claim_consumed,
-    )
+    if manifest is not None:
+        authority_verdict = release_candidate.verify_authority(
+            record, batch=plan, manifest=manifest, head=actual_head, identity=identity,
+            repo_root=repo_root,
+        )
+    else:
+        authority_verdict = authority_module.verify(
+            record,
+            plan=plan,
+            head=actual_head,
+            executor=identity,
+            protocol_digest_value=authority_module.protocol_digest(contract.protocol_document()),
+            repo_root=repo_root,
+            claim_consumed=claim_consumed,
+        )
     problems = [*violations, *authority_verdict["problems"]]
     if problems:
         stop = (
@@ -1569,6 +1616,7 @@ async def dispatch(
             plan,
             stage_root=evidence.parent,
             identity=identity,
+            manifest=manifest,
         )
         settlement["stage_f_root"] = str(evidence.parent)
         settlement["evidence_root"] = str(evidence)
@@ -1596,7 +1644,11 @@ async def dispatch(
     # after the claim was spent.
     admission: dict[str, Any] | None = None
     if not offline:
-        admission = run_admission_preflight(plan, repo_root=repo_root, config=runner_config)
+        admission = (
+            await release_production_admission(plan, repo_root=repo_root)
+            if manifest is not None else
+            run_admission_preflight(plan, repo_root=repo_root, config=runner_config)
+        )
         # The report is written whether it admits or refuses: a READY run must leave the same
         # six-arm evidence a refused one does, instead of a null.
         (evidence / "admission.json").write_text(
@@ -1655,7 +1707,9 @@ async def dispatch(
         )
 
     runner = cell_runner or live_cell_runner(runner_config)
-    frozen_prices = dict(cost.stage_b_estimate.pricing())
+    frozen_prices = (
+        dict(manifest["pricing"]) if manifest is not None else dict(cost.stage_b_estimate.pricing())
+    )
     context = DispatchContext(
         plan=plan,
         authority=record or {},
@@ -1798,7 +1852,11 @@ async def dispatch(
     # The floor is the sum of what each cell measurably *cost*, not of the running totals: adding
     # cumulative values counts the first cell once per later cell.
     observed_floor = round(
-        sum(cell["delta_cost_usd"] for cell in cells if cell["delta_cost_usd"] is not None),
+        sum(
+            cell["delta_cost_usd"] if cell["delta_cost_usd"] is not None
+            else cell.get("observed_cost_floor_usd", 0.0)
+            for cell in cells
+        ),
         6,
     )
     completeness = "COMPLETE"
@@ -1869,6 +1927,11 @@ async def dispatch(
         "retry": "FORBIDDEN",
         "resume": "FORBIDDEN",
     }
+    if manifest is not None:
+        report.update(
+            pricing_digest=authority_module.digest_of(dict(context.prices)),
+            settlement_digest=manifest["settlement_digest"],
+        )
     (evidence / "matrix-report.json").write_text(
         json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8"
     )
@@ -2190,18 +2253,21 @@ def production_goal_options(
     profile_id = arm.profile_id if arm else str(cell.get("worker_profile") or contract.CODING)
     exposure = arm.exposure if arm else str(cell.get("worker_exposure") or "card")
     plan = config.sandbox_plan()
+    from experiments.stage_f.release_candidate import requested_model
+
+    model = requested_model(cell)
     return GoalRunOptions(
         goal=contract.goal_for(cell),
         runs_root=evidence_root / "agent",
         workspace_root=evidence_root / "host-workspace",
-        config=atlas_config(plan),
+        config=atlas_config(plan, model=model),
         # A cell that declares its own delegation block (a Stage F execution arm) uses it; a B+ or
         # C-series cell carries none and keeps the frozen configuration.
         delegation=_delegation_for_cell(cell)
         if "enabled" in (cell.get("delegation") or {})
         else contract.delegation_config(),
         provider=config.llm_provider,
-        model=contract.BUDGET["model"],
+        model=model,
         max_turns=config.main_max_turns,
         # The cell's effective budget, not the frozen default: a plan whose one intervention is a
         # resource parameter binds it into the cell, and this is the single place it becomes a
@@ -2213,6 +2279,8 @@ def production_goal_options(
         worker_max_turns=int(cell.get("worker_max_turns") or contract.BUDGET["worker_max_turns"]),
         worker_exposure=exposure,
         provider_factory=config.llm_factory,
+        provider_retries=not cell.get("release_experiment"),
+        require_reported_usage=bool(cell.get("release_experiment")),
         run_id=run_id,
         main_prompt=contract.main_prompt_for(cell),
         public_tests=contract.public_test_spec(task),
@@ -2262,6 +2330,8 @@ def run_admission_preflight(
     reported separately rather than one being hidden inside the other.
     """
 
+    from experiments.stage_f.release_candidate import REQUESTED_MODEL, SCOPE
+
     from atlasos.app.live_preflight import BLOCKED, READY, run_live_preflight
 
     active = config or RunnerConfig()
@@ -2305,6 +2375,8 @@ def run_admission_preflight(
                 )
                 report = run_live_preflight(options)
                 detail = {
+                    "requested_model": options.model,
+                    "config_model": options.config.provider.model,
                     "provider_factory_injected": options.provider_factory is not None,
                     "worker_profile": (options.worker_profiles or (None,))[0],
                     "worker_exposure": options.worker_exposure,
@@ -2321,12 +2393,27 @@ def run_admission_preflight(
 
                 report, detail = stage_f_runners.arm_admission(cell, fixture=fixture, config=active)
             blocked = list(report["blocking_failures"])
+            if plan.get("scope") == SCOPE:
+                if detail.get("requested_model") != REQUESTED_MODEL or (
+                    detail.get("config_model") != REQUESTED_MODEL
+                ):
+                    blocked.append("release_model")
+                if not os.environ.get("DEEPSEEK_API_KEY", "").strip() and (
+                    "api_key_present" not in blocked
+                ):
+                    blocked.append("api_key_present")
+                if os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip(
+                    "/"
+                ) != "https://api.deepseek.com":
+                    blocked.append("release_provider_endpoint")
+                if detail.get("provider_factory_injected") or active.sandbox_factory is not None:
+                    blocked.append("release_factory_injected")
             cells.append(
                 {
                     "cell_id": cell["cell_id"],
                     "arm_id": cell["arm_id"],
                     "execution_mode": mode,
-                    "status": report["status"],
+                    "status": BLOCKED if blocked else READY,
                     "blocking_failures": blocked,
                     "checks": len(report["checks"]),
                     "fixture_matches_frozen_seed": bool(fixture.get("matches_frozen_seed")),
@@ -2353,6 +2440,18 @@ def run_admission_preflight(
             "checks; it is a fact about this machine, not about the experiment"
         ),
     }
+
+
+async def release_production_admission(
+    plan: Mapping[str, Any], *, repo_root: Path | None = None,
+) -> dict[str, Any]:
+    report = await asyncio.to_thread(run_admission_preflight, plan, repo_root=repo_root)
+    health = await _sandbox_provider(RunnerConfig(), contract.REPO_ROOT).health()
+    report["sandbox_health"] = health.status
+    if health.status != "healthy":
+        report["status"] = "BLOCKED"
+        report["blocking_failures"].append("OpenSandbox is unavailable")
+    return report
 
 
 def admission_gate(
