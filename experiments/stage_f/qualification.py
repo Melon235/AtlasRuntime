@@ -195,12 +195,14 @@ def qualify_task(task: Any) -> dict[str, Any]:
     }
 
 
-def qualify_mutations(task: Any) -> list[dict[str, Any]]:
+def qualify_mutations(
+    task: Any, extra: tuple[Mutation, ...] = ()
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     hidden = _hidden_name(task)
     if hidden is None:
         return rows
-    for mutation in MUTATIONS_BY_TASK.get(task.task_id, ()):
+    for mutation in (*MUTATIONS_BY_TASK.get(task.task_id, ()), *extra):
         files, problems = _apply(_merged(task), mutation)
         scratch = Path(tempfile.mkdtemp(prefix=f"f2b-m-{mutation.mutation_id[:14]}-"))
         public_root = scratch / "public"
