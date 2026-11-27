@@ -2457,6 +2457,11 @@ async def run_sample(
         # without loading a second artifact.
         environment["task_events"] = list(task_events)
         agent_success = bool(result.success)
+        if settings.bind_provider_model:
+            environment["worker_stops"] = {
+                key: value.stop_reason.code if value.stop_reason else None
+                for key, value in result.agent_results.items() if not value.success
+            }
         team_lifecycle_events = _jsonable(getattr(result, "lifecycle_events", []))
         tool_calls, worker_results = _collect_tool_calls(result.agent_results)
         final_output = "\n".join(

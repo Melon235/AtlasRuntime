@@ -399,6 +399,11 @@ async def run_native_sample(
         agent_latency_ms = round((time.perf_counter() - agent_started) * 1000.0, 3)
         environment["agent_latency_ms"] = agent_latency_ms
         agent_success = bool(result.success)
+        if settings.bind_provider_model:
+            environment["worker_stops"] = {
+                key: value.stop_reason.code if value.stop_reason else None
+                for key, value in result.agent_results.items() if not value.success
+            }
         for agent, agent_result in result.agent_results.items():
             calls = [
                 {

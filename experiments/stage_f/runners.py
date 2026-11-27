@@ -549,6 +549,7 @@ def native_cell_runner(
         evidence = normalize.from_native_result(
             cell, payload, oracle=oracle, export=export, requests=requests, latency=latency
         )
+        _attach_release_worker_stops(cell, evidence, environment.get("worker_stops"))
         _attach_release_requests(cell, evidence, environment.get("provider_requests"))
         evidence["resources"]["task_events"] = task_events
         # The cap the runner was actually configured with, not the cap the cell declared.
@@ -638,6 +639,7 @@ def static_dag_cell_runner(
         evidence = normalize.from_dag_result(
             cell, payload, oracle=oracle, export=export, requests=requests, latency=latency
         )
+        _attach_release_worker_stops(cell, evidence, environment.get("worker_stops"))
         _attach_release_requests(cell, evidence, environment.get("provider_requests"))
         # The per-node caps the scheduler was actually given, from the benchmark task it ran.
         evidence["resources"]["applied_turn_caps"] = {
@@ -915,6 +917,23 @@ def arm_admission(
 # -- audit -------------------------------------------------------------------------------------
 
 
+def _attach_release_worker_stops(
+    cell: Mapping[str, Any], evidence: dict[str, Any], stops: Mapping[str, str] | None
+) -> None:
+    if not cell.get("release_experiment") or not stops:
+        return
+    correctness = evidence["correctness"]
+    correctness["agent_success"] = False
+    kinds = set(stops.values())
+    evidence["resources"]["worker_stops"] = dict(stops)
+    if "budget_exceeded" in kinds:
+        correctness["failure_kind"] = "budget_exhaustion"
+    elif kinds <= {"max_turns", "blocked_dependency"} and "max_turns" in kinds:
+        correctness["failure_kind"] = (
+            "main_max_turns" if cell["execution_mode"] == "native" else "child_failed"
+        )
+
+
 def _attach_release_requests(
     cell: Mapping[str, Any], evidence: dict[str, Any], journal: Mapping[str, Any] | None
 ) -> None:
@@ -1145,6 +1164,9 @@ def audit_stage_f_cell(
              "ok": bool(observed) and metrics["system_total_tokens"] == (
                  observed["prompt"] + observed["output"]
              ), "detail": "runner system usage must reconcile with all observed requests"},
+            {"check": "within_cell_budget",
+             "ok": correctness.get("failure_kind") != "budget_exhaustion",
+             "detail": "cell-level budget stop"},
         ))
     failed = [item["check"] for item in checks if not item["ok"]]
     stops: list[str] = []
@@ -1158,6 +1180,7 @@ def audit_stage_f_cell(
         ("provider_completed", executor.STOP_PROVIDER_FAILURE),
         ("provider_model", executor.STOP_MODE_VIOLATION),
         ("usage_reconciles", executor.STOP_UNKNOWN_USAGE),
+        ("within_cell_budget", executor.STOP_TOKEN_REACHED),
     ):
         if name in failed and stop not in stops:
             stops.append(stop)
@@ -1186,7 +1209,10 @@ def audit_stage_f_cell(
         else round(float(cost_before) + delta, 6)
     )
 
-    verdict = "PASS" if not failed and oracle.get("passed") is True else "MEASURED_FAILURE"
+    passed = not failed and oracle.get("passed") is True
+    if cell.get("release_experiment"):
+        passed = passed and correctness.get("delivered_success") is True
+    verdict = "PASS" if passed else "MEASURED_FAILURE"
     if stops:
         verdict = "STOPPED"
     return {

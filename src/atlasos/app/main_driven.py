@@ -663,7 +663,12 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     resilience = (
         None
         if options.provider_retries
-        else ProviderResilienceConfig(retry=RetryPolicy(max_attempts=1))
+        else ProviderResilienceConfig(
+            retry=RetryPolicy(max_attempts=1),
+            # The formal sequence mixes baseline runners with different provider capacities.
+            # This scope is shared by Main and its Workers for this run only.
+            capacity_scope=provider_name if options.require_reported_usage else None,
+        )
     )
     enforcer, ownership = build_delegation_ownership(run_id=run_id, workspace_root=tool_workspace)
     ownership.declare(
