@@ -12,10 +12,21 @@ from typing import Any
 from experiments.stage_b_plus import authority, contract, executor
 from experiments.stage_f import plan
 
-EXPERIMENT = "stage-fr-final-96-v2"
-SCOPE = "F_R_FINAL_96_V2"
+EXPERIMENT = "stage-fr-final-96-v3"
+SCOPE = "F_R_FINAL_96_V3"
 BATCH_IDS = {batch: f"{EXPERIMENT}-b{batch}" for batch in (1, 2, 3)}
 REQUESTED_MODEL = "deepseek-flash"
+STOP_POLICY = {
+    "version": "fr-v3-cell-budget/1",
+    "verified_cell_admission_exhaustion": "MEASURED_FAILURE",
+    "requirements": [
+        "pre-request rejection with no later admissions",
+        "provider journal, terminal budget ledger and actual usage reconcile within the cell cap",
+        "valid export, cleanup, execution integrity and completed independent Oracle",
+    ],
+    "resource_or_evidence_violation": "STOP_MATRIX",
+    "cost_and_cumulative_stops": "UNCHANGED",
+}
 PRICING = {
     "provider": "deepseek",
     "model": REQUESTED_MODEL,
@@ -65,7 +76,7 @@ def goal_run_id(cell: Mapping[str, Any], key: str) -> str:
     if not cell.get("release_experiment"):
         return f"bplus-{key}"
     requested_model(cell)
-    return f"fr2-{cell['plan_id'].rsplit('-', 1)[1]}-{key}"
+    return f"fr3-{cell['plan_id'].rsplit('-', 1)[1]}-{key}"
 
 
 def verify_authority(
@@ -102,9 +113,10 @@ def batch_plan(plan_id: str) -> dict[str, Any]:
     budget_digest = authority.digest_of(budget)
     pricing_digest = authority.digest_of(PRICING)
     settlement_digest = authority.digest_of(SETTLEMENT)
+    stop_policy_digest = authority.digest_of(STOP_POLICY)
     for cell in record["cells"]:
         cell.update(
-            cell_id="fr2." + cell["cell_id"].split(".", 1)[1],
+            cell_id="fr3." + cell["cell_id"].split(".", 1)[1],
             plan_id=plan_id,
             batch_id=plan_id,
             scope=SCOPE,
@@ -113,6 +125,7 @@ def batch_plan(plan_id: str) -> dict[str, Any]:
             budget_digest=budget_digest,
             pricing_digest=pricing_digest,
             settlement_digest=settlement_digest,
+            stop_policy_digest=stop_policy_digest,
         )
     digest = plan.plan_digest(record["cells"])
     record.update(
@@ -124,6 +137,7 @@ def batch_plan(plan_id: str) -> dict[str, Any]:
         budget_digest=budget_digest,
         pricing_digest=pricing_digest,
         settlement_digest=settlement_digest,
+        stop_policy_digest=stop_policy_digest,
         digest=digest,
         claim_namespace=f"{EXPERIMENT}/{plan_id}",
         claim_key=executor.claim_path(digest).name,
@@ -164,6 +178,8 @@ def _manifest(head: str, identity: Mapping[str, Any]) -> dict[str, Any]:
         "pricing_digest": authority.digest_of(PRICING),
         "settlement_contract": SETTLEMENT,
         "settlement_digest": authority.digest_of(SETTLEMENT),
+        "stop_policy": STOP_POLICY,
+        "stop_policy_digest": authority.digest_of(STOP_POLICY),
     }
 
 

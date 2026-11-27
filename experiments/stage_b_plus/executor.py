@@ -1931,6 +1931,7 @@ async def dispatch(
         report.update(
             pricing_digest=authority_module.digest_of(dict(context.prices)),
             settlement_digest=manifest["settlement_digest"],
+            stop_policy_digest=manifest["stop_policy_digest"],
         )
     (evidence / "matrix-report.json").write_text(
         json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8"
@@ -2330,7 +2331,7 @@ def run_admission_preflight(
     reported separately rather than one being hidden inside the other.
     """
 
-    from experiments.stage_f.release_candidate import REQUESTED_MODEL, SCOPE
+    from experiments.stage_f.release_candidate import REQUESTED_MODEL, SCOPE, STOP_POLICY
 
     from atlasos.app.live_preflight import BLOCKED, READY, run_live_preflight
 
@@ -2394,6 +2395,11 @@ def run_admission_preflight(
                 report, detail = stage_f_runners.arm_admission(cell, fixture=fixture, config=active)
             blocked = list(report["blocking_failures"])
             if plan.get("scope") == SCOPE:
+                if (
+                    plan.get("stop_policy_digest") != authority_module.digest_of(STOP_POLICY)
+                    or cell.get("stop_policy_digest") != plan.get("stop_policy_digest")
+                ):
+                    blocked.append("release_stop_policy")
                 if detail.get("requested_model") != REQUESTED_MODEL or (
                     detail.get("config_model") != REQUESTED_MODEL
                 ):

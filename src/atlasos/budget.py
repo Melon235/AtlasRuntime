@@ -125,6 +125,7 @@ class RunBudgetState:
     estimate_samples: int = 0
     learned_ratio: float = 1.0
     last_rejection: str | None = None
+    last_admission_rejection: dict[str, Any] | None = None
     last_write_off_reason: str | None = None
     last_release_reason: str | None = None
     _request_seq: int = 0
@@ -190,6 +191,18 @@ class RunBudgetState:
             if requested > remaining:
                 self.admission_rejections += 1
                 counters.rejected += 1
+                self.last_admission_rejection = {
+                    "worker": worker,
+                    "requests_started": self.requests_started,
+                    "used_tokens": self.used_tokens,
+                    "reserved_tokens": self.reserved_tokens,
+                    "written_off_tokens": self.written_off_tokens,
+                    "remaining_tokens": remaining,
+                    "raw_prompt_estimate": raw,
+                    "scaled_prompt_estimate": requested - completion,
+                    "completion_reserve": completion,
+                    "estimated_tokens": requested,
+                }
                 self.last_rejection = (
                     f"worker {worker} needs ~{requested} tokens "
                     f"(used {self.used_tokens}, reserved {self.reserved_tokens}), "
@@ -334,6 +347,7 @@ class RunBudgetState:
             "learned_ratio": round(self.learned_ratio, 4),
             "stop_reason": self.stop_reason,
             "last_rejection": self.last_rejection,
+            "last_admission_rejection": self.last_admission_rejection,
             "last_write_off_reason": self.last_write_off_reason,
             "last_release_reason": self.last_release_reason,
             "workers": {name: item.as_dict() for name, item in sorted(self._workers.items())},

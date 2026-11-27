@@ -88,7 +88,9 @@ def settlement(
                 f"this dispatch is {executor_digest!r}"
             )
             unknown = True
-        for field in ("execution_head", "pricing_digest", "settlement_digest"):
+        for field in (
+            "execution_head", "pricing_digest", "settlement_digest", "stop_policy_digest"
+        ):
             if field in manifest and report.get(field) != manifest[field]:
                 problems.append(f"batch {item['batch']} has a different {field}")
                 unknown = True

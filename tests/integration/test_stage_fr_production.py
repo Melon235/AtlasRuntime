@@ -14,6 +14,7 @@ from experiments.stage_b_plus import authority, contract, executor
 from experiments.stage_f import cumulative, plan, runners
 from experiments.stage_f import release_candidate as fr
 
+from atlasos.budget import RunBudgetExhausted, RunBudgetState
 from atlasos.integrations.deepseek import DeepSeekAdapter, UsageParseError
 from atlasos.metrics.requests import JournaledAdapter, RequestJournal
 
@@ -117,8 +118,34 @@ def test_historic_model_and_task_order_remain_bound():
         fr.requested_model(altered)
     with pytest.raises((KeyError, ValueError)):
         contract.scope_plan("stage-fr-final-96-v1-b1")
+    with pytest.raises((KeyError, ValueError)):
+        contract.scope_plan("stage-fr-final-96-v2-b1")
     same_order = [contract.scope_plan(plan_id)["cells"][0] for plan_id in fr.BATCH_IDS.values()]
     assert len({fr.goal_run_id(cell, "c01") for cell in same_order}) == 3
+
+
+async def test_cell_budget_proves_rejection_without_a_provider_request():
+    state = RunBudgetState(limit_tokens=100, safety_factor=1)
+    admitted = await state.admit(worker="main", prompt_estimate=25, completion_reserve=5)
+    await state.settle(admitted, prompt_tokens=40, completion_tokens=5)
+    with pytest.raises(RunBudgetExhausted):
+        await state.admit(worker="main", prompt_estimate=60, completion_reserve=5)
+    ledger = state.finalize()
+    cell = {"token_budget": 100}
+    observed = {"prompt": 40, "output": 5, "records": 1}
+    metrics = {"system_total_tokens": 45}
+    assert runners._cell_budget_problems(cell, ledger, observed, metrics, True) == []
+    assert ledger["budget_overrun_tokens"] == 15  # reservation estimate, still under the cell cap
+    assert ledger["remaining_tokens"] == 55
+    changed = {**ledger, "last_admission_rejection": {
+        **ledger["last_admission_rejection"], "requests_started": 0,
+    }}
+    assert runners._cell_budget_problems(cell, changed, observed, metrics, True) == [
+        "terminal pre-request admission rejection is not established"
+    ]
+    assert runners._cell_budget_problems(
+        cell, {**ledger, "used_tokens": 101}, observed, metrics, True
+    )
 
 
 def test_cumulative_reads_new_reports_and_enforces_frozen_headroom(tmp_path: Path):
@@ -143,6 +170,7 @@ def test_cumulative_reads_new_reports_and_enforces_frozen_headroom(tmp_path: Pat
             "execution_head": manifest["execution_head"],
             "pricing_digest": manifest["pricing_digest"],
             "settlement_digest": manifest["settlement_digest"],
+            "stop_policy_digest": manifest["stop_policy_digest"],
             "stop_reason": "NONE",
             "complete": True,
             "usage_completeness": "COMPLETE",
@@ -156,6 +184,12 @@ def test_cumulative_reads_new_reports_and_enforces_frozen_headroom(tmp_path: Pat
     report["stop_reason"] = "COST_STOP_REACHED"
     (root / "matrix-report.json").write_text(json.dumps(report), encoding="utf-8")
     assert not check(3)["may_start"]
+    report.update(stop_reason="NONE", total_cost_usd=11.5)
+    (root / "matrix-report.json").write_text(json.dumps(report), encoding="utf-8")
+    assert not check(3)["may_start"]  # no global cost headroom
+    report.update(total_cost_usd=8.5, total_tokens=84_000_000)
+    (root / "matrix-report.json").write_text(json.dumps(report), encoding="utf-8")
+    assert not check(3)["may_start"]  # no global token headroom
 
 
 @pytest.mark.asyncio

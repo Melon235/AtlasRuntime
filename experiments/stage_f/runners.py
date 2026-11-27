@@ -550,6 +550,7 @@ def native_cell_runner(
             cell, payload, oracle=oracle, export=export, requests=requests, latency=latency
         )
         _attach_release_worker_stops(cell, evidence, environment.get("worker_stops"))
+        _attach_cell_budget(cell, evidence, environment.get("budget"))
         _attach_release_requests(cell, evidence, environment.get("provider_requests"))
         evidence["resources"]["task_events"] = task_events
         # The cap the runner was actually configured with, not the cap the cell declared.
@@ -640,6 +641,7 @@ def static_dag_cell_runner(
             cell, payload, oracle=oracle, export=export, requests=requests, latency=latency
         )
         _attach_release_worker_stops(cell, evidence, environment.get("worker_stops"))
+        _attach_cell_budget(cell, evidence, (metrics.get("extra") or {}).get("budget"))
         _attach_release_requests(cell, evidence, environment.get("provider_requests"))
         # The per-node caps the scheduler was actually given, from the benchmark task it ran.
         evidence["resources"]["applied_turn_caps"] = {
@@ -770,6 +772,7 @@ def main_driven_cell_runner(
             requests=requests,
             latency=latency,
         )
+        _attach_cell_budget(cell, evidence, session.get("budget"))
         _attach_release_requests(cell, evidence, session.get("model_requests"))
         report = integrity_report(
             cell=cell,
@@ -932,6 +935,87 @@ def _attach_release_worker_stops(
         correctness["failure_kind"] = (
             "main_max_turns" if cell["execution_mode"] == "native" else "child_failed"
         )
+
+
+def _is_fr_v3(cell: Mapping[str, Any]) -> bool:
+    from experiments.stage_f.release_candidate import EXPERIMENT
+
+    return cell.get("release_experiment") == EXPERIMENT
+
+
+def _attach_cell_budget(
+    cell: Mapping[str, Any], evidence: dict[str, Any], budget: Mapping[str, Any] | None
+) -> None:
+    if not _is_fr_v3(cell) or not isinstance(budget, Mapping):
+        return
+    evidence["cell_budget_ledger"] = dict(budget)
+    correctness = evidence["correctness"]
+    if budget.get("last_admission_rejection") and (
+        correctness["failure_kind"] == "BUDGET_EXCEEDED"
+        or (cell["execution_mode"] in {"native", "atlas_static_dag"}
+            and correctness["agent_success"] is False
+            and correctness["failure_kind"] in {None, "TASK_SUCCESS", "ORACLE_FAILURE"})
+    ):
+        correctness["failure_kind"] = "budget_exhaustion"
+    if correctness["failure_kind"] == "budget_exhaustion":
+        correctness["agent_success"] = False
+
+
+def _cell_budget_problems(
+    cell: Mapping[str, Any],
+    ledger: Mapping[str, Any],
+    observed: Mapping[str, Any],
+    metrics: Mapping[str, Any],
+    exhausted: bool,
+) -> list[str]:
+    fields = (
+        "limit_tokens", "used_tokens", "used_prompt_tokens", "used_completion_tokens",
+        "remaining_tokens", "requests_started", "requests_completed", "requests_released",
+        "requests_written_off", "in_flight", "reserved_tokens", "written_off_tokens",
+        "admission_rejections",
+    )
+    if not isinstance(ledger, Mapping) or any(
+        type(value := ledger.get(key)) is not int or value < 0 for key in fields
+    ):
+        return ["missing or illegal budget ledger counter"]
+    limit, used = ledger["limit_tokens"], ledger["used_tokens"]
+    started, completed = ledger["requests_started"], ledger["requests_completed"]
+    problems: list[str] = []
+    if limit != cell.get("token_budget") or used > limit:
+        problems.append("actual usage exceeds the cell cap or the cap is not frozen")
+    if any(ledger[field] for field in ("in_flight", "reserved_tokens", "written_off_tokens",
+                                      "requests_written_off")):
+        problems.append("budget ledger has reservations or unobserved usage")
+    if (
+        used != metrics.get("system_total_tokens")
+        or used != ledger["used_prompt_tokens"] + ledger["used_completion_tokens"]
+        or ledger["used_prompt_tokens"] != observed.get("prompt")
+        or ledger["used_completion_tokens"] != observed.get("output")
+        or completed != observed.get("records")
+        or started != completed + ledger["requests_released"]
+        or ledger["remaining_tokens"] != max(0, limit - used)
+    ):
+        problems.append("budget ledger does not reconcile with measured provider usage")
+    if exhausted:
+        rejection = ledger.get("last_admission_rejection")
+        required = (
+            "estimated_tokens", "remaining_tokens", "requests_started", "used_tokens",
+            "reserved_tokens", "written_off_tokens",
+        )
+        if (
+            not isinstance(rejection, Mapping)
+            or not ledger["admission_rejections"]
+            or any(type(value := rejection.get(key)) is not int or value < 0 for key in required)
+            or rejection["estimated_tokens"] <= rejection["remaining_tokens"]
+            or rejection["remaining_tokens"] != max(
+                0, limit - rejection["used_tokens"] - rejection["reserved_tokens"]
+            )
+            or rejection["written_off_tokens"] != 0
+            or rejection["used_tokens"] > used
+            or rejection["requests_started"] != started
+        ):
+            problems.append("terminal pre-request admission rejection is not established")
+    return problems
 
 
 def _attach_release_requests(
@@ -1164,10 +1248,24 @@ def audit_stage_f_cell(
              "ok": bool(observed) and metrics["system_total_tokens"] == (
                  observed["prompt"] + observed["output"]
              ), "detail": "runner system usage must reconcile with all observed requests"},
-            {"check": "within_cell_budget",
-             "ok": correctness.get("failure_kind") != "budget_exhaustion",
-             "detail": "cell-level budget stop"},
         ))
+        if _is_fr_v3(cell):
+            exhausted = correctness.get("failure_kind") == "budget_exhaustion"
+            budget_problems = _cell_budget_problems(
+                cell, evidence.get("cell_budget_ledger") or {}, observed, metrics, exhausted
+            )
+            checks.extend((
+                {"check": "cell_budget_evidence", "ok": not budget_problems,
+                 "detail": "; ".join(budget_problems) or "verified budget ledger"},
+                {"check": "oracle_completed", "ok": oracle.get("status") in {"PASS", "FAIL"},
+                 "detail": "Oracle must have a measured verdict"},
+                {"check": "usage_legal", "ok": executor.validate_usage(metrics)["ok"],
+                 "detail": "checked actual counters and resource reconciliation"},
+            ))
+        else:
+            checks.append({"check": "within_cell_budget",
+                           "ok": correctness.get("failure_kind") != "budget_exhaustion",
+                           "detail": "cell-level budget stop"})
     failed = [item["check"] for item in checks if not item["ok"]]
     stops: list[str] = []
     for name, stop in (
@@ -1181,6 +1279,9 @@ def audit_stage_f_cell(
         ("provider_model", executor.STOP_MODE_VIOLATION),
         ("usage_reconciles", executor.STOP_UNKNOWN_USAGE),
         ("within_cell_budget", executor.STOP_TOKEN_REACHED),
+        ("cell_budget_evidence", executor.STOP_INTEGRITY),
+        ("oracle_completed", executor.STOP_ORACLE_ENVIRONMENT),
+        ("usage_legal", executor.STOP_UNKNOWN_USAGE),
     ):
         if name in failed and stop not in stops:
             stops.append(stop)
@@ -1210,8 +1311,11 @@ def audit_stage_f_cell(
     )
 
     passed = not failed and oracle.get("passed") is True
+    local_budget_stop = _is_fr_v3(cell) and correctness.get("failure_kind") == "budget_exhaustion"
     if cell.get("release_experiment"):
         passed = passed and correctness.get("delivered_success") is True
+    if local_budget_stop:
+        passed = False
     verdict = "PASS" if passed else "MEASURED_FAILURE"
     if stops:
         verdict = "STOPPED"
@@ -1225,7 +1329,7 @@ def audit_stage_f_cell(
         "exposure": cell.get("worker_exposure"),
         "status": "succeeded" if verdict == "PASS" else "failed",
         "failure_kind": correctness.get("failure_kind"),
-        "agent_success": correctness.get("agent_success"),
+        "agent_success": False if local_budget_stop else correctness.get("agent_success"),
         "primary_agent_completion": correctness.get("primary_agent_completion"),
         "public_test_status": correctness.get("public_test"),
         # Read from the run's own public-test record; absent means the arm ran none, which is
@@ -1235,7 +1339,10 @@ def audit_stage_f_cell(
         "oracle_passed": oracle.get("passed"),
         "oracle_status": oracle.get("status"),
         "goal_correctness": bool(oracle.get("passed") is True),
-        "delivered_success": bool(correctness.get("delivered_success")),
+        "delivered_success": not local_budget_stop and bool(correctness.get("delivered_success")),
+        **({"cell_budget_ledger": evidence.get("cell_budget_ledger"),
+            "cell_budget_exhaustion_verified": local_budget_stop and not stops}
+           if _is_fr_v3(cell) else {}),
         "execution_integrity": correctness.get("execution_integrity"),
         "executor_verdict": verdict,
         "verdict": verdict,
