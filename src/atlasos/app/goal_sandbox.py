@@ -106,6 +106,7 @@ class GoalSandboxOptions:
     #: error, so the Main can read it and continue; an unobserved outcome stays fatal in both modes.
     #: Every other entry point keeps its own default, which is ``legacy``.
     tool_error_mode: str = TOOL_ERROR_MODE_CORRECTED
+    reviewable_patch: bool = False
 
     def __post_init__(self) -> None:
         if self.tool_error_mode not in TOOL_ERROR_MODES:
@@ -463,8 +464,9 @@ class GoalSandbox:
             binding.sandbox_handle,
             base_commit=binding.source_commit,
             workspace_root=binding.workspace_root,
+            reviewable=self.options.reviewable_patch,
         )
-        (self.run_dir / "workspace.patch").write_text(patch.patch_text, encoding="utf-8")
+        (self.run_dir / "workspace.patch").write_bytes(patch.patch_text.encode("utf-8"))
         export = await export_workspace(
             self._provider,
             binding.sandbox_handle,

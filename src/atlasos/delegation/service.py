@@ -32,6 +32,7 @@ from anycode.security.redaction import safe_exception_message
 from anycode.types import (
     AgentConfig,
     ExecutionContext,
+    ProviderResilienceConfig,
     ToolResult,
     ToolSecurityPolicy,
 )
@@ -121,6 +122,7 @@ class DelegationService:
         limits: DelegationLimits | None = None,
         budget_state: RunBudgetState | None = None,
         tool_security: ToolSecurityPolicy | None = None,
+        provider_resilience: ProviderResilienceConfig | None = None,
         ownership: DelegatedOwnershipPolicy | None = None,
         granted_write_paths: dict[str, tuple[str, ...]] | None = None,
         available_tools: Iterable[str] | None = None,
@@ -140,6 +142,7 @@ class DelegationService:
         self.limits = limits or DelegationLimits()
         self.budget_state = budget_state
         self.tool_security = tool_security
+        self.provider_resilience = provider_resilience
         self.ownership = ownership
         self.granted_write_paths = dict(granted_write_paths or {})
         self.router = router or DelegationRouter()
@@ -332,6 +335,9 @@ class DelegationService:
             update={
                 "max_turns": min(worker.profile.max_turns, self.limits.child_max_turns),
                 "tool_security": self.tool_security,
+                "provider_resilience": (
+                    self.provider_resilience or worker.agent_config.provider_resilience
+                ),
             }
         )
         budget_hook: RunBudgetHook | None = None

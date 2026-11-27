@@ -65,6 +65,13 @@
     .small { font-size: 12px; }
     a { color: var(--accent); }
     .hidden { display: none !important; }
+    .patch-review { margin-bottom: 14px; }
+    .patch-review details { margin: 10px 0; }
+    .patch-review summary { cursor: pointer; overflow-wrap: anywhere; }
+    .patch-review pre { max-height: 32rem; overflow: auto; white-space: pre; }
+    .patch-review .inserted { display: block; background: #17372b; color: #b0efca; }
+    .patch-review .removed { display: block; background: #462630; color: #ffd1d6; }
+    .patch-review .diff-context { display: block; }
   </style>
 </head>
 <body>
@@ -84,9 +91,9 @@
 <script>
 (() => {
   const app = document.getElementById("app");
-  const esc = (value) => String(value ?? "");
   const escHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const esc = escHtml;
   const statusBadge = (status) => `<span class="status ${esc(status)}">${esc(status)}</span>`;
   const fmt = (value) => value == null ? "—" : esc(value);
 
@@ -158,9 +165,14 @@
             <select id="workspace">
               ${workspaces.map((name) => `<option value="${escHtml(name)}">${escHtml(name)}</option>`).join("")}
             </select>
-            <p class="small muted">Only names inside a configured workspace root are accepted. The
-            source tree is copied into the run directory and committed as a one-commit repository;
-            the fixture itself is never written.</p>
+            <p class="small muted">Choose an original workspace under a configured root. The agent works on an isolated copy.</p>
+          </div>
+          <div id="interactive-wrap" style="margin-top:12px">
+            <label><input type="checkbox" id="interactive" style="width:auto" /> Review changes for a clean Git workspace</label>
+            <div id="new-paths-wrap" class="hidden" style="margin-top:10px">
+              <label for="new-paths">Authorize new files (one relative path per line)</label>
+              <textarea id="new-paths" rows="2" placeholder="solution/answer.txt"></textarea>
+            </div>
           </div>
           <div class="row" style="margin-top:16px">
             <button id="submit">Submit task</button>
@@ -186,12 +198,16 @@
         </aside>
       </div>`;
     const mode = document.getElementById("mode");
+    const interactive = document.getElementById("interactive");
     const syncMode = () => {
       const mainMode = mode.value.startsWith("main_");
       document.getElementById("budget-wrap").classList.toggle("hidden", !mainMode);
       document.getElementById("workspace-wrap").classList.toggle("hidden", mode.value === "workflow");
+      document.getElementById("interactive-wrap").classList.toggle("hidden", !mainMode);
+      document.getElementById("new-paths-wrap").classList.toggle("hidden", !interactive.checked);
     };
     mode.addEventListener("change", syncMode);
+    interactive.addEventListener("change", syncMode);
     syncMode();
     document.getElementById("submit").addEventListener("click", async () => {
       const button = document.getElementById("submit");
@@ -201,6 +217,7 @@
       if (!task) { error.textContent = "Enter a task."; error.classList.remove("hidden"); return; }
       const mainMode = mode.value.startsWith("main_");
       button.disabled = true;
+      const review = mainMode && interactive.checked;
       document.getElementById("submit-note").textContent = "submitting…";
       try {
         const run = await api("/api/runs", {
@@ -211,6 +228,8 @@
             max_turns: Number(document.getElementById("turns").value || 12),
             workspace: mode.value === "workflow" ? null : document.getElementById("workspace").value,
             budget_tokens: mainMode ? Number(document.getElementById("budget").value || 500000) : null,
+            interactive: review,
+            new_paths: review ? document.getElementById("new-paths").value.split("\n").map(path => path.trim()).filter(Boolean) : [],
           }),
         });
         location.href = `/runs/${encodeURIComponent(run.run_id)}`;
@@ -325,6 +344,50 @@
       </section>`;
   }
 
+  function renderPatchReview(box, endpoint, review) {
+    const files = review.files || [];
+    const canApply = review.decisions_enabled && review.state === "REVIEW_PENDING";
+    const canReject = review.decisions_enabled && ["REVIEW_PENDING", "CONFLICT"].includes(review.state);
+    box.innerHTML = `<div class="row"><h2>Review Changes</h2>${statusBadge(review.state)}</div>
+      ${review.message ? `<p role="status" class="${review.state === "CONFLICT" || review.state === "APPLY_FAILED" ? "error" : "muted"}">${esc(review.message)}</p>` : ""}
+      ${review.patch_digest ? `<div class="kv small">
+        <div>Original workspace</div><div class="mono">${esc(review.source)}</div>
+        <div>Source snapshot</div><div class="mono">${esc(review.snapshot_id)}</div>
+        <div>Exported patch</div><div class="mono">${esc(review.patch_digest)}</div>
+        <div>Runtime verification</div><div>${esc(review.verification)}</div>
+        <div>Changes</div><div>${review.counts.added} added · ${review.counts.modified} modified · ${review.counts.deleted} deleted · +${review.insertions} −${review.deletions}</div>
+      </div>` : ""}
+      ${files.map((file, index) => `<details ${index === 0 ? "open" : ""}><summary class="mono">${esc(file.status)} · ${esc(file.path)}</summary>
+        <pre>${file.diff.replace(/\n$/, "").split("\n").map(line => {
+          const kind = line.startsWith("+") && !line.startsWith("+++") ? "inserted" : line.startsWith("-") && !line.startsWith("---") ? "removed" : "diff-context";
+          return `<span class="${kind}">${esc(line)}</span>`;
+        }).join("")}</pre>${file.truncated ? `<p class="small muted">Diff preview truncated.</p>` : ""}</details>`).join("")}
+      <div class="row">
+        ${canApply ? `<button data-patch-action="apply">Apply Changes</button>` : ""}
+        ${canReject ? `<button class="secondary" data-patch-action="reject">Reject Patch</button>` : ""}
+      </div><p class="error hidden" data-patch-error role="alert"></p>`;
+    const buttons = [...box.querySelectorAll("[data-patch-action]")];
+    for (const button of buttons) button.addEventListener("click", async () => {
+      const action = button.dataset.patchAction;
+      if (!confirm(action === "apply" ? `Apply this patch to ${review.source}?` : "Reject this patch?")) return;
+      const body = Object.fromEntries(["run_id", "workspace_id", "snapshot_id", "patch_digest"].map(key => [key, review[key]]));
+      buttons.forEach(item => item.disabled = true);
+      try {
+        const result = await api(`${endpoint}/${action}`, { method: "POST", body: JSON.stringify({ ...body, confirm: true }) });
+        renderPatchReview(box, endpoint, { ...result, decisions_enabled: true });
+      } catch (error) {
+        if (error.body && error.body.state) {
+          renderPatchReview(box, endpoint, { ...error.body, decisions_enabled: true });
+        } else {
+          const feedback = box.querySelector("[data-patch-error]");
+          feedback.textContent = error.message;
+          feedback.classList.remove("hidden");
+          buttons.forEach(item => item.disabled = false);
+        }
+      }
+    });
+  }
+
   function runDetailView(runId) {
     app.innerHTML = `<h1 class="mono">${esc(runId)}</h1><div id="detail"><p class="muted">Loading…</p></div>`;
     let source = null;
@@ -356,6 +419,7 @@
           <button class="secondary" id="replay-link">Open in Replay</button>
           ${live ? `<button class="danger" id="cancel">Cancel</button>` : ""}</div>
         ${live ? mainLivePanel(live, detail) : ""}
+        ${live && live.interactive ? `<section class="panel patch-review" id="patch-review"><h2>Review Changes</h2><p class="muted">The patch becomes available after sandbox export.</p></section>` : ""}
         <div class="grid">
           <section class="panel">
             <h2>Task</h2><p>${esc(detail.task)}</p>
@@ -429,6 +493,13 @@
       });
       const eventBox = document.getElementById("events");
       (detail.events || []).slice(-80).forEach((event) => appendEvent(eventBox, event));
+      const reviewBox = document.getElementById("patch-review");
+      if (reviewBox && terminal.has(detail.status)) {
+        const endpoint = `/api/runs/${encodeURIComponent(runId)}/patch`;
+        api(endpoint).then(review => renderPatchReview(reviewBox, endpoint, review)).catch(error => {
+          reviewBox.textContent = error.message;
+        });
+      }
     }
 
     function appendEvent(box, event) {

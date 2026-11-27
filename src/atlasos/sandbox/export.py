@@ -65,6 +65,7 @@ async def export_patch(
     *,
     base_commit: str,
     workspace_root: str = "/workspace/project",
+    reviewable: bool = False,
 ) -> SandboxPatch:
     cwd = workspace_root
     status = await provider.execute(
@@ -87,10 +88,18 @@ async def export_patch(
     )
     if not prepare.ok or prepare.exit_code != 0:
         raise SandboxLostError(f"cannot prepare sandbox patch: {prepare.stderr or prepare.error}")
+    command = f"git -C {workspace_root} diff --binary --no-ext-diff"
+    patch_file = "/tmp/atlas_workspace.patch"
+    if reviewable:
+        # Command output can lose trailing newlines on the OpenSandbox transport. File transfer
+        # preserves the exact bytes Git requires when it reads the patch back.
+        command += f" --no-textconv --no-renames HEAD > {patch_file} && wc -c < {patch_file}"
+    else:
+        command += " HEAD"
     diff = await provider.execute(
         handle,
         SandboxCommand(
-            command=(f"git -C {workspace_root} diff --binary --no-ext-diff HEAD"),
+            command=command,
             cwd=cwd,
             timeout_seconds=60,
         ),
@@ -98,6 +107,20 @@ async def export_patch(
     if not diff.ok or diff.exit_code != 0:
         raise SandboxLostError(f"cannot export sandbox patch: {diff.stderr or diff.error}")
     patch_text = diff.stdout
+    if reviewable:
+        try:
+            size = int(diff.stdout.strip())
+        except ValueError as error:
+            raise SandboxFileTransferError("invalid size for sandbox patch export") from error
+        if not 0 <= size <= 64 * 1024 * 1024:
+            raise SandboxFileTransferError("sandbox patch exceeds the transfer size limit")
+        if size == 0:
+            patch_text = ""
+        else:
+            download = await provider.read_file(handle, patch_file)
+            if not download.ok or download.data is None or len(download.data) != size:
+                raise SandboxFileTransferError("sandbox patch file transfer failed")
+            patch_text = download.data.decode("utf-8")
     digest = "sha256:" + hashlib.sha256(patch_text.encode("utf-8")).hexdigest()
     changed = [line for line in status.stdout.splitlines() if line.strip()]
     return SandboxPatch(

@@ -77,6 +77,12 @@ def run_task(
     budget: int | None = typer.Option(
         None, "--budget", help="run-scoped token budget for a Main-driven mode"
     ),
+    interactive: bool = typer.Option(
+        False, "--interactive", help="review a sandbox patch for a clean Git workspace"
+    ),
+    new_paths: list[str] | None = typer.Option(
+        None, "--allow-new", help="authorize one new workspace-relative file per flag"
+    ),
     runs_root: Path | None = typer.Option(None, "--runs-root"),
     provider: str = typer.Option(
         "deepseek",
@@ -93,7 +99,13 @@ def run_task(
     service = _service(runs_root, provider=provider, sandbox_enabled=not no_sandbox)
     try:
         run = service.submit(
-            task, mode=mode, workspace=workspace, max_turns=max_turns, budget_tokens=budget
+            task,
+            mode=mode,
+            workspace=workspace,
+            max_turns=max_turns,
+            budget_tokens=budget,
+            interactive=interactive,
+            new_paths=tuple(new_paths or ()),
         )
     except ApplicationError as error:
         return _error(error)
@@ -383,6 +395,83 @@ def export(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     console.print(f"exported {run_id} -> {output}")
+
+
+@app.command("diff")
+def patch_diff(
+    run_id: str,
+    runs_root: Path | None = typer.Option(None, "--runs-root"),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Inspect a completed sandbox patch and its bound workspace snapshot."""
+    try:
+        review = _service(runs_root).patch_review(run_id)
+    except ApplicationError as error:
+        return _error(error)
+    if json_output:
+        _print_json(review)
+        return
+    typer.echo(review["state"])
+    if review.get("message"):
+        typer.echo(review["message"])
+    if review.get("patch_digest"):
+        typer.echo(f"Original workspace: {review['source']}")
+        typer.echo(f"Base snapshot: {review['snapshot_id']}")
+        typer.echo(f"Patch digest: {review['patch_digest']}")
+        for item in review["files"]:
+            typer.echo(f"\n{item['status']} {item['path']}")
+            typer.echo(item["diff"], nl=False)
+            if item["truncated"]:
+                typer.echo("[Diff preview truncated]")
+
+
+def _patch_decision(
+    run_id: str, action: str, runs_root: Path | None, digest: str | None, yes: bool
+) -> None:
+    service = _service(runs_root)
+    try:
+        review = service.patch_review(run_id)
+        if review["state"] == "UNAVAILABLE":
+            raise ApplicationError(review["message"])
+        if yes and not digest:
+            raise ApplicationError("--yes requires --digest from atlas diff")
+        binding = {
+            key: review[key] for key in ("run_id", "workspace_id", "snapshot_id", "patch_digest")
+        }
+        if digest is not None:
+            binding["patch_digest"] = digest
+        if not yes:
+            typer.echo(f"Patch {review['patch_digest']} for {review['source']}")
+            typer.echo("Changed files: " + ", ".join(item["path"] for item in review["files"]))
+            typer.confirm(f"{action.capitalize()} this patch?", abort=True)
+        result = service.decide_patch(run_id, action, binding, confirm=True)
+    except ApplicationError as error:
+        return _error(error)
+    typer.echo(f"{result['state']}  {result['message']}")
+    if result["state"] in {"CONFLICT", "APPLY_FAILED"}:
+        raise typer.Exit(code=1)
+
+
+@app.command("apply")
+def apply_patch(
+    run_id: str,
+    runs_root: Path | None = typer.Option(None, "--runs-root"),
+    digest: str | None = typer.Option(None, "--digest"),
+    yes: bool = typer.Option(False, "--yes"),
+) -> None:
+    """Explicitly apply a reviewed sandbox patch to its original workspace."""
+    _patch_decision(run_id, "apply", runs_root, digest, yes)
+
+
+@app.command("reject-patch")
+def reject_patch(
+    run_id: str,
+    runs_root: Path | None = typer.Option(None, "--runs-root"),
+    digest: str | None = typer.Option(None, "--digest"),
+    yes: bool = typer.Option(False, "--yes"),
+) -> None:
+    """Reject a sandbox patch and keep the original workspace untouched."""
+    _patch_decision(run_id, "reject", runs_root, digest, yes)
 
 
 @app.command("web")

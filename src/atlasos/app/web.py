@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -41,6 +42,16 @@ class RunRequest(BaseModel):
     workspace: str | None = None
     max_turns: int = Field(default=12, ge=1, le=40)
     budget_tokens: int | None = Field(default=None, ge=1, le=2_000_000)
+    interactive: bool = False
+    new_paths: list[str] = Field(default_factory=list, max_length=100)
+
+
+class PatchDecisionRequest(BaseModel):
+    run_id: str
+    workspace_id: str
+    snapshot_id: str
+    patch_digest: str
+    confirm: bool = Field(strict=True)
 
 
 def create_app(
@@ -75,6 +86,18 @@ def create_app(
             raise ReadOnlyMode(
                 "this server runs in read-only replay mode; live submission, approval and "
                 "recovery routes are disabled"
+            )
+
+    def local_review_request(request: Request) -> None:
+        origin = request.headers.get("origin")
+        host = request.headers.get("host", "")
+        try:
+            local = urlsplit("//" + host).hostname in {"127.0.0.1", "localhost", "::1"}
+        except ValueError:
+            local = False
+        if not local or (origin and origin != f"{request.url.scheme}://{host}"):
+            raise ReadOnlyMode(
+                "interactive patch review is restricted to the local Workbench origin"
             )
 
     @app.exception_handler(ApplicationError)
@@ -139,15 +162,38 @@ def create_app(
         return service.workspaces()
 
     @app.post("/api/runs")
-    def submit(body: RunRequest) -> dict[str, Any]:
+    def submit(body: RunRequest, request: Request) -> dict[str, Any]:
         refuse_write()
+        if body.interactive:
+            local_review_request(request)
         return service.submit(
             body.task,
             mode=body.mode,
             workspace=body.workspace,
             max_turns=body.max_turns,
             budget_tokens=body.budget_tokens,
+            interactive=body.interactive,
+            new_paths=tuple(body.new_paths),
         )
+
+    @app.get("/api/runs/{run_id}/patch")
+    def patch_review(run_id: str, request: Request) -> dict[str, Any]:
+        local_review_request(request)
+        result = service.patch_review(run_id)
+        result["decisions_enabled"] = not read_only
+        return result
+
+    @app.post("/api/runs/{run_id}/patch/{action}")
+    def patch_decision(
+        run_id: str, action: str, body: PatchDecisionRequest, request: Request
+    ) -> JSONResponse:
+        refuse_write()
+        local_review_request(request)
+        result = service.decide_patch(
+            run_id, action, body.model_dump(exclude={"confirm"}), confirm=body.confirm
+        )
+        status = {"CONFLICT": 409, "APPLY_FAILED": 500}.get(result["state"], 200)
+        return JSONResponse(status_code=status, content=result)
 
     @app.get("/api/runs")
     def runs(limit: int = Query(50, ge=1, le=200)) -> list[dict[str, Any]]:

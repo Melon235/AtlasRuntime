@@ -26,6 +26,7 @@ from anycode.tools.idempotency import InMemoryToolIdempotencyStore
 from anycode.types import (
     LLMToolDef,
     MCPServerConfig,
+    RunnerStreamingConfig,
     ToolDefinition,
     ToolResult,
     ToolUseContext,
@@ -145,6 +146,7 @@ class AtlasToolRuntime:
         suspension_store: SQLiteSuspensionStore | None = None,
         approval_store: SQLiteApprovalStore | None = None,
         trajectory_recorder: TrajectoryRecorder | None = None,
+        runner_streaming: RunnerStreamingConfig | None = None,
         tool_result_offloader: ToolResultIngressRuntime | None = None,
         execution_integrity_mode: str = EXECUTION_INTEGRITY_OFF,
         tool_payload_corpus: ToolPayloadCorpus | None = None,
@@ -190,6 +192,7 @@ class AtlasToolRuntime:
         self.suspension_store = suspension_store
         self.approval_store = approval_store
         self.trajectory_recorder = trajectory_recorder
+        self.runner_streaming = runner_streaming
         self.m6_metrics = M6Metrics() if m6_enabled else None
         self.approval_coordinator: ApprovalCoordinator | None = None
         self.suspension_coordinator: RuntimeSuspensionCoordinator | None = None

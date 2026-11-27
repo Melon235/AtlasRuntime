@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import threading
 import time
 import uuid
@@ -29,8 +30,11 @@ from atlasos.app.deterministic import MODEL_NAME as DETERMINISTIC_MODEL
 from atlasos.app.deterministic import PROVIDER_NAME as DETERMINISTIC_PROVIDER
 from atlasos.app.deterministic import delegated_script, direct_script
 from atlasos.app.deterministic import factory as deterministic_factory
+from atlasos.app.live_preflight import FROZEN_RESULTS
+from atlasos.app.patch_review import PatchReview, PatchReviewError
 from atlasos.app.workspace import (
     WorkspaceError,
+    WorkspaceSeed,
     describe_roots,
     materialise,
     resolve_seed,
@@ -116,6 +120,10 @@ class WorkspaceRejected(ApplicationError):
     """The requested workspace is outside every allowed root."""
 
     status_code = 422
+
+
+class PatchDecisionRejected(ApplicationError):
+    status_code = 409
 
 
 @dataclass
@@ -435,12 +443,18 @@ class AtlasApplicationService:
         workspace: str | None = None,
         max_turns: int = 12,
         budget_tokens: int | None = None,
+        interactive: bool = False,
+        new_paths: tuple[str, ...] = (),
     ) -> dict[str, Any]:
         task = task.strip()
         if not task:
             raise ApplicationError("task must not be empty")
         if mode not in EXECUTION_MODES:
             raise ApplicationError("mode must be one of " + ", ".join(sorted(EXECUTION_MODES)))
+        if (interactive and mode not in MAIN_MODES) or (new_paths and not interactive):
+            raise WorkspaceRejected(
+                "patch review and new file grants require interactive Main-driven mode"
+            )
         if mode in MAIN_MODES:
             return self._submit_main(
                 task,
@@ -448,6 +462,8 @@ class AtlasApplicationService:
                 workspace=workspace,
                 max_turns=max_turns,
                 budget_tokens=budget_tokens,
+                interactive=interactive,
+                new_paths=new_paths,
             )
         if not (1 <= max_turns <= 30):
             raise ApplicationError("max_turns must be between 1 and 30")
@@ -487,6 +503,8 @@ class AtlasApplicationService:
         workspace: str | None,
         max_turns: int,
         budget_tokens: int | None,
+        interactive: bool,
+        new_paths: tuple[str, ...],
     ) -> dict[str, Any]:
         if not (1 <= max_turns <= MAX_MAIN_TURNS):
             raise ApplicationError(f"max_turns must be between 1 and {MAX_MAIN_TURNS}")
@@ -498,10 +516,18 @@ class AtlasApplicationService:
             )
         if not workspace:
             raise ApplicationError("a Main-driven run requires a workspace name")
+        if interactive and (not self.sandbox_enabled or self.sandbox_provider != "opensandbox"):
+            raise WorkspaceRejected("interactive coding requires OpenSandbox isolation")
+        if interactive and any(self.runs_root.is_relative_to(path) for path in FROZEN_RESULTS):
+            raise WorkspaceRejected("set --runs-root outside the frozen experiment directories")
         try:
-            seed = resolve_seed(workspace, roots=self._workspace_roots)
+            seed = resolve_seed(
+                workspace, roots=self._workspace_roots, interactive=interactive, new_paths=new_paths
+            )
         except WorkspaceError as error:
             raise WorkspaceRejected(str(error)) from error
+        if interactive and self.runs_root.is_relative_to(seed.source):
+            raise WorkspaceRejected("the run directory must be outside the original workspace")
         active = self.active_main_run()
         if active is not None:
             raise ConcurrentRunRejected(
@@ -741,7 +767,7 @@ class AtlasApplicationService:
         config["runtime_run_id"] = runtime_run_id
         record.config = config
         app_root = self.runs_root / run_id
-        seed = resolve_seed(config["workspace"]["name"], roots=self._workspace_roots)
+        seed = self._resolve_run_seed(config["workspace"])
         if seed.as_dict() != config["workspace"]:
             raise WorkspaceRejected("the workspace changed after submission")
         workspace_path = app_root / "workspace"
@@ -771,7 +797,7 @@ class AtlasApplicationService:
                 main_entry_path="solution/integration.txt",
             )
         else:
-            script = direct_script(write_path="solution/answer.txt")
+            script = direct_script(write_path=next(iter(seed.new_paths), "solution/answer.txt"))
         if deterministic and self.failure_after_request:
             script.fail_from_request = int(self.failure_after_request)
             config["failure_after_request"] = script.fail_from_request
@@ -791,6 +817,7 @@ class AtlasApplicationService:
                 image=sandbox_config.get("image") or self.sandbox_image,
                 workspace_root=main_driven.SANDBOX_WORKSPACE_ROOT,
                 require_real=True,
+                reviewable_patch=seed.workspace_id is not None,
             )
             if sandboxed
             else None
@@ -825,6 +852,7 @@ class AtlasApplicationService:
             if record.mode == MAIN_DYNAMIC
             else {},
             provider_factory=provider_factory,
+            provider_retries=seed.workspace_id is None,
             sandbox=sandbox_options,
             preflight_profile="product",
         )
@@ -858,6 +886,45 @@ class AtlasApplicationService:
                 "budget": session.get("budget"),
             },
         )
+
+    def _resolve_run_seed(self, workspace: dict[str, Any]) -> WorkspaceSeed:
+        return resolve_seed(
+            workspace["name"],
+            roots=self._workspace_roots,
+            interactive=bool(workspace.get("workspace_id")),
+            new_paths=tuple(workspace.get("new_paths") or ()),
+        )
+
+    def _patch_review(self, run_id: str) -> PatchReview:
+        if not re.fullmatch(r"app-[0-9a-f]{12}", run_id):
+            raise PatchDecisionRejected("unknown application run identity")
+        run_dir = self.runs_root / run_id
+        if run_dir.is_symlink() or run_dir.is_junction():
+            raise PatchDecisionRejected("the application run directory is linked")
+        record = self._load(run_id)
+        config = record.config or {}
+        return PatchReview(
+            run_dir,
+            _as_dict(config.get("workspace")),
+            (record.session or {}) if record.status == "COMPLETED" else {},
+        )
+
+    def patch_review(self, run_id: str) -> dict[str, Any]:
+        return self._patch_review(run_id).view()
+
+    def decide_patch(
+        self, run_id: str, action: str, binding: dict[str, str], *, confirm: bool
+    ) -> dict[str, Any]:
+        review = self._patch_review(run_id)
+        try:
+            return review.decide(
+                action,
+                binding,
+                confirm=confirm,
+                resolve=lambda: self._resolve_run_seed(review.workspace),
+            )
+        except (OSError, PatchReviewError) as error:
+            raise PatchDecisionRejected(str(error)) from error
 
     # ---------------------------------------------------------------- projections
     def _event(self, record: RunRecord, event_type: str, data: dict[str, Any]) -> None:
@@ -957,6 +1024,10 @@ class AtlasApplicationService:
 
     def _refresh(self, record: RunRecord) -> None:
         if record.thread is not None and record.thread.is_alive():
+            if record.mode in MAIN_MODES:
+                # The execution thread owns Main-driven state, including the terminal transition
+                # while it drains and persists the remaining trajectory events.
+                return
             record.status = "RUNNING"
         elif record.orphaned and record.status in {"SUBMITTED", "RUNNING"}:
             # The process that owned this run is gone and there is no terminal evidence. Saying
@@ -1192,6 +1263,7 @@ class AtlasApplicationService:
             "execution_succeeded": session.get("execution_succeeded"),
             "failure": session.get("failure"),
             "provider_evidence": provider_evidence,
+            "interactive": bool(_as_dict(config.get("workspace")).get("workspace_id")),
             "started_at": record.started_at,
             "finished_at": record.finished_at,
             "cancel": self.cancel_state(record),

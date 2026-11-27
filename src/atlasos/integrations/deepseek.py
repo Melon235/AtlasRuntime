@@ -11,7 +11,7 @@ import os
 import time
 from collections.abc import AsyncIterator, Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from anycode.plugins.registry import register_provider_factory
 from anycode.providers._openai_compat import (
@@ -107,6 +107,10 @@ DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_MODEL = "deepseek-chat"
 
 
+class _ClientRetryOptions(TypedDict, total=False):
+    max_retries: int
+
+
 def _load_dotenv(dotenv_path: str | Path | None = None) -> None:
     """Load ``.env`` (default: nearest to this module); real environment variables win."""
 
@@ -177,6 +181,7 @@ class DeepSeekAdapter:
         env: Mapping[str, str] | None = None,
         *,
         on_call: Callable[[InferenceObservation], None] | None = None,
+        max_retries: int | None = None,
     ) -> DeepSeekAdapter:
         if env is None:
             _load_dotenv()
@@ -189,9 +194,13 @@ class DeepSeekAdapter:
 
         from openai import AsyncOpenAI
 
+        retry_options: _ClientRetryOptions = {}
+        if max_retries is not None:
+            retry_options["max_retries"] = max_retries
         client = AsyncOpenAI(
             api_key=api_key,
             base_url=values.get("DEEPSEEK_BASE_URL", DEFAULT_BASE_URL),
+            **retry_options,
         )
         return cls(
             client=client,

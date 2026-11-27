@@ -544,6 +544,7 @@ class AtlasToolAgent(Agent):
             agent_name=self.name,
             agent_role=(self.config.system_prompt or "assistant")[:AGENT_ROLE_MAX_LENGTH],
             verification=self.config.verification,
+            streaming=getattr(self._atlas_tool_runtime, "runner_streaming", None),
             tool_security=self.config.tool_security,
             execution_context=self.config.execution_context,
         )

@@ -20,6 +20,7 @@ Read these before changing code. They describe what exists today in this branch.
 | [`evaluation/`](evaluation/) | The evaluation protocol (Final-2): module matrix, Track B/C specs, integration contract, metrics contract, holdout design, environment protocol |
 | [`stage-h1-readonly-workbench.md`](stage-h1-readonly-workbench.md) | **Stage H1** — the local read-only historical replay workbench: application audit, recognised evidence kinds, the projection contract, the seven views, the verified historical cases, the `/api/replay` contract, launch and security boundaries |
 | [`stage-h2-live-workbench.md`](stage-h2-live-workbench.md) | **Stage H2** — the Main-driven product entry point: the two H1 projection fixes, the application gateway, the workspace contract, the lifecycle, the real event sources, the live UI/CLI, the deterministic direct/dynamic/failure runs and the honest offline boundary |
+| [`stage-h3-interactive-coding.md`](stage-h3-interactive-coding.md) | **Stage H3** — clean Git snapshots, isolated coding, and explicit patch review and application through Web and CLI |
 | [`decisions/`](decisions/) | ADRs 0001–0004 (AnyCode base, ContextPilot backend, cache metrics, no LangGraph) |
 
 The `evaluation/` bundle is normative for any measurement. Read

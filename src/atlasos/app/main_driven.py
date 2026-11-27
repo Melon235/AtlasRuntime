@@ -55,7 +55,12 @@ from anycode.plugins.registry import register_provider_factory
 from anycode.runstore.store import FilesystemRunStore
 from anycode.security.redaction import safe_exception_message
 from anycode.tools.idempotency import SQLiteToolIdempotencyStore
-from anycode.types import ToolSecurityPolicy
+from anycode.types import (
+    ProviderResilienceConfig,
+    RetryPolicy,
+    RunnerStreamingConfig,
+    ToolSecurityPolicy,
+)
 from dotenv import load_dotenv
 
 from atlasos.actions import ActionCatalog, ActionPolicy, ActionRule
@@ -259,6 +264,8 @@ class GoalRunOptions:
     #: ``product`` keeps every safety check blocking and records the evaluation-only ones as
     #: non-blocking, because an ordinary task has no hidden oracle and must still be runnable.
     preflight_profile: str = "benchmark"
+    #: Interactive runs keep each provider attempt observable and never retry it automatically.
+    provider_retries: bool = True
 
 
 def _goal_policy() -> ActionPolicy:
@@ -638,13 +645,21 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             )
         _register_provider(
             provider_name,
-            lambda: JournaledAdapter(DeepSeekAdapter.from_env(), request_journal),
+            lambda: JournaledAdapter(
+                DeepSeekAdapter.from_env(max_retries=None if options.provider_retries else 0),
+                request_journal,
+            ),
         )
     else:
         factory = options.provider_factory
         _register_provider(provider_name, lambda: JournaledAdapter(factory(), request_journal))
 
     tool_security = ToolSecurityPolicy(workspace_root=tool_workspace)
+    resilience = (
+        None
+        if options.provider_retries
+        else ProviderResilienceConfig(retry=RetryPolicy(max_attempts=1))
+    )
     enforcer, ownership = build_delegation_ownership(run_id=run_id, workspace_root=tool_workspace)
     ownership.declare(
         worker_id=main_worker_id,
@@ -764,6 +779,9 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             # Host configuration is unchanged for the stage-M host mode.
             sandbox_tools=sandbox.sandbox_tools if sandbox is not None else None,
             trajectory_recorder=recorder,
+            runner_streaming=None
+            if options.provider_retries
+            else RunnerStreamingConfig(fallback_to_chat=False),
             runtime_instance_id=f"goal-{run_id}",
             # DEV-4: every proposed tool input is written to the private corpus before it runs, so
             # the call that ended a failed run is still recoverable afterwards.
@@ -801,6 +819,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
                 ),
                 budget_state=budget_state,
                 tool_security=tool_security,
+                provider_resilience=resilience,
                 ownership=ownership,
                 granted_write_paths=dict(options.child_write_grants),
             )
@@ -814,6 +833,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             tools=list(runtime.agent_tools),
             max_turns=options.max_turns,
             tool_security=tool_security,
+            provider_resilience=resilience,
             execution_context=main_context,
         )
         engine = AtlasContextEngine(
