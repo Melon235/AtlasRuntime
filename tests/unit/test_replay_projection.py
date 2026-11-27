@@ -7,6 +7,7 @@ from pathlib import Path
 
 from atlasos.app.replay.service import ReplayService
 from atlasos.app.replay.sources import EvidenceRoot
+from atlasos.metrics import requests as request_metrics
 
 SECRET = "sk-live-abcdefghijklmnopqrstuvwxyz"
 
@@ -895,6 +896,50 @@ def test_provider_requests_journal_is_used_when_present(tmp_path: Path) -> None:
     assert payload["counts"]["unknown_terminal"] == 0
     assert payload["entries"][1]["http_status"] == 504
     assert SECRET not in json.dumps(payload)
+
+
+def test_request_journal_producer_schema_and_truncated_totals(tmp_path: Path, monkeypatch) -> None:
+    _seed_main_driven(tmp_path)
+    agent = tmp_path / "stage-c1c" / "evidence" / "cells" / "c01" / "agent" / "bplus-c01"
+    journal = request_metrics.RequestJournal(
+        run_id="bplus-c01", provider="example-provider", requested_model="requested-model"
+    )
+
+    class ProviderError(RuntimeError):
+        status_code = 503
+        code = "unavailable"
+
+    failed = journal.begin(phase="stream")
+    journal.fail(failed, ProviderError(f"failure {SECRET} " + "x" * 300), partial=True)
+    completed = journal.begin(phase="chat", agent="atlas-main")
+    journal.complete(completed, returned_model="returned-model", usage={"input_tokens": 0})
+    path = agent / "provider_requests.json"
+    _write(path, journal.snapshot())
+    service = _service(tmp_path)
+    key = _only_key(service)
+    result = service.requests(key)
+    assert result["state"] == "AVAILABLE"
+    error, success = result["entries"]
+    assert error["request_id"] == failed.request_id and error["agent_id"] is None
+    assert error["state"] == "FAILED" and error["error_type"] == "ProviderError"
+    assert error["phase"] == "stream" and error["provider"] == "example-provider"
+    assert error["http_status"] == 503 and error["provider_error_code"] == "unavailable"
+    assert error["partial_response"] is True and error["usage_reported"] is False
+    assert error["usage"] is None and error["usage_status"] == "UNKNOWN"
+    assert SECRET not in error["error_message"] and len(error["error_message"]) <= 241
+    assert error["started_at"] == failed.started_at and error["finished_at"] == failed.finished_at
+    assert success["agent_id"] == "atlas-main" and success["state"] == "COMPLETED"
+    assert success["requested_model"] == "requested-model"
+    assert success["returned_model"] == "returned-model"
+    assert success["usage_reported"] is True and success["usage"] == {"input_tokens": 0}
+    monkeypatch.setattr(request_metrics, "MAX_RECORDS", 1)
+    _write(path, journal.snapshot())
+    service = _service(tmp_path)
+    truncated = service.requests(_only_key(service))
+    assert truncated["journal"]["records_truncated"] is True
+    assert truncated["counts"]["total"] == 2 and truncated["counts"]["retained"] == 1
+    assert truncated["counts"]["failed"] == 1
+    assert [row["request_id"] for row in truncated["entries"]] == [completed.request_id]
 
 
 def test_secrets_never_reach_the_projection(tmp_path: Path) -> None:

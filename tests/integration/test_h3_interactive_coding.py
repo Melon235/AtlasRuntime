@@ -100,6 +100,7 @@ def test_direct_applies_text_changes_once(workspace, monkeypatch) -> None:
     endpoint, run = _run(client, new_paths=("new.txt",))
     assert run["status"] == "COMPLETED", run
     assert run["live"]["delegation"] is None
+    assert run["live"]["public_tests"]["status"] == "NOT_CONFIGURED"
     assert (source / "solution/answer.txt").read_bytes() == b"original\n"
     assert not (source / "new.txt").exists()
     isolated = Path(client.app.state.runs_root) / run["run_id"] / "workspace"
@@ -194,3 +195,59 @@ def test_provider_failure_and_untrusted_paths(workspace) -> None:
         },
     )
     assert invalid.status_code == 422
+
+
+def test_product_tests_use_host_contract(workspace, monkeypatch) -> None:
+    original_client, source = workspace
+    (source / "answer.py").write_text("VALUE = 'wrong'\n", encoding="utf-8")
+    (source / "test_answer.py").write_text(
+        "from answer import VALUE\n\ndef test_answer():\n    assert VALUE == 'correct'\n",
+        encoding="utf-8",
+    )
+    # These files would disrupt test execution if the tool trusted repository pytest settings.
+    (source / "pytest.ini").write_text("[pytest]\naddopts = --bad-option\n", encoding="utf-8")
+    (source / "conftest.py").write_text(
+        "raise RuntimeError('unapproved conftest')\n", encoding="utf-8"
+    )
+    _git(source, "add", "--", "answer.py", "test_answer.py", "pytest.ini", "conftest.py")
+    _git(
+        source,
+        "-c",
+        "user.name=Atlas Test",
+        "-c",
+        "user.email=test@atlas.local",
+        "commit",
+        "--quiet",
+        "-m",
+        "Add test to the temporary workspace",
+    )
+    monkeypatch.setenv("ATLASOS_PRODUCT_TESTS", json.dumps({str(source): "test_answer.py"}))
+    app = create_app(runs_root=original_client.app.state.runs_root, provider="deterministic")
+    client = TestClient(app, base_url="http://127.0.0.1")
+
+    def script(**_):
+        return Script(
+            main_steps=[
+                ("bash", {"command": "python3 -m pytest -q"}),
+                ("run_public_tests", {"reason": "record the initial failure"}),
+                ("file_write", {"path": "answer.py", "content": "VALUE = 'correct'\n"}),
+                ("run_public_tests", {"reason": "verify the isolated change"}),
+                ("run_public_tests", {"reason": "invalid field", "command": "touch injected.txt"}),
+            ]
+        )
+
+    monkeypatch.setattr("atlasos.app.service.direct_script", script)
+    endpoint, run = _run(client)
+    assert run["status"] == "COMPLETED", run
+    evidence = run["live"]["public_tests"]
+    assert evidence["contract"]["command"].endswith(" -- test_answer.py")
+    assert evidence["contract"]["max_calls"] == 4 and evidence["contract"]["timeout_seconds"] == 120
+    assert evidence["status"] == "PASS"
+    assert [(r["status"], r["exit_code"]) for r in evidence["runs"]] == [("FAIL", 1), ("PASS", 0)]
+    assert client.get(endpoint + "/result").json()["public_tests"] == evidence
+    events = client.get(endpoint).json()["events"]
+    assert any(e["data"].get("summary") == "DENY bash" for e in events)
+    assert run["live"]["public_tests"]["calls"] == 2
+    review = client.get(endpoint + "/patch").json()
+    assert [file["path"] for file in review["files"]] == ["answer.py"]
+    assert (source / "answer.py").read_text(encoding="utf-8") == "VALUE = 'wrong'\n"

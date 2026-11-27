@@ -375,6 +375,10 @@ def result(
         return
     console.print(value["final_output"] or "(no final output)")
     console.print(f"[dim]status={value['status']} metrics={value['metrics']}[/dim]")
+    if tests := value.get("public_tests"):
+        console.print(f"Public tests: {tests['status']}")
+        for run in tests.get("runs", []):
+            console.print(f"  #{run['call_index']} {run['status']} (exit {run['exit_code']})")
 
 
 @app.command("export")

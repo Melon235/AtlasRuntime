@@ -16,6 +16,7 @@ import asyncio
 import json
 import os
 import re
+import shlex
 import threading
 import time
 import uuid
@@ -32,12 +33,15 @@ from atlasos.app.deterministic import delegated_script, direct_script
 from atlasos.app.deterministic import factory as deterministic_factory
 from atlasos.app.live_preflight import FROZEN_RESULTS
 from atlasos.app.patch_review import PatchReview, PatchReviewError
+from atlasos.app.public_tests import PublicTestContract
 from atlasos.app.workspace import (
     WorkspaceError,
     WorkspaceSeed,
+    check_target_path,
     describe_roots,
     materialise,
     resolve_seed,
+    validate_patch_path,
 )
 from atlasos.config import (
     AtlasConfig,
@@ -69,6 +73,7 @@ MAX_MAIN_TURNS = 40
 DEFAULT_MAIN_TURNS = 16
 DEFAULT_CHILD_MAX_TURNS = 12
 DEFAULT_SANDBOX_IMAGE = "atlas-uat-python:3.12"
+PRODUCT_TESTS_ENV = "ATLASOS_PRODUCT_TESTS"
 
 TERMINAL = {
     "COMPLETED",
@@ -338,6 +343,35 @@ def _pricing() -> Pricing:
     )
 
 
+def _configured_product_tests() -> dict[Path, str]:
+    """Read Host startup configuration, keyed by canonical source workspace."""
+    raw = os.environ.get(PRODUCT_TESTS_ENV, "").strip()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise ValueError("expected a JSON object")
+        tests: dict[Path, str] = {}
+        for name, relative in data.items():
+            path = Path(name)
+            if (
+                not path.is_absolute()
+                or not isinstance(relative, str)
+                or not relative.endswith(".py")
+            ):
+                raise ValueError(
+                    "expected an absolute workspace path and a relative Python test file"
+                )
+            canonical = path.resolve()
+            if canonical in tests:
+                raise ValueError("duplicate canonical workspace")
+            tests[canonical] = validate_patch_path(relative)
+        return tests
+    except (ValueError, WorkspaceError, OSError) as error:
+        raise ApplicationError(f"invalid {PRODUCT_TESTS_ENV}: {error}") from error
+
+
 def _workflow(task: str) -> AtlasWorkflow:
     return AtlasWorkflow(
         name="atlas-app",
@@ -421,6 +455,7 @@ class AtlasApplicationService:
             if workspace_roots
             else None
         )
+        self._product_tests = _configured_product_tests()
         #: Test/demo seam for the deterministic provider only: make request N raise. A live
         #: provider never consults it, and the value is recorded in the run configuration.
         self.failure_after_request = failure_after_request
@@ -528,6 +563,7 @@ class AtlasApplicationService:
             raise WorkspaceRejected(str(error)) from error
         if interactive and self.runs_root.is_relative_to(seed.source):
             raise WorkspaceRejected("the run directory must be outside the original workspace")
+        public_tests = self._public_test_contract(seed)
         active = self.active_main_run()
         if active is not None:
             raise ConcurrentRunRejected(
@@ -556,6 +592,8 @@ class AtlasApplicationService:
                 else {"enabled": False, "provider": None, "image": None}
             ),
         }
+        if public_tests is not None:
+            config["public_tests"] = public_tests.payload()
         run_id = f"app-{uuid.uuid4().hex[:12]}"
         record = RunRecord(
             run_id=run_id,
@@ -854,6 +892,9 @@ class AtlasApplicationService:
             provider_factory=provider_factory,
             provider_retries=seed.workspace_id is None,
             sandbox=sandbox_options,
+            public_tests=PublicTestContract(**config["public_tests"])
+            if "public_tests" in config
+            else None,
             preflight_profile="product",
         )
         session = asyncio.run(main_driven.run_goal(options))
@@ -885,6 +926,30 @@ class AtlasApplicationService:
                 "execution_succeeded": session.get("execution_succeeded"),
                 "budget": session.get("budget"),
             },
+        )
+
+    def _public_test_contract(self, seed: WorkspaceSeed) -> PublicTestContract | None:
+        relative = self._product_tests.get(seed.source)
+        if relative is None:
+            return None
+        if not self.sandbox_enabled or self.sandbox_provider != "opensandbox":
+            raise WorkspaceRejected("Host-authorized product tests require OpenSandbox isolation")
+        try:
+            check_target_path(seed.source, relative)
+        except (OSError, WorkspaceError) as error:
+            raise WorkspaceRejected("the Host-authorized product test path is unsafe") from error
+        if not (seed.source / relative).is_file() or (
+            seed.workspace_id is not None and relative not in seed.tracked_files
+        ):
+            raise WorkspaceRejected(
+                "the Host-authorized product test file is missing from the seed"
+            )
+        return PublicTestContract(
+            test_id="product-pytest",
+            command=(
+                "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -B -m pytest -q -c /dev/null "
+                "--noconftest -p no:cacheprovider -- " + shlex.quote(relative)
+            ),
         )
 
     def _resolve_run_seed(self, workspace: dict[str, Any]) -> WorkspaceSeed:
@@ -1243,6 +1308,17 @@ class AtlasApplicationService:
         config = record.config or {}
         delegation = session.get("delegation")
         provider_evidence = config.get("provider_evidence")
+        tests = _as_dict(session.get("public_tests"))
+        runs = tests.get("runs") or []
+        public_tests = {
+            **tests,
+            "status": (
+                runs[-1]["status"]
+                if runs
+                else tests.get("status")
+                or ("NOT_RUN" if config.get("public_tests") else "NOT_CONFIGURED")
+            ),
+        }
         return {
             "mode": record.mode,
             "isolation": session.get("isolation")
@@ -1259,7 +1335,7 @@ class AtlasApplicationService:
             "delegation": delegation if isinstance(delegation, dict) else None,
             "verification": session.get("verification"),
             "acceptance": session.get("acceptance"),
-            "public_tests": session.get("public_tests"),
+            "public_tests": public_tests,
             "execution_succeeded": session.get("execution_succeeded"),
             "failure": session.get("failure"),
             "provider_evidence": provider_evidence,
@@ -1271,7 +1347,7 @@ class AtlasApplicationService:
 
     def result(self, run_id: str) -> dict[str, Any]:
         detail = self.detail(run_id)
-        return {
+        result = {
             "run_id": detail["run_id"],
             "status": detail["status"],
             "final_output": detail["final_output"],
@@ -1280,6 +1356,9 @@ class AtlasApplicationService:
             "failure_class": detail["failure_class"],
             "error": detail["error"],
         }
+        if detail["live"] is not None:
+            result["public_tests"] = detail["live"]["public_tests"]
+        return result
 
     def events(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
         record = self._load(run_id)

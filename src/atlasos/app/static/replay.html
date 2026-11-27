@@ -730,19 +730,21 @@
       }
       const rows = d.entries.map((e) => `<tr>
         <td class="mono">${fmt(e.request_id)}</td><td class="mono dim">${fmt(e.agent_id)}</td>
-        <td>${esc(e.phase)}</td><td>${badge(e.state)}</td>
+        <td>${fmt(e.provider)} · ${esc(e.phase)}</td><td>${badge(e.state)}</td>
         <td class="mono">${esc(e.requested_model)} → ${esc(e.returned_model)}</td>
         <td class="mono">${fmt(e.http_status)}</td><td class="mono dim">${fmt(e.error_type)}</td>
-        <td class="fade">${esc(e.error_message || "")}</td>
+        <td class="fade">${e.provider_error_code ? `<span class="mono">${esc(e.provider_error_code)}</span> ` : ""}${esc(e.error_message || "")}</td>
         <td>${badge(e.usage_status)}</td></tr>`).join("");
-      return `<div class="grid g3">
+      return `<div class="fade" style="margin-bottom:10px">Journal ${badge(d.state)} · <span class="mono">${esc(d.journal.source)}</span></div>
+        <div class="grid g3">
           ${kpi("requests", d.counts.total)}
+          ${d.journal.records_truncated ? kpi("retained records", d.counts.retained) : ""}
           ${kpi("completed", d.counts.completed)}
           ${kpi("failed", d.counts.failed)}
           ${kpi("unknown terminal", d.counts.unknown_terminal)}
         </div>
         <div style="margin-top:12px">${panel("request journal", table(
-          ["id", "agent", "phase", "state", "model", "http", "error type", "message", "usage"],
+          ["id", "agent", "provider / phase", "state", "model", "http", "error type", "message", "usage"],
           d.entries.length ? [rows] : [], "no request entries"))}</div>
         <div class="fade" style="margin-top:10px">${esc(d.note)}</div>`;
     },

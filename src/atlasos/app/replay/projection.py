@@ -1034,15 +1034,25 @@ def _delegation_present(model: RunModel) -> bool:
     return bool(enabled) or bool(batches)
 
 
+def _request_journal(model: RunModel) -> tuple[list[dict[str, Any]] | None, dict[str, Any], str]:
+    """Read the producer's records or the supported older envelopes and lists."""
+    candidates = (
+        (model.provider_requests, "provider_requests.json"),
+        (model.session.get("model_requests"), "session.json#model_requests"),
+    )
+    for raw, source in candidates:
+        if isinstance(raw, list):
+            return [row for row in raw if isinstance(row, dict)], {}, source
+        if isinstance(raw, dict):
+            for key in ("records", "requests", "entries"):
+                rows = raw.get(key)
+                if isinstance(rows, list):
+                    return [row for row in rows if isinstance(row, dict)], raw, source
+    return None, {}, candidates[0 if model.provider_requests is not None else 1][1]
+
+
 def _request_rows(model: RunModel) -> list[dict[str, Any]]:
-    raw = model.provider_requests
-    if raw is None:
-        raw = model.session.get("model_requests")
-    if isinstance(raw, dict):
-        raw = raw.get("requests") or raw.get("entries")
-    if not isinstance(raw, list):
-        return []
-    return [row for row in raw if isinstance(row, dict)]
+    return _request_journal(model)[0] or []
 
 
 # ---------------------------------------------------------------------- agents
@@ -2309,15 +2319,8 @@ def _oracle_detail(model: RunModel) -> dict[str, Any]:
 
 
 def requests_view(model: RunModel) -> dict[str, Any]:
-    raw = model.provider_requests
-    journal_source = "provider_requests.json"
-    if raw is None:
-        raw = model.session.get("model_requests")
-        journal_source = "session.json#model_requests"
-    if isinstance(raw, dict):
-        raw = raw.get("requests") or raw.get("entries")
-    rows = [row for row in raw if isinstance(row, dict)] if isinstance(raw, list) else []
-    if not rows:
+    rows, metadata, journal_source = _request_journal(model)
+    if rows is None:
         return {
             "run_key": model.run.run_key,
             "state": UNAVAILABLE,
@@ -2332,39 +2335,106 @@ def requests_view(model: RunModel) -> dict[str, Any]:
         }
     entries = []
     for index, row in enumerate(rows):
+        usage = {
+            key: value
+            for key, value in as_mapping(row.get("usage")).items()
+            if key in _REQUEST_USAGE_COUNTERS and _request_count(value) is not None
+        }
+        reported = row.get("usage_reported")
+        usage_status = row.get("usage_status") or ("COMPLETE" if usage else UNKNOWN)
+        if reported is False:
+            usage = {}
+            usage_status = UNKNOWN
+        agent = (
+            row.get("agent")
+            if "agent" in row
+            else (row.get("agent_id") or row.get("worker_id") or row.get("worker"))
+        )
         entries.append(
             {
-                "request_id": row.get("request_id") or row.get("id") or index + 1,
-                "agent_id": row.get("agent_id") or row.get("worker_id") or row.get("worker"),
-                "phase": row.get("phase") or UNKNOWN,
+                "request_id": clip(row.get("request_id") or row.get("id"), 120) or index + 1,
+                "agent_id": clip(agent, 120),
+                "provider": clip(row.get("provider") or metadata.get("provider"), 120) or UNKNOWN,
+                "phase": clip(row.get("phase"), 80) or UNKNOWN,
                 "state": _request_state(row),
-                "requested_model": row.get("requested_model") or row.get("model") or UNKNOWN,
-                "returned_model": row.get("returned_model") or UNKNOWN,
-                "http_status": row.get("http_status") or row.get("status_code") or UNKNOWN,
-                "error_type": row.get("error_type") or row.get("error_class") or UNKNOWN,
-                "error_message": clip(row.get("error_message") or row.get("error"), 240),
-                "usage_status": row.get("usage_status")
-                or ("COMPLETE" if row.get("usage") else UNKNOWN),
-                "started_at": row.get("started_at"),
-                "finished_at": row.get("finished_at"),
+                "requested_model": clip(
+                    row.get("requested_model")
+                    or row.get("model")
+                    or metadata.get("requested_model"),
+                    120,
+                )
+                or UNKNOWN,
+                "returned_model": clip(row.get("returned_model"), 120) or UNKNOWN,
+                "http_status": _request_count(row.get("http_status") or row.get("status_code"))
+                or UNKNOWN,
+                "error_type": clip(
+                    row.get("exception_type") or row.get("error_type") or row.get("error_class"),
+                    120,
+                )
+                or UNKNOWN,
+                "provider_error_code": clip(row.get("provider_error_code"), 120),
+                "error_message": clip(
+                    row.get("message") or row.get("error_message") or row.get("error")
+                ),
+                "partial_response": row.get("partial_response")
+                if isinstance(row.get("partial_response"), bool)
+                else None,
+                "usage_reported": reported
+                if isinstance(reported, bool)
+                else (True if usage else None),
+                "usage": usage or None,
+                "usage_status": clip(usage_status, 80),
+                "started_at": clip(row.get("started_at"), 100),
+                "finished_at": clip(row.get("finished_at"), 100),
             }
         )
     states = [entry["state"] for entry in entries]
+    truncated = metadata.get("records_truncated") is True
+    counts = as_mapping(metadata.get("counts"))
+    state_fields = {
+        "started": "STARTED",
+        "completed": "COMPLETED",
+        "failed": "FAILED",
+        "cancelled": "CANCELLED",
+        "unknown_terminal": "UNKNOWN_TERMINAL_STATE",
+    }
+    full_total = _request_count(metadata.get("requests_total")) if truncated else len(entries)
     return {
         "run_key": model.run.run_key,
         "state": "AVAILABLE",
-        "journal": {"source": journal_source, "available": True},
+        "journal": {"source": journal_source, "available": True, "records_truncated": truncated},
         "counts": {
-            "total": len(entries),
-            "started": states.count("STARTED"),
-            "completed": states.count("COMPLETED"),
-            "failed": states.count("FAILED"),
-            "cancelled": states.count("CANCELLED"),
-            "unknown_terminal": states.count("UNKNOWN_TERMINAL_STATE"),
+            "total": full_total,
+            "retained": len(entries),
+            **{
+                label: _request_count(counts.get(state)) if truncated else states.count(state)
+                for label, state in state_fields.items()
+            },
         },
         "entries": entries,
-        "note": "lifecycle states are copied from the journal; nothing is re-derived",
+        "note": (
+            "The producer truncated the journal. Counts cover the full run when recorded."
+            if truncated
+            else "Lifecycle states are copied from the journal."
+        ),
     }
+
+
+_REQUEST_USAGE_COUNTERS = frozenset(
+    {
+        "prompt_tokens",
+        "completion_tokens",
+        "input_tokens",
+        "output_tokens",
+        "cache_hit_tokens",
+        "cache_miss_tokens",
+        "cache_read_input_tokens",
+    }
+)
+
+
+def _request_count(value: Any) -> int | None:
+    return value if type(value) is int and value >= 0 else None
 
 
 def _request_state(row: dict[str, Any]) -> str:
@@ -2376,10 +2446,7 @@ def _request_state(row: dict[str, Any]) -> str:
 
 def _request_reason(model: RunModel) -> str:
     if model.session or model.analysis or model.evidence:
-        return (
-            "the run predates the provider request journal; the adapter wrote no per-request "
-            "terminal state into this evidence"
-        )
+        return "No recognized provider request journal was found in the available evidence."
     return "this source kind records no provider request lifecycle"
 
 

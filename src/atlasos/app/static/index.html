@@ -309,6 +309,8 @@
     const children = batches.flatMap((batch) => batch.children || []);
     const route = batches.length ? (batches[batches.length - 1].route || "—") : "NO_BATCH_RECORDED";
     const acceptance = live.acceptance || "NOT_CONFIGURED";
+    const publicTests = live.public_tests || {};
+    const testRuns = publicTests.runs || [];
     const kind = live.provider_kind || "UNKNOWN";
     return `
       <section class="panel" style="margin-bottom:14px">
@@ -325,9 +327,13 @@
           <div>Router</div><div>${escHtml(route)}${delegation ? ` · rounds ${escHtml((delegation.batches || []).length)}` : ""}</div>
           <div>Children</div><div>${children.length ? `${children.length} executed` : "none executed"}</div>
           <div>Budget</div><div>${escHtml(budget.used_tokens ?? "—")} / ${escHtml(budget.limit_tokens ?? "—")} tokens${budget.note ? ` · ${escHtml(budget.note)}` : ""}</div>
+          <div>Public tests</div><div>${escHtml(publicTests.status || "NOT_CONFIGURED")}${testRuns.length ? ` · ${escHtml(testRuns.length)} recorded attempts` : ""}</div>
           <div>Started</div><div>${escHtml(live.started_at || "—")}</div>
           <div>Finished</div><div>${escHtml(live.finished_at || "—")}</div>
         </div>
+        ${testRuns.length ? `<table style="margin-top:10px"><thead><tr><th>Test call</th><th>Status</th><th>Exit code</th><th>Duration ms</th></tr></thead><tbody>
+          ${testRuns.map(run => `<tr><td>${fmt(run.call_index)}</td><td>${fmt(run.status)}</td><td>${fmt(run.exit_code)}</td><td>${fmt(run.duration_ms)}</td></tr>`).join("")}
+        </tbody></table>` : ""}
         ${children.length ? `<table style="margin-top:10px"><thead><tr><th>Child</th><th>Worker</th><th>Status</th><th>Success</th><th>Prompt</th><th>Completion</th><th>Handoff</th></tr></thead><tbody>
           ${children.map((child) => `<tr>
             <td class="mono">${escHtml(child.key)}</td>
