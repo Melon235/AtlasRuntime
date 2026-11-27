@@ -216,7 +216,7 @@ def delegation_proposal(task: Any) -> dict[str, Any]:
                 "objective": str(csv["assignment"]),
                 "background": (
                     "The project is at /workspace/project and `docs/INTERFACE.md` is frozen. "
-                    "Edit only `sources/csv_source.py`; the public suite is `test_public.py`."
+                    "Edit only your granted paths. The public suite is `test_public.py`."
                 ),
                 "profile_id": "coding_worker",
                 "write_paths": list(csv["owned_paths"]),
@@ -226,7 +226,7 @@ def delegation_proposal(task: Any) -> dict[str, Any]:
                 "objective": str(jsonl["assignment"]),
                 "background": (
                     "The project is at /workspace/project and `docs/INTERFACE.md` is frozen. "
-                    "Edit only `sources/jsonl_source.py`; the public suite is `test_public.py`."
+                    "Edit only your granted paths. The public suite is `test_public.py`."
                 ),
                 "profile_id": "coding_worker",
                 "write_paths": list(jsonl["owned_paths"]),
@@ -300,9 +300,10 @@ def _provider_for(arm_id: str, task: Any, *, budget_only: bool = False) -> scrip
         }
         markers: dict[str, str] = {"main": task.prompt[:60]}
         for spec in proposal["tasks"]:
-            root = str(spec["write_paths"][0])
-            scripts[root] = [*_writes(task, (root,)), *_checks()]
-            markers[root] = str(spec["objective"]).splitlines()[0]
+            key = str(spec["key"])
+            paths = tuple(str(path) for path in spec["write_paths"])
+            scripts[key] = [*_writes(task, paths), *_checks()]
+            markers[key] = str(spec["objective"]).splitlines()[0]
         run = scripted.ScriptedRun(
             scripts=scripts,
             markers=markers,
@@ -978,7 +979,8 @@ async def run_negatives(*, scratch: Path, task: Any) -> list[dict[str, Any]]:
     variant_truncated = dict(cell)
     variant_truncated["cell_id"] = "f.proof.neg.truncated.1"
     variant_truncated["order"] = 97
-    variant_truncated["max_turns"] = 4  # four writes, then no turn left to finish on
+    # Leave one turn per reference write and no turn for the agent to finish.
+    variant_truncated["max_turns"] = len(truncated.scripts["main"])
     run_truncated = await _one_off(
         cell=variant_truncated,
         task=task,
