@@ -299,4 +299,8 @@ def create_app(
     def replay_page() -> FileResponse:
         return FileResponse(REPLAY_INDEX)
 
+    @app.get("/workbench-labels.js", include_in_schema=False)
+    def workbench_labels() -> FileResponse:
+        return FileResponse(STATIC / "workbench-labels.js", media_type="text/javascript")
+
     return app

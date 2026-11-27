@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AtlasRuntime · Replay Workbench</title>
+  <title>AtlasRuntime · 历史回放</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230d1117'/%3E%3Cpath d='M3 12 8 3l5 9z' fill='%2358a6ff'/%3E%3C/svg%3E" />
   <style>
     :root {
@@ -122,6 +122,14 @@
     .bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--violet)); }
     .split { display: grid; grid-template-columns: 1fr 350px; gap: 12px; }
     @media (max-width: 1200px) { .split { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) {
+      body { overflow: auto; }
+      header { flex-wrap: wrap; gap: 8px; }
+      .shell { grid-template-columns: minmax(0, 1fr); height: auto; }
+      .explorer { max-height: 42vh; }
+      .tabs { flex-wrap: wrap; }
+      .g3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
     .scroll { max-height: 480px; overflow: auto; }
     .pill { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: 3px;
       background: #0a0e13; border: 1px solid var(--line); color: var(--muted); }
@@ -138,54 +146,61 @@
 <body>
 <header>
   <div class="brand">Atlas<span>Runtime</span> · Replay</div>
-  <span class="chip mode">Historical replay</span>
-  <span class="chip ro" id="ro-chip">read-only</span>
+  <span class="chip mode">历史回放</span>
+  <span class="chip ro" id="ro-chip">只读</span>
   <span class="muted" id="roots-note" style="font-size:11px"></span>
   <span class="spacer"></span>
-  <a href="/">live console ↗</a>
+  <a href="/">实时控制台 ↗</a>
 </header>
 <div class="shell">
   <aside class="explorer">
     <div class="filters">
-      <input id="q" placeholder="search run id, task, plan, failure…" />
+      <input id="q" placeholder="搜索运行 ID、任务、计划或失败原因…" />
       <div class="row2">
-        <select id="f-stage"><option value="">all stages</option></select>
-        <select id="f-source"><option value="">all sources</option></select>
-        <select id="f-mode"><option value="">all modes</option></select>
-        <select id="f-status"><option value="">all statuses</option></select>
-        <select id="f-provider"><option value="">all providers</option></select>
-        <select id="f-completeness"><option value="">all evidence</option></select>
+        <select id="f-stage"><option value="">所有阶段</option></select>
+        <select id="f-source"><option value="">所有来源</option></select>
+        <select id="f-mode"><option value="">所有模式</option></select>
+        <select id="f-status"><option value="">所有状态</option></select>
+        <select id="f-provider"><option value="">所有 Provider</option></select>
+        <select id="f-completeness"><option value="">全部证据</option></select>
       </div>
     </div>
-    <div class="runs" id="runs"><div class="empty" style="padding:12px">loading evidence…</div></div>
+    <div class="runs" id="runs"><div class="empty" style="padding:12px">正在加载证据…</div></div>
+    <nav id="run-pages" aria-label="运行列表分页" hidden>
+      <button id="run-prev" type="button">上一页</button>
+      <span id="run-page" aria-live="polite"></span>
+      <button id="run-next" type="button">下一页</button>
+    </nav>
   </aside>
   <section class="detail">
     <div class="runbar" id="runbar">
-      <span class="muted">Select a run from the evidence explorer.</span>
+      <span class="muted">请从左侧选择一次运行。</span>
     </div>
     <nav class="tabs" id="tabs"></nav>
     <div class="view" id="view">
       <div class="panel">
-        <h1>Read-only historical replay</h1>
-        <p class="muted">This workbench projects execution evidence that already exists on disk.
-        It has no router, budget, ownership, approval, recovery or claim authority, and it never
-        starts a model request.</p>
+        <h1>只读历史回放</h1>
+        <p class="muted">此 Workbench 显示从磁盘读取的执行证据。
+        页面为只读，不会
+        发起模型请求。</p>
         <div class="kv" id="sources-kv"></div>
       </div>
     </div>
   </section>
 </div>
 <div class="tooltip" id="tip"></div>
+<script src="/workbench-labels.js"></script>
 <script>
 (() => {
   "use strict";
-  const state = { runs: [], facets: {}, key: null, tab: "overview", cache: {}, detail: null };
+  const pageSize = 50;
+  const state = { runs: [], facets: {}, key: null, tab: "overview", cache: {}, detail: null, offset: 0 };
   const $ = (id) => document.getElementById(id);
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
   const fmt = (v) => (v === null || v === undefined || v === "" ? '<span class="dim">—</span>' : esc(v));
-  const num = (v) => (typeof v === "number" ? v.toLocaleString("en-US") : fmt(v));
+  const num = (v) => (typeof v === "number" ? v.toLocaleString("zh-CN") : fmt(zhState(v)));
   const cls = (v) => String(v ?? "unknown").toLowerCase().replace(/[^a-z0-9_]+/g, "_");
-  const badge = (v, extra = "") => `<span class="badge ${cls(v)} ${extra}">${esc(v)}</span>`;
+  const badge = (v, extra = "") => `<span class="badge ${cls(v)} ${extra}" title="${esc(v)}">${esc(zhState(v))}</span>`;
   const okBadge = (v) => {
     if (v === true || v === "PASS" || v === "COMPLETED" || v === "present") return badge("PASS");
     if (v === false || v === "FAIL" || v === "FAILED") return badge("FAIL");
@@ -222,7 +237,8 @@
       const value = ($(id) || {}).value;
       if (value) params.set(name, value);
     });
-    params.set("limit", "300");
+    params.set("limit", String(pageSize));
+    params.set("offset", String(state.offset));
     return params;
   }
 
@@ -230,7 +246,7 @@
     const node = $(id);
     const current = node.value;
     node.innerHTML = `<option value="">${esc(label)}</option>` +
-      values.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+      values.map((v) => `<option value="${esc(v)}" title="${esc(v)}">${esc(zhState(v))}</option>`).join("");
     if (values.includes(current)) node.value = current;
   }
 
@@ -239,23 +255,28 @@
       const data = await api(`/api/replay/runs?${filters().toString()}`);
       state.runs = data.runs || [];
       state.facets = data.facets || {};
-      fillSelect("f-stage", state.facets.stages || [], "all stages");
-      fillSelect("f-source", state.facets.source_kinds || [], "all sources");
-      fillSelect("f-mode", state.facets.modes || [], "all modes");
-      fillSelect("f-status", state.facets.statuses || [], "all statuses");
-      fillSelect("f-provider", state.facets.provider_kinds || [], "all providers");
-      fillSelect("f-completeness", state.facets.completeness || [], "all evidence");
+      fillSelect("f-stage", state.facets.stages || [], "所有阶段");
+      fillSelect("f-source", state.facets.source_kinds || [], "所有来源");
+      fillSelect("f-mode", state.facets.modes || [], "所有模式");
+      fillSelect("f-status", state.facets.statuses || [], "所有状态");
+      fillSelect("f-provider", state.facets.provider_kinds || [], "所有 Provider");
+      fillSelect("f-completeness", state.facets.completeness || [], "全部证据");
       renderRuns(data);
+      $("run-pages").hidden = data.total <= pageSize;
+      $("run-page").textContent = `第 ${Math.floor(state.offset / pageSize) + 1} / ${Math.ceil(data.total / pageSize)} 页`;
+      $("run-prev").disabled = state.offset === 0;
+      $("run-next").disabled = !data.truncated;
     } catch (error) {
-      $("runs").innerHTML = `<div class="error" style="margin:10px">${esc(error.message)}</div>`;
+      $("run-pages").hidden = true;
+      $("runs").innerHTML = `<div class="error" style="margin:10px">加载运行列表失败。后端详情：${esc(error.message)}</div>`;
     }
   }
 
   function renderRuns(data) {
     const holder = $("runs");
     if (!state.runs.length) {
-      holder.innerHTML = `<div class="empty" style="padding:12px">No runs match the current filters.
-        Configured roots: ${esc((data && data.total === 0) ? "see /api/replay/sources" : "")}</div>`;
+      holder.innerHTML = `<div class="empty" style="padding:12px">没有符合筛选条件的运行。
+        证据目录： ${esc((data && data.total === 0) ? "参见 /api/replay/sources" : "")}</div>`;
       return;
     }
     holder.innerHTML = state.runs.map((run) => {
@@ -269,21 +290,21 @@
         <div class="meta">
           <span>${esc(run.source_kind)}</span><span>·</span>
           <span>${esc(run.execution.mode)}</span><span>·</span>
-          <span>${esc(run.status.recorded)}</span>
+          <span>${esc(zhState(run.status.recorded))}</span>
           ${provider ? `<span class="badge">${esc(provider)}</span>` : ""}
         </div>
         <div class="meta"><span>${esc(run.experiment.stage)}</span><span>·</span>
           <span>${run.completeness.level}/${run.completeness.total}</span><span>·</span>
-          <span>${esc((run.timing.started_at || "").slice(0, 19) || "no timestamp")}</span></div>
+          <span>${esc((run.timing.started_at || "").slice(0, 19) || "无时间记录")}</span></div>
       </div>`;
     }).join("");
     holder.querySelectorAll("[data-key]").forEach((node) => node.addEventListener("click", () => select(node.dataset.key)));
   }
 
   const TABS = [
-    ["overview", "Overview"], ["timeline", "Timeline"], ["agents", "Agents"],
-    ["delegation", "Delegation"], ["context", "Context & Resources"], ["tools", "Tools"],
-    ["artifacts", "Artifacts"], ["verification", "Verification"], ["requests", "Requests"],
+    ["overview", "运行概览"], ["timeline", "执行时间线"], ["agents", "Agent 列表"],
+    ["delegation", "Delegation 决策"], ["context", "Context 与资源"], ["tools", "工具"],
+    ["artifacts", "Artifact 产物"], ["verification", "验证结果"], ["requests", "请求日志"],
   ];
 
   function renderTabs() {
@@ -310,15 +331,15 @@
     }
     renderRuns({ total: state.runs.length });
     renderTabs();
-    $("runbar").innerHTML = `<span class="muted">loading ${esc(key)}…</span>`;
-    $("view").innerHTML = `<div class="empty">loading…</div>`;
+    $("runbar").innerHTML = `<span class="muted">正在加载 ${esc(key)}…</span>`;
+    $("view").innerHTML = `<div class="empty">加载中…</div>`;
     try {
       const overview = await api(`/api/replay/runs/${encodeURIComponent(key)}`);
       state.detail = overview;
       renderRunBar(overview);
       await loadTab();
     } catch (error) {
-      $("runbar").innerHTML = `<span class="bad">failed to load run</span>`;
+      $("runbar").innerHTML = `<span class="bad">加载运行失败</span>`;
       $("view").innerHTML = `<div class="error">${esc(error.message)}</div>`;
     }
   }
@@ -343,10 +364,10 @@
     const url = `/api/replay/runs/${encodeURIComponent(state.key)}${path}`;
     const view = $("view");
     if (state.cache[tab]) { view.innerHTML = state.cache[tab]; return; }
-    view.innerHTML = `<div class="empty">loading ${esc(tab)}…</div>`;
+    view.innerHTML = `<div class="empty">正在加载 ${esc(tab)}…</div>`;
     try {
       const data = await api(url);
-      const html = RENDER[tab] ? RENDER[tab](data) : `<div class="error">no renderer</div>`;
+      const html = RENDER[tab] ? RENDER[tab](data) : `<div class="error">无法显示此页面</div>`;
       state.cache[tab] = html;
       view.innerHTML = html;
       if (tab === "timeline") wireLanes(data);
@@ -355,19 +376,171 @@
     }
   }
 
+  const displayLabels = {
+    "warnings": "警告",
+    "counts": "计数",
+    "parallel lanes": "并行轨道",
+    "order-only evidence": "仅有顺序的证据",
+    "agents and execution roles": "Agent 与执行角色",
+    "task objectives": "任务目标",
+    "topology": "执行拓扑",
+    "ownership grants": "Ownership 授权",
+    "owned paths": "已授权路径",
+    "delegation plane": "Delegation 状态",
+    "router decision": "Router 决策",
+    "reason codes": "原因码",
+    "max observed concurrency": "实际最大并发",
+    "policy": "策略",
+    "admission gates": "准入检查",
+    "gate": "检查项",
+    "limits": "限制",
+    "child workers": "子 Worker",
+    "task / worker": "任务 / Worker",
+    "profile": "配置",
+    "success": "成功状态",
+    "tokens": "Token",
+    "turns": "轮次",
+    "start \u2192 finish": "开始 → 结束",
+    "observed overlap": "已观测到的重叠",
+    "overlap": "重叠",
+    "refusals": "拒绝记录",
+    "size": "大小",
+    "created": "创建时间",
+    "main prompt": "Main 输入 Token",
+    "child prompt": "Worker 输入 Token",
+    "known consumption floor": "已知用量下限",
+    "peak context": "Context 峰值",
+    "system max agent context": "系统中的单 Agent Context 最大值",
+  "execution mode": "执行模式",
+  "arm / profile": "实验组 / 配置",
+  "agents": "Agent 数量",
+  "duration": "耗时",
+  "system tokens": "系统 Token",
+  "estimated cost": "估算费用",
+  "task goal": "任务目标",
+  "run identity": "运行身份",
+  "run key": "运行标识",
+  "cell id": "评测单元 ID",
+  "evidence root": "证据目录",
+  "run directory": "运行目录",
+  "plan": "计划",
+  "scope": "范围",
+  "batch": "批次",
+  "task": "任务",
+  "requested → returned model": "请求模型 → 返回模型",
+  "provider": "Provider",
+  "started": "开始时间",
+  "finished": "结束时间",
+  "execution topology": "执行拓扑",
+  "main agents": "Main Agent",
+  "workers": "Worker 数量",
+  "native agents": "原生 Agent",
+  "dag nodes": "DAG 节点",
+  "sources read": "已读取来源",
+  "verification summary": "验证摘要",
+  "evidence completeness": "证据完整性",
+  "role": "角色",
+  "path": "路径",
+  "source": "来源",
+  "time": "时间",
+  "agent": "Agent",
+  "decision": "决定",
+  "reason": "原因",
+  "outcome": "结果",
+  "event": "事件",
+  "summary": "摘要",
+  "status": "状态",
+  "mode": "模式",
+  "model": "模型",
+  "usage": "用量",
+  "children": "子 Worker",
+  "handoffs": "Handoff 数量",
+  "public test calls": "授权测试调用",
+  "public test": "授权测试",
+  "per-request context series": "逐请求 Context 序列",
+  "cache and cost": "Cache 与费用",
+  "cache hit": "Cache 命中",
+  "cache miss": "Cache 未命中",
+  "hit rate": "命中率",
+  "cost basis": "费用依据",
+  "shared budget": "共享预算",
+  "limit": "上限",
+  "used": "已用",
+  "remaining": "剩余",
+  "requests started / completed": "已开始 / 已完成请求",
+  "admission rejections": "准入拒绝",
+  "stop reason": "停止原因",
+  "attribution": "用量归因",
+  "main": "Main Agent",
+  "system total": "系统总量",
+  "known floor": "已知下限",
+  "tool / call": "工具 / 调用",
+  "out bytes": "输出字节",
+  "input / refusal note": "输入 / 拒绝说明",
+  "declared tool surface": "声明的工具集合",
+  "denied calls": "被拒绝的调用",
+  "changed files": "变更文件",
+  "patch recorded": "已记录 Patch",
+  "workspace patch — changed files": "工作区 Patch 与文件变更",
+  "export": "导出",
+  "export path": "导出路径",
+  "files": "文件",
+  "workspace digest": "工作区摘要",
+  "directory digest": "目录摘要",
+  "oracle mode": "Oracle 模式",
+  "worker handoffs": "Worker Handoff",
+  "ref": "引用",
+  "chars": "字符数",
+  "digest": "摘要",
+  "verification axes": "验证维度",
+  "axis": "维度",
+  "value": "结果",
+  "note": "说明",
+  "raw agent success": "Agent 原始成功状态",
+  "effective agent completion": "Agent 实际完成状态",
+  "static acceptance": "静态验收",
+  "independent oracle": "Independent Oracle",
+  "execution integrity": "执行完整性",
+  "delivered success": "交付成功",
+  "kind": "类型",
+  "environment failure": "环境故障",
+  "return code": "返回码",
+  "image": "镜像",
+  "evidence": "证据",
+  "exit": "退出码",
+  "ms": "毫秒",
+  "cell integrity checks": "评测单元完整性",
+  "executor checks": "执行器检查",
+  "check": "检查",
+  "detail": "详情",
+  "affects verdict": "影响结论",
+  "ok": "结果",
+  "provider requests": "Provider 请求",
+  "requests": "请求总数",
+  "retained records": "保留记录数",
+  "completed": "已完成",
+  "failed": "失败",
+  "unknown terminal": "终态未知",
+  "request journal": "Request Journal",
+  "provider / phase": "Provider / 阶段",
+  "state": "状态",
+  "error type": "异常类型",
+  "message": "消息"
+};
+  const labelOf = value => displayLabels[value] ?? value;
   function panel(title, body, sub = "") {
-    return `<section class="panel"><h2>${esc(title)}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</h2>${body}</section>`;
+    return `<section class="panel"><h2>${esc(labelOf(title))}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</h2>${body}</section>`;
   }
   function kpi(label, value, note = "") {
-    return `<div class="kpi"><div class="label">${esc(label)}</div>
+    return `<div class="kpi"><div class="label">${esc(labelOf(label))}</div>
       <div class="value">${num(value)}</div>${note ? `<div class="note">${esc(note)}</div>` : ""}</div>`;
   }
   function kv(pairs) {
-    return `<div class="kv">${pairs.map(([k, v]) => `<div>${esc(k)}</div><div>${v}</div>`).join("")}</div>`;
+    return `<div class="kv">${pairs.map(([k, v]) => `<div>${esc(labelOf(k))}</div><div>${v}</div>`).join("")}</div>`;
   }
-  function table(headers, rows, empty = "no rows recorded") {
+  function table(headers, rows, empty = "暂无记录") {
     if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
-    return `<div class="scroll"><table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+    return `<div class="scroll"><table><thead><tr>${headers.map((h) => `<th>${esc(labelOf(h))}</th>`).join("")}</tr></thead>
       <tbody>${rows.join("")}</tbody></table></div>`;
   }
 
@@ -380,7 +553,7 @@
       return `<div class="grid g3">
           ${kpi("execution mode", d.execution.mode, d.execution.mode_source)}
           ${kpi("arm / profile", d.execution.arm_id, d.execution.profile_id)}
-          ${kpi("agents", d.counts.agents, `${d.counts.children_started} children started`)}
+          ${kpi("agents", d.counts.agents, `${d.counts.children_started} 个子 Worker 已启动`)}
           ${kpi("duration", d.timing.duration_s === null ? "UNKNOWN" : `${d.timing.duration_s}s`, d.timing.basis)}
           ${kpi("system tokens", d.usage.system_total_tokens, d.usage.basis)}
           ${kpi("estimated cost", d.cost.estimated_usd === "UNKNOWN" ? "UNKNOWN" : `$${d.cost.estimated_usd}`)}
@@ -410,17 +583,17 @@
             </div><div class="fade" style="margin-top:8px">${esc(d.topology.note)}</div>`)}
             ${panel("sources read", table(["role", "path"], d.sources.map((s) =>
               `<tr><td class="mono">${esc(s.role)}</td><td class="mono">${esc(s.root)}/${esc(s.path)}</td></tr>`),
-              "no source file was classified"))}
+              "没有已识别的来源文件"))}
           </div>
           <aside class="grid" style="gap:12px">
             ${panel("verification summary", kv(Object.entries(d.verification_summary.axes)
               .filter(([, v]) => v === null || typeof v !== "object")
               .map(([k, v]) => [k, okBadge(v)]))
-              + `<div class="fade" style="margin-top:8px">headline: ${badge(d.verification_summary.headline)}</div>`)}
+              + `<div class="fade" style="margin-top:8px">结论： ${badge(d.verification_summary.headline)}</div>`)}
             ${panel("evidence completeness", `<div style="margin-bottom:8px">${badge(d.completeness.level)}
-              <span class="muted">${d.completeness.present}/${d.completeness.total} facets</span></div>
+              <span class="muted">${d.completeness.present}/${d.completeness.total} 项证据</span></div>
               <div class="kv">${facets}</div>
-              ${d.completeness.missing.length ? `<div class="fade" style="margin-top:8px">missing: ${esc(d.completeness.missing.join(", "))}</div>` : ""}`)}
+              ${d.completeness.missing.length ? `<div class="fade" style="margin-top:8px">缺失项：${esc(d.completeness.missing.join(", "))}</div>` : ""}`)}
             ${d.warnings.length ? panel("warnings", `<div class="notice">${d.warnings.map(esc).join("<br>")}</div>`) : ""}
             ${panel("counts", kv([
               ["model requests", num(d.counts.model_requests)],
@@ -436,7 +609,7 @@
     timeline(d) {
       const lanes = {};
       d.events.filter((e) => e.timestamp).forEach((e) => {
-        const who = e.agent_id || "(no agent recorded)";
+        const who = e.agent_id || "（未记录 Agent）";
         (lanes[who] = lanes[who] || []).push(e);
       });
       const names = Object.keys(lanes);
@@ -455,10 +628,10 @@
         <div class="grid" style="gap:12px">
           ${panel("parallel lanes", names.length ? `<div class="lanes">${laneHtml}</div>
             <div class="axis"><span>${esc((observed[0] || {}).timestamp || "")}</span>
-            <span>${esc((observed[observed.length - 1] || {}).timestamp || "")}</span></div>` : `<div class="empty">no observed timestamp in this evidence</div>`,
+            <span>${esc((observed[observed.length - 1] || {}).timestamp || "")}</span></div>` : `<div class="empty">此证据未记录时间戳</div>`,
             "real timestamps only")}
           ${ordered.length ? panel("order-only evidence",
-            `<div class="notice">${ordered.length} events carry no timestamp. They are listed in recorded order and
+            `<div class="notice">${ordered.length} events carry 无时间记录. They are listed in recorded order and
              are never placed on the time axis.</div>
              ${table(["order", "agent", "type", "summary", "source"],
                ordered.map((e) => `<tr><td class="mono">${e.sequence}</td><td>${esc(e.agent_id || "—")}</td>
@@ -493,7 +666,7 @@
           ["agent", "role", "profile", "parent", "stop reason", "raw success", "effective", "tokens in/out", "turns/calls", "window"],
           d.agents.length ? [rows] : [], "no agent evidence"))}
         <div class="split">
-          ${panel("task objectives", objectives || `<div class="empty">no objective recorded</div>`)}
+          ${panel("task objectives", objectives || `<div class="empty">未记录任务目标</div>`)}
           ${panel("topology", kv([
             ["agents", num(d.topology.agents)],
             ["planned", badge(d.topology.planned_state)],
@@ -531,8 +704,8 @@
         <td class="mono">${fmt(h.length)} chars</td><td class="mono dim">${fmt(h.created_at)}</td></tr>`).join("");
       return `<div class="grid" style="gap:12px">
         <div class="notice ${d.state === "DELEGATION_OBSERVED" ? "ok" : ""}">
-          <b>${esc(d.state)}</b> · ${esc(d.reason)}<br>
-          <span class="muted">delegation enabled: ${esc(d.delegation_enabled)} ·
+          <b>${esc(zhState(d.state))}</b> · ${esc(d.reason)}<br>
+          <span class="muted">启用 Delegation： ${esc(d.delegation_enabled)} ·
           delegate_tasks called: ${esc(d.delegate_tasks_called)}</span>
         </div>
         <div class="grid g3">
@@ -542,8 +715,8 @@
           ${kpi("policy", d.policy.version, (d.policy.digest || "").slice(0, 26))}
         </div>
         <div class="split">
-          ${panel("admission gates", table(["gate", "status", "reason codes"], gates ? [gates] : [], "no gate record"))}
-          ${panel("limits", kv(Object.entries(d.limits).map(([k, v]) => [k, fmt(v)])), "recorded session limits")}
+          ${panel("admission gates", table(["gate", "status", "reason codes"], gates ? [gates] : [], "未记录准入检查"))}
+          ${panel("limits", kv(Object.entries(d.limits).map(([k, v]) => [k, fmt(v)])), "会话记录中的限制")}
         </div>
         ${panel("child workers", table(["task / worker", "profile", "status", "success", "tokens", "turns", "start → finish", "handoff"],
           children ? [children] : [], "no child worker executed"))}
@@ -585,9 +758,9 @@
               <svg viewBox="0 0 280 64" width="100%" height="64" preserveAspectRatio="none">
                 <path d="${spark}" fill="none" stroke="#58a6ff" stroke-width="1.5" />
               </svg>
-              <div class="fade">source: ${esc(d.request_series.source)} · peak ${num(d.request_series.peak)} ·
-                cumulative ${num(d.request_series.cumulative)}</div>` :
-              `<div class="empty">no per-request series recorded</div>`, "ATLAS_MAIN only, never a system series")}
+              <div class="fade">source: ${esc(d.request_series.source)} · 峰值 ${num(d.request_series.peak)} ·
+                累计 ${num(d.request_series.cumulative)}</div>` :
+              `<div class="empty">未记录逐请求序列</div>`, "仅统计 ATLAS_MAIN")}
             ${panel("cache and cost", kv([
               ["cache hit", num(t.cache_hit_tokens)],
               ["cache miss", num(t.cache_miss_tokens)],
@@ -627,7 +800,7 @@
         <td class="mono dim">${esc((r.reason_codes || []).join(", "))}</td>
         <td>${fmt(r.outcome)}${r.is_error === true ? ' <span class="bad">error</span>' : ""}</td>
         <td class="mono">${fmt(r.result_size)}</td>
-        <td class="fade">${esc(r.input_excerpt || (r.input_withheld ? "payload withheld" : "—"))}</td>
+        <td class="fade">${esc(r.input_excerpt || (r.input_withheld ? "输入内容未公开" : "—"))}</td>
         <td class="mono dim">${esc(r.source)}</td></tr>`).join("");
       return `${panel(`tool operations (${d.total})`, table(
         ["time", "tool / call", "agent", "decision", "reason", "outcome", "out bytes", "input / refusal note", "source"],
@@ -648,13 +821,13 @@
         <td class="mono">${esc(h.task)}</td><td class="mono">${fmt(h.length)}</td>
         <td class="mono dim">${esc((h.content_digest || "").slice(0, 26))}</td></tr>`).join("");
       return `<div class="grid g3">
-          ${kpi("changed files", d.patch.changed_count, d.patch.digest ? String(d.patch.digest).slice(0, 30) : "no patch digest")}
+          ${kpi("changed files", d.patch.changed_count, d.patch.digest ? String(d.patch.digest).slice(0, 30) : "无 Patch 摘要")}
           ${kpi("patch recorded", d.patch.available ? "YES" : "NO", d.patch.path || "")}
           ${kpi("handoffs", d.handoffs.length)}
         </div>
         <div class="split" style="margin-top:12px">
           ${panel("workspace patch — changed files", table(["path", "source"], files ? [files] : [],
-            "no workspace patch in this evidence"))}
+            "此证据中没有工作区 Patch"))}
           <aside class="grid" style="gap:12px">
             ${panel("export", kv([
               ["export path", esc(d.workspace.export_path)],
@@ -664,7 +837,7 @@
               ["oracle mode", fmt(d.deliverable.oracle_mode)],
             ]) + `<div class="fade" style="margin-top:8px">${esc(d.workspace.note)}</div>`)}
             ${panel("worker handoffs", table(["ref", "task", "chars", "digest"], handoffs ? [handoffs] : [],
-              "no handoff recorded"))}
+              "未记录 Handoff"))}
           </aside>
         </div>
         <div class="fade" style="margin-top:10px">${d.notes.map(esc).join(" · ")}</div>`;
@@ -686,7 +859,7 @@
         <td>${esc(p.reason || "")}</td></tr>`).join("");
       const oracle = d.detail.oracle || {};
       return `<div class="notice ${d.headline === "DELIVERED_AND_VERIFIED" ? "ok" : "bad"}">
-          headline: <b>${esc(d.headline)}</b> — ${esc(d.note)}</div>
+          结论： <b>${esc(d.headline)}</b> — ${esc(d.note)}</div>
         <div class="split" style="margin-top:12px">
           ${panel("verification axes", table(["axis", "value", "note"], [
             axisRow("raw agent success", a.raw_agent_success, (a.axis_sources || {}).raw_agent_success || ""),
@@ -708,24 +881,24 @@
               ["evidence", fmt(oracle.evidence)],
             ]) + (oracle.diagnostic ? `<div class="fade" style="margin-top:8px">${esc(oracle.diagnostic)}</div>` : ""))}
             ${panel("public test calls", table(["#", "status", "exit", "ms", "reason"],
-              publicTests ? [publicTests] : [], "the public suite did not run in this evidence"))}
+              publicTests ? [publicTests] : [], "此证据中未执行授权测试"))}
           </aside>
         </div>
         <div class="grid g2" style="margin-top:12px">
           ${panel("cell integrity checks", table(["check", "status", "detail", "affects verdict"],
-            checks ? [checks] : [], "no integrity check table recorded"))}
+            checks ? [checks] : [], "未记录完整性检查"))}
           ${panel("executor checks", table(["check", "ok", "detail"], executor ? [executor] : [],
-            "no executor check table recorded"))}
+            "未记录执行器检查"))}
         </div>`;
     },
 
     requests(d) {
       if (d.state !== "AVAILABLE") {
-        return `${panel("provider requests", `<div class="notice bad"><b>${esc(d.state)}</b><br>${esc(d.reason)}</div>
+        return `${panel("provider requests", `<div class="notice bad"><b>${esc(zhState(d.state))}</b><br>${esc(d.reason)}</div>
           <div class="fade" style="margin-top:10px">${esc(d.note)}</div>
           <div class="kv" style="margin-top:10px">
-            <div>journal source</div><div class="mono">${esc(d.journal.source)}</div>
-            <div>journal available</div><div>${badge("UNAVAILABLE")}</div>
+            <div>日志来源</div><div class="mono">${esc(d.journal.source)}</div>
+            <div>日志状态</div><div>${badge("UNAVAILABLE")}</div>
           </div>`)}`;
       }
       const rows = d.entries.map((e) => `<tr>
@@ -735,7 +908,7 @@
         <td class="mono">${fmt(e.http_status)}</td><td class="mono dim">${fmt(e.error_type)}</td>
         <td class="fade">${e.provider_error_code ? `<span class="mono">${esc(e.provider_error_code)}</span> ` : ""}${esc(e.error_message || "")}</td>
         <td>${badge(e.usage_status)}</td></tr>`).join("");
-      return `<div class="fade" style="margin-bottom:10px">Journal ${badge(d.state)} · <span class="mono">${esc(d.journal.source)}</span></div>
+      return `<div class="fade" style="margin-bottom:10px">Request Journal ${badge(d.state)} · <span class="mono">${esc(d.journal.source)}</span></div>
         <div class="grid g3">
           ${kpi("requests", d.counts.total)}
           ${d.journal.records_truncated ? kpi("retained records", d.counts.retained) : ""}
@@ -745,7 +918,7 @@
         </div>
         <div style="margin-top:12px">${panel("request journal", table(
           ["id", "agent", "provider / phase", "state", "model", "http", "error type", "message", "usage"],
-          d.entries.length ? [rows] : [], "no request entries"))}</div>
+          d.entries.length ? [rows] : [], "没有请求记录"))}</div>
         <div class="fade" style="margin-top:10px">${esc(d.note)}</div>`;
     },
   };
@@ -759,7 +932,7 @@
     const span = max - min || 1;
     const byAgent = {};
     observed.forEach((e) => {
-      const who = e.agent_id || "(no agent recorded)";
+      const who = e.agent_id || "（未记录 Agent）";
       (byAgent[who] = byAgent[who] || []).push(e);
     });
     document.querySelectorAll(".view .lane").forEach((lane) => {
@@ -784,14 +957,14 @@
     try {
       const data = await api("/api/replay/sources");
       $("roots-note").textContent = data.configured
-        ? `${data.roots.length} evidence root(s) · ${data.stats.runs} runs · ${data.stats.files} files`
-        : "no evidence root configured";
+        ? `${data.roots.length} 个证据目录 · ${data.stats.runs} 次运行 · ${data.stats.files} 个文件`
+        : "未配置证据目录";
       if (!data.configured) {
-        $("view").innerHTML = `<div class="panel"><h1>No evidence root configured</h1>
-          <p class="muted">Start the workbench with one or more read-only evidence roots:</p>
+        $("view").innerHTML = `<div class="panel"><h1>未配置证据目录</h1>
+          <p class="muted">启动 Workbench 时请指定至少一个只读证据目录：</p>
           <pre class="mono" style="background:#070a0e;border:1px solid var(--line);padding:10px;border-radius:6px;overflow:auto">atlas web --replay-roots D:\\Work\\AtlasRuntime-runs --replay-roots D:\\Work\\AtlasRuntime-archive</pre>
-          <p class="muted">Or set <span class="mono">ATLASOS_REPLAY_ROOTS</span> to a list of paths.
-          Nothing on this page writes to disk.</p></div>`;
+          <p class="muted">也可将 <span class="mono">ATLASOS_REPLAY_ROOTS</span> 设为一组路径。
+          此页面只读取证据。</p></div>`;
         return;
       }
       $("sources-kv").innerHTML = [
@@ -808,7 +981,7 @@
           `${esc(p.reason)}${p.path ? " " + esc(p.path) : ""}${p.detail ? " — " + esc(p.detail) : ""}`).join("<br>")}${rest > 0 ? `<br>… and ${rest} more in /api/replay/sources` : ""}</div>`;
       }
     } catch (error) {
-      $("roots-note").textContent = "replay sources unavailable";
+      $("roots-note").textContent = "无法读取 Replay 证据来源";
       $("view").innerHTML = `<div class="error">${esc(error.message)}</div>`;
     }
   }
@@ -824,9 +997,11 @@
     let timer = null;
     node.addEventListener(event, () => {
       clearTimeout(timer);
-      timer = setTimeout(loadRuns, 180);
+      timer = setTimeout(() => { state.offset = 0; loadRuns(); }, 180);
     });
   });
+  $("run-prev").addEventListener("click", () => { state.offset = Math.max(0, state.offset - pageSize); loadRuns(); });
+  $("run-next").addEventListener("click", () => { state.offset += pageSize; loadRuns(); });
   window.addEventListener("popstate", () => {
     const key = restoreFromUrl();
     if (key) select(key, { push: false });

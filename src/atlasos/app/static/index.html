@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AtlasOS</title>
+  <title>AtlasRuntime · 工作台</title>
   <style>
     :root {
       color-scheme: dark;
@@ -28,6 +28,12 @@
     p.muted, .muted { color: var(--muted); }
     .grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 18px; }
     @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 600px) {
+      header, nav { flex-wrap: wrap; gap: 10px; }
+      main { padding: 12px; }
+      .panel { min-width: 0; overflow-wrap: anywhere; }
+      .panel table { display: block; overflow-x: auto; }
+    }
     .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
     label { display: block; color: var(--muted); margin: 12px 0 5px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
     textarea, input, select { width: 100%; background: #0d1117; color: var(--text);
@@ -78,23 +84,24 @@
 <header>
   <div class="brand">Atlas<span>OS</span></div>
   <nav>
-    <a href="/" data-nav="new">New Task</a>
-    <a href="/history" data-nav="history">History</a>
-    <a href="/approvals" data-nav="approvals">Approvals</a>
-    <a href="/replay">Replay</a>
+    <a href="/" data-nav="new">新建任务</a>
+    <a href="/history" data-nav="history">运行历史</a>
+    <a href="/approvals" data-nav="approvals">审批</a>
+    <a href="/replay">历史回放</a>
   </nav>
-  <span class="muted small" style="margin-left:auto">local runtime · loopback</span>
+  <span class="muted small" style="margin-left:auto">本地 Runtime · 仅回环</span>
 </header>
 <main id="app">
-  <p class="muted">Loading…</p>
+  <p class="muted">加载中…</p>
 </main>
+<script src="/workbench-labels.js"></script>
 <script>
 (() => {
   const app = document.getElementById("app");
   const escHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const esc = escHtml;
-  const statusBadge = (status) => `<span class="status ${esc(status)}">${esc(status)}</span>`;
+  const statusBadge = (status) => `<span class="status ${esc(status)}" title="${esc(status)}">${esc(zhState(status))}</span>`;
   const fmt = (value) => value == null ? "—" : esc(value);
 
   async function api(path, options = {}) {
@@ -130,71 +137,71 @@
     app.innerHTML = `
       <div class="grid">
         <section class="panel">
-          <h1>Start a task</h1>
-          <p class="muted">Main-driven modes run the real Main agent loop through <code>run_goal</code>:
-          Direct builds no delegation tool at all; Dynamic offers <code>delegate_tasks</code> and the
-          runtime router decides whether a request is admitted. Workflow and Coding keep their
-          existing paths.</p>
-          ${scripted ? `<div class="notice small" style="margin-bottom:12px"><strong>Scripted provider.</strong>
-            This server was started with <code>--provider deterministic</code>: no model is called.
-            Every run record names the provider, and the usage is a chars/4 estimate, not a bill.</div>` : ""}
-          ${config ? "" : `<div class="error small" style="margin-bottom:12px">The server did not return a workspace menu; only the existing workflow and coding modes are usable.</div>`}
-          <label for="task">Task</label>
-          <textarea id="task" placeholder="e.g. Write the deliverable for the demo goal."></textarea>
+          <h1>新建任务</h1>
+          <p class="muted">Main 模式通过 <code>run_goal</code>:
+          Direct 模式不提供 Delegation 工具，Dynamic 模式提供 <code>delegate_tasks</code> ，由
+          Runtime Router 决定是否接受请求。Workflow 和 Coding
+          沿用各自的执行入口。</p>
+          ${scripted ? `<div class="notice small" style="margin-bottom:12px"><strong>确定性 Provider。</strong>
+            当前以 <code>--provider deterministic</code> 启动，运行不调用模型。
+            运行记录会标明 Provider。Token 用量按字符数除以 4 估算，不用于计费。</div>` : ""}
+          ${config ? "" : `<div class="error small" style="margin-bottom:12px">无法读取工作区列表。目前仅可使用原有的 workflow 和 coding 模式。</div>`}
+          <label for="task">任务</label>
+          <textarea id="task" placeholder="例如：修复输入为空时的返回值。"></textarea>
           <div class="row" style="margin-top:12px">
             <div style="flex:1">
-              <label for="mode">Mode</label>
+              <label for="mode">执行模式</label>
               <select id="mode">
-                <option value="main_direct">main_direct — Main only, no delegation tool</option>
-                <option value="main_dynamic">main_dynamic — Main + selective delegation</option>
-                <option value="coding">coding — real OpenSandbox UAT composition</option>
-                <option value="workflow">workflow — static two-agent DAG, no tools</option>
+                <option value="main_direct">main_direct — 仅 Main Agent，无 Delegation 工具</option>
+                <option value="main_dynamic">main_dynamic — Main Agent 与选择性 Delegation</option>
+                <option value="coding">coding — 使用真实 OpenSandbox 的验收流程</option>
+                <option value="workflow">workflow — 双 Agent 静态 DAG，无工具</option>
               </select>
             </div>
             <div style="width:150px">
-              <label for="turns">Main max turns</label>
+              <label for="turns">Main Agent 最大轮次</label>
               <input id="turns" type="number" min="1" max="40" value="${escHtml(defaults.max_turns || 16)}" />
             </div>
             <div style="width:200px" id="budget-wrap">
-              <label for="budget">Token budget</label>
+              <label for="budget">Token 预算</label>
               <input id="budget" type="number" min="1" max="${escHtml(defaults.max_budget_tokens || 2000000)}" value="${escHtml(defaults.budget_tokens || 500000)}" />
             </div>
           </div>
           <div id="workspace-wrap" style="margin-top:12px">
-            <label for="workspace">Workspace</label>
+            <label for="workspace">工作区</label>
             <select id="workspace">
               ${workspaces.map((name) => `<option value="${escHtml(name)}">${escHtml(name)}</option>`).join("")}
             </select>
-            <p class="small muted">Choose an original workspace under a configured root. The agent works on an isolated copy.</p>
+            <p class="small muted">请选择已配置目录下的原始工作区。Agent 在隔离副本中工作。</p>
           </div>
           <div id="interactive-wrap" style="margin-top:12px">
-            <label><input type="checkbox" id="interactive" style="width:auto" /> Review changes for a clean Git workspace</label>
+            <label><input type="checkbox" id="interactive" style="width:auto" /> 为干净的 Git 工作区审查变更</label>
             <div id="new-paths-wrap" class="hidden" style="margin-top:10px">
-              <label for="new-paths">Authorize new files (one relative path per line)</label>
+              <label for="new-paths">授权新文件（每行一个相对路径）</label>
               <textarea id="new-paths" rows="2" placeholder="solution/answer.txt"></textarea>
             </div>
           </div>
           <div class="row" style="margin-top:16px">
-            <button id="submit">Submit task</button>
+            <button id="submit">提交任务</button>
             <span id="submit-note" class="muted small"></span>
           </div>
           <div id="submit-error" class="error hidden" style="margin-top:12px"></div>
         </section>
         <aside class="panel">
-          <h2>Execution configuration</h2>
+          <h2>运行配置</h2>
           <div class="kv">
             <div>Provider</div><div>${escHtml(config ? config.provider : "deepseek")} (${escHtml(config ? config.provider_kind : "LIVE_MODEL")})</div>
-            <div>Model</div><div>${escHtml(config ? config.model : "deepseek-chat")}</div>
-            <div>Sandbox</div><div>${config && config.sandbox && config.sandbox.enabled ? `OpenSandbox · ${escHtml(config.sandbox.image)}` : "host mode (no isolation)"}</div>
-            <div>Budget</div><div>run-scoped, guarded; ${escHtml(defaults.budget_tokens || 500000)} tokens by default, ${escHtml(defaults.max_budget_tokens || 2000000)} maximum</div>
-            <div>Concurrency</div><div>one Main-driven run at a time</div>
-            <div>Cancel</div><div>CANCEL_UNAVAILABLE in this version</div>
-            <div>Replay</div><div>a finished run is the same run in <a href="/replay">Replay</a></div>
+            <div>模型</div><div>${escHtml(config ? config.model : "deepseek-chat")}</div>
+            <div>Sandbox</div><div>${config && config.sandbox && config.sandbox.enabled ? `OpenSandbox · ${escHtml(config.sandbox.image)}` : "宿主机模式（无隔离）"}</div>
+            <div>Token 预算</div><div>按运行限制，估算守卫。 ${escHtml(defaults.budget_tokens || 500000)} Token 为默认值，上限为 ${escHtml(defaults.max_budget_tokens || 2000000)} Token</div>
+            <div>并发</div><div>每次仅执行一个 Main Agent 驱动的任务</div>
+            <div>取消</div><div>当前版本无法取消（CANCEL_UNAVAILABLE）</div>
+            <div>历史回放</div><div>完成的运行可在以下页面回放： <a href="/replay">历史回放</a></div>
           </div>
-          <h2 style="margin-top:18px">Execution boundary</h2>
-          <p class="muted small">The UI projects runtime state and submits a request through the
-          application service. It does not schedule agents, execute tools, approve actions, resume
-          sandboxes, or decide a delegation.</p>
+          <h2 style="margin-top:18px">执行边界</h2>
+          <p class="muted small">界面显示 Runtime 状态，并通过
+          应用服务提交请求。Agent 调度、工具执行、审批、恢复和 Delegation 决策
+          均由后端处理。</p>
         </aside>
       </div>`;
     const mode = document.getElementById("mode");
@@ -214,11 +221,11 @@
       const error = document.getElementById("submit-error");
       error.classList.add("hidden");
       const task = document.getElementById("task").value.trim();
-      if (!task) { error.textContent = "Enter a task."; error.classList.remove("hidden"); return; }
+      if (!task) { error.textContent = "请输入任务目标。"; error.classList.remove("hidden"); return; }
       const mainMode = mode.value.startsWith("main_");
       button.disabled = true;
       const review = mainMode && interactive.checked;
-      document.getElementById("submit-note").textContent = "submitting…";
+      document.getElementById("submit-note").textContent = "正在提交…";
       try {
         const run = await api("/api/runs", {
           method: "POST",
@@ -234,7 +241,7 @@
         });
         location.href = `/runs/${encodeURIComponent(run.run_id)}`;
       } catch (err) {
-        error.textContent = err.message;
+        error.textContent = `提交失败。后端详情：${err.message}`;
         error.classList.remove("hidden");
         document.getElementById("submit-note").textContent = "";
       } finally { button.disabled = false; }
@@ -242,14 +249,14 @@
   }
 
   async function historyView() {
-    app.innerHTML = `<h1>History</h1><p class="muted">Persisted run projections; survives service restart.</p>
-      <label for="history-filter">Filter by Run ID or task</label>
-      <input id="history-filter" placeholder="app-… or task text" />
-      <div id="runs" style="margin-top:14px"><p class="muted">Loading…</p></div>`;
+    app.innerHTML = `<h1>运行历史</h1><p class="muted">服务重启后仍可查看运行记录。</p>
+      <label for="history-filter">按运行 ID 或任务筛选</label>
+      <input id="history-filter" placeholder="输入 app-… 或任务内容" />
+      <div id="runs" style="margin-top:14px"><p class="muted">加载中…</p></div>`;
     try {
       const runs = await api("/api/runs");
       const holder = document.getElementById("runs");
-      if (!runs.length) { holder.innerHTML = `<div class="panel muted">No runs yet.</div>`; return; }
+      if (!runs.length) { holder.innerHTML = `<div class="panel muted">暂无运行记录。</div>`; return; }
       holder.innerHTML = `<div class="cards">${runs.map((run) => `
         <div class="card" data-run="${esc(run.run_id)}" data-search="${esc((run.run_id + " " + run.task).toLowerCase())}">
           <div class="row"><strong class="mono">${esc(run.run_id)}</strong>${statusBadge(run.status)}</div>
@@ -271,20 +278,20 @@
   }
 
   async function approvalsView() {
-    app.innerHTML = `<h1>Approvals</h1><p class="muted">Read-only projection of the authoritative M6 approval store. The UI never approves on load, refresh, SSE reconnect, or polling.</p><div id="approvals"><p class="muted">Loading…</p></div>`;
+    app.innerHTML = `<h1>审批</h1><p class="muted">这里显示 M6 审批记录。加载、刷新、SSE 重连和轮询均不会自动批准。</p><div id="approvals"><p class="muted">加载中…</p></div>`;
     try {
       const values = await api("/api/approvals");
       const holder = document.getElementById("approvals");
-      if (!values.length) { holder.innerHTML = `<div class="panel muted">No pending approvals. The current workflow mode exposes no tools; coding mode uses the existing allow-all UAT policy and does not create approvals.</div>`; return; }
-      holder.innerHTML = `<div class="panel"><table><thead><tr><th>Approval</th><th>Tool</th><th>Action</th><th>Scope / parameters</th><th>Status</th><th>Decision</th></tr></thead><tbody>
+      if (!values.length) { holder.innerHTML = `<div class="panel muted">暂无待审批事项。workflow 模式没有工具，coding 模式采用现有 UAT 策略。</div>`; return; }
+      holder.innerHTML = `<div class="panel"><table><thead><tr><th>审批项</th><th>工具</th><th>操作</th><th>范围与参数</th><th>状态</th><th>决定</th></tr></thead><tbody>
         ${values.map((item) => `<tr>
           <td class="mono">${esc(item.approval_id || item.id || "")}</td>
           <td>${fmt(item.tool_id || item.tool_name)}</td>
           <td>${fmt(item.action)}</td>
           <td class="mono small">${esc(JSON.stringify(item.trusted_review_projection || {}))}</td>
           <td>${fmt(item.status || "pending")}</td>
-          <td><button class="secondary" data-approve="${esc(item.approval_id || item.id || "")}">Approve</button>
-              <button class="danger" data-reject="${esc(item.approval_id || item.id || "")}">Reject</button></td>
+          <td><button class="secondary" data-approve="${esc(item.approval_id || item.id || "")}">批准</button>
+              <button class="danger" data-reject="${esc(item.approval_id || item.id || "")}">拒绝</button></td>
         </tr>`).join("")}</tbody></table></div>`;
       holder.querySelectorAll("[data-approve]").forEach((el) => el.addEventListener("click", () => decision(el.dataset.approve, "approve")));
       holder.querySelectorAll("[data-reject]").forEach((el) => el.addEventListener("click", () => decision(el.dataset.reject, "reject")));
@@ -293,12 +300,12 @@
 
   async function decision(id, action) {
     const verb = action === "approve" ? "Approve" : "Reject";
-    if (!confirm(`${verb} ${id}? This calls the backend authority, not a UI-only toggle.`)) return;
+    if (!confirm(`${verb} ${id}? 此操作将提交给后端审批服务。`)) return;
     try {
       const result = await api(`/api/approvals/${encodeURIComponent(id)}/${action}`, { method: "POST" });
       alert(JSON.stringify(result, null, 2));
     } catch (err) {
-      alert(`${verb} rejected by backend:\n\n${err.message}`);
+      alert(`${verb} 未获后端接受：\n\n${err.message}`);
     }
   }
 
@@ -314,39 +321,39 @@
     const kind = live.provider_kind || "UNKNOWN";
     return `
       <section class="panel" style="margin-bottom:14px">
-        ${kind === "DETERMINISTIC" ? `<div class="notice small" style="margin-bottom:10px"><strong>Scripted provider.</strong>
-          This run answered from a deterministic script: no model was called, and the token numbers are
-          chars/4 estimates.</div>` : ""}
+        ${kind === "DETERMINISTIC" ? `<div class="notice small" style="margin-bottom:10px"><strong>确定性 Provider。</strong>
+          本次执行来自确定性脚本，未调用模型。Token 用量
+          按字符数除以 4 估算。</div>` : ""}
         <div class="row" style="margin-bottom:10px">
           <span class="status ${esc(live.mode)}">${esc(live.mode)}</span>
-          <span class="muted small">provider ${escHtml(live.provider)} · ${escHtml(kind)} · isolation ${escHtml(live.isolation)}</span>
+          <span class="muted small">provider ${escHtml(live.provider)} · ${escHtml(zhState(kind))} · isolation ${escHtml(live.isolation)}</span>
           <span class="muted small">execution_succeeded ${escHtml(live.execution_succeeded)}</span>
-          <span class="muted small">acceptance ${escHtml(acceptance)}</span>
+          <span class="muted small">acceptance ${escHtml(zhState(acceptance))}</span>
         </div>
         <div class="kv">
           <div>Router</div><div>${escHtml(route)}${delegation ? ` · rounds ${escHtml((delegation.batches || []).length)}` : ""}</div>
-          <div>Children</div><div>${children.length ? `${children.length} executed` : "none executed"}</div>
-          <div>Budget</div><div>${escHtml(budget.used_tokens ?? "—")} / ${escHtml(budget.limit_tokens ?? "—")} tokens${budget.note ? ` · ${escHtml(budget.note)}` : ""}</div>
-          <div>Public tests</div><div>${escHtml(publicTests.status || "NOT_CONFIGURED")}${testRuns.length ? ` · ${escHtml(testRuns.length)} recorded attempts` : ""}</div>
-          <div>Started</div><div>${escHtml(live.started_at || "—")}</div>
-          <div>Finished</div><div>${escHtml(live.finished_at || "—")}</div>
+          <div>子 Worker</div><div>${children.length ? `${children.length} executed` : "没有执行"}</div>
+          <div>Token 预算</div><div>${escHtml(budget.used_tokens ?? "—")} / ${escHtml(budget.limit_tokens ?? "—")} tokens${budget.note ? ` · ${escHtml(budget.note)}` : ""}</div>
+          <div>授权测试</div><div>${escHtml(zhState(publicTests.status || "NOT_CONFIGURED"))}${testRuns.length ? ` · ${escHtml(testRuns.length)} 次已记录测试` : ""}</div>
+          <div>开始时间</div><div>${escHtml(live.started_at || "—")}</div>
+          <div>结束时间</div><div>${escHtml(live.finished_at || "—")}</div>
         </div>
-        ${testRuns.length ? `<table style="margin-top:10px"><thead><tr><th>Test call</th><th>Status</th><th>Exit code</th><th>Duration ms</th></tr></thead><tbody>
-          ${testRuns.map(run => `<tr><td>${fmt(run.call_index)}</td><td>${fmt(run.status)}</td><td>${fmt(run.exit_code)}</td><td>${fmt(run.duration_ms)}</td></tr>`).join("")}
+        ${testRuns.length ? `<table style="margin-top:10px"><thead><tr><th>测试调用</th><th>状态</th><th>退出码</th><th>耗时（毫秒）</th></tr></thead><tbody>
+          ${testRuns.map(run => `<tr><td>${fmt(run.call_index)}</td><td>${fmt(zhState(run.status))}</td><td>${fmt(run.exit_code)}</td><td>${fmt(run.duration_ms)}</td></tr>`).join("")}
         </tbody></table>` : ""}
-        ${children.length ? `<table style="margin-top:10px"><thead><tr><th>Child</th><th>Worker</th><th>Status</th><th>Success</th><th>Prompt</th><th>Completion</th><th>Handoff</th></tr></thead><tbody>
+        ${children.length ? `<table style="margin-top:10px"><thead><tr><th>子任务</th><th>Worker</th><th>状态</th><th>成功状态</th><th>输入 Token</th><th>输出 Token</th><th>Handoff</th></tr></thead><tbody>
           ${children.map((child) => `<tr>
             <td class="mono">${escHtml(child.key)}</td>
             <td class="mono small">${escHtml(child.worker_id)}</td>
-            <td>${escHtml(child.status)}</td>
+            <td>${escHtml(zhState(child.status))}</td>
             <td>${escHtml(child.success)}</td>
             <td class="mono">${escHtml(child.total_prompt_tokens ?? "—")}</td>
             <td class="mono">${escHtml(child.completion_tokens ?? "—")}</td>
             <td class="mono small">${escHtml(child.ref_id ?? "—")}</td>
           </tr>`).join("")}</tbody></table>` : ""}
         ${live.failure ? `<div class="error" style="margin-top:10px">${escHtml(live.failure.kind || "FAILURE")}: ${escHtml(live.failure.message || "")}</div>` : ""}
-        <p class="muted small" style="margin-top:10px">This is the same run the replay workbench will read after
-        it ends: <code>goal-${escHtml(detail.run_id)}/session.json</code>. Nothing here is a second execution.</p>
+        <p class="muted small" style="margin-top:10px">运行完成后，历史回放会读取同一份记录
+        ： <code>goal-${escHtml(detail.run_id)}/session.json</code>。</p>
       </section>`;
   }
 
@@ -354,28 +361,28 @@
     const files = review.files || [];
     const canApply = review.decisions_enabled && review.state === "REVIEW_PENDING";
     const canReject = review.decisions_enabled && ["REVIEW_PENDING", "CONFLICT"].includes(review.state);
-    box.innerHTML = `<div class="row"><h2>Review Changes</h2>${statusBadge(review.state)}</div>
+    box.innerHTML = `<div class="row"><h2>审查变更</h2>${statusBadge(review.state)}</div>
       ${review.message ? `<p role="status" class="${review.state === "CONFLICT" || review.state === "APPLY_FAILED" ? "error" : "muted"}">${esc(review.message)}</p>` : ""}
       ${review.patch_digest ? `<div class="kv small">
-        <div>Original workspace</div><div class="mono">${esc(review.source)}</div>
-        <div>Source snapshot</div><div class="mono">${esc(review.snapshot_id)}</div>
-        <div>Exported patch</div><div class="mono">${esc(review.patch_digest)}</div>
-        <div>Runtime verification</div><div>${esc(review.verification)}</div>
-        <div>Changes</div><div>${review.counts.added} added · ${review.counts.modified} modified · ${review.counts.deleted} deleted · +${review.insertions} −${review.deletions}</div>
+        <div>原始工作区</div><div class="mono">${esc(review.source)}</div>
+        <div>源快照</div><div class="mono">${esc(review.snapshot_id)}</div>
+        <div>Patch 摘要</div><div class="mono">${esc(review.patch_digest)}</div>
+        <div>Runtime 验证</div><div>${esc(review.verification)}</div>
+        <div>文件变更</div><div>${review.counts.added} 个新增 · ${review.counts.modified} 个修改 · ${review.counts.deleted} 个删除 · +${review.insertions} −${review.deletions}</div>
       </div>` : ""}
-      ${files.map((file, index) => `<details ${index === 0 ? "open" : ""}><summary class="mono">${esc(file.status)} · ${esc(file.path)}</summary>
+      ${files.map((file, index) => `<details ${index === 0 ? "open" : ""}><summary class="mono">${esc(zhState(file.status))} · ${esc(file.path)}</summary>
         <pre>${file.diff.replace(/\n$/, "").split("\n").map(line => {
           const kind = line.startsWith("+") && !line.startsWith("+++") ? "inserted" : line.startsWith("-") && !line.startsWith("---") ? "removed" : "diff-context";
           return `<span class="${kind}">${esc(line)}</span>`;
-        }).join("")}</pre>${file.truncated ? `<p class="small muted">Diff preview truncated.</p>` : ""}</details>`).join("")}
+        }).join("")}</pre>${file.truncated ? `<p class="small muted">Diff 预览已截断。</p>` : ""}</details>`).join("")}
       <div class="row">
-        ${canApply ? `<button data-patch-action="apply">Apply Changes</button>` : ""}
-        ${canReject ? `<button class="secondary" data-patch-action="reject">Reject Patch</button>` : ""}
+        ${canApply ? `<button data-patch-action="apply">应用变更</button>` : ""}
+        ${canReject ? `<button class="secondary" data-patch-action="reject">拒绝补丁</button>` : ""}
       </div><p class="error hidden" data-patch-error role="alert"></p>`;
     const buttons = [...box.querySelectorAll("[data-patch-action]")];
     for (const button of buttons) button.addEventListener("click", async () => {
       const action = button.dataset.patchAction;
-      if (!confirm(action === "apply" ? `Apply this patch to ${review.source}?` : "Reject this patch?")) return;
+      if (!confirm(action === "apply" ? `将此 Patch 应用到 ${review.source} 吗？此操作会修改原始工作区。` : "确认拒绝此 Patch 吗？")) return;
       const body = Object.fromEntries(["run_id", "workspace_id", "snapshot_id", "patch_digest"].map(key => [key, review[key]]));
       buttons.forEach(item => item.disabled = true);
       try {
@@ -386,7 +393,7 @@
           renderPatchReview(box, endpoint, { ...error.body, decisions_enabled: true });
         } else {
           const feedback = box.querySelector("[data-patch-error]");
-          feedback.textContent = error.message;
+          feedback.textContent = `Patch 操作未完成。后端详情：${error.message}`;
           feedback.classList.remove("hidden");
           buttons.forEach(item => item.disabled = false);
         }
@@ -395,7 +402,7 @@
   }
 
   function runDetailView(runId) {
-    app.innerHTML = `<h1 class="mono">${esc(runId)}</h1><div id="detail"><p class="muted">Loading…</p></div>`;
+    app.innerHTML = `<h1 class="mono">${esc(runId)}</h1><div id="detail"><p class="muted">加载中…</p></div>`;
     let source = null;
     let lastEvent = 0;
     let closed = false;
@@ -421,57 +428,57 @@
       document.getElementById("detail").innerHTML = `
         <div class="row" style="margin-bottom:14px">${statusBadge(detail.status)}
           <span class="muted">${esc(detail.mode)} · ${esc(detail.model)} · ${esc(detail.created_at)}</span>
-          <button class="secondary" id="refresh">Refresh</button>
-          <button class="secondary" id="replay-link">Open in Replay</button>
-          ${live ? `<button class="danger" id="cancel">Cancel</button>` : ""}</div>
+          <button class="secondary" id="refresh">刷新</button>
+          <button class="secondary" id="replay-link">打开历史回放</button>
+          ${live ? `<button class="danger" id="cancel">取消</button>` : ""}</div>
         ${live ? mainLivePanel(live, detail) : ""}
-        ${live && live.interactive ? `<section class="panel patch-review" id="patch-review"><h2>Review Changes</h2><p class="muted">The patch becomes available after sandbox export.</p></section>` : ""}
+        ${live && live.interactive ? `<section class="panel patch-review" id="patch-review"><h2>审查变更</h2><p class="muted">Sandbox 完成导出后可审查 Patch。</p></section>` : ""}
         <div class="grid">
           <section class="panel">
-            <h2>Task</h2><p>${esc(detail.task)}</p>
+            <h2>任务</h2><p>${esc(detail.task)}</p>
             ${detail.error ? `<div class="error" style="margin-top:12px">${esc(detail.error)}</div>` : ""}
-            ${detail.cleanup_error ? `<div class="error" style="margin-top:12px">Cleanup: ${esc(detail.cleanup_error)}</div>` : ""}
-            <h2 style="margin-top:18px">Final result</h2>
-            <pre>${esc(detail.final_output || "(not available yet)")}</pre>
-            <h2 style="margin-top:18px">Workers / tasks</h2>
-            <table><thead><tr><th>Worker</th><th>Task</th><th>Status</th><th>Depends on</th><th>Title</th><th>Duration ms</th></tr></thead><tbody>
-              ${tasks.map((task) => `<tr><td class="mono">${fmt(task.assignee)}</td><td class="mono">${fmt(task.task_id)}</td><td>${fmt(task.status)}</td><td class="mono">${esc((task.depends_on || []).join(",")) || "—"}</td><td>${fmt(task.title)}</td><td>${fmt(task.duration_ms)}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">No tasks yet.</td></tr>`}
+            ${detail.cleanup_error ? `<div class="error" style="margin-top:12px">清理失败： ${esc(detail.cleanup_error)}</div>` : ""}
+            <h2 style="margin-top:18px">最终结果</h2>
+            <pre>${esc(detail.final_output || "（暂不可用）")}</pre>
+            <h2 style="margin-top:18px">Worker 与任务</h2>
+            <table><thead><tr><th>Worker</th><th>任务</th><th>状态</th><th>依赖</th><th>标题</th><th>耗时（毫秒）</th></tr></thead><tbody>
+              ${tasks.map((task) => `<tr><td class="mono">${fmt(task.assignee)}</td><td class="mono">${fmt(task.task_id)}</td><td>${fmt(zhState(task.status))}</td><td class="mono">${esc((task.depends_on || []).join(",")) || "—"}</td><td>${fmt(task.title)}</td><td>${fmt(task.duration_ms)}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">暂无任务。</td></tr>`}
             </tbody></table>
-            <h2 style="margin-top:18px">Latest tool operations</h2>
-            <div class="log">${toolCalls.slice(-20).map((call) => `<div><strong>${esc(call.tool_name || call.tool || "tool")}</strong> ${esc(call.agent || "")} <span class="muted">${esc(JSON.stringify(call.input || call.arguments || {}))}</span></div>`).join("") || `<span class="muted">No tool calls projected.</span>`}</div>
-            <h2 style="margin-top:18px">Artifacts</h2>
-            ${(detail.artifacts || []).length ? `<ul>${detail.artifacts.map((item) => `<li class="mono small">${esc(item.kind)}: ${esc(item.path)}</li>`).join("")}</ul>` : `<p class="muted small">No exported workspace artifact; workflow mode has no tool filesystem.</p>`}
+            <h2 style="margin-top:18px">近期工具操作</h2>
+            <div class="log">${toolCalls.slice(-20).map((call) => `<div><strong>${esc(call.tool_name || call.tool || "tool")}</strong> ${esc(call.agent || "")} <span class="muted">${esc(JSON.stringify(call.input || call.arguments || {}))}</span></div>`).join("") || `<span class="muted">暂无工具调用记录。</span>`}</div>
+            <h2 style="margin-top:18px">Artifact 产物</h2>
+            ${(detail.artifacts || []).length ? `<ul>${detail.artifacts.map((item) => `<li class="mono small">${esc(item.kind)}: ${esc(item.path)}</li>`).join("")}</ul>` : `<p class="muted small">暂无工作区 Artifact。workflow 模式没有工具文件系统。</p>`}
           </section>
           <aside>
             <section class="panel">
-              <h2>Metrics</h2>
+              <h2>资源指标</h2>
               <div class="kv">
-                <div>Prompt tokens</div><div>${fmt(metrics.prompt_tokens ?? metrics.total_prompt_tokens)}</div>
-                <div>Completion</div><div>${fmt(metrics.completion_tokens ?? metrics.total_completion_tokens)}</div>
-                <div>Cache hit</div><div>${fmt(metrics.cache_hit_tokens ?? metrics.total_cache_hit_tokens)}</div>
-                <div>Cache miss</div><div>${fmt(metrics.cache_miss_tokens ?? metrics.total_cache_miss_tokens)}</div>
-                <div>Tool calls</div><div>${fmt(metrics.tool_calls)}</div>
-                <div>Latency ms</div><div>${fmt(metrics.latency_ms ?? metrics.total_latency_ms)}</div>
-                <div>Cost USD</div><div>${fmt(metrics.estimated_cost_usd ?? metrics.estimated_cost)}</div>
+                <div>输入 Token</div><div>${fmt(metrics.prompt_tokens ?? metrics.total_prompt_tokens)}</div>
+                <div>输出 Token</div><div>${fmt(metrics.completion_tokens ?? metrics.total_completion_tokens)}</div>
+                <div>Cache 命中</div><div>${fmt(metrics.cache_hit_tokens ?? metrics.total_cache_hit_tokens)}</div>
+                <div>Cache 未命中</div><div>${fmt(metrics.cache_miss_tokens ?? metrics.total_cache_miss_tokens)}</div>
+                <div>工具调用</div><div>${fmt(metrics.tool_calls)}</div>
+                <div>延迟（毫秒）</div><div>${fmt(metrics.latency_ms ?? metrics.total_latency_ms)}</div>
+                <div>费用（美元）</div><div>${fmt(metrics.estimated_cost_usd ?? metrics.estimated_cost)}</div>
               </div>
             </section>
             <section class="panel" style="margin-top:14px">
-              <h2>Approvals</h2>
+              <h2>审批</h2>
               ${approvals.length ? approvals.map((item) => `<div class="notice small" style="margin-bottom:8px">
                 <div class="mono">${esc(item.approval_id || item.id || "")}</div>
                 <div>${fmt(item.tool_id || item.tool_name)} · ${fmt(item.action)}</div>
-                <button class="secondary" data-approve="${esc(item.approval_id || item.id || "")}">Approve</button>
-                <button class="danger" data-reject="${esc(item.approval_id || item.id || "")}">Reject</button>
-              </div>`).join("") : `<p class="muted small">No pending approvals for this run.</p>`}
-              <p class="muted small">Buttons call the backend authority; the page never auto-approves.</p>
+                <button class="secondary" data-approve="${esc(item.approval_id || item.id || "")}">批准</button>
+                <button class="danger" data-reject="${esc(item.approval_id || item.id || "")}">拒绝</button>
+              </div>`).join("") : `<p class="muted small">本次运行没有待审批事项。</p>`}
+              <p class="muted small">审批由后端处理，需要手动确认。</p>
             </section>
             <section class="panel" style="margin-top:14px">
-              <h2>Recovery</h2>
+              <h2>恢复</h2>
               <div class="small">state: <span class="mono">${esc(recovery.state || "NONE")}</span></div>
-              ${recovery.state && recovery.state !== "NONE" ? `<button class="secondary" id="resume" style="margin-top:8px">Request trusted resume</button>` : `<p class="muted small">No active trusted suspension.</p>`}
+              ${recovery.state && recovery.state !== "NONE" ? `<button class="secondary" id="resume" style="margin-top:8px">请求可信恢复</button>` : `<p class="muted small">没有可恢复的可信暂停。</p>`}
             </section>
             <section class="panel" style="margin-top:14px">
-              <h2>Events</h2>
+              <h2>SSE 事件</h2>
               <div id="events" class="log"></div>
             </section>
           </aside>
@@ -481,21 +488,21 @@
         try {
           const link = await api(`/api/runs/${encodeURIComponent(runId)}/replay`);
           if (link.available) location.href = `/replay?run=${encodeURIComponent(link.replay_run_key)}`;
-          else alert(`Not replayable yet:\n\n${link.reason}`);
-        } catch (err) { alert(`Replay lookup failed:\n\n${err.message}`); }
+          else alert(`暂不可回放：\n\n${link.reason}`);
+        } catch (err) { alert(`读取历史回放失败：\n\n${err.message}`); }
       });
       const cancelButton = document.getElementById("cancel");
       if (cancelButton) cancelButton.addEventListener("click", async () => {
         try { await api(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }); }
-        catch (err) { alert(`Cancellation refused by the backend:\n\n${err.message}`); }
+        catch (err) { alert(`后端未接受取消请求：\n\n${err.message}`); }
       });
       document.querySelectorAll("[data-approve]").forEach((el) => el.addEventListener("click", () => decision(el.dataset.approve, "approve")));
       document.querySelectorAll("[data-reject]").forEach((el) => el.addEventListener("click", () => decision(el.dataset.reject, "reject")));
       const resume = document.getElementById("resume");
       if (resume) resume.addEventListener("click", async () => {
-        if (!confirm("Request trusted recovery for this run?")) return;
+        if (!confirm("确认请求恢复本次运行吗？")) return;
         try { alert(JSON.stringify(await api(`/api/runs/${encodeURIComponent(runId)}/resume`, { method: "POST" }), null, 2)); }
-        catch (err) { alert(`Recovery refused:\n\n${err.message}`); }
+        catch (err) { alert(`恢复请求被拒绝：\n\n${err.message}`); }
       });
       const eventBox = document.getElementById("events");
       (detail.events || []).slice(-80).forEach((event) => appendEvent(eventBox, event));
