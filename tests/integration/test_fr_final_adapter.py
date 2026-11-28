@@ -28,7 +28,7 @@ async def test_actual_dag_adapter_budget_contract(tmp_path, monkeypatch, scenari
     if scenario == "exhausted":
         cell["token_budget"] = 24_000
     task = executor.task_for_cell(cell)
-    steps = (
+    steps: dict[str, list[scripted.ScriptStep]] = (
         proof.dag_scripts(task)
         if scenario == "pass"
         else {worker["task_id"]: [("list_files", {"path": "."})] for worker in task.workers}
@@ -68,6 +68,7 @@ async def test_actual_dag_adapter_budget_contract(tmp_path, monkeypatch, scenari
     ledger = result.metrics.extra["budget"]
     assert payload["metrics"]["budget"] == ledger
     assert "extra" not in payload["metrics"]
+    assert outcome.session is not None
     assert outcome.session["cell_budget_ledger"] == ledger
 
     def audit(candidate):
@@ -97,6 +98,7 @@ async def test_actual_dag_adapter_budget_contract(tmp_path, monkeypatch, scenari
         ("over-cap", {"used_tokens": ledger["limit_tokens"] + 1}, executor.STOP_INTEGRITY),
     ):
         candidate = deepcopy(outcome)
+        assert candidate.session is not None
         if test == "unknown":
             candidate.session["provider_observation"]["coverage_complete"] = False
         else:
