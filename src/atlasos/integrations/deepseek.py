@@ -7,6 +7,8 @@ inferred from prompt length unless the provider itself reported the split.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import time
 from collections.abc import AsyncIterator, Callable, Mapping
@@ -109,6 +111,21 @@ DEFAULT_MODEL = "deepseek-chat"
 
 class _ClientRetryOptions(TypedDict, total=False):
     max_retries: int
+
+
+def measure_request_context(messages: list[LLMMessage], options: LLMChatOptions) -> dict[str, Any]:
+    """Measure the mapped provider context, before HTTP encoding and without storing its text."""
+    tools = [map_tool_def(tool) for tool in (options.tools or ())]
+    payload = json.dumps(
+        {"messages": map_messages(messages, options.system_prompt), "tools": tools},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return {
+        "mapped_context_json_bytes": len(payload),
+        "mapped_context_sha256": hashlib.sha256(payload).hexdigest(),
+        "stable_prefix_sha256": stable_prefix_hash(options.system_prompt, options.tools),
+    }
 
 
 def _load_dotenv(dotenv_path: str | Path | None = None) -> None:

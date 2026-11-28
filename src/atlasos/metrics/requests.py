@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -137,6 +137,8 @@ class RequestRecord:
     partial_response: bool = False
     usage_reported: bool = False
     usage: dict[str, Any] | None = None
+    context_input: dict[str, Any] | None = None
+    provider_usage: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -158,6 +160,8 @@ class RequestRecord:
             "partial_response": self.partial_response,
             "usage_reported": self.usage_reported,
             "usage": self.usage,
+            **({"context_input": self.context_input} if self.context_input is not None else {}),
+            **({"provider_usage": self.provider_usage} if self.provider_usage is not None else {}),
         }
 
 
@@ -203,6 +207,12 @@ class RequestJournal:
         record.usage = payload
         record.usage_reported = payload is not None
         self._open.pop(record.request_id, None)
+
+    def observe_direct_provider_usage(self, usage: Mapping[str, Any]) -> None:
+        """Bind raw provider metrics to the sole active request in the Direct experiment."""
+        if len(self._open) == 1:
+            record = next(iter(self._open.values()))
+            record.provider_usage = dict(usage)
 
     def fail(
         self,
@@ -288,10 +298,18 @@ class JournaledAdapter:
     as ``FAILED`` with that event's exception, which is the case the runner silently drops.
     """
 
-    def __init__(self, inner: Any, journal: RequestJournal, *, agent: str | None = None) -> None:
+    def __init__(
+        self,
+        inner: Any,
+        journal: RequestJournal,
+        *,
+        agent: str | None = None,
+        measure_context: Callable[[list[Any], Any], dict[str, Any]] | None = None,
+    ) -> None:
         self._inner = inner
         self._journal = journal
         self._agent = agent
+        self._measure_context = measure_context
 
     @property
     def name(self) -> str:
@@ -311,6 +329,8 @@ class JournaledAdapter:
             {} if response_format is None else {"response_format": response_format}
         )
         try:
+            if self._measure_context is not None:
+                record.context_input = self._measure_context(messages, options)
             response = await self._inner.chat(messages, options, **kwargs)
         except asyncio.CancelledError:
             self._journal.cancel(record)
@@ -333,6 +353,8 @@ class JournaledAdapter:
             done = False
             partial = False
             try:
+                if self._measure_context is not None:
+                    record.context_input = self._measure_context(messages, options)
                 async for event in self._inner.stream(messages, options):
                     event_type = getattr(event, "type", None)
                     data = getattr(event, "data", None)

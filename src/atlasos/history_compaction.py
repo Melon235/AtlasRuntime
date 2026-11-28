@@ -34,6 +34,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -63,6 +64,7 @@ HISTORY_READ_TOOL = "history.read"
 HISTORY_READ_ACTION_MAPPING = ActionMapping(HISTORY_READ_TOOL, "external.read")
 #: Marker that identifies an already-compacted tool result.
 OFFLOAD_MARKER = "[HISTORY_RESULT_OFFLOADED]"
+INGRESS_MARKER = "[TOOL_RESULT_OFFLOADED]"
 #: Results at or below this size are not worth a reference.
 MIN_COMPACT_CHARS = 800
 #: Tool rounds kept verbatim by ``rolling_2``.
@@ -175,6 +177,7 @@ class HistoryStore:
             raise ValueError("history store requires a trusted run id")
         self.root = Path(root)
         self.run_id = run_id
+        self.written_refs: dict[str, str] = {}
 
     def _payload_path(self, ref_id: str) -> Path:
         return self.root / f"{ref_id}.txt"
@@ -203,9 +206,10 @@ class HistoryStore:
         payload_path = self._payload_path(ref_id)
         metadata_path = self._metadata_path(ref_id)
         if payload_path.is_file() and metadata_path.is_file():
-            existing = self.metadata(ref_id)
+            existing, _ = self.load(ref_id, task_id=task_id)
             if existing.sha256 != digest:
                 raise HistoryIntegrityError(f"history {ref_id} already stores different content")
+            self.written_refs[ref_id] = task_id
             return existing
         ref = HistoryRef(
             ref_id=ref_id,
@@ -221,7 +225,17 @@ class HistoryStore:
         _atomic_write_text(payload_path, content)
         _atomic_write_text(metadata_path, json.dumps(ref.as_dict(), indent=2, sort_keys=True))
         stored, _ = self.load(ref_id, task_id=task_id)
+        self.written_refs[ref_id] = task_id
         return stored
+
+    def invalid_written_refs(self) -> list[str]:
+        invalid = []
+        for ref_id, task_id in self.written_refs.items():
+            try:
+                self.load(ref_id, task_id=task_id)
+            except (HistoryCompactionError, OSError, ValueError, KeyError, TypeError):
+                invalid.append(ref_id)
+        return invalid
 
     def metadata(self, ref_id: str) -> HistoryRef:
         if not self.is_ref_id(ref_id):
@@ -258,7 +272,18 @@ class HistoryStore:
         if not payload_path.is_file():
             raise HistoryNotFound(f"history {ref_id} payload is missing")
         content = _read_text_exact(payload_path)
-        if len(content) != ref.char_count or _digest(content) != ref.sha256:
+        if (
+            len(content) != ref.char_count
+            or len(content.encode("utf-8")) != ref.byte_count
+            or _digest(content) != ref.sha256
+            or self.ref_id_for(
+                run_id=self.run_id,
+                task_id=ref.task_id,
+                tool_use_id=ref.tool_use_id,
+                content=content,
+            )
+            != ref_id
+        ):
             raise HistoryIntegrityError(f"history {ref_id} failed digest verification")
         return ref, content
 
@@ -280,6 +305,8 @@ class CompactionMetrics:
     read_success: int = 0
     read_failures: int = 0
     read_denied: int = 0
+    read_payload_bytes: int = 0
+    compaction_elapsed_ms: float = 0.0
     _workers: dict[str, dict[str, int]] = field(default_factory=dict)
     _samples: list[dict[str, Any]] = field(default_factory=list)
 
@@ -345,6 +372,8 @@ class CompactionMetrics:
             "archive_failures": self.archive_failures,
             "read_calls": self.read_calls,
             "read_success": self.read_success,
+            "read_payload_bytes": self.read_payload_bytes,
+            "compaction_elapsed_ms": round(self.compaction_elapsed_ms, 3),
             "read_failures": self.read_failures,
             "read_denied": self.read_denied,
             "workers": {name: dict(item) for name, item in sorted(self._workers.items())},
@@ -453,7 +482,9 @@ class ToolResultCompactionHook:
         if not isinstance(block, ToolResultBlock):
             return None
         content = block.content
-        if OFFLOAD_MARKER in content or len(content) <= self._min_chars:
+        if OFFLOAD_MARKER in content or content.startswith(INGRESS_MARKER):
+            return None
+        if len(content) <= self._min_chars:
             return None
         is_error = bool(block.is_error)
         error_head = " ".join(content.split())[:ERROR_HEAD_CHARS] if is_error else ""
@@ -478,7 +509,13 @@ class ToolResultCompactionHook:
 
     async def before_turn(self, messages: list[LLMMessage], context: AgentInfo) -> list[LLMMessage]:
         del context
-        return await asyncio.to_thread(self.compact, messages)
+        if self._mode == COMPACTION_OFF:
+            return messages
+        started = time.perf_counter()
+        try:
+            return await asyncio.to_thread(self.compact, messages)
+        finally:
+            self._metrics.compaction_elapsed_ms += (time.perf_counter() - started) * 1000
 
     async def after_turn(self, response: LLMResponse, context: AgentInfo) -> LLMResponse:
         del context
@@ -545,8 +582,7 @@ class HistoryReader:
             )
         page = content[validated.offset : validated.offset + validated.limit][:READ_MAX_LIMIT]
         end = validated.offset + len(page)
-        self.metrics.record_read(success=True)
-        return ToolResult(
+        result = ToolResult(
             data=json.dumps(
                 {
                     "ref_id": ref.ref_id,
@@ -564,6 +600,9 @@ class HistoryReader:
             ),
             is_error=False,
         )
+        self.metrics.record_read(success=True)
+        self.metrics.read_payload_bytes += len(result.data.encode("utf-8"))
+        return result
 
     def tool_definition(self) -> ToolDefinition:
         async def execute(validated: HistoryReadInput, context: Any) -> ToolResult:
@@ -574,6 +613,7 @@ class HistoryReader:
             description=(
                 "Read a tool result that the runtime archived from your own earlier turns. "
                 "Paged by character offset; returns the content, total length and next_offset. "
+                "Use this tool for references labeled history.read in an archived result. "
                 "Only results archived for the current worker can be read."
             ),
             input_model=HistoryReadInput,

@@ -104,11 +104,17 @@ from atlasos.delegation.tool import DEFAULT_DESCRIPTION as DELEGATE_TASK_DESCRIP
 from atlasos.delegation.tool import STAGE_M_DELEGATE_TOOL
 from atlasos.delegation.usage import UsageAttributionHook
 from atlasos.handoff import HandoffStore
+from atlasos.history_compaction import (
+    COMPACTION_MODES,
+    HISTORY_READ_ACTION_MAPPING,
+    HistoryCompactionRuntime,
+)
 from atlasos.integrations.anycode_engine import AtlasContextEngine
-from atlasos.integrations.deepseek import DeepSeekAdapter
+from atlasos.integrations.deepseek import DeepSeekAdapter, measure_request_context
 from atlasos.ledger import SQLiteActionLedgerStore
 from atlasos.metrics.requests import JournaledAdapter, RequestJournal
 from atlasos.sandbox.tools import TOOL_ERROR_MODE_CORRECTED, TOOL_ERROR_MODES
+from atlasos.tool_result_offload import TOOL_RESULT_MODES, ToolResultIngressRuntime
 from atlasos.tools import AtlasToolRuntime
 from atlasos.tools.conversation import reset_current_task_id, set_current_task_id
 from atlasos.trajectory.payloads import (
@@ -201,6 +207,18 @@ MAIN_PROMPT_V1 = MainPromptSpec(version=MAIN_PROMPT_V1_VERSION, text=MAIN_SYSTEM
 
 
 @dataclass(frozen=True)
+class GoalContextExperiment:
+    """Host opt-in for the shared Direct-only experimental tool surface."""
+
+    compaction: str = "off"
+    offloading: str = "off"
+
+    def __post_init__(self) -> None:
+        if self.compaction not in COMPACTION_MODES or self.offloading not in TOOL_RESULT_MODES:
+            raise ValueError("invalid goal context experiment mode")
+
+
+@dataclass(frozen=True)
 class GoalRunOptions:
     """Everything one main-driven goal session needs."""
 
@@ -267,9 +285,16 @@ class GoalRunOptions:
     #: Interactive runs keep each provider attempt observable and never retry it automatically.
     provider_retries: bool = True
     require_reported_usage: bool = False
+    context_experiment: GoalContextExperiment | None = None
+
+    def __post_init__(self) -> None:
+        if self.context_experiment is not None and (
+            self.delegation.enabled or self.sandbox is None or self.preflight_profile != "benchmark"
+        ):
+            raise ValueError("goal context experiments require a sandboxed Direct-only benchmark")
 
 
-def _goal_policy() -> ActionPolicy:
+def _goal_policy(*, history: bool = False) -> ActionPolicy:
     """Action classes the goal path may run. Path limits come from the ownership policy."""
 
     allow = (
@@ -283,6 +308,7 @@ def _goal_policy() -> ActionPolicy:
         "filesystem.read",
         "filesystem.write",
         "shell.execute",
+        *(("external.read",) if history else ()),
     )
     return ActionPolicy(
         name="stage-m-goal",
@@ -293,7 +319,7 @@ def _goal_policy() -> ActionPolicy:
     )
 
 
-def _goal_catalog() -> ActionCatalog:
+def _goal_catalog(*, history: bool = False) -> ActionCatalog:
     from atlasos.actions import DEFAULT_MAPPINGS
 
     return ActionCatalog(
@@ -302,6 +328,7 @@ def _goal_catalog() -> ActionCatalog:
             ActionMapping(STAGE_M_DELEGATE_TOOL, "delegation.dispatch"),
             ActionMapping(DELEGATE_READ_TOOL, "delegation.read"),
             ActionMapping(PUBLIC_TEST_TOOL, PUBLIC_TEST_ACTION),
+            *((HISTORY_READ_ACTION_MAPPING,) if history else ()),
         )
     )
 
@@ -638,6 +665,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     request_journal = RequestJournal(
         run_id=run_id, provider=options.provider, requested_model=options.model
     )
+    measure_context = measure_request_context if options.context_experiment is not None else None
     if options.provider_factory is None:
         if not os.environ.get("DEEPSEEK_API_KEY"):
             raise SystemExit(
@@ -651,13 +679,24 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
                     max_retries=None if options.provider_retries else 0,
                     model=options.model,
                     require_reported_usage=options.require_reported_usage,
+                    on_call=(
+                        lambda observation: request_journal.observe_direct_provider_usage(
+                            observation.usage.model_dump(exclude={"cache_hit_ratio"})
+                        )
+                    )
+                    if options.context_experiment is not None
+                    else None,
                 ),
                 request_journal,
+                measure_context=measure_context,
             ),
         )
     else:
         factory = options.provider_factory
-        _register_provider(provider_name, lambda: JournaledAdapter(factory(), request_journal))
+        _register_provider(
+            provider_name,
+            lambda: JournaledAdapter(factory(), request_journal, measure_context=measure_context),
+        )
 
     tool_security = ToolSecurityPolicy(workspace_root=tool_workspace)
     resilience = (
@@ -737,6 +776,8 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
     engine: AtlasContextEngine | None = None
     sandbox: GoalSandbox | None = None
     payload_corpus: ToolPayloadCorpus | None = None
+    history: HistoryCompactionRuntime | None = None
+    ingress: ToolResultIngressRuntime | None = None
     main_result: Any | None = None
     failure: str | None = None
     sandbox_failure: str | None = None
@@ -774,14 +815,25 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
                 agent_name=main_agent_name,
             )
             core_tools = [*core_tools, public_tests.tool_definition()]
+        if options.context_experiment is not None:
+            history = HistoryCompactionRuntime.create(
+                run_dir=run_dir,
+                run_id=run_id,
+                mode=options.context_experiment.compaction,
+            )
+            ingress = ToolResultIngressRuntime.wrap(
+                store=history.store,
+                mode=options.context_experiment.offloading,
+            )
+            core_tools = [*core_tools, *history.external_tools()]
         runtime = AtlasToolRuntime(
             run_id,
             state_path=run_dir / "tool_state.json",
             conversation_path=run_dir / "tool_conversations.json",
             external_tools=(),
             core_tools=tuple(core_tools),
-            action_policy=_goal_policy(),
-            action_catalog=_goal_catalog(),
+            action_policy=_goal_policy(history=history is not None),
+            action_catalog=_goal_catalog(history=history is not None),
             action_ledger=ledger,
             action_external_policy=enforcer,
             idempotency_store=idempotency,
@@ -801,6 +853,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
                 else EXECUTION_INTEGRITY_OFF
             ),
             tool_payload_corpus=payload_corpus,
+            tool_result_offloader=ingress,
             # P0.1: every refusal this gate returns happens before the tool body runs, so the Main
             # may read the reason and choose another action instead of losing the run.
             pre_execution_denials_retry_safe=True,
@@ -852,6 +905,7 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
             OrchestratorConfig(max_concurrency=1),
             tool_runtime=runtime,
             budget_state=budget_state,
+            compaction=history,
         )
         # Provider-reported usage of the Main, including the cache split that AnyCode's usage
         # merge discards.
@@ -1072,6 +1126,18 @@ async def run_goal(options: GoalRunOptions) -> dict[str, Any]:
         "tool_error_mode": options.tool_error_mode,
         "execution_integrity": _integrity_evidence(payload_corpus, run_dir),
     }
+    if history is not None and ingress is not None:
+        session["context_experiment"] = {
+            "history": history.metrics_dict(),
+            "ingress": ingress.metrics_dict(),
+            "invalid_archive_refs": await asyncio.to_thread(history.store.invalid_written_refs),
+            "local_transform_model_requests": 0,
+            "provider_usage_basis": (
+                "deepseek_reported"
+                if options.provider_factory is None
+                else "deterministic_provider"
+            ),
+        }
     (run_dir / "session.json").write_text(json.dumps(session, indent=2), encoding="utf-8")
     return session
 

@@ -2276,6 +2276,7 @@ def production_goal_options(
     profile_id = arm.profile_id if arm else str(cell.get("worker_profile") or contract.CODING)
     exposure = arm.exposure if arm else str(cell.get("worker_exposure") or "card")
     plan = config.sandbox_plan()
+    from experiments.stage_f.context_ablation import options_for_cell
     from experiments.stage_f.release_candidate import requested_model
 
     model = requested_model(cell)
@@ -2307,6 +2308,7 @@ def production_goal_options(
         run_id=run_id,
         main_prompt=contract.main_prompt_for(cell),
         public_tests=contract.public_test_spec(task),
+        context_experiment=options_for_cell(cell),
         acceptance=contract.acceptance_spec(task),
         sandbox=GoalSandboxOptions(
             provider=plan.provider_name,
@@ -2408,6 +2410,12 @@ def run_admission_preflight(
                     "worker_max_turns": options.worker_max_turns,
                     "token_budget": options.token_budget,
                 }
+                if options.context_experiment is not None:
+                    detail["context_intervention"] = {
+                        "compaction": options.context_experiment.compaction,
+                        "offloading": options.context_experiment.offloading,
+                    }
+                    detail["delegation_enabled"] = options.delegation.enabled
             else:
                 # A native or static-DAG cell has no GoalRunOptions. Admitting it through one would
                 # be admitting a configuration it never runs; it is admitted against its own

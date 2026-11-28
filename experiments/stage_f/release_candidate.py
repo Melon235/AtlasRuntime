@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from experiments.stage_b_plus import authority, contract, executor
-from experiments.stage_f import arms, plan, tasks
+from experiments.stage_f import arms, context_ablation, plan, tasks
 from experiments.stage_f.tasks import revisions
 
 EXPERIMENT = "stage-fr-final-96-v3"
@@ -19,7 +19,11 @@ BATCH_IDS = {batch: f"{EXPERIMENT}-b{batch}" for batch in (1, 2, 3)}
 V4_EXPERIMENT = "stage-fr-final-96-v4"
 V4_SCOPE = "F_R_FINAL_96_V4"
 V4_BATCH_IDS = {batch: f"{V4_EXPERIMENT}-b{batch}" for batch in (1, 2, 3)}
-RELEASES = {EXPERIMENT: (SCOPE, BATCH_IDS), V4_EXPERIMENT: (V4_SCOPE, V4_BATCH_IDS)}
+RELEASES = {
+    EXPERIMENT: (SCOPE, BATCH_IDS),
+    V4_EXPERIMENT: (V4_SCOPE, V4_BATCH_IDS),
+    context_ablation.EXPERIMENT: (context_ablation.SCOPE, context_ablation.BATCH_IDS),
+}
 PLAN_RELEASES = {
     plan_id: experiment for experiment, (_, ids) in RELEASES.items() for plan_id in ids.values()
 }
@@ -59,6 +63,12 @@ SETTLEMENT = {
     "unknown_usage": "stop with unknown total and preserve known consumption",
 }
 QUALIFICATION_PATH = Path(__file__).with_name("v3-qualified-revisions.json")
+CONTEXT_SETTLEMENT = {
+    **SETTLEMENT,
+    "token_stop_total": 12_000_000,
+    "cost_stop_total": 5.0,
+    "per_batch_cost_stop_usd": 5.0,
+}
 
 
 def _revision_binding(task: tasks.Task) -> dict[str, Any]:
@@ -78,6 +88,7 @@ def bound_task(cell: Mapping[str, Any]) -> tasks.Task:
     if cell.get("release_experiment") not in RELEASES:
         raise ValueError("cell has no registered F-R experiment")
     requested_model(cell)
+    context_ablation.options_for_cell(cell)
     task_id = str(cell["task_id"])
     task = revisions.task_at_revision(task_id, revisions.REVISIONS.get(task_id, 1))
     if type(cell.get("task_revision")) is not int or any(
@@ -119,6 +130,8 @@ def goal_run_id(cell: Mapping[str, Any], key: str) -> str:
     if not cell.get("release_experiment"):
         return f"bplus-{key}"
     requested_model(cell)
+    if cell["release_experiment"] == context_ablation.EXPERIMENT:
+        return f"context-v1-{key}"
     version = str(cell["release_experiment"]).rsplit("-", 1)[1].removeprefix("v")
     return f"fr{version}-{cell['plan_id'].rsplit('-', 1)[1]}-{key}"
 
@@ -155,11 +168,13 @@ def batch_plan(plan_id: str) -> dict[str, Any]:
     scope, ids = RELEASES[experiment]
     batch = next(position for position, name in ids.items() if name == plan_id)
     version = experiment.rsplit("-", 1)[1].removeprefix("v")
-    record = plan.batch_plan(batch)
+    context_enabled = experiment == context_ablation.EXPERIMENT
+    record = context_ablation.base_plan() if context_enabled else plan.batch_plan(batch)
+    settlement = CONTEXT_SETTLEMENT if context_enabled else SETTLEMENT
     budget = {**record["budget"], "model": REQUESTED_MODEL}
     budget_digest = authority.digest_of(budget)
     pricing_digest = authority.digest_of(PRICING)
-    settlement_digest = authority.digest_of(SETTLEMENT)
+    settlement_digest = authority.digest_of(settlement)
     stop_policy_digest = authority.digest_of(STOP_POLICY)
     resolved = {
         task_id: revisions.task_at_revision(task_id, revisions.REVISIONS.get(task_id, 1))
@@ -169,7 +184,9 @@ def batch_plan(plan_id: str) -> dict[str, Any]:
     for cell in record["cells"]:
         task_id = cell["task_id"]
         cell.update(
-            cell_id=f"fr{version}." + cell["cell_id"].split(".", 1)[1],
+            cell_id=cell["cell_id"]
+            if context_enabled
+            else f"fr{version}." + cell["cell_id"].split(".", 1)[1],
             plan_id=plan_id,
             batch_id=plan_id,
             scope=scope,
@@ -200,8 +217,8 @@ def batch_plan(plan_id: str) -> dict[str, Any]:
         claim_key=executor.claim_path(digest).name,
         runs_subdir=f"runs/{plan_id}",
         evidence_subdir=plan_id,
-        cost_stop_usd=SETTLEMENT["per_batch_cost_stop_usd"],
-        per_cell_cost_stop_usd=SETTLEMENT["per_cell_cost_stop_usd"],
+        cost_stop_usd=settlement["per_batch_cost_stop_usd"],
+        per_cell_cost_stop_usd=settlement["per_cell_cost_stop_usd"],
     )
     return record
 
@@ -209,6 +226,8 @@ def batch_plan(plan_id: str) -> dict[str, Any]:
 def _manifest(head: str, identity: Mapping[str, Any]) -> dict[str, Any]:
     experiment = identity["executor_version"]
     scope, ids = RELEASES[experiment]
+    context_enabled = experiment == context_ablation.EXPERIMENT
+    settlement = CONTEXT_SETTLEMENT if context_enabled else SETTLEMENT
     reference = plan.manifest()
     historic = json.loads((plan.REPO_ROOT / "experiments/stage_f/manifest.json").read_text("utf-8"))
     if historic["task_facts"] != reference["task_facts"]:
@@ -222,7 +241,7 @@ def _manifest(head: str, identity: Mapping[str, Any]) -> dict[str, Any]:
     if historic_qualification["status"] != "STAGE_F_TASK_QUALIFICATION_PASS":
         raise ValueError("Stage F historical task qualification is incomplete")
     task_facts = {}
-    for task_id in reference["task_facts"]:
+    for task_id in (context_ablation.TASKS if context_enabled else reference["task_facts"]):
         revision = revisions.REVISIONS.get(task_id, 1)
         task = revisions.task_at_revision(task_id, revision)
         task_identity = revisions.task_identity(task, revision)
@@ -289,10 +308,11 @@ def _manifest(head: str, identity: Mapping[str, Any]) -> dict[str, Any]:
         "batches": batches,
         "pricing": PRICING,
         "pricing_digest": authority.digest_of(PRICING),
-        "settlement_contract": SETTLEMENT,
-        "settlement_digest": authority.digest_of(SETTLEMENT),
+        "settlement_contract": settlement,
+        "settlement_digest": authority.digest_of(settlement),
         "stop_policy": STOP_POLICY,
         "stop_policy_digest": authority.digest_of(STOP_POLICY),
+        **({"context_analysis": context_ablation.ANALYSIS} if context_enabled else {}),
     }
 
 

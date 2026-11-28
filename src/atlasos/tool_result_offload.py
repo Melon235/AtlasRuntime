@@ -35,6 +35,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import re
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,6 +45,7 @@ from anycode.types import ToolResult
 
 from atlasos.history_compaction import (
     HISTORY_READ_TOOL,
+    INGRESS_MARKER,
     OFFLOAD_MARKER,
     HistoryCompactionError,
     HistoryStore,
@@ -63,7 +65,6 @@ TAIL_PREVIEW_CHARS = 200
 DIAGNOSTIC_MAX_CHARS = 400
 DIAGNOSTIC_MAX_LINES = 6
 #: Marker that identifies an already-offloaded tool result.
-INGRESS_MARKER = "[TOOL_RESULT_OFFLOADED]"
 #: Bounded per-run sample list kept for diagnostics.
 MAX_SAMPLES = 32
 
@@ -88,6 +89,8 @@ class IngressMetrics:
     max_inline_chars: int = MAX_INLINE_CHARS
     offloads: int = 0
     original_chars_archived: int = 0
+    original_bytes_archived: int = 0
+    offload_elapsed_ms: float = 0.0
     placeholder_chars: int = 0
     archive_failures: int = 0
     skipped_no_identity: int = 0
@@ -112,11 +115,13 @@ class IngressMetrics:
         tool_name: str,
         ref_id: str,
         original_chars: int,
+        original_bytes: int,
         placeholder_chars: int,
         is_error: bool,
     ) -> None:
         self.offloads += 1
         self.original_chars_archived += original_chars
+        self.original_bytes_archived += original_bytes
         self.placeholder_chars += placeholder_chars
         if ref_id in self._refs:
             # The same archived result reached ingress twice (e.g. a replayed batch).
@@ -147,6 +152,8 @@ class IngressMetrics:
             "max_inline_chars": self.max_inline_chars,
             "offloads": self.offloads,
             "original_chars_archived": self.original_chars_archived,
+            "original_bytes_archived": self.original_bytes_archived,
+            "offload_elapsed_ms": round(self.offload_elapsed_ms, 3),
             "placeholder_chars": self.placeholder_chars,
             "archive_failures": self.archive_failures,
             "skipped_no_identity": self.skipped_no_identity,
@@ -318,6 +325,7 @@ class ToolResultIngressOffloader:
             tool_name=tool_name,
             ref_id=ref.ref_id,
             original_chars=ref.char_count,
+            original_bytes=ref.byte_count,
             placeholder_chars=len(placeholder),
             is_error=is_error,
         )
@@ -405,10 +413,14 @@ class ToolResultIngressRuntime:
 
         if self.mode == TOOL_RESULT_OFF:
             return result
-        return await asyncio.to_thread(
-            self.offloader.offload,
-            result,
-            tool_name=tool_name,
-            task_id=task_id,
-            call_key=call_key,
-        )
+        started = time.perf_counter()
+        try:
+            return await asyncio.to_thread(
+                self.offloader.offload,
+                result,
+                tool_name=tool_name,
+                task_id=task_id,
+                call_key=call_key,
+            )
+        finally:
+            self.metrics.offload_elapsed_ms += (time.perf_counter() - started) * 1000

@@ -33,6 +33,8 @@ from experiments.evaluation.fixtures import (
 from experiments.stage_b_plus import authority, executor
 from experiments.stage_f import normalize
 
+from atlasos.trajectory.payloads import PRIVATE_PAYLOAD_FILE, PRIVATE_PAYLOAD_ROOT, read_corpus
+
 
 def _cell_root(context: Mapping[str, Any], cell: Mapping[str, Any]) -> Path:
     return Path(context["evidence_root"]) / "cells" / f"c{int(cell['order']):02d}"
@@ -774,6 +776,42 @@ def main_driven_cell_runner(
         )
         _attach_cell_budget(cell, evidence, session.get("budget"))
         _attach_release_requests(cell, evidence, session.get("model_requests"))
+        if "context_experiment" in session:
+            journal = session["model_requests"]
+            corpus = read_corpus(Path(result.run_dir) / PRIVATE_PAYLOAD_ROOT / PRIVATE_PAYLOAD_FILE)
+            reads = [
+                item["payload"]["path"]
+                for item in corpus.values()
+                if item.get("tool_id") == "file_read"
+                and isinstance(item.get("payload"), dict)
+                and isinstance(item["payload"].get("path"), str)
+            ]
+            sizes = [
+                row.get("context_input", {}).get("mapped_context_json_bytes")
+                for row in journal["records"]
+            ]
+            known = (
+                not journal["records_truncated"]
+                and len(sizes) == journal["requests_total"]
+                and all(type(size) is int and size > 0 for size in sizes)
+            )
+            reported = [
+                row.get("provider_usage") for row in journal["records"]
+                if row["status"] == "COMPLETED"
+            ]
+            evidence["context_experiment"] = {
+                **session["context_experiment"],
+                "treatment": cell["context_treatment"],
+                "repetition": cell["repetition"],
+                "main_turns": main.get("turns"),
+                "main_tool_calls": len(main["tool_calls"]) if "tool_calls" in main else None,
+                "recorded_file_reads": len(reads),
+                "repeated_recorded_file_reads": len(reads) - len(set(reads)),
+                "mapped_context_coverage_complete": known,
+                "provider_usage_coverage_complete": all(item is not None for item in reported),
+                "mapped_context_peak_bytes": max(sizes, default=0) if known else None,
+                "mapped_context_cumulative_bytes": sum(sizes) if known else None,
+            }
         report = integrity_report(
             cell=cell,
             evidence=evidence,
@@ -1237,6 +1275,26 @@ def audit_stage_f_cell(
     ]
     if run.error:
         checks.append({"check": "runner_returned", "ok": False, "detail": run.error[:300]})
+    if cell.get("context_intervention") is not None:
+        context = evidence.get("context_experiment") or {}
+        history = context.get("history") or {}
+        ingress = context.get("ingress") or {}
+        modes = cell["context_intervention"]
+        checks.append(
+            {
+                "check": "context_archive_integrity",
+                "ok": history.get("mode") == modes["compaction"]
+                and ingress.get("mode") == modes["offloading"]
+                and history.get("archive_failures") == ingress.get("archive_failures") == 0
+                and context.get("mapped_context_coverage_complete") is True
+                and (
+                    context.get("provider_usage_basis") == "deterministic_provider"
+                    or context.get("provider_usage_coverage_complete") is True
+                )
+                and context.get("invalid_archive_refs") == [],
+                "detail": "effective context modes and archived tool-result verification",
+            }
+        )
     if cell.get("release_experiment"):
         observed = observation.get("observed_usage") or {}
         checks.extend((
@@ -1271,6 +1329,7 @@ def audit_stage_f_cell(
     for name, stop in (
         ("evidence_schema", executor.STOP_MODE_VIOLATION),
         ("execution_integrity", executor.STOP_INTEGRITY),
+        ("context_archive_integrity", executor.STOP_INTEGRITY),
         ("oracle_environment", executor.STOP_ORACLE_ENVIRONMENT),
         ("artifact_exported", executor.STOP_EXPORT),
         ("usage_complete", executor.STOP_UNKNOWN_USAGE),
@@ -1346,6 +1405,11 @@ def audit_stage_f_cell(
             "cell_budget_exhaustion_verified": local_budget_stop and not stops}
            if _uses_fr_cell_budget(cell) else {}),
         "execution_integrity": correctness.get("execution_integrity"),
+        **(
+            {"context_experiment": evidence.get("context_experiment")}
+            if cell.get("context_intervention") is not None
+            else {}
+        ),
         "executor_verdict": verdict,
         "verdict": verdict,
         "checks": checks,

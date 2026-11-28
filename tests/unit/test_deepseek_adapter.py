@@ -14,9 +14,11 @@ from anycode.types import LLMChatOptions, LLMMessage, TextBlock
 from atlasos.integrations.deepseek import (
     DeepSeekAdapter,
     _load_dotenv,
+    measure_request_context,
     register_deepseek_provider,
 )
 from atlasos.metrics.fingerprint import full_prompt_hash, stable_prefix_hash
+from atlasos.metrics.requests import JournaledAdapter, RequestJournal
 
 
 def _completion(usage: Any) -> Any:
@@ -119,6 +121,30 @@ async def test_missing_cache_fields_stay_none_in_metrics() -> None:
     # AnyCode accounting degrades to a fully fresh prompt rather than inventing a hit.
     assert response.usage.cache_read_input_tokens == 0
     assert response.usage.input_tokens == 100
+
+
+async def test_context_request_evidence_distinguishes_unreported_cache():
+    journal = RequestJournal(run_id="context-proof", provider="deepseek", requested_model="model")
+    transport = _Client(_completion(_usage()))
+    adapter = DeepSeekAdapter(
+        client=transport,
+        require_reported_usage=True,
+        on_call=lambda result: journal.observe_direct_provider_usage(
+            result.usage.model_dump(exclude={"cache_hit_ratio"})
+        ),
+    )
+    wrapper = JournaledAdapter(adapter, journal, measure_context=measure_request_context)
+    options = LLMChatOptions(model="model", system_prompt="Keep the stable instructions.")
+    await wrapper.chat(_messages(), options)
+    (record,) = journal.snapshot()["records"]
+    assert record["provider_usage"]["prompt_tokens"] == 100
+    assert record["provider_usage"]["completion_tokens"] == 20
+    assert record["provider_usage"]["cache_hit_tokens"] is None
+    assert record["provider_usage"]["cache_miss_tokens"] is None
+    assert record["context_input"] == measure_request_context(_messages(), options)
+    assert record["context_input"]["stable_prefix_sha256"] == stable_prefix_hash(
+        options.system_prompt
+    )
 
 
 def test_register_deepseek_provider_is_idempotent() -> None:
