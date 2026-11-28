@@ -209,9 +209,9 @@ def executor_identity(
     root = Path(repo_root) if repo_root is not None else contract.REPO_ROOT
     inputs = set(EXECUTOR_FILES)
     if experiment_id is not None:
-        from experiments.stage_f.release_candidate import EXPERIMENT
+        from experiments.stage_f.release_candidate import RELEASES
 
-        if experiment_id != EXPERIMENT:
+        if experiment_id not in RELEASES:
             raise ValueError(f"unknown executor identity {experiment_id!r}")
         inputs.update(
             {
@@ -1417,10 +1417,10 @@ class DispatchContext(Mapping[str, Any]):
 def _is_stage_f_batch(plan: Mapping[str, Any]) -> bool:
     """A Stage F batch plan, identified by the frozen master identity and its batch number."""
 
-    from experiments.stage_f.release_candidate import EXPERIMENT
+    from experiments.stage_f.release_candidate import RELEASES
 
     return (
-        plan.get("master_id") in {"stage-f-96-manifest-v1", EXPERIMENT}
+        (plan.get("master_id") == "stage-f-96-manifest-v1" or plan.get("master_id") in RELEASES)
         and plan.get("batch") in (1, 2, 3)
         and bool(plan.get("cells"))
     )
@@ -1535,15 +1535,14 @@ async def dispatch(
 
     from experiments.stage_f import release_candidate
 
-    registered_fr = plan_id in release_candidate.BATCH_IDS.values()
+    experiment = release_candidate.PLAN_RELEASES.get(plan_id)
+    registered_fr = experiment is not None
     if registered_fr and plan is not None:
         raise ValueError("a registered F-R plan cannot be injected")
     plan = dict(plan) if plan is not None else contract.scope_plan(plan_id)
     evidence = _stage_f_evidence_root(plan, Path(evidence_root), stage_f_root)
     actual_head = head_override if (offline and head_override) else git_head(repo_root)
-    identity = executor_identity(
-        repo_root, experiment_id=release_candidate.EXPERIMENT if registered_fr else None
-    )
+    identity = executor_identity(repo_root, experiment_id=experiment)
     manifest = (
         release_candidate.verified_manifest(evidence.parent, head=actual_head, identity=identity)
         if registered_fr else None
@@ -2159,12 +2158,12 @@ def task_for_cell(cell: Mapping[str, Any]) -> Any:
     """
 
     task_id = str(cell["task_id"])
-    from experiments.stage_f.release_candidate import BATCH_IDS, SCOPE, bound_task
+    from experiments.stage_f.release_candidate import PLAN_RELEASES, RELEASE_SCOPES, bound_task
 
     if (
         cell.get("release_experiment") is not None
-        or cell.get("scope") == SCOPE
-        or cell.get("plan_id") in BATCH_IDS.values()
+        or cell.get("scope") in RELEASE_SCOPES
+        or cell.get("plan_id") in PLAN_RELEASES
         or "task_revision" in cell
     ):
         return bound_task(cell)
@@ -2354,7 +2353,7 @@ def run_admission_preflight(
     reported separately rather than one being hidden inside the other.
     """
 
-    from experiments.stage_f.release_candidate import REQUESTED_MODEL, SCOPE, STOP_POLICY
+    from experiments.stage_f.release_candidate import RELEASE_SCOPES, REQUESTED_MODEL, STOP_POLICY
 
     from atlasos.app.live_preflight import BLOCKED, READY, run_live_preflight
 
@@ -2418,7 +2417,7 @@ def run_admission_preflight(
                 report, detail = stage_f_runners.arm_admission(cell, fixture=fixture, config=active)
             blocked = list(report["blocking_failures"])
             task_evidence: dict[str, Any] = {}
-            if plan.get("scope") == SCOPE:
+            if plan.get("scope") in RELEASE_SCOPES:
                 task_evidence = {
                     "task_revision": cell["task_revision"],
                     "task_revision_digest": cell["task_revision_digest"],

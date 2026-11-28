@@ -14,14 +14,21 @@ from anycode.constants import (
     DEFAULT_ENCODING,
 )
 from anycode.sandbox import SandboxCommand, SandboxProvider
+from anycode.security.redaction import safe_exception_message
 from anycode.tools.built_in import BUILT_IN_TOOLS
 from anycode.types import ToolDefinition, ToolResult, ToolUseContext
 
 from atlasos.sandbox.binding import ProjectSandboxManager
 from atlasos.sandbox.models import SandboxLostError
 from atlasos.sandbox.ownership import SandboxOwnershipError
+from atlasos.tool_outcomes import KnownToolError
 
 _WORKSPACE_TOOLS = frozenset({"bash", "file_read", "file_write", "file_edit", "grep", "list_files"})
+
+
+class _WorkspacePathError(ValueError):
+    """A local path validation failure before entering a provider scope."""
+
 
 #: Stage G3-1 tool error semantics.
 #: ``legacy`` leaves ``retry_safe`` unset, so AnyCode's ``_normalize_result`` infers
@@ -127,14 +134,39 @@ class SandboxWorkspaceTools:
         workspace = self._binding().workspace_root
         if raw is None:
             if not default_workspace:
-                raise ValueError("a workspace path is required")
+                raise _WorkspacePathError("a workspace path is required")
             raw = workspace
         if not raw.startswith("/"):
             raw = posixpath.join(workspace, raw)
         normalized = posixpath.normpath(raw)
         if normalized != workspace and not normalized.startswith(workspace + "/"):
-            raise ValueError(f'path "{raw}" escapes sandbox workspace {workspace}')
+            raise _WorkspacePathError(f'path "{raw}" escapes sandbox workspace {workspace}')
         return normalized
+
+    def _path_error(self, error: _WorkspacePathError, *, bash: bool = False) -> ToolResult:
+        if self.tool_error_mode == TOOL_ERROR_MODE_LEGACY:
+            return ToolResult(data=str(error), is_error=True, retry_safe=False if bash else None)
+        return KnownToolError(
+            data=f"Workspace parameters rejected before execution: {error}",
+            phase="REJECTED_BEFORE_EXECUTION",
+        )
+
+    def _observed_no_mutation(self, message: str) -> ToolResult:
+        if self.tool_error_mode == TOOL_ERROR_MODE_LEGACY:
+            return ToolResult(data=message, is_error=True)
+        return KnownToolError(data=message, phase="OBSERVED_NO_MUTATION")
+
+    def _unknown_result(self, message: str) -> ToolResult:
+        return ToolResult(
+            data=message,
+            is_error=True,
+            retry_safe=False if self.tool_error_mode == TOOL_ERROR_MODE_CORRECTED else None,
+        )
+
+    def _backend_exception(self, error: Exception) -> ToolResult:
+        if self.tool_error_mode == TOOL_ERROR_MODE_LEGACY:
+            raise error
+        return self._unknown_result(safe_exception_message(error))
 
     def _relative(self, logical: str) -> str:
         workspace = self._binding().workspace_root
@@ -177,17 +209,19 @@ class SandboxWorkspaceTools:
                 binding = self._binding()
                 result = await self.provider.read_file(binding.sandbox_handle, logical)
             if not result.ok or result.data is None:
-                return ToolResult(
-                    data=f'Unable to read "{validated.path}": {result.error}', is_error=True
-                )
+                return self._unknown_result(f'Unable to read "{validated.path}": {result.error}')
             raw = result.data.decode(DEFAULT_ENCODING, errors="replace")
+        except _WorkspacePathError as error:
+            return self._path_error(error)
         except ValueError as error:
-            return ToolResult(data=str(error), is_error=True)
+            return self._unknown_result(str(error))
         except SandboxLostError as error:
             await self.manager.mark_lost(self.task_id)
-            return ToolResult(data=str(error), is_error=True)
+            return self._unknown_result(str(error))
         except SandboxOwnershipError as error:
             return ToolResult(data=str(error), is_error=True)
+        except Exception as error:
+            return self._backend_exception(error)
 
         lines = raw.split("\n")
         if lines and lines[-1] == "":
@@ -195,10 +229,9 @@ class SandboxWorkspaceTools:
         total = len(lines)
         start = max(0, (validated.offset or 1) - 1)
         if start >= total > 0:
-            return ToolResult(
-                data=f'File "{validated.path}" contains {total} line{"s" if total != 1 else ""} '
-                f"but offset {validated.offset} exceeds the range.",
-                is_error=True,
+            return self._observed_no_mutation(
+                f'File "{validated.path}" contains {total} line{"s" if total != 1 else ""} '
+                f"but offset {validated.offset} exceeds the range."
             )
         end = min(start + validated.limit, total) if validated.limit else total
         numbered = "\n".join(f"{start + i + 1}\t{line}" for i, line in enumerate(lines[start:end]))
@@ -213,8 +246,12 @@ class SandboxWorkspaceTools:
             logical = self._logical(validated.path)
             async with self._provider_scope():
                 binding = self._binding()
-                existed_result = await self.provider.read_file(binding.sandbox_handle, logical)
-                existed = existed_result.ok
+                # The existence probe served only to choose a verb. A failed read cannot
+                # distinguish a new file from a lost connection in the provider contract.
+                action = "Wrote"
+                if self.tool_error_mode == TOOL_ERROR_MODE_LEGACY:
+                    probe = await self.provider.read_file(binding.sandbox_handle, logical)
+                    action = "Overwrote" if probe.ok else "Created"
                 logical_parent = posixpath.dirname(logical)
                 if logical_parent != binding.workspace_root:
                     result = await self.provider.execute(
@@ -225,33 +262,35 @@ class SandboxWorkspaceTools:
                             timeout_seconds=30,
                         ),
                     )
-                    if not result.ok or (result.exit_code or 0) != 0:
-                        return ToolResult(
-                            data=(
-                                f'Could not create parent directory for "{validated.path}": '
-                                f"{result.stderr or result.error}"
-                            ),
-                            is_error=True,
+                    missing_exit = (
+                        result.exit_code is None
+                        and self.tool_error_mode == TOOL_ERROR_MODE_CORRECTED
+                    )
+                    if not result.ok or missing_exit or (result.exit_code or 0) != 0:
+                        return self._unknown_result(
+                            f'Could not create parent directory for "{validated.path}": '
+                            f"{result.stderr or result.error}"
                         )
                 result = await self.provider.write_file(
                     binding.sandbox_handle, logical, validated.content.encode(DEFAULT_ENCODING)
                 )
             if not result.ok:
-                return ToolResult(
-                    data=f'Could not write file "{validated.path}": {result.error}', is_error=True
+                return self._unknown_result(
+                    f'Could not write file "{validated.path}": {result.error}'
                 )
+        except _WorkspacePathError as error:
+            return self._path_error(error)
         except ValueError as error:
-            return ToolResult(data=str(error), is_error=True)
+            return self._unknown_result(str(error))
         except SandboxLostError as error:
             await self.manager.mark_lost(self.task_id)
-            return ToolResult(data=str(error), is_error=True)
+            return self._unknown_result(str(error))
         except SandboxOwnershipError as error:
             return ToolResult(data=str(error), is_error=True)
         line_count = validated.content.count("\n") + (
             1 if validated.content and not validated.content.endswith("\n") else 0
         )
         byte_count = len(validated.content.encode(DEFAULT_ENCODING))
-        action = "Overwrote" if existed else "Created"
         return ToolResult(
             data=f'{action} "{validated.path}" ({line_count} line{"s" if line_count != 1 else ""}, '
             f"{byte_count} bytes).",
@@ -268,22 +307,18 @@ class SandboxWorkspaceTools:
                 binding = self._binding()
                 read = await self.provider.read_file(binding.sandbox_handle, logical)
                 if not read.ok or read.data is None:
-                    return ToolResult(
-                        data=f'Unable to read "{validated.path}": {read.error}', is_error=True
-                    )
+                    return self._unknown_result(f'Unable to read "{validated.path}": {read.error}')
                 original = read.data.decode(DEFAULT_ENCODING, errors="replace")
                 hits = _tally(original, validated.old_string)
                 if hits == 0:
-                    return ToolResult(
-                        data=f'The target string was not found in "{validated.path}".\n'
-                        "Verify that old_string matches the file content exactly.",
-                        is_error=True,
+                    return self._observed_no_mutation(
+                        f'The target string was not found in "{validated.path}".\n'
+                        "Verify that old_string matches the file content exactly."
                     )
                 if hits > 1 and not validated.replace_all:
-                    return ToolResult(
-                        data=f'old_string appears {hits} times in "{validated.path}". '
-                        "Use a more specific string or set replace_all=True.",
-                        is_error=True,
+                    return self._observed_no_mutation(
+                        f'old_string appears {hits} times in "{validated.path}". '
+                        "Use a more specific string or set replace_all=True."
                     )
                 updated = (
                     original.replace(validated.old_string, validated.new_string)
@@ -294,15 +329,16 @@ class SandboxWorkspaceTools:
                     binding.sandbox_handle, logical, updated.encode(DEFAULT_ENCODING)
                 )
                 if not write.ok:
-                    return ToolResult(
-                        data=f'Unable to write "{validated.path}": {write.error}',
-                        is_error=True,
+                    return self._unknown_result(
+                        f'Unable to write "{validated.path}": {write.error}'
                     )
+        except _WorkspacePathError as error:
+            return self._path_error(error)
         except ValueError as error:
-            return ToolResult(data=str(error), is_error=True)
+            return self._unknown_result(str(error))
         except SandboxLostError as error:
             await self.manager.mark_lost(self.task_id)
-            return ToolResult(data=str(error), is_error=True)
+            return self._unknown_result(str(error))
         except SandboxOwnershipError as error:
             return ToolResult(data=str(error), is_error=True)
         replaced = hits if validated.replace_all else 1
@@ -332,18 +368,24 @@ class SandboxWorkspaceTools:
                 + f"{pattern} {root} {glob} {validated.max_results}"
             )
             result = await self._execute(command, cwd=self._binding().workspace_root)
-            if not result.ok or result.exit_code != 0:
-                return ToolResult(
-                    data=f"grep helper failed: {result.stderr or result.error}", is_error=True
+            if not result.ok or result.exit_code is None:
+                return self._unknown_result(f"grep helper failed: {result.stderr or result.error}")
+            if result.exit_code != 0:
+                return self._observed_no_mutation(
+                    f"grep helper failed: {result.stderr or result.error}"
                 )
             output = result.stdout.strip()
             if output == "No matches.":
                 return ToolResult(data="No matches.", is_error=False)
             return ToolResult(data=output, is_error=False)
+        except _WorkspacePathError as error:
+            return self._path_error(error)
         except (ValueError, SandboxLostError) as error:
-            return ToolResult(data=str(error), is_error=True)
+            return self._unknown_result(str(error))
         except SandboxOwnershipError as error:
             return ToolResult(data=str(error), is_error=True)
+        except Exception as error:
+            return self._backend_exception(error)
 
     async def list_files(self, validated, context: ToolUseContext) -> ToolResult:
         del context
@@ -362,10 +404,13 @@ class SandboxWorkspaceTools:
                 + f"{root} {glob} {validated.max_results}"
             )
             result = await self._execute(command, cwd=self._binding().workspace_root)
-            if not result.ok or result.exit_code != 0:
-                return ToolResult(
-                    data=f"list_files helper failed: {result.stderr or result.error}",
-                    is_error=True,
+            if not result.ok or result.exit_code is None:
+                return self._unknown_result(
+                    f"list_files helper failed: {result.stderr or result.error}"
+                )
+            if result.exit_code != 0:
+                return self._observed_no_mutation(
+                    f"list_files helper failed: {result.stderr or result.error}"
                 )
             output = result.stdout.strip()
             if output == "(no files)":
@@ -373,10 +418,14 @@ class SandboxWorkspaceTools:
             count = len(output.splitlines())
             note = f"\n\n({count} file{'s' if count != 1 else ''}, backend: sandbox)"
             return ToolResult(data=output + note, is_error=False)
+        except _WorkspacePathError as error:
+            return self._path_error(error)
         except (ValueError, SandboxLostError) as error:
-            return ToolResult(data=str(error), is_error=True)
+            return self._unknown_result(str(error))
         except SandboxOwnershipError as error:
             return ToolResult(data=str(error), is_error=True)
+        except Exception as error:
+            return self._backend_exception(error)
 
     async def bash(self, validated, context: ToolUseContext) -> ToolResult:
         del context
@@ -398,6 +447,8 @@ class SandboxWorkspaceTools:
                     is_error=True,
                     retry_safe=False,
                 )
+            if result.exit_code is None and self.tool_error_mode == TOOL_ERROR_MODE_CORRECTED:
+                return self._unknown_result("Sandbox command exit code was not observed.")
             stdout = _decode_capped(result.stdout.encode(), result.stdout, cap)
             stderr = _decode_capped(result.stderr.encode(), result.stderr, cap)
             parts: list[str] = []
@@ -418,8 +469,9 @@ class SandboxWorkspaceTools:
             if code != 0:
                 parts.append(f"\n(exit code {code})")
             return ToolResult(data="\n".join(parts), is_error=code != 0, retry_safe=retry_safe)
+        except _WorkspacePathError as error:
+            return self._path_error(error, bash=True)
         except (ValueError, SandboxLostError) as error:
-            # Path validation failure or a lost sandbox: no trustworthy execution outcome.
             return ToolResult(data=str(error), is_error=True, retry_safe=False)
         except SandboxOwnershipError as error:
             return ToolResult(data=str(error), is_error=True, retry_safe=False)

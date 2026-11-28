@@ -17,15 +17,18 @@ Covered:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import uuid
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
+import pytest
 from anycode import AgentConfig, OrchestratorConfig, TaskSpec, TeamConfig
 from anycode.identity.context import ExecutionContext
 from anycode.plugins.registry import register_provider_factory
-from anycode.tools.idempotency import InMemoryToolIdempotencyStore
+from anycode.tools.idempotency import SQLiteToolIdempotencyStore
 from anycode.types import (
     LLMChatOptions,
     LLMMessage,
@@ -56,7 +59,11 @@ from atlasos.handoff import (
 )
 from atlasos.integrations.anycode_engine import AtlasContextEngine
 from atlasos.ledger import SQLiteActionLedgerStore
+from atlasos.ownership.manifest import build_manifest
+from atlasos.ownership.models import PROVENANCE_HOST, OwnedPathDeclaration
+from atlasos.ownership.policy import build_ownership_enforcer
 from atlasos.sandbox import ProjectSandboxManager, SandboxProjectConfig, SandboxWorkspaceTools
+from atlasos.sandbox.opensandbox_provider import OpenSandboxProvider
 from atlasos.sandbox.tools import TOOL_ERROR_MODE_CORRECTED, TOOL_ERROR_MODE_LEGACY
 from atlasos.suspension.store import SQLiteSuspensionStore
 from atlasos.tools import AtlasToolRuntime
@@ -141,12 +148,18 @@ def _policy() -> ActionPolicy:
     return ActionPolicy(name="g31", default="DENY", rules=rules)
 
 
-async def _stack(tmp_path: Path, *, mode: str) -> dict[str, Any]:
+async def _stack(
+    tmp_path: Path,
+    *,
+    mode: str,
+    real: bool = False,
+    ownership: bool = False,
+) -> dict[str, Any]:
     repo = _make_repo(tmp_path / "repo")
-    provider = FakeSandboxProvider(tmp_path / "provider")
+    provider = OpenSandboxProvider() if real else FakeSandboxProvider(tmp_path / "provider")
     config = SandboxProjectConfig(
-        provider_name="fake",
-        image="fake@sha256:0123456789abcdef",
+        provider_name="opensandbox" if real else "fake",
+        image="atlas-uat-python:3.12" if real else "fake@sha256:0123456789abcdef",
     )
     manager = ProjectSandboxManager(provider, config, run_id="run-g31")
     task_id = "task-g31"
@@ -164,6 +177,23 @@ async def _stack(tmp_path: Path, *, mode: str) -> dict[str, Any]:
         consumer_keys={},
         mode="dual",
     )
+    ledger = SQLiteActionLedgerStore(tmp_path / "ledger.db")
+    idempotency_store = SQLiteToolIdempotencyStore(tmp_path / "idempotency.db")
+    enforcer = None
+    if ownership:
+        manifest = build_manifest(
+            run_id="run-g31",
+            workspace_root=binding.workspace_root,
+            declarations=[
+                OwnedPathDeclaration(
+                    worker_id="w1",
+                    task_id=task_id,
+                    paths=("app.py",),
+                    provenance=PROVENANCE_HOST,
+                )
+            ],
+        )
+        enforcer, _ = build_ownership_enforcer(manifest, mode="enforce")
     runtime = AtlasToolRuntime(
         "run-g31",
         state_path=tmp_path / "tool_state.json",
@@ -172,8 +202,10 @@ async def _stack(tmp_path: Path, *, mode: str) -> dict[str, Any]:
         action_policy=_policy(),
         action_catalog=ActionCatalog(DEFAULT_MAPPINGS + (HANDOFF_READ_ACTION_MAPPING,)),
         action_reviewer=StaticActionReviewer("CONSISTENT"),
-        action_ledger=SQLiteActionLedgerStore(tmp_path / "ledger.db"),
-        idempotency_store=InMemoryToolIdempotencyStore(),
+        action_ledger=ledger,
+        action_external_policy=enforcer,
+        external_denial_retry_safe=True,
+        idempotency_store=idempotency_store,
         suspension_store=SQLiteSuspensionStore(tmp_path / "runtime.db"),
         approval_store=SQLiteApprovalStore(tmp_path / "approvals.db"),
         runtime_instance_id="runtime-g31",
@@ -183,6 +215,9 @@ async def _stack(tmp_path: Path, *, mode: str) -> dict[str, Any]:
         "repo": repo,
         "provider": provider,
         "binding": binding,
+        "manager": manager,
+        "ledger": ledger,
+        "idempotency_store": idempotency_store,
         "task_id": task_id,
         "tools": tools,
         "handoff": handoff,
@@ -234,6 +269,7 @@ async def _run(
     finally:
         reset_current_task_id(token)
         await engine.close()
+        await stack["idempotency_store"].teardown()
     return result, seen
 
 
@@ -395,3 +431,195 @@ async def test_unknown_outcome_still_stops_the_worker(tmp_path: Path) -> None:
     assert worker.stop_reason.code == "side_effect_unknown"
     assert "sandbox execution failed" in worker.stop_reason.message
     assert result.success is False
+
+
+def _call(id: str, name: str, **arguments: Any) -> ToolUseBlock:
+    return ToolUseBlock(id=id, name=name, input=arguments)
+
+
+@pytest.mark.parametrize("real", [False, True], ids=["fake", "opensandbox"])
+async def test_c03_invalid_cwd_is_rejected_then_agent_repairs(tmp_path, monkeypatch, real):
+    if real and os.getenv("ATLAS_TOOL_ERROR_REAL_SANDBOX") != "1":
+        pytest.skip("requires the local OpenSandbox service")
+    stack = await _stack(tmp_path, mode=TOOL_ERROR_MODE_CORRECTED, real=real, ownership=True)
+    provider, binding = stack["provider"], stack["binding"]
+    host_file = stack["repo"] / "app.py"
+    baseline = host_file.read_bytes()
+    execute = AsyncMock(wraps=provider.execute)
+    read = AsyncMock(wraps=provider.read_file)
+    write = AsyncMock(wraps=provider.write_file)
+    monkeypatch.setattr(provider, "execute", execute)
+    monkeypatch.setattr(provider, "read_file", read)
+    monkeypatch.setattr(provider, "write_file", write)
+    command = "git status --porcelain && git diff --stat"
+    try:
+        result, seen = await _run(
+            stack,
+            script=[
+                [_call("bad", "bash", command=command, cwd="/home/user")],
+                [_call("fixed", "bash", command=command, cwd=binding.workspace_root)],
+                [_call("write", "file_write", path="app.py", content="VALUE = 2\n")],
+                [TextBlock(text="done")],
+            ],
+        )
+        assert result.agent_results["worker"].stop_reason.code == "success"
+        rejected = _tool_results(seen[1])["bad"]
+        assert rejected.is_error and "rejected before execution" in rejected.content
+        assert execute.await_count == 1
+        assert execute.await_args.args[1].cwd == binding.workspace_root
+        assert read.await_count == 0 and write.await_count == 1
+        remote = await provider.read_file(binding.sandbox_handle, "/workspace/project/app.py")
+        assert remote.data == b"VALUE = 2\n"
+        assert host_file.read_bytes() == baseline
+        (refused,) = [
+            row
+            for row in stack["ledger"].list()
+            if row.completion_kind == "REJECTED_BEFORE_EXECUTION"
+        ]
+        assert refused.state == "COMPLETED" and refused.retry_safe is True
+        assert refused.claim_outcome is None
+    finally:
+        assert await stack["manager"].close(stack["task_id"])
+
+
+async def test_invalid_file_and_listing_paths_then_edit_repair(tmp_path):
+    stack = await _stack(tmp_path, mode=TOOL_ERROR_MODE_CORRECTED)
+    provider = stack["provider"]
+    host_file = stack["repo"] / "app.py"
+    baseline = host_file.read_bytes()
+    outside = tmp_path / "sentinel.txt"
+    outside.write_text("unchanged", encoding="utf-8")
+    before = (provider.execute_calls, provider.read_calls, provider.write_calls)
+    absolute = "/home/user/sentinel.txt"
+    result, seen = await _run(
+        stack,
+        script=[
+            [_call("bad-read", "file_read", path=absolute)],
+            [_call("bad-write", "file_write", path=absolute, content="wrong")],
+            [
+                _call(
+                    "bad-edit",
+                    "file_edit",
+                    path=absolute,
+                    old_string="unchanged",
+                    new_string="wrong",
+                )
+            ],
+            [_call("bad-grep", "grep", path=absolute, pattern="VALUE")],
+            [_call("bad-list", "list_files", path=absolute)],
+            [_call("read", "file_read", path="app.py")],
+            [_call("miss", "file_edit", path="app.py", old_string="missing", new_string="bad")],
+            [
+                _call(
+                    "fix",
+                    "file_edit",
+                    path="app.py",
+                    old_string="VALUE = 1",
+                    new_string="VALUE = 2",
+                )
+            ],
+            [TextBlock(text="done")],
+        ],
+    )
+    assert result.agent_results["worker"].stop_reason.code == "success"
+    results = _tool_results(seen[-1])
+    for name in ("bad-read", "bad-write", "bad-edit", "bad-grep", "bad-list"):
+        assert results[name].is_error and "rejected before execution" in results[name].content
+    assert "VALUE = 1" in results["read"].content
+    assert results["miss"].is_error and "not found" in results["miss"].content
+    assert not results["fix"].is_error
+    after = (provider.execute_calls, provider.read_calls, provider.write_calls)
+    assert tuple(b - a for a, b in zip(before, after, strict=True)) == (0, 3, 1)
+    assert outside.read_text("utf-8") == "unchanged"
+    assert host_file.read_bytes() == baseline
+    sandbox_file = (
+        provider.workspaces[stack["binding"].sandbox_handle.id] / "workspace/project/app.py"
+    )
+    assert sandbox_file.read_text("utf-8") == "VALUE = 2\n"
+    kinds = [row.completion_kind for row in stack["ledger"].list()]
+    assert kinds.count("REJECTED_BEFORE_EXECUTION") == 2
+    assert kinds.count("OBSERVED_NO_MUTATION") == 1
+
+
+async def test_one_workspace_rejection_does_not_mask_other_batch_operations(tmp_path):
+    stack = await _stack(tmp_path, mode=TOOL_ERROR_MODE_CORRECTED)
+    provider = stack["provider"]
+    before = provider.write_calls
+    result, seen = await _run(
+        stack,
+        script=[
+            [
+                _call("bad", "bash", command="git status", cwd="/home/user"),
+                _call("good", "file_write", path="app.py", content="VALUE = 2\n"),
+            ],
+            [TextBlock(text="done")],
+        ],
+    )
+    assert result.agent_results["worker"].stop_reason.code == "success"
+    answers = _tool_results(seen[1])
+    assert answers["bad"].is_error and not answers["good"].is_error
+    assert provider.write_calls == before + 1
+    assert {row.completion_kind for row in stack["ledger"].list()} == {
+        "REJECTED_BEFORE_EXECUTION",
+        "EXECUTED_SUCCESS",
+    }
+
+
+@pytest.mark.parametrize("fault", ["lost", "partial-write", "read-transport", "mkdir-transport"])
+async def test_unknown_outcomes_and_partial_execution_remain_fatal(tmp_path, monkeypatch, fault):
+    stack = await _stack(tmp_path, mode=TOOL_ERROR_MODE_CORRECTED)
+    provider = stack["provider"]
+    if fault == "lost":
+        provider.lost.add(stack["binding"].sandbox_handle.id)
+        call = _call("fault", "bash", command="git status")
+    elif fault == "partial-write":
+        original = provider.write_file
+
+        async def write_then_value_error(*args):
+            await original(*args)
+            raise ValueError("provider lost write acknowledgement")
+
+        monkeypatch.setattr(provider, "write_file", write_then_value_error)
+        call = _call("fault", "file_write", path="app.py", content="VALUE = 2\n")
+    elif fault == "read-transport":
+        monkeypatch.setattr(provider, "read_file", AsyncMock(side_effect=OSError("read transport")))
+        call = _call("fault", "file_read", path="app.py")
+    else:
+        provider.fail_operations = True
+        call = _call("fault", "file_write", path="new/app.py", content="VALUE = 2\n")
+    writes = provider.write_calls
+    result, seen = await _run(stack, script=[[call], [TextBlock(text="unreachable")]])
+    assert len(seen) == 1
+    assert result.agent_results["worker"].stop_reason.code == "side_effect_unknown"
+    if fault == "lost":
+        assert stack["manager"].binding(stack["task_id"]).state == "LOST"
+    if fault == "mkdir-transport":
+        assert provider.write_calls == writes
+    if fault == "partial-write":
+        assert provider.write_calls == writes + 1
+        assert (
+            provider.workspaces[stack["binding"].sandbox_handle.id] / "workspace/project/app.py"
+        ).read_bytes() == b"VALUE = 2\n"
+    if fault != "read-transport":
+        (record,) = stack["ledger"].list()
+        assert record.state == "UNCERTAIN" and record.retry_safe is False
+
+
+async def test_workspace_recovery_does_not_bypass_ownership(tmp_path):
+    stack = await _stack(tmp_path, mode=TOOL_ERROR_MODE_CORRECTED, ownership=True)
+    provider = stack["provider"]
+    writes = provider.write_calls
+    result, seen = await _run(
+        stack,
+        script=[
+            [_call("denied", "file_write", path="other.py", content="denied")],
+            [_call("owned", "file_write", path="app.py", content="VALUE = 2\n")],
+            [TextBlock(text="done")],
+        ],
+    )
+    assert result.agent_results["worker"].stop_reason.code == "success"
+    denied = _tool_results(seen[1])["denied"]
+    assert denied.is_error and "ownership" in denied.content.lower()
+    assert provider.write_calls == writes + 1
+    (record,) = stack["ledger"].list()
+    assert record.completion_kind == "EXECUTED_SUCCESS"

@@ -198,6 +198,29 @@ def test_v3_task_revision_and_dag_identity_fail_closed():
             executor.task_for_cell({**cell, key: value})
 
 
+def test_v4_preserves_v3_cells_and_has_separate_plan_and_claim_identities():
+    identity = {"executor_version": fr.EXPERIMENT, "executor_digest": "test"}
+    revised = {**identity, "executor_version": fr.V4_EXPERIMENT}
+    head = "test"
+    old_manifest = fr._manifest(head, identity)
+    new_manifest = fr._manifest(head, revised)
+    for key in ("task_facts", "task_revision_digest", "qualification_digest", "budget_digest",
+                "pricing_digest", "stop_policy_digest", "settlement_digest"):
+        assert old_manifest[key] == new_manifest[key]
+    version_fields = {"cell_id", "plan_id", "batch_id", "scope", "release_experiment"}
+    for index in fr.BATCH_IDS:
+        previous = contract.scope_plan(fr.BATCH_IDS[index])
+        current = contract.scope_plan(fr.V4_BATCH_IDS[index])
+        assert previous["digest"] != current["digest"]
+        assert previous["claim_key"] != current["claim_key"]
+        for old, new in zip(previous["cells"], current["cells"], strict=True):
+            assert {k: v for k, v in old.items() if k not in version_fields} == {
+                k: v for k, v in new.items() if k not in version_fields
+            }
+            assert executor.task_for_cell(old) == executor.task_for_cell(new)
+            assert old["cell_id"].replace("fr3.", "fr4.", 1) == new["cell_id"]
+
+
 async def test_cell_budget_proves_rejection_without_a_provider_request():
     state = RunBudgetState(limit_tokens=100, safety_factor=1)
     admitted = await state.admit(worker="main", prompt_estimate=25, completion_reserve=5)

@@ -807,7 +807,7 @@ def scope_plan(scope_or_id: str) -> dict[str, Any]:
         return c2_plan.plan_record()
     if scope_or_id in (f_plan.SCOPE, f_plan.MASTER_ID, *f_plan.BATCH_PLAN_IDS.values()):
         return f_plan.plan_scope(scope_or_id)
-    if scope_or_id in release_candidate.BATCH_IDS.values():
+    if scope_or_id in release_candidate.PLAN_RELEASES:
         return release_candidate.batch_plan(scope_or_id)
     if scope_or_id in SUPERSEDED_CANARY_PLAN_IDS:
         raise ValueError(

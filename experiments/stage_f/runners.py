@@ -936,16 +936,16 @@ def _attach_release_worker_stops(
         )
 
 
-def _is_fr_v3(cell: Mapping[str, Any]) -> bool:
-    from experiments.stage_f.release_candidate import EXPERIMENT
+def _uses_fr_cell_budget(cell: Mapping[str, Any]) -> bool:
+    from experiments.stage_f.release_candidate import RELEASES
 
-    return cell.get("release_experiment") == EXPERIMENT
+    return cell.get("release_experiment") in RELEASES
 
 
 def _attach_cell_budget(
     cell: Mapping[str, Any], evidence: dict[str, Any], budget: Mapping[str, Any] | None
 ) -> None:
-    if not _is_fr_v3(cell) or not isinstance(budget, Mapping):
+    if not _uses_fr_cell_budget(cell) or not isinstance(budget, Mapping):
         return
     evidence["cell_budget_ledger"] = dict(budget)
     correctness = evidence["correctness"]
@@ -1248,7 +1248,7 @@ def audit_stage_f_cell(
                  observed["prompt"] + observed["output"]
              ), "detail": "runner system usage must reconcile with all observed requests"},
         ))
-        if _is_fr_v3(cell):
+        if _uses_fr_cell_budget(cell):
             exhausted = correctness.get("failure_kind") == "budget_exhaustion"
             budget_problems = _cell_budget_problems(
                 cell, evidence.get("cell_budget_ledger") or {}, observed, metrics, exhausted
@@ -1310,7 +1310,9 @@ def audit_stage_f_cell(
     )
 
     passed = not failed and oracle.get("passed") is True
-    local_budget_stop = _is_fr_v3(cell) and correctness.get("failure_kind") == "budget_exhaustion"
+    local_budget_stop = (
+        _uses_fr_cell_budget(cell) and correctness.get("failure_kind") == "budget_exhaustion"
+    )
     if cell.get("release_experiment"):
         passed = passed and correctness.get("delivered_success") is True
     if local_budget_stop:
@@ -1341,7 +1343,7 @@ def audit_stage_f_cell(
         "delivered_success": not local_budget_stop and bool(correctness.get("delivered_success")),
         **({"cell_budget_ledger": evidence.get("cell_budget_ledger"),
             "cell_budget_exhaustion_verified": local_budget_stop and not stops}
-           if _is_fr_v3(cell) else {}),
+           if _uses_fr_cell_budget(cell) else {}),
         "execution_integrity": correctness.get("execution_integrity"),
         "executor_verdict": verdict,
         "verdict": verdict,

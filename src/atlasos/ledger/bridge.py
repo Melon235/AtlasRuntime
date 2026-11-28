@@ -21,6 +21,7 @@ from atlasos.ledger.models import (
     CompletionKind,
     LedgerState,
 )
+from atlasos.tool_outcomes import KnownToolError
 from atlasos.trajectory.context import current_call_trajectory
 from atlasos.trajectory.models import TrajectoryCorrelation, canonical_digest
 
@@ -224,6 +225,18 @@ def _classify_result(
     prior: ActionLedgerRecord | None,
     request_digest: str,
 ) -> tuple[LedgerState, CompletionKind | None, bool | None]:
+    if isinstance(result, KnownToolError):
+        return "COMPLETED", result.phase, True
+    if (
+        prior is not None
+        and prior.state == "COMPLETED"
+        and prior.completion_kind in ("REJECTED_BEFORE_EXECUTION", "OBSERVED_NO_MUTATION")
+        and prior.request_digest == request_digest
+        and result.retry_safe is True
+        and prior.result_digest == _result_digest(result)
+    ):
+        # SQLite AnyCode replay returns the base ToolResult. The durable record attests phase.
+        return "COMPLETED", prior.completion_kind, True
     text = str(result.data)
     if "Idempotency key conflict" in text:
         return "COMPLETED", "CONFLICT", False
@@ -285,7 +298,9 @@ def _digest(arguments: dict[str, Any]) -> str:
 
 
 def _result_digest(result: ToolResult) -> str:
-    return hashlib.sha256(_canonical(result.model_dump(mode="json")).encode("utf-8")).hexdigest()
+    exclude = {"phase"} if isinstance(result, KnownToolError) else None
+    payload = result.model_dump(mode="json", exclude=exclude)
+    return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
 
 
 def _failure(message: str) -> ToolResult:
