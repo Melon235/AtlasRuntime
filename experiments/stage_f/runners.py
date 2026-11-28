@@ -640,7 +640,8 @@ def static_dag_cell_runner(
             cell, payload, oracle=oracle, export=export, requests=requests, latency=latency
         )
         _attach_release_worker_stops(cell, evidence, environment.get("worker_stops"))
-        _attach_cell_budget(cell, evidence, (metrics.get("extra") or {}).get("budget"))
+        # EvalMetrics.as_dict() flattens its extra metrics at the serialization boundary.
+        _attach_cell_budget(cell, evidence, metrics.get("budget"))
         _attach_release_requests(cell, evidence, environment.get("provider_requests"))
         # The per-node caps the scheduler was actually given, from the benchmark task it ran.
         evidence["resources"]["applied_turn_caps"] = {

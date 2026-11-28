@@ -2044,7 +2044,7 @@ async def run_sample(
                 # observation the model path does, so the accounting is not a second model.
                 inner = ObservingAdapter(scripted_factory(), observations, model=model)
                 return ModelRecordingAdapter(
-                    inner,
+                    JournaledAdapter(inner, journal) if journal is not None else inner,
                     resolved_models,
                     request_evidence if settings.request_evidence else None,
                 )
